@@ -22,8 +22,8 @@ export default function Regras() {
                 de configuração, mesmo que não utilizados, é considerada infração.
               </RuleItem>
               <RuleItem title="Ghosting:">
-                É proibido qualquer tipo de assistência externa durante as partidas, como receber informações de
-                espectadores ou terceiros.
+                É proibido qualquer tipo de assistência externa durante as partidas, como receber informações de espectadores ou terceiros.
+                Colocar outro jogador para atuar no lugar do atleta inscrito oficialmente é considerado ghosting. A punição pode ser de até 2 anos de banimento para ambos os atletas envolvidos.
               </RuleItem>
               <RuleItem title="Manipulação de Resultados:">
                 Qualquer tentativa de manipular o resultado de uma partida, seja por meio de combinação de resultados ou

@@ -14,7 +14,7 @@ import { Search, Trophy, Medal, Award } from "lucide-react"
 
 export default function Home() {
   // Data para início do campeonato (2 de julho de 2025)
-  const startDate = new Date("2025-07-02T00:00:00")
+  const startDate = new Date("2025-06-02T00:00:00")
 
   // Estado para controlar o modal de imagem
   const [isModalOpen, setIsModalOpen] = useState(false)
