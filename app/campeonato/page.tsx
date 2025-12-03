@@ -155,20 +155,23 @@ export default function Campeonato() {
           </motion.h2>
           <div className="max-w-3xl mx-auto">
             <div className="relative border-l-2 border-gold pl-8 space-y-10">
-              <TimelineItem date="10/06 Até 20/06" title="Inscrições">
+              <TimelineItem date="Até 15 de Janeiro" title="Inscrições">
                 Período de inscrições para equipes e jogadores individuais.
               </TimelineItem>
-              <TimelineItem date=" 02/06" title="Início do Campeonato">
+              <TimelineItem date="19 de Janeiro de 2026" title="Início do Campeonato">
                 Cerimônia de abertura e primeiras partidas da fase de grupos.
               </TimelineItem>
-              <TimelineItem date="02/06 a 22/07" title="Fase de Grupos">
-                Partidas da fase de grupos, com jogos de ida e volta.
+              <TimelineItem date="19 de Janeiro a 13 de Fevereiro" title="Fase de Grupos">
+                Partidas da fase de grupos, com jogos de ida e volta. Todos jogam contra todos.
               </TimelineItem>
-              <TimelineItem date="22/07 a 25/07" title="Quartas de Final">
-                Confrontos eliminatórios entre os 8 melhores times.
+              <TimelineItem date="14 de Fevereiro a 23 de Fevereiro" title="Pausa - Carnaval">
+                Pausa no campeonato devido ao período de carnaval.
               </TimelineItem>
-              
-              <TimelineItem date="26/07 a 27/07" title="Semifinais e Finais Presenciais">
+              <TimelineItem date="24 de Fevereiro a 5 de Março" title="Quartas e Semifinais (Online)">
+                Confrontos eliminatórios entre os 8 melhores times nas quartas de final, seguido pelas semifinais entre
+                os 4 times restantes.
+              </TimelineItem>
+              <TimelineItem date="7 e 8 de Março" title="Finais Presenciais">
                 Grande final presencial em LAN e cerimônia de premiação.
               </TimelineItem>
             </div>
@@ -189,8 +192,7 @@ export default function Campeonato() {
               >
                 <h2 className="text-2xl font-bold text-gold mb-6">Pronto para participar?</h2>
                 <p className="text-white mb-8 max-w-2xl mx-auto">
-                  Não perca a oportunidade de fazer parte do maior campeonato de CS2 de Sergipe. Inscreva-se agora e
-                  mostre seu talento!
+                  Não perca a oportunidade de fazer parte do maior campeonato de CS2 de Sergipe. Inscreva-se agora!
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Link
@@ -199,14 +201,12 @@ export default function Campeonato() {
                   >
                     Ver Regras
                   </Link>
-                  <a
-                    href="https://forms.gle/FHyvA4vJ5JfZ4ezU9"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    href="/inscricao"
                     className="bg-gold text-black font-bold py-3 px-8 rounded-md hover:bg-gold/80 transition-colors transform hover:scale-105 duration-200 shadow-lg shadow-gold/20"
                   >
-                    Fazer Inscrição
-                  </a>
+                    Fazer Inscrição - R$ 75,00
+                  </Link>
                 </div>
               </motion.div>
             </div>

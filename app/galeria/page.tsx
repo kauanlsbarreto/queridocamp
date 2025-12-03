@@ -6,13 +6,14 @@ import PremiumCard from "@/components/premium-card"
 import HeroBanner from "@/components/hero-banner"
 import ImageModal from "@/components/image-modal"
 import Image from "next/image"
-import { Search } from "lucide-react"
+import { Search, Camera } from "lucide-react"
 
 export default function Galeria() {
   // Estado para controlar o modal de imagem
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [currentImage, setCurrentImage] = useState({ src: "", alt: "" })
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [currentGallery, setCurrentGallery] = useState<"teams" | "draft">("teams")
 
   // Equipes que se destacaram
   const teamShowcases = [
@@ -56,10 +57,38 @@ export default function Galeria() {
     alt: `Equipe ${team.teamName}`,
   }))
 
+  // Draft gallery images from home page
+  const draftGalleryImages = [
+    {
+      id: 1,
+      src: "/uti-do-cs-campeao.jpeg",
+      alt: "Time Campeão UTI DO CS",
+      description: "Equipe campeã UTI DO CS com o troféu",
+    },
+    {
+      id: 2,
+      src: "/sundown-vice-campeao.jpeg",
+      alt: "Time Vice-Campeão Sundown",
+      description: "Equipe Sundown - Vice-campeã do torneio",
+    },
+    {
+      id: 3,
+      src: "/mvp-gabri.jpeg",
+      alt: "MVP Gabri com Troféu",
+      description: "Gabri - MVP do campeonato",
+    },
+  ]
+
+  const draftImages = draftGalleryImages.map((img) => ({
+    src: img.src,
+    alt: img.alt,
+  }))
+
   // Função para abrir o modal com a imagem selecionada
-  const openImageModal = (src: string, alt: string, index: number) => {
+  const openImageModal = (src: string, alt: string, index: number, gallery: "teams" | "draft" = "teams") => {
     setCurrentImage({ src, alt })
     setCurrentIndex(index)
+    setCurrentGallery(gallery)
     setIsModalOpen(true)
   }
 
@@ -82,7 +111,7 @@ export default function Galeria() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
             {teamShowcases.map((team, index) => (
-              <PremiumCard key={team.id} delay={index * 0.1}>
+              <PremiumCard key={team.id} delay={index * 0.1} hoverEffect={false}>
                 <div className="p-6 space-y-6">
                   <div className="flex items-center justify-between">
                     <motion.div
@@ -121,21 +150,23 @@ export default function Galeria() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.5, delay: index * 0.1 + 0.4 }}
-                    className="relative h-[300px] overflow-hidden rounded-lg border border-gold/10 group-hover:border-gold/30 transition-colors duration-300 cursor-pointer group"
-                    onClick={() => openImageModal(team.image, `Equipe ${team.teamName}`, index)}
+                    className="relative h-[300px] overflow-hidden rounded-lg border border-gold/10 transition-colors duration-300 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openImageModal(team.image, `Equipe ${team.teamName}`, index, "teams")
+                    }}
                   >
                     <Image
                       src={team.image || "/placeholder.svg"}
                       alt={`Equipe ${team.teamName}`}
                       fill
-                      className="object-cover transition-transform duration-700 group-hover:scale-105"
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 50vw"
                     />
 
-                    {/* Overlay with zoom icon */}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <div className="bg-gold/80 text-black p-3 rounded-full">
-                        <Search size={24} />
-                      </div>
+                    {/* Botão de visualização sempre visível */}
+                    <div className="absolute bottom-4 right-4 bg-gold/80 text-black p-2 rounded-full shadow-lg">
+                      <Search size={20} />
                     </div>
                   </motion.div>
 
@@ -155,6 +186,51 @@ export default function Galeria() {
         </div>
       </section>
 
+      {/* Querido Camp Draft section from home page */}
+      <section className="py-20 bg-gradient-to-b from-gray-900 to-black">
+        <div className="container mx-auto px-4">
+          <SectionTitle
+            title="Querido Camp Draft"
+            subtitle="Evento de Draft"
+            description="Reviva os melhores momentos do evento de draft e formação dos times"
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
+            {draftGalleryImages.map((image, index) => (
+              <motion.div
+                key={image.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="group cursor-pointer"
+                onClick={() => openImageModal(image.src, image.alt, index, "draft")}
+              >
+                <PremiumCard hoverEffect={false}>
+                  <div className={`relative ${image.id === 3 ? "h-[350px]" : "h-[250px]"} overflow-hidden rounded-lg`}>
+                    <Image
+                      src={image.src || "/placeholder.svg"}
+                      alt={image.alt}
+                      fill
+                      className={`${image.id === 3 ? "object-contain" : "object-cover"} group-hover:scale-110 transition-transform duration-500`}
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="absolute bottom-0 left-0 right-0 p-4">
+                        <p className="text-white font-bold text-lg">{image.description}</p>
+                      </div>
+                    </div>
+                    <div className="absolute top-4 right-4 bg-gold/80 text-black p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <Camera size={20} />
+                    </div>
+                  </div>
+                </PremiumCard>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4 text-center">
@@ -168,7 +244,8 @@ export default function Galeria() {
               >
                 <h2 className="text-3xl font-bold text-gold mb-6">Quer fazer parte da próxima galeria?</h2>
                 <p className="text-white mb-8 max-w-2xl mx-auto text-lg">
-                  Inscreva-se no Querido Camp e tenha a chance de entrar para a história do campeonato!
+                  Inscrições do dia 15 de dezembro até dia 15 de janeiro de 2026. Inscreva-se no Querido Camp e tenha a
+                  chance de entrar para a história do campeonato!
                 </p>
                 <a
                   href="https://forms.gle/FHyvA4vJ5JfZ4ezU9"
@@ -190,7 +267,7 @@ export default function Galeria() {
         onClose={() => setIsModalOpen(false)}
         imageSrc={currentImage.src}
         imageAlt={currentImage.alt}
-        images={teamImages}
+        images={currentGallery === "teams" ? teamImages : draftImages}
         currentIndex={currentIndex}
       />
     </div>

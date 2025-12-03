@@ -11,7 +11,7 @@ const montserrat = Montserrat({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Querido Camp - Campeonato de CS2 em Sergipe",
   description: "O maior campeonato de Counter-Strike 2 de Sergipe. Inscreva-se e participe!",
-    generator: 'v0.dev'
+    generator: 'v0.app'
 }
 
 export default function RootLayout({

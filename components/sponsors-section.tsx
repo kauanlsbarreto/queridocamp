@@ -13,15 +13,12 @@ const SponsorsSection = () => {
 
   // Lista de patrocinadores com suas informações
   const sponsors = [
-    { id: 1, name: "Farmácia Milagre", logo: "/images/sponsors/farmacia-milagre.png" },
-    { id: 2, name: "HITECH Arena", logo: "/images/sponsors/hitech.png" },
-    { id: 3, name: "Capital Assessoria", logo: "/images/sponsors/capital-assessoria.png" },
-    { id: 4, name: "Querida Pizza", logo: "/images/sponsors/querida-pizza.png" },
-    { id: 5, name: "NORIMAKI", logo: "/images/sponsors/norimaki.png" },
-    { id: 6, name: "Varanda do Spetto", logo: "/images/sponsors/varanda-do-spetto.png" },
-    { id: 7, name: "União Vendas", logo: "/images/sponsors/uniao.png" },
-    { id: 8, name: "Radiante", logo: "/images/sponsors/radiante.png" },
-    { id: 9, name: "Sandro's Lanches", logo: "/images/sponsors/sandros-lanches.png" },
+    { id: 1, name: "HITECH Arena", logo: "/images/sponsors/hitech.png" },
+    { id: 2, name: "Querida Pizza", logo: "/images/sponsors/querida-pizza.png" },
+    { id: 3, name: "NORIMAKI", logo: "/images/sponsors/norimaki.png" },
+    { id: 4, name: "União Vendas", logo: "/images/sponsors/uniao.png" },
+    { id: 5, name: "Radiante", logo: "/images/sponsors/radiante.png" },
+    { id: 6, name: "Nesha Store", logo: "/images/sponsors/neshastore.png" },
   ]
 
   // Imagens para o modal
@@ -47,12 +44,12 @@ const SponsorsSection = () => {
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-6 items-center mt-12">
           {sponsors.map((sponsor, index) => (
-            <PremiumCard key={sponsor.id} delay={index * 0.1}>
+            <PremiumCard key={sponsor.id} delay={index * 0.1} hoverEffect={true}>
               <div
-                className="p-6 flex items-center justify-center h-32 cursor-pointer group"
+                className="p-6 flex items-center justify-center h-32 cursor-pointer"
                 onClick={() => openSponsorModal(sponsor.logo, sponsor.name, index)}
               >
-                <div className="relative w-full h-full flex items-center justify-center">
+                <div className="relative w-full h-full flex items-center justify-center group">
                   <Image
                     src={sponsor.logo || "/placeholder.svg"}
                     alt={sponsor.name}
@@ -72,7 +69,7 @@ const SponsorsSection = () => {
         </div>
 
         <div className="mt-16 text-center">
-          <PremiumCard hoverEffect={false}>
+          <PremiumCard hoverEffect={true}>
             <div className="p-8">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}

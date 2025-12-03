@@ -1,6 +1,6 @@
 "use client"
-
 import { motion } from "framer-motion"
+import Image from "next/image"
 
 interface HeroBannerProps {
   title: string
@@ -9,23 +9,23 @@ interface HeroBannerProps {
 
 const HeroBanner = ({ title, subtitle }: HeroBannerProps) => {
   return (
-    <div className="relative overflow-hidden">
-      {/* Background with animated gradient */}
-      <div className="absolute inset-0 bg-black">
-        <div className="absolute inset-0 bg-gradient-to-b from-gold/10 via-transparent to-transparent opacity-30"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-gold/5 via-transparent to-transparent"></div>
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* Animated background */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-dark via-dark/95 to-dark"></div>
+        <div className="absolute inset-0 bg-gradient-radial from-primary/10 via-transparent to-transparent"></div>
 
-        {/* Animated particles */}
-        <div className="absolute inset-0 overflow-hidden">
-          {[...Array(20)].map((_, i) => (
+        {/* Floating particles */}
+        <div className="particles">
+          {[...Array(50)].map((_, i) => (
             <div
               key={i}
-              className="absolute w-1 h-1 bg-gold/30 rounded-full"
+              className="particle"
               style={{
                 top: `${Math.random() * 100}%`,
                 left: `${Math.random() * 100}%`,
-                animation: `float ${3 + Math.random() * 7}s ease-in-out infinite`,
-                animationDelay: `${Math.random() * 5}s`,
+                animationDelay: `${Math.random() * 6}s`,
+                animationDuration: `${4 + Math.random() * 4}s`,
               }}
             ></div>
           ))}
@@ -33,37 +33,59 @@ const HeroBanner = ({ title, subtitle }: HeroBannerProps) => {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 py-32 md:py-40 container mx-auto px-4">
+      <div className="relative z-10 container mx-auto px-4 text-center">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="text-center"
+          transition={{ duration: 0.8, type: "spring", stiffness: 100 }}
+          className="space-y-8"
         >
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-5xl md:text-7xl font-bold mb-4"
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, type: "spring", stiffness: 80 }}
+            className="flex justify-center mb-8"
           >
-            <span className="text-gold gold-shimmer">{title}</span>
-          </motion.h1>
+            <div className="relative w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 hover:scale-105 transition-transform duration-500">
+              <Image src="/logo.png" alt="Querido Camp Logo" fill className="object-contain drop-shadow-2xl" priority />
+              {/* Glow effect behind logo */}
+              <div className="absolute inset-0 bg-primary/20 blur-3xl -z-10 animate-pulse"></div>
+            </div>
+          </motion.div>
 
           {subtitle && (
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="text-xl md:text-2xl text-white mb-8 max-w-3xl mx-auto"
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="glass-card rounded-full px-8 py-3 inline-block border border-primary/20"
             >
-              {subtitle}
-            </motion.p>
+              <span className="text-primary font-semibold text-lg">{subtitle}</span>
+            </motion.div>
           )}
+
+          {/* Decorative elements */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, delay: 0.5, type: "spring" }}
+            className="flex justify-center space-x-4 mt-12"
+          >
+            <div className="glass-card w-16 h-1 rounded-full bg-primary/30"></div>
+            <div className="glass-card w-8 h-8 rounded-full flex items-center justify-center border border-primary/20">
+              <div className="w-3 h-3 bg-primary rounded-full animate-pulse"></div>
+            </div>
+            <div className="glass-card w-16 h-1 rounded-full bg-primary/30"></div>
+          </motion.div>
         </motion.div>
       </div>
 
-      {/* Bottom decorative line */}
-      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-gold/50 to-transparent"></div>
+      {/* Bottom decorative wave */}
+      <div className="absolute bottom-0 left-0 right-0">
+        <svg viewBox="0 0 1200 120" className="w-full h-20 fill-current text-primary/10">
+          <path d="M0,60 C300,120 900,0 1200,60 L1200,120 L0,120 Z"></path>
+        </svg>
+      </div>
     </div>
   )
 }

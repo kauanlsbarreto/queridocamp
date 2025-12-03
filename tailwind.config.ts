@@ -25,10 +25,13 @@ const config = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        gold: "#FFD700",
+        gold: "#ECA149",
+        "gold-light": "#FAFDFD",
+        "gold-dark": "#E76A21",
+        "dark-bg": "#060D15",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "#ECA149",
+          foreground: "#060D15",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -72,16 +75,20 @@ const config = {
         "pulse-gold": {
           "0%, 100%": {
             opacity: "1",
-            boxShadow: "0 0 0 0 rgba(255, 215, 0, 0.7)",
+            boxShadow: "0 0 0 0 rgba(236, 161, 73, 0.7)",
           },
           "50%": {
             opacity: "0.8",
-            boxShadow: "0 0 0 10px rgba(255, 215, 0, 0)",
+            boxShadow: "0 0 0 10px rgba(236, 161, 73, 0)",
           },
         },
         float: {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-10px)" },
+        },
+        "glass-shine": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
         },
       },
       animation: {
@@ -89,9 +96,14 @@ const config = {
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-gold": "pulse-gold 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         float: "float 3s ease-in-out infinite",
+        "glass-shine": "glass-shine 2s ease-in-out infinite",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
+        "glass-gradient": "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)",
+      },
+      backdropBlur: {
+        xs: "2px",
       },
     },
   },

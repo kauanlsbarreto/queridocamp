@@ -2,7 +2,7 @@
 import { motion } from "framer-motion"
 import HeroBanner from "@/components/hero-banner"
 import PremiumCard from "@/components/premium-card"
-import { Trophy, Medal, Award } from "lucide-react"
+import { Trophy, Award, Medal } from "lucide-react"
 
 export default function Premiacao() {
   return (
@@ -23,49 +23,42 @@ export default function Premiacao() {
             Premiação em Dinheiro
           </motion.h2>
           <div className="max-w-4xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <PrizeCard position="1" amount="R$ 1.000,00" delay={0.1} />
-              <PrizeCard position="2" amount="R$ 750,00" delay={0.2} />
-              <PrizeCard position="3" amount="R$ 250,00" delay={0.3} />
-            </div>
-
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <PremiumCard delay={0.4}>
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-gold mb-4">MVP do Campeonato</h3>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="bg-gold/20 p-3 rounded-full mr-4 flex items-center justify-center">
-                        <Trophy className="text-gold h-10 w-10" />
-                      </div>
-                      <div>
-                        <p className="text-white">Jogador mais valioso</p>
-                        <p className="text-sm text-gray-400">Troféu + Reconhecimento</p>
-                      </div>
-                    </div>
-                    <div className="text-2xl font-bold text-gold">R$ 250,00</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <PremiumCard delay={0.1}>
+                <div className="p-8 text-center">
+                  <div className="text-5xl font-bold text-gold mb-4">1º Lugar</div>
+                  <div className="text-4xl font-bold text-white mb-6">R$ 1.250,00</div>
+                  <div className="bg-gold/20 p-6 rounded-full inline-block flex items-center justify-center mb-4">
+                    <Trophy className="text-gold h-20 w-20" />
                   </div>
+                  <p className="text-gray-300 text-lg">Troféu de Campeão + Premiação em Dinheiro</p>
                 </div>
               </PremiumCard>
 
-              <PremiumCard delay={0.5}>
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-gold mb-4">MVP da Rodada</h3>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="bg-gold/20 p-3 rounded-full mr-4 flex items-center justify-center">
-                        <Award className="text-gold h-10 w-10" />
-                      </div>
-                      <div>
-                        <p className="text-white">Melhor jogador de cada rodada</p>
-                        <p className="text-sm text-gray-400">10 rodadas no total</p>
-                      </div>
-                    </div>
-                    <div className="text-2xl font-bold text-gold">
-                      R$ 50,00 <span className="text-sm font-normal">(cada)</span>
-                    </div>
+              <PremiumCard delay={0.2}>
+                <div className="p-8 text-center">
+                  <h3 className="text-3xl font-bold text-gold mb-6">MVP do Campeonato</h3>
+                  <div className="text-4xl font-bold text-white mb-6">R$ 250,00</div>
+                  <div className="bg-gold/20 p-6 rounded-full inline-block flex items-center justify-center mb-4">
+                    <Award className="text-gold h-20 w-20" />
                   </div>
-                  <p className="text-right text-sm text-gray-400 mt-2">Total: R$ 500,00</p>
+                  <p className="text-gray-300 text-lg">Troféu de MVP + Premiação em Dinheiro</p>
+                </div>
+              </PremiumCard>
+            </div>
+
+            <div className="mt-12 text-center">
+              <PremiumCard delay={0.3}>
+                <div className="p-8">
+                  <h3 className="text-2xl font-bold text-gold mb-6">Premiação Total: R$ 1.500,00</h3>
+                  <p className="text-white text-lg mb-4">
+                    Além da premiação em dinheiro, todos os participantes receberão:
+                  </p>
+                  <ul className="text-gray-300 space-y-2 max-w-2xl mx-auto">
+                    <li>• Experiência em finais presenciais em LAN</li>
+                    <li>• Reconhecimento no cenário competitivo de Sergipe</li>
+                    <li>• Oportunidade de networking com outros jogadores</li>
+                  </ul>
                 </div>
               </PremiumCard>
             </div>
@@ -88,25 +81,23 @@ export default function Premiacao() {
           <div className="max-w-4xl mx-auto">
             <PremiumCard>
               <div className="p-8">
-                <h3 className="text-xl font-bold text-gold mb-6 text-center">Craque da Galera</h3>
+                <h3 className="text-2xl font-bold text-gold mb-6 text-center">MELHORES DO CAMPEONATO</h3>
                 <p className="text-white text-center mb-8">
-                  O jogador mais votado pelo público receberá um troféu especial e reconhecimento como o favorito dos
-                  fãs.
+                  Reconhecimento especial para os destaques do campeonato em diferentes categorias
                 </p>
 
-                <h3 className="text-xl font-bold text-gold mb-6 text-center">Melhores por Função</h3>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <RoleCard role="Entry" />
-                  <RoleCard role="Rifler" />
-                  <RoleCard role="AWP" />
-                  <RoleCard role="IGL" />
-                  <RoleCard role="Suporte" />
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                  <AwardCard title="MVP do Campeonato" />
+                  <AwardCard title="Melhor Pote 2" />
+                  <AwardCard title="Melhor Pote 3" />
+                  <AwardCard title="Melhor Pote 4" />
+                  <AwardCard title="Melhor Pote 5" />
                 </div>
 
                 <div className="mt-8 text-center">
                   <p className="text-white">
-                    As votações serão abertas no site durante o campeonato. Fique atento para votar nos seus jogadores
-                    favoritos!
+                    Os melhores jogadores de cada categoria receberão medalhas especiais e reconhecimento durante a
+                    cerimônia de premiação!
                   </p>
                 </div>
               </div>
@@ -128,34 +119,44 @@ export default function Premiacao() {
             Troféus e Medalhas
           </motion.h2>
           <div className="max-w-4xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <PremiumCard delay={0.1}>
                 <div className="p-6 text-center">
                   <div className="bg-gold/20 p-4 rounded-full inline-block mb-4 flex items-center justify-center">
-                    <Trophy className="text-gold h-16 w-16" />
+                    <Trophy className="text-gold h-12 w-12" />
                   </div>
-                  <h3 className="text-xl font-bold text-gold mb-2">Troféu de Campeão</h3>
-                  <p className="text-white">Troféu exclusivo para a equipe campeã do Querido Camp</p>
+                  <h3 className="text-lg font-bold text-gold mb-2">Troféu de Campeão</h3>
+                  <p className="text-white text-sm">Para a equipe vencedora</p>
                 </div>
               </PremiumCard>
 
               <PremiumCard delay={0.2}>
                 <div className="p-6 text-center">
                   <div className="bg-gold/20 p-4 rounded-full inline-block mb-4 flex items-center justify-center">
-                    <Medal className="text-gray-300 h-16 w-16" />
+                    <Award className="text-gold h-12 w-12" />
                   </div>
-                  <h3 className="text-xl font-bold text-gold mb-2">Medalhas</h3>
-                  <p className="text-white">Medalhas para os jogadores das três primeiras equipes</p>
+                  <h3 className="text-lg font-bold text-gold mb-2">Troféu de MVP</h3>
+                  <p className="text-white text-sm">Melhor jogador do campeonato</p>
                 </div>
               </PremiumCard>
 
               <PremiumCard delay={0.3}>
                 <div className="p-6 text-center">
                   <div className="bg-gold/20 p-4 rounded-full inline-block mb-4 flex items-center justify-center">
-                    <Award className="text-gold h-16 w-16" />
+                    <Medal className="text-gold h-12 w-12" />
                   </div>
-                  <h3 className="text-xl font-bold text-gold mb-2">Certificados</h3>
-                  <p className="text-white">Certificados digitais para todos os participantes do campeonato</p>
+                  <h3 className="text-lg font-bold text-gold mb-2">Medalhas</h3>
+                  <p className="text-white text-sm">Campeões e Vice-Campeões</p>
+                </div>
+              </PremiumCard>
+
+              <PremiumCard delay={0.4}>
+                <div className="p-6 text-center">
+                  <div className="bg-gold/20 p-4 rounded-full inline-block mb-4 flex items-center justify-center">
+                    <Medal className="text-gold h-12 w-12" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gold mb-2">Medalhas Especiais</h3>
+                  <p className="text-white text-sm">Melhores do Campeonato</p>
                 </div>
               </PremiumCard>
             </div>
@@ -176,8 +177,8 @@ export default function Premiacao() {
               >
                 <h2 className="text-2xl font-bold text-gold mb-6">Quer fazer parte disso?</h2>
                 <p className="text-white mb-8 max-w-2xl mx-auto">
-                  Não perca a oportunidade de competir pelo prêmio e reconhecimento no maior campeonato de CS2 de
-                  Sergipe!
+                  Inscrições até 10 de Janeiro. Não perca a oportunidade de competir pelo prêmio e reconhecimento no
+                  maior campeonato de CS2 de Sergipe!
                 </p>
                 <a
                   href="https://forms.gle/FHyvA4vJ5JfZ4ezU9"
@@ -185,7 +186,7 @@ export default function Premiacao() {
                   rel="noopener noreferrer"
                   className="bg-gold text-black font-bold py-3 px-8 rounded-md hover:bg-gold/80 transition-colors inline-block transform hover:scale-105 duration-200 shadow-lg shadow-gold/20"
                 >
-                  Inscreva-se Agora
+                  Inscreva-se Agora - R$ 75,00
                 </a>
               </motion.div>
             </div>
@@ -196,37 +197,13 @@ export default function Premiacao() {
   )
 }
 
-const PrizeCard = ({ position, amount, delay }: { position: string; amount: string; delay: number }) => {
+const AwardCard = ({ title }: { title: string }) => {
   return (
-    <PremiumCard delay={delay}>
-      <div className="p-6 rounded-lg text-center">
-        <div
-          className={`text-4xl font-bold ${position === "1" ? "text-gold" : position === "2" ? "text-gray-300" : "text-amber-700"} mb-2`}
-        >
-          {position}º Lugar
-        </div>
-        <div className="text-3xl font-bold text-white mb-4">{amount}</div>
-        <div className="bg-gold/20 p-4 rounded-full inline-block flex items-center justify-center">
-          {position === "1" ? (
-            <Trophy className="text-gold h-16 w-16" />
-          ) : position === "2" ? (
-            <Medal className="text-gray-300 h-16 w-16" />
-          ) : (
-            <Medal className="text-amber-700 h-16 w-16" />
-          )}
-        </div>
+    <div className="bg-gray-800 p-6 rounded-lg text-center hover:bg-gray-700 transition-colors">
+      <div className="bg-gold/10 p-3 rounded-full inline-block mb-3 flex items-center justify-center">
+        <Award className="text-gold h-10 w-10" />
       </div>
-    </PremiumCard>
-  )
-}
-
-const RoleCard = ({ role }: { role: string }) => {
-  return (
-    <div className="bg-gray-800 p-4 rounded-lg text-center">
-      <div className="bg-gold/10 p-2 rounded-full inline-block mb-2 flex items-center justify-center">
-        <Award className="text-gold h-8 w-8" />
-      </div>
-      <p className="text-gold font-bold">{role}</p>
+      <p className="text-gold font-bold text-sm">{title}</p>
     </div>
   )
 }

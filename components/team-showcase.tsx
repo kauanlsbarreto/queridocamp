@@ -20,7 +20,7 @@ const TeamShowcase = ({ teamName, position, imageSrc, description, delay = 0 }: 
 
   return (
     <>
-      <PremiumCard delay={delay}>
+      <PremiumCard delay={delay} hoverEffect={false}>
         <div className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <motion.div
@@ -53,21 +53,23 @@ const TeamShowcase = ({ teamName, position, imageSrc, description, delay = 0 }: 
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: delay + 0.4 }}
-            className="relative h-[300px] overflow-hidden rounded-lg border border-gold/10 group-hover:border-gold/30 transition-colors duration-300 cursor-pointer group"
-            onClick={() => setIsModalOpen(true)}
+            className="relative h-[300px] overflow-hidden rounded-lg border border-gold/10 transition-colors duration-300 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsModalOpen(true)
+            }}
           >
             <Image
               src={imageSrc || "/placeholder.svg"}
               alt={`Equipe ${teamName}`}
               fill
-              className="object-cover transition-transform duration-700 group-hover:scale-105"
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 50vw"
             />
 
-            {/* Overlay with zoom icon */}
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-              <div className="bg-gold/80 text-black p-3 rounded-full">
-                <Search size={24} />
-              </div>
+            {/* Botão de visualização sempre visível */}
+            <div className="absolute bottom-4 right-4 bg-gold/80 text-black p-2 rounded-full shadow-lg">
+              <Search size={20} />
             </div>
           </motion.div>
 
