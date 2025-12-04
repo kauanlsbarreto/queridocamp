@@ -4,7 +4,7 @@
 FROM node:18 AS builder
 WORKDIR /app
 COPY . .
-RUN npm install
+RUN npm install --legacy-peer-deps
 ENV NEXT_BUILD_WORKERS=1
 RUN npm run build
 
