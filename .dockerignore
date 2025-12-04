@@ -2,12 +2,6 @@
 /node_modules
 npm-debug.log
 
-# Arquivos de Build/Cache
-.next
-.vscode
-dist
-out
-build
 
 # Arquivos de Log e Temporários
 *.log
