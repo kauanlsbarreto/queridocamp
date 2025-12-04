@@ -105,7 +105,7 @@ export default function Home() {
               Saiba Mais
             </Link>
             <a
-              href="#inscricao"
+              href="/inscricao"
               className="border-2 border-gold text-gold font-bold py-3 px-8 rounded-md hover:bg-gold/10 transition-colors transform hover:scale-105 duration-200 shadow-lg shadow-gold/10"
             >
               Inscreva-se
