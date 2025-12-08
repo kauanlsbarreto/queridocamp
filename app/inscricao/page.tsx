@@ -26,6 +26,8 @@ export default function Inscricao() {
   })
   const [comprovante, setComprovante] = useState<File | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target
@@ -41,12 +43,30 @@ export default function Inscricao() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Here you would handle the form submission
-    console.log("Form data:", formData)
-    console.log("Comprovante:", comprovante)
-    setSubmitted(true)
+    if (!comprovante) {
+      setError("Por favor, anexe o comprovante de pagamento.")
+      return
+    }
+    setLoading(true)
+    setError(null)
+
+    const data = new FormData()
+    Object.entries(formData).forEach(([key, value]) => {
+      data.append(key, String(value))
+    })
+    data.append("comprovante", comprovante)
+
+    try {
+      const response = await fetch("/inscricao/api", { method: "POST", body: data })
+      if (!response.ok) throw new Error("Falha ao enviar inscrição.")
+      setSubmitted(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ocorreu um erro desconhecido.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (submitted) {
@@ -382,14 +402,21 @@ export default function Inscricao() {
                     <p className="text-light/60 text-sm mt-2">Formatos aceitos: JPG, PNG, PDF (máx. 5MB)</p>
                   </div>
 
+                  {error && (
+                    <div className="text-red-400 bg-red-500/10 border border-red-400/30 p-3 rounded-lg text-center">
+                      {error}
+                    </div>
+                  )}
+
                   {/* Submit Button */}
                   <motion.button
                     type="submit"
+                    disabled={loading}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full bg-primary text-dark font-bold py-4 px-8 rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+                    className="w-full bg-primary text-dark font-bold py-4 px-8 rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 disabled:bg-primary/50 disabled:cursor-not-allowed"
                   >
-                    Enviar Inscrição
+                    {loading ? "Enviando..." : "Enviar Inscrição"}
                   </motion.button>
                 </form>
               </PremiumCard>
