@@ -147,7 +147,7 @@ export default function Home() {
             <PremiumCard delay={0}>
               <div className="p-8 text-center">
                 <div className="text-5xl font-bold text-gold mb-4">1º Lugar</div>
-                <div className="text-3xl font-bold text-white mb-6">R$ 1.250,00</div>
+                <div className="text-3xl font-bold text-white mb-6">R$ 1.000,00</div>
                 <div className="bg-gold/20 p-4 rounded-full inline-block flex items-center justify-center">
                   <Trophy className="text-gold h-16 w-16" />
                 </div>
@@ -165,7 +165,7 @@ export default function Home() {
                     </div>
                     <div>
                       <p className="text-white">Jogador mais valioso</p>
-                      <p className="text-sm text-gray-400">Troféu + Reconhecimento</p>
+                      <p className="text-sm text-gray-400">Troféu + Skin no valor de</p>
                     </div>
                   </div>
                   <div className="text-2xl font-bold text-gold">R$ 250,00</div>
