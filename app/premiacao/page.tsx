@@ -27,7 +27,7 @@ export default function Premiacao() {
               <PremiumCard delay={0.1}>
                 <div className="p-8 text-center">
                   <div className="text-5xl font-bold text-gold mb-4">1º Lugar</div>
-                  <div className="text-4xl font-bold text-white mb-6">R$ 1.250,00</div>
+                  <div className="text-4xl font-bold text-white mb-6">R$ 1.000,00</div>
                   <div className="bg-gold/20 p-6 rounded-full inline-block flex items-center justify-center mb-4">
                     <Trophy className="text-gold h-20 w-20" />
                   </div>
@@ -42,7 +42,7 @@ export default function Premiacao() {
                   <div className="bg-gold/20 p-6 rounded-full inline-block flex items-center justify-center mb-4">
                     <Award className="text-gold h-20 w-20" />
                   </div>
-                  <p className="text-gray-300 text-lg">Troféu de MVP + Premiação em Dinheiro</p>
+                  <p className="text-gray-300 text-lg">Troféu de MVP + Premiação em Skin</p>
                 </div>
               </PremiumCard>
             </div>
