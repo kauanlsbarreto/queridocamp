@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     JSON.stringify({
       embeds: [
         {
-          title: "Nova inscrição recebida",
+          title: "Nova inscrição",
           color: 0x00ff99,
           fields: embedFields,
           image: file ? { url: "attachment://" + file.name } : undefined,
@@ -70,10 +70,27 @@ export async function POST(req: Request) {
     })
   )
 
-  await fetch("https://discord.com/api/webhooks/1447677740298932265/iKskHoGWMysbUXCxWTeZaxrj9VGPh_cJdtYZ3GsA6mB_XbnOe1SRix9wOWGQAqokAnkO", {
-    method: "POST",
-    body: form
-  })
+  try {
+    const response = await fetch("https://discord.com/api/webhooks/1447677740298932265/iKskHoGWMysbUXCxWTeZaxrj9VGPh_cJdtYZ3GsA6mB_XbnOe1SRix9wOWGQAqokAnkO", {
+      method: "POST",
+      body: form,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Webhook error: ${response.status}`);
+    }
+  } catch (error) {
+    const email = data.get("email");
+    const telefone = data.get("telefone");
+    console.warn(
+      "Falha ao enviar webhook de inscrição. A inscrição foi recebida, mas não notificada no Discord.",
+      {
+        email: email,
+        telefone: telefone,
+        error: error instanceof Error ? error.message : String(error),
+      }
+    );
+  }
 
   return NextResponse.json({ ok: true })
 }
