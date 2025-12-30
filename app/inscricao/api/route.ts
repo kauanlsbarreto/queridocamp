@@ -45,6 +45,14 @@ export async function POST(req: Request) {
     }
   })
 
+  if (file && file.type === "application/pdf") {
+    embedFields.push({
+      name: "Comprovante",
+      value: `Clique para abrir o PDF`,
+      inline: false,
+    })
+  }
+
   const form = new FormData()
 
   if (fileBuffer) {
@@ -63,7 +71,7 @@ export async function POST(req: Request) {
           title: "Nova inscrição",
           color: 0x00ff99,
           fields: embedFields,
-          image: file ? { url: "attachment://" + file.name } : undefined,
+          image: file && !file.type.includes("pdf") ? { url: "attachment://" + file.name } : undefined,
           timestamp: new Date().toISOString()
         }
       ]
