@@ -54,8 +54,11 @@ const Navbar = () => {
             <NavLink href="/regras">Regras</NavLink>
             <NavLink href="/campeonato">Campeonato</NavLink>
             <NavLink href="/classificacao">Classificação</NavLink>
+            <NavLink href="/rodadas">Rodadas</NavLink>
             <NavLink href="/premiacao">Premiação</NavLink>
+            {/*
             <NavLink href="/inscricao">Inscrição</NavLink>
+            */}
           </div>
 
           <div className="flex items-center md:hidden">
@@ -89,6 +92,9 @@ const Navbar = () => {
             </MobileNavLink>
             <MobileNavLink href="/classificacao" onClick={toggleMenu}>
               Classificação
+            </MobileNavLink>
+              <MobileNavLink href="/rodadas" onClick={toggleMenu}>
+              Rodadas
             </MobileNavLink>
             <MobileNavLink href="/premiacao" onClick={toggleMenu}>
               Premiação
