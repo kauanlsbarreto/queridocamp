@@ -94,7 +94,7 @@ export default function TeamsList({ teams }: { teams: TeamData[] }) {
                         src={team.team_image} 
                         alt={team.team_name}
                         fill
-                        className="object-contain p-2"
+                        className="object-contain"
                         sizes="(max-width: 768px) 100vw, 150px"
                         unoptimized={team.team_image.startsWith('http')}
                       />
