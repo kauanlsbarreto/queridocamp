@@ -16,6 +16,26 @@ interface Player {
   discord_id?: string;
 }
 
+const PlayerAvatar = ({ src, alt }: { src?: string; alt: string }) => {
+  const placeholder = '/images/player-placeholder.png';
+  const [imgSrc, setImgSrc] = useState(src || placeholder);
+
+  useEffect(() => {
+    setImgSrc(src || placeholder);
+  }, [src]);
+
+  return (
+    <Image 
+      src={imgSrc} 
+      alt={alt}
+      fill
+      className="object-cover"
+      onError={() => setImgSrc(placeholder)}
+      unoptimized={imgSrc.startsWith('http')}
+    />
+  );
+};
+
 interface TeamData {
   team_name: string;
   team_nick: string;
@@ -117,11 +137,9 @@ export default function TeamsList({ teams }: { teams: TeamData[] }) {
                         className="group relative flex flex-col items-center"
                       >
                         <div className="relative w-28 h-28 rounded-full overflow-hidden border-2 border-gray-700 bg-black shadow-lg group-hover:border-gold/50 transition-colors duration-300">
-                          <Image 
-                            src={player.faceit_image || '/images/player-placeholder.png'} 
+                          <PlayerAvatar 
+                            src={player.faceit_image} 
                             alt={player.nick}
-                            fill
-                            className="object-cover"
                           />
                           
                           {/* Hover Overlay Buttons */}
