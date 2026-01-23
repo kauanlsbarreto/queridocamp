@@ -9,6 +9,26 @@ import { Trophy, ChevronDown, ExternalLink } from "lucide-react";
 
 const tabs = ["Pote 1", "Pote 2", "Pote 3", "Pote 4", "Pote 5", "MVP"];
 
+const PlayerAvatar = ({ src, alt }: { src?: string; alt: string }) => {
+  const placeholder = "/images/cs2-player.png";
+  const [imgSrc, setImgSrc] = useState(src || placeholder);
+
+  useEffect(() => {
+    setImgSrc(src || placeholder);
+  }, [src]);
+
+  return (
+    <Image
+      src={imgSrc}
+      alt={alt}
+      fill
+      className="object-cover"
+      onError={() => setImgSrc(placeholder)}
+      unoptimized={!!imgSrc?.startsWith("http")}
+    />
+  );
+};
+
 export default function StatsList({ allStats }: { allStats: any[] }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>("Pote 1");
@@ -147,7 +167,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                   <div className={`p-6 transition-opacity duration-500 ${k === 0 ? 'opacity-30 grayscale' : 'opacity-100'}`}>
                     <div className="flex items-center gap-5">
                       <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-gray-800 bg-black shadow-inner group">
-                        <Image src={player.faceit_image} alt={player.nick} fill className="object-cover" />
+                        <PlayerAvatar src={player.faceit_image} alt={player.nick} />
                         <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
                           {player.faceit_url && (
                             <a href={player.faceit_url} target="_blank" className="p-2 bg-[#ff5500] rounded-full hover:scale-110 transition-transform">
