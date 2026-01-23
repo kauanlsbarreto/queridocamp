@@ -32,6 +32,7 @@ const PlayerAvatar = ({ src, alt }: { src?: string; alt: string }) => {
       className="object-cover"
       onError={() => setImgSrc(placeholder)}
       unoptimized={imgSrc.startsWith('http')}
+      
     />
   );
 };

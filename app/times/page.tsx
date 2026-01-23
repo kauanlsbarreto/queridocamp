@@ -164,19 +164,11 @@ async function getTeamsData(): Promise<TeamData[]> {
         if (bestMatch && maxSim >= 0.6) {
           faceitData.discord_id = bestMatch.discord_id;
           
-          try {
-            const res = await fetch(`https://open.faceit.com/data/v4/players?nickname=${bestMatch.faceit_nickname}`, {
-              headers: { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' },
-              next: { revalidate: 3600 }
-            });
-            
-            if (res.ok) {
-              const data = await res.json();
-              if (data.avatar) faceitData.faceit_image = data.avatar;
-              if (data.faceit_url) faceitData.faceit_url = data.faceit_url.replace('{lang}', 'en');
-            }
-          } catch (e) {
-            console.error(`Erro ao buscar Faceit para ${player.nick}:`, e);
+          if (bestMatch.fotoperfil) {
+            faceitData.faceit_image = bestMatch.fotoperfil;
+          }
+          if (bestMatch.faceit_nickname) {
+            faceitData.faceit_url = `https://www.faceit.com/en/players/${bestMatch.faceit_nickname}`;
           }
         }
 
