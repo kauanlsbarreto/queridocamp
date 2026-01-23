@@ -99,6 +99,12 @@ export default function Home() {
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <Link
+                href="/rodadas"
+                className="bg-gold text-black font-bold py-3 px-8 rounded-md hover:bg-gold/80 transition-colors transform hover:scale-105 duration-200 shadow-lg shadow-gold/20"
+              >
+                Rodadas
+              </Link>
+            <Link
               href="/campeonato"
               className="bg-gold text-black font-bold py-3 px-8 rounded-md hover:bg-gold/80 transition-colors transform hover:scale-105 duration-200 shadow-lg shadow-gold/20"
             >

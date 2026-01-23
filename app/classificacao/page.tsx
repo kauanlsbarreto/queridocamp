@@ -28,7 +28,7 @@ export default async function Classificacao() {
 
   return (
     <div>
-      <HeroBanner title="CLASSIFICAÇÃO" subtitle="Acompanhe a tabela atualizada do campeonato" />
+      <HeroBanner title="Rodadas" subtitle="Acompanhe a tabela atualizada do campeonato" />
 
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">

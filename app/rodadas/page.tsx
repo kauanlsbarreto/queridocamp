@@ -1,4 +1,3 @@
-// f:\sitequeridocamp\front-end\app\rodadas\page.tsx
 import pool from "@/lib/db"
 import RodadasClient from "./rodadas-cliente"
 

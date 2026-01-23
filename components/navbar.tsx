@@ -53,6 +53,8 @@ const Navbar = () => {
             <NavLink href="/galeria">Galeria</NavLink>
             <NavLink href="/regras">Regras</NavLink>
             <NavLink href="/campeonato">Campeonato</NavLink>
+            <NavLink href="/times">Times</NavLink>
+            <NavLink href="/stats">Estatísticas</NavLink>
             <NavLink href="/classificacao">Classificação</NavLink>
             <NavLink href="/rodadas">Rodadas</NavLink>
             <NavLink href="/premiacao">Premiação</NavLink>
@@ -89,6 +91,12 @@ const Navbar = () => {
             </MobileNavLink>
             <MobileNavLink href="/campeonato" onClick={toggleMenu}>
               Campeonato
+            </MobileNavLink>
+            <MobileNavLink href="/times" onClick={toggleMenu}>
+              Times
+            </MobileNavLink>
+            <MobileNavLink href="/stats" onClick={toggleMenu}>
+              Estatísticas
             </MobileNavLink>
             <MobileNavLink href="/classificacao" onClick={toggleMenu}>
               Classificação
