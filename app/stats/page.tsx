@@ -1,6 +1,7 @@
 import mysql from 'mysql2/promise';
 import HeroBanner from '@/components/hero-banner';
 import StatsList from './stats-list';
+import UpdateTimer from './update-timer';
 
 export const revalidate = 600;
 
@@ -125,12 +126,14 @@ async function getStatsData() {
 
 export default async function StatsPage() {
   const allStats = await getStatsData();
+  const generatedAt = Date.now();
 
   return (
     <div className="min-h-screen bg-black">
       <HeroBanner title="ESTATÍSTICAS" subtitle="Ranking de performance individual por Pote" />
       <section className="py-12 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
+          <UpdateTimer generatedAt={generatedAt} revalidate={revalidate} />
           <StatsList allStats={allStats} />
         </div>
       </section>

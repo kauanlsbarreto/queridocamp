@@ -5,6 +5,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
+import LiveMatchesController from "@/components/LiveMatchesController"
 
 const montserrat = Montserrat({ subsets: ["latin"] })
 
@@ -24,6 +25,7 @@ export default function RootLayout({
       <body className={`${montserrat.className} bg-black text-white min-h-screen flex flex-col`}>
         <ThemeProvider attribute="class" defaultTheme="dark">
           <Navbar />
+          <LiveMatchesController />
           <main className="flex-grow">{children}</main>
           <Footer />
         </ThemeProvider>

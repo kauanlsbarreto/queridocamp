@@ -88,15 +88,11 @@ export default function Campeonato() {
                   <ul className="space-y-3 text-white">
                     <li className="flex items-start">
                       <span className="text-gold mr-2">•</span>
-                      <span>Jogos de ida e volta</span>
+                      <span>Vitória por mapa vale 3 pontos</span>
                     </li>
                     <li className="flex items-start">
                       <span className="text-gold mr-2">•</span>
-                      <span>Vitória vale 3 pontos</span>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="text-gold mr-2">•</span>
-                      <span>Empate vale 1 ponto</span>
+                      <span>MD2</span>
                     </li>
                     <li className="flex items-start">
                       <span className="text-gold mr-2">•</span>
