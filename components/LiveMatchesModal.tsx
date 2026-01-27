@@ -34,6 +34,14 @@ interface MatchDetails {
     results?: {
         score: { faction1: number; faction2: number };
     };
+    stats?: {
+        rounds: {
+            round_stats: {
+                Map: string;
+                Score: string;
+            }
+        }[]
+    };
 }
 
 const API_KEY_FACEIT = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
@@ -78,7 +86,22 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
                         match && (match.status === 'ONGOING' || match.status === 'READY')
                     );
 
-                    setMatches(activeMatches);
+                    const matchesWithStats = await Promise.all(activeMatches.map(async (match: any) => {
+                        try {
+                            const statsRes = await fetch(`https://open.faceit.com/data/v4/matches/${match.match_id}/stats`, {
+                                headers: { 'Authorization': `Bearer ${API_KEY_FACEIT}` }
+                            });
+                            if (statsRes.ok) {
+                                const stats = await statsRes.json();
+                                return { ...match, stats };
+                            }
+                        } catch (e) {
+                            console.error("Erro ao buscar stats:", e);
+                        }
+                        return match;
+                    }));
+
+                    setMatches(matchesWithStats);
                 } else {
                     setMatches([]);
                 }
@@ -155,6 +178,15 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
                                                 {match.results?.score ? `${match.results.score.faction1} - ${match.results.score.faction2}` : "0 - 0"}
                                             </span>
                                         </div>
+                                        {match.stats?.rounds && match.stats.rounds.length > 0 && (
+                                            <div className="mt-2 flex flex-col gap-1 items-center">
+                                                {match.stats.rounds.map((round, idx) => (
+                                                    <span key={idx} className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+                                                        {round.round_stats?.Map}: <span className="text-white">{round.round_stats?.Score}</span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                         <a 
                                             href={`https://www.faceit.com/pt/${match.game}/room/${match.match_id}`} 
                                             target="_blank" 
