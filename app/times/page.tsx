@@ -101,7 +101,7 @@ async function getTeamsData(): Promise<TeamData[]> {
       };
 
       const rawNick = getProp(team, 'player_nick');
-      const teamNick = (rawNick || "").trim();
+      const teamNick = (rawNick || "").split(',').pop()?.trim() || "";
       const teamName = getProp(team, 'team_name') || "Time sem nome";
       const teamImage = getProp(team, 'team_image') || "";
       
