@@ -56,8 +56,6 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
       if (valAK === 0 && valBK > 0) return 1;
       if (valAK > 0 && valBK === 0) return -1;
       
-      if (valBK !== valAK) return valBK - valAK;
-
       const valAKD = parseFloat(a[kdKey]) || 0;
       const valBKD = parseFloat(b[kdKey]) || 0;
       if (valBKD !== valAKD) return valBKD - valAKD;
@@ -65,6 +63,8 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
       const valAKR = parseFloat(a[krKey]) || 0;
       const valBKR = parseFloat(b[krKey]) || 0;
       if (valBKR !== valAKR) return valBKR - valAKR;
+
+      if (valBK !== valAK) return valBK - valAK;
 
       const valAD = Number(a[dKey]) || 0;
       const valBD = Number(b[dKey]) || 0;
