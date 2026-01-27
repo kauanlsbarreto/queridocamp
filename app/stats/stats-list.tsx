@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import PremiumCard from "@/components/premium-card";
@@ -30,14 +29,8 @@ const PlayerAvatar = ({ src, alt }: { src?: string; alt: string }) => {
 };
 
 export default function StatsList({ allStats }: { allStats: any[] }) {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>("Pote 1");
   const [selectedRound, setSelectedRound] = useState<string>("Geral");
-
-  useEffect(() => {
-    const interval = setInterval(() => router.refresh(), 600000);
-    return () => clearInterval(interval);
-  }, [router]);
 
   const TOTAL_ROUNDS = 17;
 
@@ -50,40 +43,32 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
   const getDisplayData = () => {
     const isGeral = selectedRound === "Geral";
     
-    // Identificação das chaves de dados
     const kKey = isGeral ? 'k' : `r${selectedRound}_k`;
     const dKey = isGeral ? 'd' : `r${selectedRound}_d`;
     const kdKey = isGeral ? 'kd' : `r${selectedRound}_kd`;
     const krKey = isGeral ? 'kr' : `r${selectedRound}_kr`;
-    const playedKey = 'played'; // Altere aqui se o nome da coluna de rodadas jogadas for diferente
+    const playedKey = 'played'; 
 
     const sorted = [...allStats].sort((a, b) => {
       const valAK = Number(a[kKey]) || 0;
       const valBK = Number(b[kKey]) || 0;
 
-      // 1. PRIORIDADE ZERO: Jogadores inativos (0 kills) sempre vão para o fim
       if (valAK === 0 && valBK > 0) return 1;
       if (valAK > 0 && valBK === 0) return -1;
       
-      // 2. PRIORIDADE GERAL: Quem jogou mais rodadas fica em cima
-      if (isGeral) {
-        const playedA = getPlayedRounds(a);
-        const playedB = getPlayedRounds(b);
-        if (playedB !== playedA) return playedB - playedA;
-      }
+      if (valBK !== valAK) return valBK - valAK;
 
-      // 3. DESEMPATE: K/D Ratio
       const valAKD = parseFloat(a[kdKey]) || 0;
       const valBKD = parseFloat(b[kdKey]) || 0;
       if (valBKD !== valAKD) return valBKD - valAKD;
 
-      // 4. DESEMPATE: Volume de Kills
-      if (valBK !== valAK) return valBK - valAK;
-
-      // 5. DESEMPATE: K/R (Kills per Round)
       const valAKR = parseFloat(a[krKey]) || 0;
       const valBKR = parseFloat(b[krKey]) || 0;
-      return valBKR - valAKR;
+      if (valBKR !== valAKR) return valBKR - valAKR;
+
+      const valAD = Number(a[dKey]) || 0;
+      const valBD = Number(b[dKey]) || 0;
+      return valAD - valBD;
     });
 
     if (activeTab === "MVP") return sorted.slice(0, 1);
@@ -97,7 +82,6 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
 
   return (
     <div className="space-y-8">
-      {/* Barra de Filtros e Select */}
       <div className="flex flex-col lg:flex-row items-center justify-between gap-6 bg-white/5 p-4 rounded-xl border border-white/10 shadow-2xl">
         <div className="flex flex-wrap justify-center gap-2">
           {tabs.map((tab) => (
@@ -134,10 +118,10 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
       <div className={activeTab === "MVP" ? "max-w-xl mx-auto" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"}>
         <AnimatePresence mode="wait">
           {displayData.map((player, index) => {
-            const k = isGeral ? player.k : player[`r${selectedRound}_k`];
-            const d = isGeral ? player.d : player[`r${selectedRound}_d`];
-            const kd = isGeral ? player.kd : player[`r${selectedRound}_kd`];
-            const kr = isGeral ? player.kr : player[`r${selectedRound}_kr`];
+            const k = Number(isGeral ? player.k : player[`r${selectedRound}_k`]) || 0;
+            const d = Number(isGeral ? player.d : player[`r${selectedRound}_d`]) || 0;
+            const kd = Number(isGeral ? player.kd : player[`r${selectedRound}_kd`]) || 0;
+            const kr = Number(isGeral ? player.kr : player[`r${selectedRound}_kr`]) || 0;
             const m1Link = !isGeral ? player[`r${selectedRound}_m1_link`] : null;
             const m2Link = !isGeral ? player[`r${selectedRound}_m2_link`] : null;
 

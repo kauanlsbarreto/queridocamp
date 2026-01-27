@@ -138,7 +138,7 @@ export default function TeamsList({ teams }: { teams: TeamData[] }) {
                         key={player.id} 
                         className="group relative flex flex-col items-center"
                       >
-                        <div className="relative w-28 h-28 rounded-full overflow-hidden border-2 border-gray-700 bg-black shadow-lg group-hover:border-gold/50 transition-colors duration-300">
+                        <div className={`relative w-28 h-28 rounded-full overflow-hidden border-2 ${!player.faceit_url ? 'border-gray-800 opacity-20 group-hover:opacity-100' : 'border-gray-700'} bg-black shadow-lg group-hover:border-gold/50 transition-all duration-300`}>
                           <PlayerAvatar 
                             src={player.faceit_image} 
                             alt={player.nick}
@@ -146,7 +146,7 @@ export default function TeamsList({ teams }: { teams: TeamData[] }) {
                           
                           {/* Hover Overlay Buttons */}
                           <div className="absolute inset-0 bg-black/80 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            {player.faceit_url && (
+                            {player.faceit_url ? (
                               <a 
                                 href={player.faceit_url} 
                                 target="_blank" 
@@ -162,6 +162,16 @@ export default function TeamsList({ teams }: { teams: TeamData[] }) {
                                     className="object-contain" 
                                   />
                                 </div>
+                              </a>
+                            ) : (
+                              <a 
+                                href="https://discord.com/channels/1357681113358930010/1403748672373657650" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 bg-[#5865F2] rounded-full text-white text-[10px] font-bold hover:scale-105 transition-transform uppercase tracking-wider shadow-lg"
+                                title="Vincular Conta"
+                              >
+                                Vincular
                               </a>
                             )}
                           </div>

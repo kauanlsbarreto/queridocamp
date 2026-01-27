@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 
 interface UpdateTimerProps {
   generatedAt: number
@@ -8,29 +9,29 @@ interface UpdateTimerProps {
 }
 
 export default function UpdateTimer({ generatedAt, revalidate }: UpdateTimerProps) {
-  // Inicializa com o tempo total para evitar erro de hidratação
+  const router = useRouter()
   const [minutes, setMinutes] = useState(Math.ceil(revalidate / 60))
 
   useEffect(() => {
     const calculateTime = () => {
       const now = Date.now()
-      // Calcula quando o cache expira (tempo de geração + tempo de revalidação)
       const expiresAt = generatedAt + (revalidate * 1000)
       const diffMs = expiresAt - now
       
-      // Converte para minutos arredondando para cima
       const mins = Math.ceil(diffMs / 60000)
       
-      // Não mostra menos que 0
       setMinutes(mins > 0 ? mins : 0)
+
+      if (diffMs <= 0) {
+        router.refresh()
+      }
     }
 
     calculateTime()
-    // Atualiza a cada 10 segundos
     const interval = setInterval(calculateTime, 10000)
 
     return () => clearInterval(interval)
-  }, [generatedAt, revalidate])
+  }, [generatedAt, revalidate, router])
 
   return (
     <p className="text-center text-gray-400 mb-6">

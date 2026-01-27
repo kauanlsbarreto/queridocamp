@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Loader, ExternalLink } from "lucide-react"
 import Image from "next/image"
+import { usePathname } from "next/navigation"
 
 // --- Configurações das Streams ---
 const STREAMS_CONFIG = {
@@ -52,6 +53,8 @@ const HUB_IDS = [
 ];
 
 export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+    const pathname = usePathname();
+    const [internalOpen, setInternalOpen] = useState(false);
     const [matches, setMatches] = useState<MatchDetails[]>([]);
     const [loading, setLoading] = useState(true);
     
@@ -60,7 +63,32 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
     const [isTwitch2Live] = useState(true);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (typeof window === 'undefined') return;
+
+        const lastPath = sessionStorage.getItem("QC_lastPath");
+        
+        if (lastPath === pathname) return;
+
+        sessionStorage.setItem("QC_lastPath", pathname);
+        
+        const count = parseInt(sessionStorage.getItem("QC_navCount") || "0");
+        const newCount = count + 1;
+        sessionStorage.setItem("QC_navCount", newCount.toString());
+
+        if (newCount > 0 && newCount % 2 === 0) {
+            setInternalOpen(true);
+        }
+    }, [pathname]);
+
+    const show = isOpen || internalOpen;
+
+    const handleClose = () => {
+        setInternalOpen(false);
+        onClose();
+    };
+
+    useEffect(() => {
+        if (!show) return;
 
         const fetchFaceitMatches = async () => {
             setLoading(true);
@@ -117,10 +145,10 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
         const interval = setInterval(fetchFaceitMatches, 45000);
         return () => clearInterval(interval);
 
-    }, [isOpen]);
+    }, [show]);
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={show} onOpenChange={handleClose}>
             <DialogContent className="bg-gray-900 border-gold/20 text-white max-w-lg overflow-hidden">
                 <DialogHeader className="flex flex-row justify-between items-start border-b border-white/5 pb-4">
                     <div className="flex flex-col">
