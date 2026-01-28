@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
 import Link from 'next/link'
-import { LogOut, User, ChevronDown } from 'lucide-react'
+import { LogOut, User, ChevronDown, Loader2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -17,6 +17,7 @@ import {
 export default function AuthButton() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [isPending, setIsPending] = useState(false)
 
   useEffect(() => {
     const syncUser = () => {
@@ -28,69 +29,57 @@ export default function AuthButton() {
 
     syncUser()
     window.addEventListener('faceit_auth_updated', syncUser)
-    return () =>
-      window.removeEventListener('faceit_auth_updated', syncUser)
+    return () => window.removeEventListener('faceit_auth_updated', syncUser)
   }, [])
 
   const generatePKCE = async () => {
-    const chars =
-      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
     let verifier = ''
-
     for (let i = 0; i < 64; i++) {
       verifier += chars[Math.floor(Math.random() * chars.length)]
     }
 
     localStorage.setItem('faceit_code_verifier', verifier)
 
-    const hash = await crypto.subtle.digest(
-      'SHA-256',
-      new TextEncoder().encode(verifier)
-    )
-
+    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
     return btoa(String.fromCharCode(...new Uint8Array(hash)))
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=+$/, '')
   }
 
-const handleLogin = async (e?: React.MouseEvent) => {
-  e?.preventDefault()
-  e?.stopPropagation()
+  const handleLogin = async (e?: React.MouseEvent) => {
+    e?.preventDefault()
+    if (isPending) return
+    
+    setIsPending(true)
 
-  if (localStorage.getItem('faceit_login_in_progress')) {
-    console.log('[LOGIN] já em progresso')
-    return
+    try {
+      const clientId = process.env.NEXT_PUBLIC_FACEIT_CLIENT_ID!
+      const redirectUri = process.env.NEXT_PUBLIC_FACEIT_REDIRECT_URI!
+      const challenge = await generatePKCE()
+      const state = crypto.randomUUID()
+
+      localStorage.setItem('faceit_return_url', window.location.pathname + window.location.search)
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      response_type: 'code',
+      redirect_uri: redirectUri, 
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      scope: 'openid profile email',
+      state,
+    })
+
+    console.log("Redirecionando para:", redirectUri);
+
+    window.location.assign(`https://accounts.faceit.com/accounts/oauth/authorize?${params.toString()}`);
+    } catch (error) {
+      console.error('Erro ao iniciar login FACEIT:', error)
+      setIsPending(false)
+    }
   }
-
-  localStorage.setItem('faceit_login_in_progress', '1')
-
-  const clientId = process.env.NEXT_PUBLIC_FACEIT_CLIENT_ID!
-  const redirectUri = process.env.NEXT_PUBLIC_FACEIT_REDIRECT_URI!
-
-  const challenge = await generatePKCE()
-  const state = crypto.randomUUID()
-
-  localStorage.setItem(
-    'faceit_return_url',
-    window.location.pathname + window.location.search
-  )
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    response_type: 'code',
-    response_mode: 'query',
-    redirect_uri: redirectUri,
-    code_challenge: challenge,
-    code_challenge_method: 'S256',
-    scope: 'openid profile email',
-    state,
-  })
-
-  window.location.href =
-    `https://accounts.faceit.com/accounts/oauth/authorize?${params.toString()}`
-  }
-
 
   const handleLogout = () => {
     localStorage.removeItem('faceit_user')
@@ -108,10 +97,11 @@ const handleLogin = async (e?: React.MouseEvent) => {
       <Button
         type="button"
         onClick={handleLogin}
+        disabled={isPending}
         className="border-orange-500 bg-black/50 text-white flex gap-2"
         variant="outline"
       >
-        <Image src="/images/faceit.png" alt="FACEIT" width={20} height={20} />
+        {isPending ? <Loader2 className="animate-spin" size={20} /> : <Image src="/images/faceit.png" alt="FACEIT" width={20} height={20} />}
         Entrar com FACEIT
       </Button>
     )
@@ -121,31 +111,25 @@ const handleLogin = async (e?: React.MouseEvent) => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="bg-black/50 text-white">
-          <Image
-            src={user.avatar}
-            alt={user.name}
-            width={24}
-            height={24}
-            className="rounded-full mr-2"
-          />
+          {user.avatar ? (
+            <Image src={user.avatar} alt={user.name} width={24} height={24} className="rounded-full mr-2" />
+          ) : (
+            <User size={20} className="mr-2" />
+          )}
           {user.name}
           <ChevronDown size={14} className="ml-2" />
         </Button>
       </DropdownMenuTrigger>
-
-      <DropdownMenuContent className="bg-gray-900 text-white">
+      <DropdownMenuContent className="bg-gray-900 text-white border-gray-800">
         <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/stats?filter=me">
+        <DropdownMenuSeparator className="bg-gray-800" />
+        <DropdownMenuItem asChild className="cursor-pointer focus:bg-gray-800 focus:text-white">
+          <Link href="/stats?filter=me" className="flex items-center w-full">
             <User size={16} className="mr-2" />
             Minhas stats
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={handleLogout}
-          className="text-red-400"
-        >
+        <DropdownMenuItem onClick={handleLogout} className="text-red-400 cursor-pointer focus:bg-gray-800 focus:text-red-400">
           <LogOut size={16} className="mr-2" />
           Sair
         </DropdownMenuItem>
