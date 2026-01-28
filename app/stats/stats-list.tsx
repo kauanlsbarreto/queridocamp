@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import PremiumCard from "@/components/premium-card";
 import { Trophy, ChevronDown, ExternalLink } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 const tabs = ["Pote 1", "Pote 2", "Pote 3", "Pote 4", "Pote 5", "MVP"];
 
@@ -31,6 +32,18 @@ const PlayerAvatar = ({ src, alt }: { src?: string; alt: string }) => {
 export default function StatsList({ allStats }: { allStats: any[] }) {
   const [activeTab, setActiveTab] = useState<string>("Pote 1");
   const [selectedRound, setSelectedRound] = useState<string>("Geral");
+  const searchParams = useSearchParams();
+  const filterMe = searchParams.get('filter') === 'me';
+  const [myNick, setMyNick] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('faceit_user');
+      if (saved) {
+        setMyNick(JSON.parse(saved).name);
+      }
+    }
+  }, []);
 
   const TOTAL_ROUNDS = 17;
 
@@ -71,6 +84,11 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
       return valAD - valBD;
     });
 
+    if (filterMe) {
+      if (!myNick) return [];
+      return sorted.filter(p => p.nick?.toLowerCase() === myNick.toLowerCase());
+    }
+
     if (activeTab === "MVP") return sorted.slice(0, 1);
     
     const poteNum = parseInt(activeTab.split(" ")[1]);
@@ -82,6 +100,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
 
   return (
     <div className="space-y-8">
+      {!filterMe && (
       <div className="flex flex-col lg:flex-row items-center justify-between gap-6 bg-white/5 p-4 rounded-xl border border-white/10 shadow-2xl">
         <div className="flex flex-wrap justify-center gap-2">
           {tabs.map((tab) => (
@@ -113,6 +132,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
           <ChevronDown className="absolute right-4 top-3.5 text-gold pointer-events-none" size={18} />
         </div>
       </div>
+      )}
 
       {/* Grid de Jogadores */}
       <div className={activeTab === "MVP" ? "max-w-xl mx-auto" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"}>
@@ -136,7 +156,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                 className="relative"
               >
                 {/* Ranking Badge */}
-                {activeTab !== "MVP" && k > 0 && (
+                {activeTab !== "MVP" && !filterMe && k > 0 && (
                   <div className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full flex items-center justify-center font-black text-xs shadow-2xl border-2 ${
                     index === 0 ? "bg-gold text-black border-yellow-200" : 
                     index === 1 ? "bg-slate-300 text-black border-white" :
