@@ -43,9 +43,34 @@ interface MatchDetails {
             }
         }[]
     };
+    voting?: {
+        map?: {
+            pick?: string[];
+        };
+    };
+    maps?: string[];
 }
 
 const API_KEY_FACEIT = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
+
+const getCalculatedSeriesScore = (match: MatchDetails) => {
+    let f1 = 0;
+    let f2 = 0;
+    if (match.stats?.rounds) {
+        match.stats.rounds.forEach(r => {
+            const parts = r.round_stats.Score.split(' / ');
+            if (parts.length === 2) {
+                const s1 = parseInt(parts[0], 10);
+                const s2 = parseInt(parts[1], 10);
+                if (!isNaN(s1) && !isNaN(s2)) {
+                    if (s1 > s2) f1++;
+                    else if (s2 > s1) f2++;
+                }
+            }
+        });
+    }
+    return { faction1: f1, faction2: f2 };
+};
 
 const HUB_IDS = [
     "fdd5221c-408c-4148-bc63-e2940da4a490",
@@ -62,6 +87,60 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
     const [isTwitch1Live] = useState(true);
     const [isTwitch2Live] = useState(true);
 
+    const fetchFaceitMatches = async () => {
+        setLoading(true);
+        try {
+            const hubPromises = HUB_IDS.map(hubId => 
+                fetch(`https://open.faceit.com/data/v4/hubs/${hubId}/matches?type=ongoing&limit=15`, {
+                    headers: { 'Authorization': `Bearer ${API_KEY_FACEIT}` }
+                }).then(res => res.json())
+            );
+
+            const hubResults = await Promise.all(hubPromises);
+            const allOngoingItems = hubResults.flatMap(data => data.items || []);
+
+            if (allOngoingItems.length > 0) {
+                const detailPromises = allOngoingItems.map((m: any) =>
+                    fetch(`https://open.faceit.com/data/v4/matches/${m.match_id}`, {
+                        headers: { 'Authorization': `Bearer ${API_KEY_FACEIT}` }
+                    }).then(r => r.json())
+                );
+                
+                const details = await Promise.all(detailPromises);
+                const activeMatches = details.filter(match => 
+                    match && (match.status === 'ONGOING' || match.status === 'READY')
+                );
+
+                const matchesWithStats = await Promise.all(activeMatches.map(async (match: any) => {
+                    try {
+                        const statsRes = await fetch(`https://open.faceit.com/data/v4/matches/${match.match_id}/stats`, {
+                            headers: { 'Authorization': `Bearer ${API_KEY_FACEIT}` }
+                        });
+                        if (statsRes.ok) {
+                            const stats = await statsRes.json();
+                            return { ...match, stats };
+                        }
+                    } catch (e) {
+                        console.error("Erro ao buscar stats:", e);
+                    }
+                    return match;
+                }));
+
+                setMatches(matchesWithStats);
+                return matchesWithStats;
+            } else {
+                setMatches([]);
+                return [];
+            }
+        } catch (e) {
+            console.error("Erro ao sincronizar com as hubs:", e);
+            setMatches([]);
+            return [];
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
@@ -76,7 +155,11 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
         sessionStorage.setItem("QC_navCount", newCount.toString());
 
         if (newCount > 0 && newCount % 2 === 0) {
-            setInternalOpen(true);
+            fetchFaceitMatches().then(data => {
+                if (data && data.length > 0) {
+                    setInternalOpen(true);
+                }
+            });
         }
     }, [pathname]);
 
@@ -90,58 +173,11 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
     useEffect(() => {
         if (!show) return;
 
-        const fetchFaceitMatches = async () => {
-            setLoading(true);
-            try {
-                const hubPromises = HUB_IDS.map(hubId => 
-                    fetch(`https://open.faceit.com/data/v4/hubs/${hubId}/matches?type=ongoing&limit=15`, {
-                        headers: { 'Authorization': `Bearer ${API_KEY_FACEIT}` }
-                    }).then(res => res.json())
-                );
-
-                const hubResults = await Promise.all(hubPromises);
-                const allOngoingItems = hubResults.flatMap(data => data.items || []);
-
-                if (allOngoingItems.length > 0) {
-                    const detailPromises = allOngoingItems.map((m: any) =>
-                        fetch(`https://open.faceit.com/data/v4/matches/${m.match_id}`, {
-                            headers: { 'Authorization': `Bearer ${API_KEY_FACEIT}` }
-                        }).then(r => r.json())
-                    );
-                    
-                    const details = await Promise.all(detailPromises);
-                    const activeMatches = details.filter(match => 
-                        match && (match.status === 'ONGOING' || match.status === 'READY')
-                    );
-
-                    const matchesWithStats = await Promise.all(activeMatches.map(async (match: any) => {
-                        try {
-                            const statsRes = await fetch(`https://open.faceit.com/data/v4/matches/${match.match_id}/stats`, {
-                                headers: { 'Authorization': `Bearer ${API_KEY_FACEIT}` }
-                            });
-                            if (statsRes.ok) {
-                                const stats = await statsRes.json();
-                                return { ...match, stats };
-                            }
-                        } catch (e) {
-                            console.error("Erro ao buscar stats:", e);
-                        }
-                        return match;
-                    }));
-
-                    setMatches(matchesWithStats);
-                } else {
-                    setMatches([]);
-                }
-            } catch (e) {
-                console.error("Erro ao sincronizar com as hubs:", e);
-                setMatches([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchFaceitMatches();
+        // Se abriu manualmente (isOpen) e não tem dados, busca.
+        if (matches.length === 0) {
+            fetchFaceitMatches();
+        }
+        
         const interval = setInterval(fetchFaceitMatches, 45000);
         return () => clearInterval(interval);
 
@@ -200,25 +236,90 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
                                     </div>
 
                                     {/* Score */}
-                                    <div className="flex flex-col items-center justify-center">
-                                        <div className="bg-black/80 px-4 py-1.5 rounded border border-gold/40">
-                                            <span className="text-xl font-black text-gold tabular-nums">
-                                                {match.results?.score ? `${match.results.score.faction1} - ${match.results.score.faction2}` : "0 - 0"}
-                                            </span>
-                                        </div>
-                                        {match.stats?.rounds && match.stats.rounds.length > 0 && (
-                                            <div className="mt-2 flex flex-col gap-1 items-center">
-                                                {match.stats.rounds.map((round, idx) => (
-                                                    <span key={idx} className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
-                                                        {round.round_stats?.Map}: <span className="text-white">{round.round_stats?.Score}</span>
+                                    <div className="flex flex-col items-center justify-center w-1/3">
+                                        {(() => {
+                                            const isBo3 = match.voting?.map?.pick && match.voting.map.pick.length > 1;
+                                            const hasFinishedMaps = match.stats?.rounds && match.stats.rounds.length > 0;
+                                            const finishedMapsCount = match.stats?.rounds?.length || 0;
+                                            
+                                            const resultScore = match.results?.score || { faction1: 0, faction2: 0 };
+                                            const calculatedSeries = getCalculatedSeriesScore(match);
+                                            
+                                            // Se for BO3 e tiver mapas finalizados, verificamos se o placar da API é o da série
+                                            const isSeriesScore = isBo3 && hasFinishedMaps && 
+                                                (resultScore.faction1 === calculatedSeries.faction1 && resultScore.faction2 === calculatedSeries.faction2);
+
+                                            if (hasFinishedMaps && match.status === 'ONGOING') {
+                                                return (
+                                                    <div className="bg-black/80 px-2 py-1.5 rounded border border-gold/40 mb-2 flex flex-col items-center min-w-[90px]">
+                                                        <span className="text-[7px] text-gray-400 uppercase tracking-widest mb-0.5 font-bold">
+                                                            {finishedMapsCount === 1 ? "MAPA 2" : "MAPA 3"}
+                                                        </span>
+                                                        <span className="text-[9px] font-black text-gold leading-tight text-center">
+                                                            VER NA FACEIT
+                                                        </span>
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <div className="bg-black/80 px-4 py-1.5 rounded border border-gold/40 mb-2 flex flex-col items-center min-w-[90px]">
+                                                    <span className="text-[7px] text-gray-400 uppercase tracking-widest mb-0.5 font-bold">
+                                                        {isSeriesScore && match.status !== 'ONGOING' ? "PLACAR SÉRIE" : "ROUNDS"}
                                                     </span>
-                                                ))}
-                                            </div>
-                                        )}
+                                                    <span className="text-xl font-black text-gold tabular-nums leading-none">
+                                                        {`${resultScore.faction1} - ${resultScore.faction2}`}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
+                                        
+                                        <div className="flex flex-col gap-1 w-full px-1">
+                                            {(() => {
+                                                const picks = match.voting?.map?.pick || match.maps || [];
+                                                const finishedMapsCount = match.stats?.rounds?.length || 0;
+                                                
+                                                if (picks.length > 0) {
+                                                    return picks.map((mapName, idx) => {
+                                                        const stats = match.stats?.rounds?.find(r => 
+                                                            r.round_stats?.Map === mapName || 
+                                                            r.round_stats?.Map.replace('de_', '') === mapName.replace('de_', '')
+                                                        );
+                                                        
+                                                        let score = stats ? stats.round_stats.Score.replace(" / ", " - ") : "-";
+
+                                                        const pickedBy = match.voting?.map?.pick ? (idx === 0 ? match.teams.faction1.name : (idx === 1 ? match.teams.faction2.name : "Decider")) : null;
+                                                        const isCurrent = idx === finishedMapsCount && match.status === 'ONGOING';
+                                                        
+                                                        return (
+                                                            <div key={idx} className={`flex flex-col items-center bg-black/40 rounded p-1 border ${isCurrent ? 'border-gold/60 shadow-[0_0_8px_rgba(255,215,0,0.15)]' : 'border-white/5'}`}>
+                                                                <div className="flex justify-between w-full text-[9px] font-bold uppercase text-gray-300">
+                                                                    <span className={isCurrent ? "text-gold" : ""}>{mapName.replace('de_', '')}</span>
+                                                                    <span className={score !== "-" ? "text-white" : "text-gray-500"}>{score}</span>
+                                                                </div>
+                                                                {pickedBy && (
+                                                                    <span className="text-[7px] text-gold/50 uppercase tracking-wider truncate max-w-full">
+                                                                        {pickedBy === "Decider" ? "Decider" : `Pick: ${pickedBy}`}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    });
+                                                } else {
+                                                    return match.stats?.rounds?.map((round, idx) => (
+                                                        <div key={idx} className="flex justify-between w-full text-[9px] font-bold uppercase text-gray-300 bg-black/40 rounded p-1 border border-white/5 px-1">
+                                                            <span>{round.round_stats?.Map.replace('de_', '')}</span>
+                                                            <span className="text-white">{round.round_stats?.Score.replace(" / ", " - ")}</span>
+                                                        </div>
+                                                    ));
+                                                }
+                                            })()}
+                                        </div>
+
                                         <a 
                                             href={`https://www.faceit.com/pt/${match.game}/room/${match.match_id}`} 
                                             target="_blank" 
-                                            className="mt-3 text-[10px] flex items-center gap-1 text-gray-400 hover:text-gold transition-colors font-bold uppercase tracking-widest"
+                                            className="mt-2 text-[9px] flex items-center gap-1 text-gray-400 hover:text-gold transition-colors font-bold uppercase tracking-widest"
                                         >
                                             SALA <ExternalLink size={10} />
                                         </a>
