@@ -17,7 +17,7 @@ export default function Callback() {
     const code_verifier = localStorage.getItem('faceit_code_verifier')
 
     if (!code || !code_verifier) {
-      console.error('Código ou verifier ausentes')
+      console.error('Código ou verifier ausentes no localStorage')
       router.push('/')
       return
     }
@@ -32,7 +32,8 @@ export default function Callback() {
 
         if (!res.ok) {
           const errorData = await res.json()
-          throw new Error(JSON.stringify(errorData))
+          console.error('Erro na API:', errorData)
+          throw new Error('Falha na troca do token')
         }
 
         const user = await res.json()
@@ -40,22 +41,24 @@ export default function Callback() {
         localStorage.setItem('faceit_user', JSON.stringify(user))
 
         if (window.opener) {
-          window.opener.postMessage({ faceitUser: user }, window.location.origin);
+          window.opener.postMessage({ faceitUser: user }, window.location.origin)
           
-          window.opener.dispatchEvent(new Event('faceit_auth_updated'));
+          window.opener.dispatchEvent(new Event('faceit_auth_updated'))
           
-          const returnUrl = localStorage.getItem('faceit_return_url') || '/';
-          window.opener.location.href = returnUrl;
+          const returnUrl = localStorage.getItem('faceit_return_url') || '/'
           
-          localStorage.removeItem('faceit_return_url');
-          localStorage.removeItem('faceit_code_verifier');
-          window.close();
+          localStorage.removeItem('faceit_code_verifier')
+          localStorage.removeItem('faceit_return_url')
+
+          // 5. Redireciona a página de fundo e fecha o popup atual
+          window.opener.location.href = returnUrl
+          window.close() 
         } else {
           window.location.replace('/')
         }
 
       } catch (err) {
-        console.error('Erro no Callback:', err)
+        console.error('Erro no processo de callback:', err)
         router.push('/')
       }
     }
