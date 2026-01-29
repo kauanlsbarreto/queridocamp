@@ -72,7 +72,7 @@ const Navbar = () => {
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="md:hidden mt-4 glass-gold rounded-2xl p-6 space-y-4"
+            className="md:hidden mt-4 glass-gold rounded-2xl p-6 flex flex-col space-y-4 max-h-[80vh] overflow-y-auto"
           >
             <NavLink href="/">Home</NavLink>
             <NavLink href="/galeria">Galeria</NavLink>
@@ -82,11 +82,12 @@ const Navbar = () => {
             <NavLink href="/stats">Estatísticas</NavLink>
             <NavLink href="/classificacao">Classificação</NavLink>
             <NavLink href="/rodadas">Rodadas</NavLink>
+            <NavLink href="/redondo">Redondo</NavLink>
             <NavLink href="/premiacao">Premiação</NavLink>
 
-        <div className="flex items-center gap-4 ml-10 border-l border-white/10 pl-6">
-          <FaceitLogin key={authKey} />
-        </div>
+            <div className="flex items-center justify-center pt-4 border-t border-white/10">
+              <FaceitLogin key={authKey} />
+            </div>
           </motion.div>
         )}
       </div>

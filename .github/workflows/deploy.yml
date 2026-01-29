@@ -16,9 +16,9 @@ jobs:
           script: |
             cd /home/ubuntu/front-end && git pull origin main && cd ..
             
-            docker compose up -d --build --force-recreate
+            docker compose up -d --build
             
             docker image prune -f
             
-            sleep 10
+            sleep 5
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"

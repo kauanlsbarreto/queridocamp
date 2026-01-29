@@ -51,19 +51,22 @@ const FaceitLogin = () => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data && event.data.faceitUser) {
         const userData = event.data.faceitUser
-        setUser(userData)
         localStorage.setItem('faceit_user', JSON.stringify(userData))
+        setUser(userData)
+        window.dispatchEvent(new Event('faceit_auth_updated'))
       }
     }
 
     window.addEventListener('message', handleMessage)
     window.addEventListener('storage', syncUser)
     window.addEventListener('faceit_auth_updated', syncUser)
+    window.addEventListener('focus', syncUser)
 
     return () => {
       window.removeEventListener('message', handleMessage)
       window.removeEventListener('storage', syncUser)
       window.removeEventListener('faceit_auth_updated', syncUser)
+      window.removeEventListener('focus', syncUser)
     }
   }, [syncUser])
 
@@ -71,6 +74,7 @@ const FaceitLogin = () => {
     localStorage.removeItem('faceit_user')
     localStorage.removeItem('faceit_token')
     setUser(null)
+    window.dispatchEvent(new Event('faceit_auth_updated'))
   }
 
   const handleLogin = async () => {
