@@ -9,10 +9,23 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SERVER_IP }}     # Cadastre o IP nos secrets também
-          username: "ubuntu"                 # Usuário padrão do Lightsail Ubuntu
+          host: ${{ secrets.SERVER_IP }}
+          username: "ubuntu"
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Comandos para atualizar
-            cd /home/ubuntu
-            ./atualizar_frontend.sh
+            # Entra na pasta, puxa o código novo e volta
+            cd /home/ubuntu/front-end && git pull origin main && cd ..
+            
+            # --- COMANDOS PARA NÃO TRAVAR E ATUALIZAR O SITE ---
+            
+            # 1. Limpa a cache de builds antigos para liberar RAM
+            docker builder prune -a -f
+            
+            # 2. Para os containers para liberar memória para o novo build
+            docker-compose down
+            
+            # 3. Reconstrói o container com o código novo (forçando atualização)
+            docker-compose up --build --force-recreate -d
+            
+            # 4. Limpeza de imagens antigas
+            docker image prune -f
