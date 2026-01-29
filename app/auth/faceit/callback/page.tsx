@@ -14,9 +14,9 @@ export default function Callback() {
     executed.current = true
 
     const code = params.get('code')
-    const code_verifier = localStorage.getItem('faceit_code_verifier')
+    const codeVerifier = localStorage.getItem('faceit_code_verifier')
 
-    if (!code || !code_verifier) {
+    if (!code || !codeVerifier) {
       console.error('Código ou verifier ausentes')
       router.push('/')
       return
@@ -27,7 +27,7 @@ export default function Callback() {
         const res = await fetch('/api/auth/faceit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, code_verifier }),
+          body: JSON.stringify({ code, codeVerifier }),
         })
 
         if (!res.ok) throw new Error('Falha na troca do token')
