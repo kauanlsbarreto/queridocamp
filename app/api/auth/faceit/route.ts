@@ -1,12 +1,9 @@
+// api/auth/faceit/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
-    const { code, codeVerifier } = await req.json()
-
-    if (!code || !codeVerifier) {
-      return NextResponse.json({ error: 'Code and codeVerifier are required' }, { status: 400 })
-    }
+    const { code, code_verifier } = await req.json() 
 
     const clientId = '6104e222-cee5-4c67-90c0-035196f28528'
     const clientSecret = 'gEgxmcKLvU5NxH6bGKBOFo4q8L2deM8TzTWPsaGp'
@@ -18,7 +15,7 @@ export async function POST(req: NextRequest) {
     formData.append('grant_type', 'authorization_code')
     formData.append('code', code)
     formData.append('redirect_uri', redirectUri)
-    formData.append('code_verifier', codeVerifier)
+    formData.append('code_verifier', code_verifier)
 
     const tokenRes = await fetch('https://api.faceit.com/auth/v1/oauth/token', {
       method: 'POST',
@@ -30,12 +27,22 @@ export async function POST(req: NextRequest) {
     })
 
     const tokenData = await tokenRes.json()
+    if (!tokenRes.ok) return NextResponse.json({ error: tokenData }, { status: tokenRes.status })
 
-    if (!tokenRes.ok) {
-      return NextResponse.json({ error: tokenData }, { status: tokenRes.status })
-    }
+    const userRes = await fetch('https://api.faceit.com/auth/v1/resources/userinfo', {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
+    })
 
-    return NextResponse.json(tokenData)
+    const userInfo = await userRes.json()
+
+    return NextResponse.json({
+      nickname: userInfo.nickname,
+      avatar: userInfo.picture, 
+      guid: userInfo.guid
+    })
+    
   } catch (err) {
     console.error(err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

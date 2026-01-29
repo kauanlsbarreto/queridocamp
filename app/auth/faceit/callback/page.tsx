@@ -38,12 +38,15 @@ export default function Callback() {
         
 
         if (window.opener) {
-          window.opener.postMessage({ faceitUser: user }, window.location.origin)
+          window.opener.postMessage({ faceitUser: user }, window.location.origin);
           
-          window.opener.dispatchEvent(new Event('faceit_auth_updated'))
+          const returnUrl = localStorage.getItem('faceit_return_url') || window.opener.location.pathname;
           
-          localStorage.removeItem('faceit_code_verifier')
-          window.close() 
+          window.opener.location.href = returnUrl;
+          
+          localStorage.removeItem('faceit_return_url');
+          localStorage.removeItem('faceit_code_verifier');
+          window.close();
         } else {
           window.location.replace('/')
         }

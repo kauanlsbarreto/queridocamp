@@ -49,9 +49,11 @@ const FaceitLogin = () => {
     syncUser()
 
     const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+
       if (event.data && event.data.faceitUser) {
         const userData = event.data.faceitUser
-        setUser(userData)
+        setUser(userData) 
         localStorage.setItem('faceit_user', JSON.stringify(userData))
         window.dispatchEvent(new Event('faceit_auth_updated'))
       }
@@ -76,6 +78,7 @@ const FaceitLogin = () => {
   }
 
   const handleLogin = async () => {
+    localStorage.setItem('faceit_return_url', window.location.pathname);
     const clientId = '6104e222-cee5-4c67-90c0-035196f28528';
     const redirectUri = 'https://queridocamp.com.br/faceit/callback';
 
