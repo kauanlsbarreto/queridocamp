@@ -48,18 +48,8 @@ const FaceitLogin = () => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data && event.data.faceitUser) {
         const userData = event.data.faceitUser
-        
-        const profile: UserProfile = {
-          nickname: userData.nickname,
-          avatar: userData.avatar || ''
-        }
-
-        localStorage.setItem('faceit_user', JSON.stringify(profile))
-        if (userData.accessToken) {
-          localStorage.setItem('faceit_token', userData.accessToken)
-        }
-        
-        setUser(profile)
+        setUser(userData)
+        localStorage.setItem('faceit_user', JSON.stringify(userData))
         window.dispatchEvent(new Event('storage')) 
       }
     }
