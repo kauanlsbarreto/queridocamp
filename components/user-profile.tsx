@@ -34,10 +34,12 @@ export const UserProfile = ({
       <DropdownMenuContent>
         <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <a href="/minhas-partidas">Minhas Partidas</a>
+        <DropdownMenuItem asChild>
+          <a href="/stats" className="w-full cursor-pointer">Minhas Stats</a>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onLogout}>Sair</DropdownMenuItem>
+        <DropdownMenuItem onClick={onLogout} className="cursor-pointer">
+          Sair
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

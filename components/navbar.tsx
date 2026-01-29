@@ -10,9 +10,13 @@ import FaceitLogin from './FaceitLogin'
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [authKey, setAuthKey] = useState(0)
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
+    const handleAuthUpdate = () => {
+      setAuthKey(prev => prev + 1)
+    }
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
@@ -49,9 +53,9 @@ const Navbar = () => {
             <NavLink href="/premiacao">Premiação</NavLink>
           </div>
           <div className="flex items-center gap-4">
-            <div className="hidden md:flex">
-              <FaceitLogin />
-            </div>
+          <div className="ml-8"> 
+                <FaceitLogin key={authKey} />
+              </div>
             <div className="md:hidden">
               <button
                 type="button"
@@ -80,9 +84,9 @@ const Navbar = () => {
             <NavLink href="/rodadas">Rodadas</NavLink>
             <NavLink href="/premiacao">Premiação</NavLink>
 
-            <div className="pt-4 flex justify-center">
-              <FaceitLogin />
-            </div>
+        <div className="flex items-center gap-4 ml-10 border-l border-white/10 pl-6">
+          <FaceitLogin key={authKey} />
+        </div>
           </motion.div>
         )}
       </div>

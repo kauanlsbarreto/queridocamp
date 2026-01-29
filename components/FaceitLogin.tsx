@@ -58,10 +58,12 @@ const FaceitLogin = () => {
 
     window.addEventListener('message', handleMessage)
     window.addEventListener('storage', syncUser)
+    window.addEventListener('faceit_auth_updated', syncUser)
 
     return () => {
       window.removeEventListener('message', handleMessage)
       window.removeEventListener('storage', syncUser)
+      window.removeEventListener('faceit_auth_updated', syncUser)
     }
   }, [syncUser])
 
