@@ -1,9 +1,7 @@
-"use client"
-
 import { useState, useEffect } from "react"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import Image from "next/image"
-import { Lock, Shield, AlertCircle, CheckCircle, Eye } from "lucide-react"
+import { Lock, Shield, AlertCircle, CheckCircle, Eye, X } from "lucide-react"
 import FaceitLogin from "../../components/FaceitLogin" // Certifique-se que o caminho está certo
 
 interface TeamPick {
@@ -17,7 +15,7 @@ interface UserProfile {
   avatar: string;
 }
 
-const ADMINS = ["Den1nh00", "0588KSh4y-_-"];
+const ADMINS = ["Den1nh00", "0588KSh4y-_-", "Smk_T1"];
 
 export default function PickEmClient({ initialTeams, usersWithPicks }: { initialTeams: TeamPick[], usersWithPicks: string[] }) {
   const [user, setUser] = useState<UserProfile | null>(null)
@@ -106,7 +104,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
   }
 
   // 3. Salvar escolha no banco
-  const savePickToDb = async (slotIndex: number, team: TeamPick) => {
+  const savePickToDb = async (slotIndex: number, team: TeamPick | null) => {
     if (!user || isViewingOther) return
     try {
       await fetch('/api/picks', {
@@ -123,6 +121,23 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
       console.error("Erro ao salvar pick:", error)
       // Opcional: Reverter estado visual se der erro
     }
+  }
+
+  // Função para remover um time do slot
+  const removePick = (slotIndex: number) => {
+    if (!user || isLocked || isViewingOther) return
+    
+    const teamToRemove = qualifiedTeams[slotIndex]
+    if (!teamToRemove) return
+
+    const newQualified = [...qualifiedTeams]
+    newQualified[slotIndex] = null
+    setQualifiedTeams(newQualified)
+
+    const newAvailable = [...availableTeams, teamToRemove]
+    setAvailableTeams(newAvailable)
+
+    savePickToDb(slotIndex, null)
   }
 
   // 4. Confirmar escolhas (Bloquear)
@@ -154,6 +169,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
     const slotIndex = parseInt(destination.droppableId.replace("slot-", ""))
 
     const movedTeam = availableTeams[source.index]
+    const previousTeam = qualifiedTeams[slotIndex]
 
     // Atualiza visualmente (Otimista)
     const newQualified = [...qualifiedTeams]
@@ -162,6 +178,12 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
 
     const newAvailable = Array.from(availableTeams)
     newAvailable.splice(source.index, 1)
+    
+    // Se já havia um time no slot, devolve ele para a lista de disponíveis (Troca)
+    if (previousTeam) {
+      newAvailable.push(previousTeam)
+    }
+
     setAvailableTeams(newAvailable)
 
     // Salva no banco
@@ -299,16 +321,28 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
                         }`}
                       >
                         {team ? (
-                          <div className="flex flex-col items-center animate-in zoom-in duration-300">
+                          <div className="flex flex-col items-center animate-in zoom-in duration-300 relative group">
+                            {/* Botão de remover (só aparece se não estiver bloqueado) */}
+                            {!isLocked && !isViewingOther && (
+                              <button
+                                onClick={() => removePick(index)}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10 hover:bg-red-600"
+                                title="Remover time"
+                              >
+                                <X size={12} />
+                              </button>
+                            )}
                             <div className="relative w-16 h-16 drop-shadow-lg">
                                <Image src={team.team_image} alt={team.team_name} fill className="object-contain" unoptimized />
                             </div>
                             <span className="text-[10px] mt-3 font-bold text-amber-500 uppercase text-center px-1">
                               {team.team_name}
                             </span>
-                            <div className="flex items-center gap-1 mt-1 px-2 py-0.5 bg-black/50 rounded-full">
-                                <Lock size={10} className="text-amber-500" />
-                                <span className="text-[9px] text-zinc-400 font-bold uppercase">Escolhido</span>
+                            <div className={`flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full ${isLocked ? "bg-black/50" : "bg-zinc-800/50"}`}>
+                                {isLocked ? <Lock size={10} className="text-amber-500" /> : <CheckCircle size={10} className="text-zinc-500" />}
+                                <span className={`text-[9px] font-bold uppercase ${isLocked ? "text-zinc-400" : "text-zinc-500"}`}>
+                                  {isLocked ? "Confirmado" : "Selecionado"}
+                                </span>
                             </div>
                           </div>
                         ) : (
