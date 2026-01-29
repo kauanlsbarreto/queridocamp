@@ -92,7 +92,6 @@ const FaceitLogin = () => {
     window.open(url.toString(), 'FaceitLogin', `width=${width},height=${height},top=${top},left=${left}`)
   }
 
-
   if (loading) return <div className="w-10 h-10 animate-pulse bg-white/10 rounded-full" />
   return (
     <div className="flex items-center">
