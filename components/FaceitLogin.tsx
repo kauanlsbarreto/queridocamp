@@ -49,19 +49,16 @@ const FaceitLogin = () => {
     syncUser()
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-
       if (event.data && event.data.faceitUser) {
         const userData = event.data.faceitUser
-        setUser(userData) 
+        setUser(userData)
         localStorage.setItem('faceit_user', JSON.stringify(userData))
-        window.dispatchEvent(new Event('faceit_auth_updated'))
       }
     }
 
     window.addEventListener('message', handleMessage)
     window.addEventListener('storage', syncUser)
-    window.addEventListener('faceit_auth_updated', syncUser) 
+    window.addEventListener('faceit_auth_updated', syncUser)
 
     return () => {
       window.removeEventListener('message', handleMessage)
@@ -73,7 +70,6 @@ const FaceitLogin = () => {
   const handleLogout = () => {
     localStorage.removeItem('faceit_user')
     localStorage.removeItem('faceit_token')
-    window.dispatchEvent(new Event('faceit_auth_updated'))
     setUser(null)
   }
 
@@ -81,27 +77,24 @@ const FaceitLogin = () => {
     const clientId = '6104e222-cee5-4c67-90c0-035196f28528';
     const redirectUri = 'https://queridocamp.com.br/faceit/callback';
 
-    localStorage.setItem('faceit_return_url', window.location.pathname);
+    const codeVerifier = generateRandomString(128)
+    localStorage.setItem('faceit_code_verifier', codeVerifier)
+    const codeChallenge = await generateCodeChallenge(codeVerifier)
 
-    const codeVerifier = generateRandomString(128);
-    localStorage.setItem('faceit_code_verifier', codeVerifier); // O segredo está aqui
+    const url = new URL('https://accounts.faceit.com/accounts/dialog/oauth')
+    url.searchParams.set('response_type', 'code')
+    url.searchParams.set('client_id', clientId)
+    url.searchParams.set('redirect_uri', redirectUri)
+    url.searchParams.set('code_challenge', codeChallenge)
+    url.searchParams.set('code_challenge_method', 'S256')
+    url.searchParams.set('scope', 'openid email profile')
+
+    const width = 600
+    const height = 700
+    const left = window.screen.width / 2 - width / 2
+    const top = window.screen.height / 2 - height / 2
     
-    const codeChallenge = await generateCodeChallenge(codeVerifier);
-
-    const url = new URL('https://accounts.faceit.com/accounts/dialog/oauth');
-    url.searchParams.set('response_type', 'code');
-    url.searchParams.set('client_id', clientId);
-    url.searchParams.set('redirect_uri', redirectUri);
-    url.searchParams.set('code_challenge', codeChallenge);
-    url.searchParams.set('code_challenge_method', 'S256');
-    url.searchParams.set('scope', 'openid email profile');
-
-    const width = 600;
-    const height = 700;
-    const left = window.screen.width / 2 - width / 2;
-    const top = window.screen.height / 2 - height / 2;
-    
-    window.open(url.toString(), 'FaceitLogin', `width=${width},height=${height},top=${top},left=${left}`);
+    window.open(url.toString(), 'FaceitLogin', `width=${width},height=${height},top=${top},left=${left}`)
   }
 
   if (loading) return <div className="w-10 h-10 animate-pulse bg-white/10 rounded-full" />
