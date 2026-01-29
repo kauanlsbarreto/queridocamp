@@ -2,13 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { code, code_verifier } = body
+    // Tenta ler o corpo da requisição de forma segura
+    const body = await req.json().catch(() => ({}));
+    const { code, code_verifier } = body;
 
-    // Validação rigorosa dos parâmetros recebidos
+    // Log para o terminal do servidor (VS Code)
+    console.log("API RECEBIDO:", { hasCode: !!code, hasVerifier: !!code_verifier });
+
     if (!code || !code_verifier) {
       return NextResponse.json(
-        { error: 'Faltam parâmetros code ou code_verifier no corpo da requisição' }, 
+        { 
+            error: 'Faltam parâmetros code ou code_verifier no corpo da requisição',
+            debug: { codeReceived: !!code, verifierReceived: !!code_verifier }
+        }, 
         { status: 400 }
       )
     }
@@ -29,7 +35,7 @@ export async function POST(req: NextRequest) {
     const tokenRes = await fetch('https://api.faceit.com/auth/v1/oauth/token', {
       method: 'POST',
       headers: {
-        Authorization: authHeader,
+        'Authorization': authHeader,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: formData.toString(),
@@ -38,28 +44,27 @@ export async function POST(req: NextRequest) {
     const tokenData = await tokenRes.json()
     
     if (!tokenRes.ok) {
-      return NextResponse.json({ error: 'Erro ao obter token da FACEIT', details: tokenData }, { status: tokenRes.status })
+      return NextResponse.json({ error: 'Erro FACEIT Token', details: tokenData }, { status: tokenRes.status })
     }
 
-    // 2. Busca informações do perfil (Nickname e Foto)
-    // Isso evita que o frontend fique com dados vazios logo após o login
+    // 2. Busca informações do perfil
     const userRes = await fetch('https://api.faceit.com/auth/v1/resources/userinfo', {
       headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
+        'Authorization': `Bearer ${tokenData.access_token}`,
       },
     })
 
     const userInfo = await userRes.json()
 
-    // Retorna o objeto formatado para o componente UserProfile
+    // Retorna os dados para o UserProfile
     return NextResponse.json({
       nickname: userInfo.nickname,
-      avatar: userInfo.picture, // A FACEIT chama a foto de 'picture'
+      avatar: userInfo.picture || '', 
       guid: userInfo.guid
     })
     
   } catch (err) {
-    console.error('Erro interno na API Auth:', err)
+    console.error('ERRO CRÍTICO API:', err)
     return NextResponse.json({ error: 'Erro interno no servidor' }, { status: 500 })
   }
 }
