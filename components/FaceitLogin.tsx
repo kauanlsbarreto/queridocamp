@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { UserProfile } from './user-profile'
 
-// Funções auxiliares para PKCE (Mantidas conforme seu original)
 const generateRandomString = (length: number) => {
   const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
   let text = ''
@@ -15,6 +14,8 @@ const generateRandomString = (length: number) => {
 }
 
 const generateCodeChallenge = async (codeVerifier: string) => {
+  if (typeof window === 'undefined' || !window.crypto) return ''
+  
   const encoder = new TextEncoder()
   const data = encoder.encode(codeVerifier)
   const digest = await window.crypto.subtle.digest('SHA-256', data)
@@ -25,32 +26,34 @@ const generateCodeChallenge = async (codeVerifier: string) => {
 }
 
 const FaceitLogin = () => {
-  const [user, setUser] = useState<any | null>(null) // Alterado para capturar o objeto completo
+  const [user, setUser] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const syncUser = () => {
-      const session = localStorage.getItem('faceit_user')
-      if (session) {
-        try {
-          setUser(JSON.parse(session))
-        } catch (e) {
-          localStorage.removeItem('faceit_user')
-        }
-      } else {
+  const syncUser = useCallback(() => {
+    if (typeof window === 'undefined') return
+    const session = localStorage.getItem('faceit_user')
+    if (session) {
+      try {
+        setUser(JSON.parse(session))
+      } catch (e) {
+        localStorage.removeItem('faceit_user')
         setUser(null)
       }
-      setLoading(false)
+    } else {
+      setUser(null)
     }
+    setLoading(false)
+  }, [])
 
-    syncUser() 
+  useEffect(() => {
+    syncUser()
 
     const handleMessage = (event: MessageEvent) => {
+      // Adicione uma verificação de origem por segurança se possível
       if (event.data && event.data.faceitUser) {
         const userData = event.data.faceitUser
         setUser(userData)
         localStorage.setItem('faceit_user', JSON.stringify(userData))
-        window.dispatchEvent(new Event('storage')) 
       }
     }
 
@@ -61,7 +64,7 @@ const FaceitLogin = () => {
       window.removeEventListener('message', handleMessage)
       window.removeEventListener('storage', syncUser)
     }
-  }, [])
+  }, [syncUser])
 
   const handleLogout = () => {
     localStorage.removeItem('faceit_user')
@@ -74,7 +77,7 @@ const FaceitLogin = () => {
     const redirectUri = 'https://queridocamp.com.br/faceit/callback'
 
     const codeVerifier = generateRandomString(128)
-    window.localStorage.setItem('faceit_code_verifier', codeVerifier)
+    localStorage.setItem('faceit_code_verifier', codeVerifier)
     const codeChallenge = await generateCodeChallenge(codeVerifier)
 
     const url = new URL('https://accounts.faceit.com/accounts/dialog/oauth')
@@ -89,10 +92,12 @@ const FaceitLogin = () => {
     const height = 700
     const left = window.screen.width / 2 - width / 2
     const top = window.screen.height / 2 - height / 2
+    
     window.open(url.toString(), 'FaceitLogin', `width=${width},height=${height},top=${top},left=${left}`)
   }
 
   if (loading) return <div className="w-10 h-10 animate-pulse bg-white/10 rounded-full" />
+
   return (
     <div className="flex items-center">
       {user ? (
