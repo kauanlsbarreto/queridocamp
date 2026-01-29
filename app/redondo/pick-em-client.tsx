@@ -162,32 +162,55 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
     if (!user || isLocked || isViewingOther) return // Segurança extra e bloqueio
 
     const { source, destination } = result
+    if (!destination) return
 
-    // Se soltou fora ou no mesmo lugar
-    if (!destination || destination.droppableId === "pool") return
+    // 1. Arrastar do Pool para um Slot
+    if (source.droppableId === "pool" && destination.droppableId.startsWith("slot-")) {
+      const slotIndex = parseInt(destination.droppableId.replace("slot-", ""))
+      const movedTeam = availableTeams[source.index]
+      const previousTeam = qualifiedTeams[slotIndex]
 
-    const slotIndex = parseInt(destination.droppableId.replace("slot-", ""))
+      const newQualified = [...qualifiedTeams]
+      newQualified[slotIndex] = movedTeam
+      setQualifiedTeams(newQualified)
 
-    const movedTeam = availableTeams[source.index]
-    const previousTeam = qualifiedTeams[slotIndex]
+      const newAvailable = Array.from(availableTeams)
+      newAvailable.splice(source.index, 1)
+      
+      if (previousTeam) {
+        newAvailable.push(previousTeam)
+      }
 
-    // Atualiza visualmente (Otimista)
-    const newQualified = [...qualifiedTeams]
-    newQualified[slotIndex] = movedTeam
-    setQualifiedTeams(newQualified)
-
-    const newAvailable = Array.from(availableTeams)
-    newAvailable.splice(source.index, 1)
-    
-    // Se já havia um time no slot, devolve ele para a lista de disponíveis (Troca)
-    if (previousTeam) {
-      newAvailable.push(previousTeam)
+      setAvailableTeams(newAvailable)
+      savePickToDb(slotIndex, movedTeam)
+      return
     }
 
-    setAvailableTeams(newAvailable)
+    // 2. Arrastar de um Slot de volta para o Pool (Remover)
+    if (source.droppableId.startsWith("slot-") && destination.droppableId === "pool") {
+      const slotIndex = parseInt(source.droppableId.replace("slot-", ""))
+      removePick(slotIndex)
+      return
+    }
 
-    // Salva no banco
-    savePickToDb(slotIndex, movedTeam)
+    // 3. Arrastar de um Slot para outro Slot (Troca)
+    if (source.droppableId.startsWith("slot-") && destination.droppableId.startsWith("slot-")) {
+      const sourceSlotIndex = parseInt(source.droppableId.replace("slot-", ""))
+      const destSlotIndex = parseInt(destination.droppableId.replace("slot-", ""))
+      
+      if (sourceSlotIndex === destSlotIndex) return
+
+      const sourceTeam = qualifiedTeams[sourceSlotIndex]
+      const destTeam = qualifiedTeams[destSlotIndex]
+
+      const newQualified = [...qualifiedTeams]
+      newQualified[destSlotIndex] = sourceTeam
+      newQualified[sourceSlotIndex] = destTeam
+      setQualifiedTeams(newQualified)
+
+      savePickToDb(destSlotIndex, sourceTeam)
+      savePickToDb(sourceSlotIndex, destTeam)
+    }
   }
 
   return (
@@ -321,30 +344,44 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
                         }`}
                       >
                         {team ? (
-                          <div className="flex flex-col items-center animate-in zoom-in duration-300 relative group">
-                            {/* Botão de remover (só aparece se não estiver bloqueado) */}
-                            {!isLocked && !isViewingOther && (
-                              <button
-                                onClick={() => removePick(index)}
-                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10 hover:bg-red-600"
-                                title="Remover time"
+                          <Draggable key={team.id} draggableId={team.id} index={0} isDragDisabled={isLocked || !!isViewingOther}>
+                            {(dragProvided) => (
+                              <div
+                                ref={dragProvided.innerRef}
+                                {...dragProvided.draggableProps}
+                                {...dragProvided.dragHandleProps}
+                                className="flex flex-col items-center animate-in zoom-in duration-300 relative group w-full h-full justify-center"
                               >
-                                <X size={12} />
-                              </button>
-                            )}
-                            <div className="relative w-16 h-16 drop-shadow-lg">
-                               <Image src={team.team_image} alt={team.team_name} fill className="object-contain" unoptimized />
-                            </div>
-                            <span className="text-[10px] mt-3 font-bold text-amber-500 uppercase text-center px-1">
-                              {team.team_name}
-                            </span>
-                            <div className={`flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full ${isLocked ? "bg-black/50" : "bg-zinc-800/50"}`}>
-                                {isLocked ? <Lock size={10} className="text-amber-500" /> : <CheckCircle size={10} className="text-zinc-500" />}
-                                <span className={`text-[9px] font-bold uppercase ${isLocked ? "text-zinc-400" : "text-zinc-500"}`}>
-                                  {isLocked ? "Confirmado" : "Selecionado"}
+                                {/* Botão de remover (só aparece se não estiver bloqueado) */}
+                                {!isLocked && !isViewingOther && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removePick(index);
+                                    }}
+                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md z-10 hover:bg-red-600"
+                                    title="Remover time"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                )}
+                                <div className="relative w-16 h-16 drop-shadow-lg">
+                                   <Image src={team.team_image} alt={team.team_name} fill className="object-contain" unoptimized />
+                                </div>
+                                <span className="text-[10px] mt-3 font-bold text-amber-500 uppercase text-center px-1">
+                                  {team.team_name}
                                 </span>
-                            </div>
-                          </div>
+                                {isLocked && (
+                                  <div className="flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-black/50">
+                                    <Lock size={10} className="text-amber-500" />
+                                    <span className="text-[9px] font-bold uppercase text-zinc-400">
+                                      Confirmado
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </Draggable>
                         ) : (
                           <span className="text-zinc-800 font-black text-4xl select-none">{index + 1}</span>
                         )}
