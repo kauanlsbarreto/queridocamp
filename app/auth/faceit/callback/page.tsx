@@ -40,14 +40,21 @@ export default function Callback() {
         if (window.opener) {
           window.opener.postMessage({ faceitUser: user }, window.location.origin)
           
-          window.opener.dispatchEvent(new Event('faceit_auth_updated'))
-          
-          localStorage.removeItem('faceit_code_verifier')
-          window.close() 
+          setTimeout(() => {
+            window.close()
+          }, 500)
         } else {
-          window.location.replace('/')
-        }
+          localStorage.setItem('faceit_user', JSON.stringify(user))
+          
+          window.dispatchEvent(new Event("storage"))
 
+          const returnUrl = localStorage.getItem('faceit_return_url') || '/'
+          localStorage.removeItem('faceit_return_url')
+          
+          router.push(returnUrl)
+          }
+          window.localStorage.removeItem('faceit_code_verifier')
+          window.close() 
       } catch (err) {
         console.error(err)
         router.push('/')

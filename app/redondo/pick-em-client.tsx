@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import Image from "next/image"
-import { Lock, Shield, AlertCircle } from "lucide-react"
+import { Lock, Shield, AlertCircle, CheckCircle } from "lucide-react"
 import FaceitLogin from "../../components/FaceitLogin" // Certifique-se que o caminho está certo
 
 interface TeamPick {
@@ -25,6 +25,7 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
   const [availableTeams, setAvailableTeams] = useState<TeamPick[]>(initialTeams)
   // O estado inicial dos slots é vazio
   const [qualifiedTeams, setQualifiedTeams] = useState<(TeamPick | null)[]>(Array(8).fill(null))
+  const [isLocked, setIsLocked] = useState(false)
 
   // 1. Monitorar Login do Usuário
   useEffect(() => {
@@ -39,6 +40,7 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
         // Se deslogar, reseta tudo
         setQualifiedTeams(Array(8).fill(null))
         setAvailableTeams(initialTeams)
+        setIsLocked(false)
       }
     }
 
@@ -75,6 +77,7 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
         }
 
         setQualifiedTeams(savedPicks)
+        setIsLocked(!!data.locked)
         
         // Remove dos times disponíveis aqueles que já foram escolhidos
         const remainingTeams = initialTeams.filter(t => !pickedTeamIds.has(t.id))
@@ -107,8 +110,26 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
     }
   }
 
+  // 4. Confirmar escolhas (Bloquear)
+  const confirmPicks = async () => {
+    if (!user) return
+    const confirm = window.confirm("Tem certeza? Após confirmar, você não poderá mais alterar suas escolhas.")
+    if (!confirm) return
+
+    try {
+      await fetch('/api/picks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'lock', nickname: user.nickname })
+      })
+      setIsLocked(true)
+    } catch (error) {
+      console.error("Erro ao confirmar:", error)
+    }
+  }
+
   const onDragEnd = (result: any) => {
-    if (!user) return // Segurança extra
+    if (!user || isLocked) return // Segurança extra e bloqueio
 
     const { source, destination } = result
 
@@ -116,9 +137,6 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
     if (!destination || destination.droppableId === "pool") return
 
     const slotIndex = parseInt(destination.droppableId.replace("slot-", ""))
-    
-    // Se o slot já está ocupado, não faz nada (TRAVA)
-    if (qualifiedTeams[slotIndex] !== null) return
 
     const movedTeam = availableTeams[source.index]
 
@@ -160,6 +178,24 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
       ) : (
         /* Jogo Real */
         <DragDropContext onDragEnd={onDragEnd}>
+          {/* Botão de Confirmação */}
+          <div className="flex justify-end">
+            {isLocked ? (
+              <div className="flex items-center gap-2 bg-green-500/20 text-green-400 px-6 py-3 rounded-xl border border-green-500/50">
+                <CheckCircle size={20} />
+                <span className="font-bold">Escolhas Confirmadas</span>
+              </div>
+            ) : (
+              <button
+                onClick={confirmPicks}
+                disabled={qualifiedTeams.some(t => t === null)}
+                className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2"
+              >
+                <Lock size={18} /> Confirmar Escolhas
+              </button>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
             {/* Pool de Times Disponíveis */}
@@ -176,7 +212,7 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
                     className="grid grid-cols-3 gap-3"
                   >
                     {availableTeams.map((team, index) => (
-                      <Draggable key={team.id} draggableId={team.id} index={index}>
+                      <Draggable key={team.id} draggableId={team.id} index={index} isDragDisabled={isLocked}>
                         {(provided) => (
                           <div
                             ref={provided.innerRef}
@@ -209,7 +245,7 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {qualifiedTeams.map((team, index) => (
-                  <Droppable key={index} droppableId={`slot-${index}`} isDropDisabled={!!team}> 
+                  <Droppable key={index} droppableId={`slot-${index}`} isDropDisabled={isLocked}> 
                     {(provided, snapshot) => (
                       <div
                         {...provided.droppableProps}
