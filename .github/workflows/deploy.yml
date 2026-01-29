@@ -13,18 +13,8 @@ jobs:
           username: "ubuntu"                 # Usuário padrão do Lightsail Ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Comandos para atualizar
-            sudo pkill -f docker || true
-            sudo service docker restart
-            sleep 10
-            
-            cd /home/ubuntu/front-end
-            git pull origin main
-            
             cd /home/ubuntu
-            
             docker compose up -d postgres_db faceit_api_app ubuntu-nginx-1
-            
-            docker compose up -d front_end_app
-            
-            docker ps
+            docker compose up -d front_end_app &
+            disown
+            echo "Comando enviado. O servidor processará o build em background."
