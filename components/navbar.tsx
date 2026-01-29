@@ -12,14 +12,23 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false)
   const [authKey, setAuthKey] = useState(0)
 
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50)
-    const handleAuthUpdate = () => {
-      setAuthKey(prev => prev + 1)
-    }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+useEffect(() => {
+  const handleScroll = () => setScrolled(window.scrollY > 50)
+  
+  const handleAuthUpdate = () => {
+    setAuthKey(prev => prev + 1)
+  }
+
+  window.addEventListener('scroll', handleScroll)
+  window.addEventListener('faceit_auth_updated', handleAuthUpdate)
+  window.addEventListener('storage', handleAuthUpdate)
+
+  return () => {
+    window.removeEventListener('scroll', handleScroll)
+    window.removeEventListener('faceit_auth_updated', handleAuthUpdate)
+    window.removeEventListener('storage', handleAuthUpdate)
+  }
+}, [])
 
 
 
@@ -39,6 +48,8 @@ const Navbar = () => {
               <Image src="/logo.png" alt="Logo" fill className="object-contain" priority />
             </div>
           </Link>
+          
+
 
           <div className="hidden md:flex space-x-1 items-center glass-gold rounded-2xl px-6 py-2">
             <NavLink href="/">Home</NavLink>
