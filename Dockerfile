@@ -18,7 +18,7 @@ RUN npm run build
 # 2. ESTÁGIO DE PRODUÇÃO (Servidor Node.js)
 # ----------------------------------------
 # Usar uma imagem Node.js leve para o ambiente de execução
-FROM node:18-alpine 
+FROM node:18
 WORKDIR /app
 
 # Copia apenas o que é necessário para a execução:
