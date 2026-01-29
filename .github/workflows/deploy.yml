@@ -2,7 +2,6 @@ name: Deploy Frontend
 on:
   push:
     branches: [ "main" ]
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -10,16 +9,10 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: "ubuntu"
+          host: ${{ secrets.SERVER_IP }}     # Cadastre o IP nos secrets também
+          username: "ubuntu"                 # Usuário padrão do Lightsail Ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            # Comandos para atualizar
             cd /home/ubuntu
-            git pull origin main
-            docker compose build --no-cache front-end
-            docker compose up -d postgres_db
-            sleep 10
-            docker compose up -d faceit_api_app
-            docker compose up -d front_end_app
-            docker compose up -d ubuntu-nginx-1
             ./atualizar_frontend.sh
