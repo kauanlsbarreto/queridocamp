@@ -12,18 +12,13 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: "ubuntu"
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 20m
+          command_timeout: 20m  
           script: |
-            # 1. Entra na pasta e puxa apenas as mudanças do código
             cd /home/ubuntu/front-end && git pull origin main && cd ..
             
-            # 2. SOBE O SITE USANDO CACHE
-            # Removi o 'builder prune' e o '--force-recreate'
-            # O Docker agora só vai reinstalar o que mudou no package.json ou requirements.txt
-            docker compose up -d --build
+            docker compose up -d --build --force-recreate
             
-            # 3. Limpa APENAS o que sobrou (imagens sem nome), sem mexer no cache de build
             docker image prune -f
             
-            sleep 5
-            docker ps --format "table {{.Names}}\t{{.Status}}"
+            sleep 10
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
