@@ -14,5 +14,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             # Comandos para atualizar
-            cd /home/ubuntu
-            ./atualizar_frontend.sh
+            echo "--- Listando pastas em /home/ubuntu ---"
+            ls -F /home/ubuntu
+            
+            echo "--- Localizando o arquivo docker-compose.yml ---"
+            find /home/ubuntu -name "docker-compose.yml"
