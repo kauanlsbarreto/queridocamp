@@ -13,19 +13,17 @@ jobs:
           username: "ubuntu"
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Entra na pasta, puxa o código novo e volta
-            cd /home/ubuntu/front-end && git pull origin main && cd ..
+            sudo pkill -f docker || true
+            sudo service docker restart
+            sleep 10
             
-            # --- COMANDOS PARA NÃO TRAVAR E ATUALIZAR O SITE ---
+            cd /home/ubuntu/front-end
+            git pull origin main
             
-            # 1. Limpa a cache de builds antigos para liberar RAM
-            docker builder prune -a -f
+            cd /home/ubuntu
             
-            # 2. Para os containers para liberar memória para o novo build
-            docker-compose down
+            docker compose up -d postgres_db faceit_api_app ubuntu-nginx-1
             
-            # 3. Reconstrói o container com o código novo (forçando atualização)
-            docker-compose up --build --force-recreate -d
+            docker compose up -d front_end_app
             
-            # 4. Limpeza de imagens antigas
-            docker image prune -f
+            docker ps
