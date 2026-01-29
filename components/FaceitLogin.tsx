@@ -78,28 +78,30 @@ const FaceitLogin = () => {
   }
 
   const handleLogin = async () => {
-    localStorage.setItem('faceit_return_url', window.location.pathname);
     const clientId = '6104e222-cee5-4c67-90c0-035196f28528';
     const redirectUri = 'https://queridocamp.com.br/faceit/callback';
 
-    const codeVerifier = generateRandomString(128)
-    localStorage.setItem('faceit_code_verifier', codeVerifier)
-    const codeChallenge = await generateCodeChallenge(codeVerifier)
+    localStorage.setItem('faceit_return_url', window.location.pathname);
 
-    const url = new URL('https://accounts.faceit.com/accounts/dialog/oauth')
-    url.searchParams.set('response_type', 'code')
-    url.searchParams.set('client_id', clientId)
-    url.searchParams.set('redirect_uri', redirectUri)
-    url.searchParams.set('code_challenge', codeChallenge)
-    url.searchParams.set('code_challenge_method', 'S256')
-    url.searchParams.set('scope', 'openid email profile')
-
-    const width = 600
-    const height = 700
-    const left = window.screen.width / 2 - width / 2
-    const top = window.screen.height / 2 - height / 2
+    const codeVerifier = generateRandomString(128);
+    localStorage.setItem('faceit_code_verifier', codeVerifier); // O segredo está aqui
     
-    window.open(url.toString(), 'FaceitLogin', `width=${width},height=${height},top=${top},left=${left}`)
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+    const url = new URL('https://accounts.faceit.com/accounts/dialog/oauth');
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('client_id', clientId);
+    url.searchParams.set('redirect_uri', redirectUri);
+    url.searchParams.set('code_challenge', codeChallenge);
+    url.searchParams.set('code_challenge_method', 'S256');
+    url.searchParams.set('scope', 'openid email profile');
+
+    const width = 600;
+    const height = 700;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+    
+    window.open(url.toString(), 'FaceitLogin', `width=${width},height=${height},top=${top},left=${left}`);
   }
 
   if (loading) return <div className="w-10 h-10 animate-pulse bg-white/10 rounded-full" />

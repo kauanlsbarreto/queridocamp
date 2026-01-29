@@ -27,21 +27,24 @@ export default function Callback() {
         const res = await fetch('/api/auth/faceit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, code_verifier }),
+          body: JSON.stringify({ code, code_verifier }), 
         })
 
-        if (!res.ok) throw new Error('Falha na troca do token')
+        if (!res.ok) {
+          const errorData = await res.json()
+          throw new Error(JSON.stringify(errorData))
+        }
 
         const user = await res.json()
         
         localStorage.setItem('faceit_user', JSON.stringify(user))
-        
 
         if (window.opener) {
           window.opener.postMessage({ faceitUser: user }, window.location.origin);
           
-          const returnUrl = localStorage.getItem('faceit_return_url') || window.opener.location.pathname;
+          window.opener.dispatchEvent(new Event('faceit_auth_updated'));
           
+          const returnUrl = localStorage.getItem('faceit_return_url') || '/';
           window.opener.location.href = returnUrl;
           
           localStorage.removeItem('faceit_return_url');
@@ -52,7 +55,7 @@ export default function Callback() {
         }
 
       } catch (err) {
-        console.error(err)
+        console.error('Erro no Callback:', err)
         router.push('/')
       }
     }
