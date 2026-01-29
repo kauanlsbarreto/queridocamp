@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import Image from "next/image"
-import { Lock, Shield, AlertCircle, CheckCircle } from "lucide-react"
+import { Lock, Shield, AlertCircle, CheckCircle, Eye } from "lucide-react"
 import FaceitLogin from "../../components/FaceitLogin" // Certifique-se que o caminho está certo
 
 interface TeamPick {
@@ -17,15 +17,21 @@ interface UserProfile {
   avatar: string;
 }
 
-export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[] }) {
+const ADMINS = ["Den1nh00", "0588KSh4y-_-"];
+
+export default function PickEmClient({ initialTeams, usersWithPicks }: { initialTeams: TeamPick[], usersWithPicks: string[] }) {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loadingPicks, setLoadingPicks] = useState(false)
+  const [viewingNickname, setViewingNickname] = useState<string | null>(null)
   
   // O estado inicial dos times disponíveis é todos os times
   const [availableTeams, setAvailableTeams] = useState<TeamPick[]>(initialTeams)
   // O estado inicial dos slots é vazio
   const [qualifiedTeams, setQualifiedTeams] = useState<(TeamPick | null)[]>(Array(8).fill(null))
   const [isLocked, setIsLocked] = useState(false)
+
+  const isAdmin = user && ADMINS.includes(user.nickname);
+  const isViewingOther = viewingNickname && user && viewingNickname !== user.nickname;
 
   // 1. Monitorar Login do Usuário
   useEffect(() => {
@@ -34,9 +40,10 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser)
         setUser(parsedUser)
-        loadUserPicks(parsedUser.nickname)
+        if (!viewingNickname) setViewingNickname(parsedUser.nickname)
       } else {
         setUser(null)
+        setViewingNickname(null)
         // Se deslogar, reseta tudo
         setQualifiedTeams(Array(8).fill(null))
         setAvailableTeams(initialTeams)
@@ -46,9 +53,17 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
 
     checkUser()
     window.addEventListener('storage', checkUser)
-    // Ouve evento customizado do FaceitLogin se necessário, ou apenas storage
-    return () => window.removeEventListener('storage', checkUser)
+    window.addEventListener('faceit_auth_updated', checkUser)
+    return () => {
+      window.removeEventListener('storage', checkUser)
+      window.removeEventListener('faceit_auth_updated', checkUser)
+    }
   }, [initialTeams])
+
+  // Carrega os picks sempre que o viewingNickname mudar
+  useEffect(() => {
+    if (viewingNickname) loadUserPicks(viewingNickname)
+  }, [viewingNickname])
 
   // 2. Carregar escolhas do banco
   const loadUserPicks = async (nickname: string) => {
@@ -92,7 +107,7 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
 
   // 3. Salvar escolha no banco
   const savePickToDb = async (slotIndex: number, team: TeamPick) => {
-    if (!user) return
+    if (!user || isViewingOther) return
     try {
       await fetch('/api/picks', {
         method: 'POST',
@@ -112,7 +127,7 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
 
   // 4. Confirmar escolhas (Bloquear)
   const confirmPicks = async () => {
-    if (!user) return
+    if (!user || isViewingOther) return
     const confirm = window.confirm("Tem certeza? Após confirmar, você não poderá mais alterar suas escolhas.")
     if (!confirm) return
 
@@ -129,7 +144,7 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
   }
 
   const onDragEnd = (result: any) => {
-    if (!user || isLocked) return // Segurança extra e bloqueio
+    if (!user || isLocked || isViewingOther) return // Segurança extra e bloqueio
 
     const { source, destination } = result
 
@@ -178,12 +193,37 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
       ) : (
         /* Jogo Real */
         <DragDropContext onDragEnd={onDragEnd}>
-          {/* Botão de Confirmação */}
-          <div className="flex justify-end">
+          {/* Barra de Ferramentas (Admin Select + Botão Confirmar) */}
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+            
+            {/* Admin Select */}
+            {isAdmin ? (
+              <div className="flex items-center gap-2 bg-zinc-900 p-2 rounded-xl border border-zinc-700">
+                <Eye className="text-gold" size={20} />
+                <select 
+                  value={viewingNickname || ""} 
+                  onChange={(e) => setViewingNickname(e.target.value)}
+                  className="bg-transparent text-white outline-none border-none cursor-pointer min-w-[200px]"
+                >
+                  <option value={user.nickname} className="bg-zinc-900">Meus Palpites</option>
+                  <optgroup label="Usuários">
+                    {usersWithPicks.filter(u => u !== user.nickname).map(u => (
+                      <option key={u} value={u} className="bg-zinc-900">{u}</option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+            ) : <div></div>}
+
+            {/* Botão de Confirmação ou Status */}
             {isLocked ? (
               <div className="flex items-center gap-2 bg-green-500/20 text-green-400 px-6 py-3 rounded-xl border border-green-500/50">
                 <CheckCircle size={20} />
                 <span className="font-bold">Escolhas Confirmadas</span>
+              </div>
+            ) : isViewingOther ? (
+              <div className="text-zinc-500 italic flex items-center gap-2">
+                <Eye size={16} /> Visualizando {viewingNickname}
               </div>
             ) : (
               <button
@@ -212,7 +252,7 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
                     className="grid grid-cols-3 gap-3"
                   >
                     {availableTeams.map((team, index) => (
-                      <Draggable key={team.id} draggableId={team.id} index={index} isDragDisabled={isLocked}>
+                      <Draggable key={team.id} draggableId={team.id} index={index} isDragDisabled={isLocked || !!isViewingOther}>
                         {(provided) => (
                           <div
                             ref={provided.innerRef}
@@ -245,7 +285,7 @@ export default function PickEmClient({ initialTeams }: { initialTeams: TeamPick[
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {qualifiedTeams.map((team, index) => (
-                  <Droppable key={index} droppableId={`slot-${index}`} isDropDisabled={isLocked}> 
+                  <Droppable key={index} droppableId={`slot-${index}`} isDropDisabled={isLocked || !!isViewingOther}> 
                     {(provided, snapshot) => (
                       <div
                         {...provided.droppableProps}

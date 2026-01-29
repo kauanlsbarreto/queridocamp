@@ -17,10 +17,18 @@ async function ensureTableExists() {
         slot_6 JSON,
         slot_7 JSON,
         slot_8 JSON,
+        locked BOOLEAN DEFAULT FALSE,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `;
     await pool1.execute(createTableQuery);
+
+    // Tenta adicionar a coluna locked caso a tabela já exista sem ela
+    try {
+      await pool1.execute("ALTER TABLE escolhas ADD COLUMN locked BOOLEAN DEFAULT FALSE");
+    } catch (e) {
+      // Ignora erro se a coluna já existir
+    }
   } catch (error) {
     console.error("Erro ao criar tabela:", error);
   }
@@ -45,10 +53,21 @@ async function getTeamsForPickEm() {
   }
 }
 
+async function getAllUsersWithPicks() {
+  try {
+    const [rows]: any = await pool1.execute('SELECT nickname FROM escolhas ORDER BY nickname ASC');
+    return rows.map((r: any) => r.nickname);
+  } catch (error) {
+    console.error("Erro ao buscar usuários:", error);
+    return [];
+  }
+}
+
 export default async function RedondoPage() {
   await ensureTableExists();
   
   const teams = await getTeamsForPickEm();
+  const usersWithPicks = await getAllUsersWithPicks();
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -59,7 +78,7 @@ export default async function RedondoPage() {
       
       <section className="py-12 px-4 max-w-7xl mx-auto">
         {teams.length > 0 ? (
-          <PickEmClient initialTeams={teams} />
+          <PickEmClient initialTeams={teams} usersWithPicks={usersWithPicks} />
         ) : (
           <div className="text-center p-20 border border-dashed border-zinc-800 rounded-2xl">
             <p className="text-zinc-500 italic">Carregando times ou erro na conexão com Railway...</p>
