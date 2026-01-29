@@ -14,7 +14,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/ubuntu
-            docker compose up -d postgres_db faceit_api_app ubuntu-nginx-1
-            docker compose up -d front_end_app &
-            disown
-            echo "Comando enviado. O servidor processará o build em background."
+            cd front-end && git pull origin main && cd ..
+    
+            docker compose up -d --build
+            sleep 5
+            docker ps --format "table {{.Names}}\t{{.Status}}"
