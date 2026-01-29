@@ -33,15 +33,21 @@ export default function Callback() {
         if (!res.ok) throw new Error('Falha na troca do token')
 
         const user = await res.json()
+        
         localStorage.setItem('faceit_user', JSON.stringify(user))
         
-        window.dispatchEvent(new Event('faceit_auth_updated'))
 
-        const returnUrl = localStorage.getItem('faceit_return_url') || '/'
-        localStorage.removeItem('faceit_return_url')
-        localStorage.removeItem('faceit_code_verifier')
+        if (window.opener) {
+          window.opener.postMessage({ faceitUser: user }, window.location.origin)
+          
+          window.opener.dispatchEvent(new Event('faceit_auth_updated'))
+          
+          localStorage.removeItem('faceit_code_verifier')
+          window.close() 
+        } else {
+          window.location.replace('/')
+        }
 
-        window.location.replace(returnUrl)
       } catch (err) {
         console.error(err)
         router.push('/')
@@ -53,7 +59,7 @@ export default function Callback() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white gap-4">
-      <Loader2 className="animate-spin text-orange-500" size={40} />
+      <Loader2 className="animate-spin text-[#FF5500]" size={40} />
       <p className="text-lg font-medium">Sincronizando com FACEIT...</p>
     </div>
   )
