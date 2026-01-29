@@ -1,8 +1,26 @@
-# Dependências do Node
-/node_modules
-npm-debug.log
+# Dependências e Builds 
+node_modules
+.next
+out
+build
+dist
 
-
-# Arquivos de Log e Temporários
+# Logs e Temporários 
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 tmp/
+
+# Git e IDEs
+.git
+.gitignore
+.vscode
+.idea
+.dockerignore
+
+# Docker e CI/CD
+Dockerfile
+docker-compose.yml
+.github/

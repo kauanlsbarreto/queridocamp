@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { UserProfile } from './user-profile'
+import { UserProfile, type UserProfile as UserProfileType } from './user-profile'
 
 const generateRandomString = (length: number) => {
   const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
@@ -26,7 +26,7 @@ const generateCodeChallenge = async (codeVerifier: string) => {
 }
 
 const FaceitLogin = () => {
-  const [user, setUser] = useState<any | null>(null)
+  const [user, setUser] = useState<UserProfileType | null>(null)
   const [loading, setLoading] = useState(true)
 
   const syncUser = useCallback(() => {
@@ -49,7 +49,6 @@ const FaceitLogin = () => {
     syncUser()
 
     const handleMessage = (event: MessageEvent) => {
-      // Adicione uma verificação de origem por segurança se possível
       if (event.data && event.data.faceitUser) {
         const userData = event.data.faceitUser
         setUser(userData)

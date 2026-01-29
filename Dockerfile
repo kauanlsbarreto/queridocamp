@@ -1,53 +1,48 @@
 # ---------- ETAPA 1: DEPENDÊNCIAS ----------
 FROM node:18-alpine AS deps
-
-# Instalar ferramentas de compilação necessárias
-RUN apk add --no-cache \
-    libc6-compat \
-    python3 \
-    make \
-    g++ \
-    git
-
+# libc6-compat é necessária para bibliotecas específicas do Next.js no Alpine 
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copiar package.json e package-lock.json primeiro (para cache)
+# Copiar apenas arquivos de definição de pacotes 
 COPY package.json package-lock.json ./
 
-# Instalar dependências ignorando peer-deps conflitantes
+# Instalar com cache agressivo
 RUN npm ci --legacy-peer-deps
 
 # ---------- ETAPA 2: BUILD ----------
 FROM node:18-alpine AS builder
-
 WORKDIR /app
 
-# Copiar node_modules da etapa de deps
+# Reutilizar node_modules da etapa anterior 
 COPY --from=deps /app/node_modules ./node_modules
-
-# Copiar o resto do projeto
+# Copiar o código fonte (agora filtrado pelo .dockerignore) [cite: 3]
 COPY . .
 
-# Desabilitar telemetria Next.js
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Build do Next.js
+# Build otimizado
 RUN npm run build
 
-# ---------- ETAPA 3: CONTAINER DE PRODUÇÃO ----------
+# ---------- ETAPA 3: RUNNER (PRODUÇÃO) ----------
 FROM node:18-alpine AS runner
-
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED 1
 
-# Copiar apenas o necessário do build
+# Segurança: Rodar como usuário não-root
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copiar apenas o necessário do standalone (Next.js 12+) 
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
 
 EXPOSE 3000
+ENV PORT 3000
 
-# Rodar servidor
 CMD ["node", "server.js"]
