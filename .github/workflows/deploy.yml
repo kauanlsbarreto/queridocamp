@@ -15,8 +15,11 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/ubuntu
-            docker compose down || true
-            docker system prune -af --volumes
-            
-            chmod +x atualizar_frontend.sh
+            git pull origin main
+            docker compose build --no-cache front-end
+            docker compose up -d postgres_db
+            sleep 10
+            docker compose up -d faceit_api_app
+            docker compose up -d front_end_app
+            docker compose up -d ubuntu-nginx-1
             ./atualizar_frontend.sh
