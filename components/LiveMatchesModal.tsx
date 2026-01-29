@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Loader, ExternalLink } from "lucide-react"
 import Image from "next/image"
@@ -53,41 +53,22 @@ interface MatchDetails {
 
 const API_KEY_FACEIT = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
 
-const getCalculatedSeriesScore = (match: MatchDetails) => {
-    let f1 = 0;
-    let f2 = 0;
-    if (match.stats?.rounds) {
-        match.stats.rounds.forEach(r => {
-            const parts = r.round_stats.Score.split(' / ');
-            if (parts.length === 2) {
-                const s1 = parseInt(parts[0], 10);
-                const s2 = parseInt(parts[1], 10);
-                if (!isNaN(s1) && !isNaN(s2)) {
-                    if (s1 > s2) f1++;
-                    else if (s2 > s1) f2++;
-                }
-            }
-        });
-    }
-    return { faction1: f1, faction2: f2 };
-};
-
 const HUB_IDS = [
     "fdd5221c-408c-4148-bc63-e2940da4a490",
     "04a14d7f-0511-451b-8208-9a6c3215ccaa"
 ];
 
-export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export default function LiveMatchesModal() {
     const pathname = usePathname();
     const [internalOpen, setInternalOpen] = useState(false);
     const [matches, setMatches] = useState<MatchDetails[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     
     const [isYoutubeLive] = useState(true);
     const [isTwitch1Live] = useState(true);
     const [isTwitch2Live] = useState(true);
 
-    const fetchFaceitMatches = async () => {
+    const fetchFaceitMatches = useCallback(async () => {
         setLoading(true);
         try {
             const hubPromises = HUB_IDS.map(hubId => 
@@ -139,52 +120,42 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
+    // Lógica para abrir AUTOMATICAMENTE apenas se houver partidas
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
         const lastPath = sessionStorage.getItem("QC_lastPath");
-        
         if (lastPath === pathname) return;
-
         sessionStorage.setItem("QC_lastPath", pathname);
-        
-        const count = parseInt(sessionStorage.getItem("QC_navCount") || "0");
-        const newCount = count + 1;
-        sessionStorage.setItem("QC_navCount", newCount.toString());
 
-        if (newCount > 0 && newCount % 2 === 0) {
-            fetchFaceitMatches().then(data => {
-                if (data && data.length > 0) {
-                    setInternalOpen(true);
-                }
-            });
-        }
-    }, [pathname]);
+        // Busca partidas e só abre o modal se o array não estiver vazio
+        fetchFaceitMatches().then(data => {
+            if (data && data.length > 0) {
+                setInternalOpen(true);
+            } else {
+                setInternalOpen(false);
+            }
+        });
+    }, [pathname, fetchFaceitMatches]);
 
-    const show = isOpen || internalOpen;
+    const show = internalOpen;
 
     const handleClose = () => {
         setInternalOpen(false);
-        onClose();
     };
 
+    // Atualização em tempo real enquanto o modal estiver aberto
     useEffect(() => {
         if (!show) return;
-
-        // Se abriu manualmente (isOpen) e não tem dados, busca.
-        if (matches.length === 0) {
-            fetchFaceitMatches();
-        }
         
         const interval = setInterval(fetchFaceitMatches, 45000);
         return () => clearInterval(interval);
-
-    }, [show]);
+    }, [show, fetchFaceitMatches]);
 
     return (
-        <Dialog open={show} onOpenChange={handleClose}>
+        <Dialog open={show} onOpenChange={(open) => !open && handleClose()}>
             <DialogContent className="bg-gray-900 border-gold/20 text-white max-w-lg overflow-hidden">
                 <DialogHeader className="flex flex-row justify-between items-start border-b border-white/5 pb-4">
                     <div className="flex flex-col">
@@ -212,13 +183,13 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
                 </DialogHeader>
 
                 <div className="mt-4 space-y-3 max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
-                    {loading ? (
+                    {loading && matches.length === 0 ? (
                         <div className="flex flex-col items-center justify-center p-10 gap-3">
                             <Loader className="animate-spin text-gold" size={32} />
                         </div>
                     ) : matches.length === 0 ? (
                         <div className="text-center py-10">
-                            <p className="text-gray-500 italic text-sm">Nenhuma partida agora.</p>
+                            <p className="text-gray-500 italic text-sm">Nenhuma partida em andamento no momento.</p>
                         </div>
                     ) : (
                         matches.map((match) => (
@@ -235,19 +206,12 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
                                         <span className="text-[11px] font-black text-center line-clamp-1 uppercase">{match.teams.faction1.name}</span>
                                     </div>
 
-                                    {/* Score */}
+                                    {/* Score Central */}
                                     <div className="flex flex-col items-center justify-center w-1/3">
                                         {(() => {
-                                            const isBo3 = match.voting?.map?.pick && match.voting.map.pick.length > 1;
                                             const hasFinishedMaps = match.stats?.rounds && match.stats.rounds.length > 0;
                                             const finishedMapsCount = match.stats?.rounds?.length || 0;
-                                            
                                             const resultScore = match.results?.score || { faction1: 0, faction2: 0 };
-                                            const calculatedSeries = getCalculatedSeriesScore(match);
-                                            
-                                            // Se for BO3 e tiver mapas finalizados, verificamos se o placar da API é o da série
-                                            const isSeriesScore = isBo3 && hasFinishedMaps && 
-                                                (resultScore.faction1 === calculatedSeries.faction1 && resultScore.faction2 === calculatedSeries.faction2);
 
                                             if (hasFinishedMaps && match.status === 'ONGOING') {
                                                 return (
@@ -256,7 +220,7 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
                                                             {finishedMapsCount === 1 ? "MAPA 2" : "MAPA 3"}
                                                         </span>
                                                         <span className="text-[9px] font-black text-gold leading-tight text-center">
-                                                            VER NA FACEIT
+                                                            EM JOGO
                                                         </span>
                                                     </div>
                                                 );
@@ -265,7 +229,7 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
                                             return (
                                                 <div className="bg-black/80 px-4 py-1.5 rounded border border-gold/40 mb-2 flex flex-col items-center min-w-[90px]">
                                                     <span className="text-[7px] text-gray-400 uppercase tracking-widest mb-0.5 font-bold">
-                                                        {isSeriesScore && match.status !== 'ONGOING' ? "PLACAR SÉRIE" : "ROUNDS"}
+                                                        ROUNDS
                                                     </span>
                                                     <span className="text-xl font-black text-gold tabular-nums leading-none">
                                                         {`${resultScore.faction1} - ${resultScore.faction2}`}
@@ -287,8 +251,6 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
                                                         );
                                                         
                                                         let score = stats ? stats.round_stats.Score.replace(" / ", " - ") : "-";
-
-                                                        const pickedBy = match.voting?.map?.pick ? (idx === 0 ? match.teams.faction1.name : (idx === 1 ? match.teams.faction2.name : "Decider")) : null;
                                                         const isCurrent = idx === finishedMapsCount && match.status === 'ONGOING';
                                                         
                                                         return (
@@ -297,22 +259,11 @@ export default function LiveMatchesModal({ isOpen, onClose }: { isOpen: boolean;
                                                                     <span className={isCurrent ? "text-gold" : ""}>{mapName.replace('de_', '')}</span>
                                                                     <span className={score !== "-" ? "text-white" : "text-gray-500"}>{score}</span>
                                                                 </div>
-                                                                {pickedBy && (
-                                                                    <span className="text-[7px] text-gold/50 uppercase tracking-wider truncate max-w-full">
-                                                                        {pickedBy === "Decider" ? "Decider" : `Pick: ${pickedBy}`}
-                                                                    </span>
-                                                                )}
                                                             </div>
                                                         );
                                                     });
-                                                } else {
-                                                    return match.stats?.rounds?.map((round, idx) => (
-                                                        <div key={idx} className="flex justify-between w-full text-[9px] font-bold uppercase text-gray-300 bg-black/40 rounded p-1 border border-white/5 px-1">
-                                                            <span>{round.round_stats?.Map.replace('de_', '')}</span>
-                                                            <span className="text-white">{round.round_stats?.Score.replace(" / ", " - ")}</span>
-                                                        </div>
-                                                    ));
                                                 }
+                                                return null;
                                             })()}
                                         </div>
 

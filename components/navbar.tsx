@@ -5,22 +5,19 @@ import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
-import AuthButton from './auth-button'
-
-console.log('🧭 NAVBAR CARREGADO')
+import FaceitLogin from './FaceitLogin'
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50)
-    }
-
+    const handleScroll = () => setScrolled(window.scrollY > 50)
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+
 
   return (
     <motion.nav
@@ -28,22 +25,14 @@ const Navbar = () => {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, type: 'spring', stiffness: 100 }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled
-          ? 'glass-gold backdrop-blur-xl border-b border-gold/20 py-2'
-          : 'bg-transparent py-4'
+        scrolled ? 'glass-gold backdrop-blur-xl border-b border-gold/20 py-2' : 'bg-transparent py-4'
       }`}
     >
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center">
           <Link href="/" className="flex items-center group">
             <div className="relative w-12 h-12 sm:w-16 sm:h-16 group-hover:scale-110 transition-transform duration-300">
-              <Image
-                src="/logo.png"
-                alt="Querido Camp Logo"
-                fill
-                className="object-contain"
-                priority
-              />
+              <Image src="/logo.png" alt="Logo" fill className="object-contain" priority />
             </div>
           </Link>
 
@@ -56,14 +45,13 @@ const Navbar = () => {
             <NavLink href="/stats">Estatísticas</NavLink>
             <NavLink href="/classificacao">Classificação</NavLink>
             <NavLink href="/rodadas">Rodadas</NavLink>
+            <NavLink href="/redondo">Redondo</NavLink>
             <NavLink href="/premiacao">Premiação</NavLink>
           </div>
-
           <div className="flex items-center gap-4">
-            <div className="hidden md:block">
-              <AuthButton />
+            <div className="hidden md:flex">
+              <FaceitLogin />
             </div>
-
             <div className="md:hidden">
               <button
                 type="button"
@@ -93,7 +81,7 @@ const Navbar = () => {
             <NavLink href="/premiacao">Premiação</NavLink>
 
             <div className="pt-4 flex justify-center">
-              <AuthButton />
+              <FaceitLogin />
             </div>
           </motion.div>
         )}
@@ -103,10 +91,7 @@ const Navbar = () => {
 }
 
 const NavLink = ({ href, children }: any) => (
-  <Link
-    href={href}
-    className="text-white/80 hover:text-gold px-4 py-2 rounded-xl"
-  >
+  <Link href={href} className="text-white/80 hover:text-gold px-4 py-2 rounded-xl">
     {children}
   </Link>
 )
