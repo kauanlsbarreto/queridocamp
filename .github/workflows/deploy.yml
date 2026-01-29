@@ -13,16 +13,6 @@ jobs:
           username: "ubuntu"                 # Usuário padrão do Lightsail Ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            # Comandos para atualizar
             cd /home/ubuntu
-            sudo docker compose down --remove-orphans || true
-            sudo service docker restart
-            sleep 10
-            
-            sudo docker compose up -d db faceit_api
-            sleep 5
-          
-            sudo docker compose up -d nginx
-            
-            sudo docker compose up -d front-end
-            
-            sudo docker ps
+            ./atualizar_frontend.sh
