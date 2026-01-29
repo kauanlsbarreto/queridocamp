@@ -14,17 +14,15 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/ubuntu
-            # 1. Mata qualquer build travado para liberar RAM
-            sudo pkill -f docker || true
+            sudo docker compose down --remove-orphans || true
             sudo service docker restart
+            sleep 10
+            
+            sudo docker compose up -d db faceit_api
             sleep 5
+          
+            sudo docker compose up -d nginx
             
-            # 2. Sobe apenas os containers que JÁ ESTÃO PRONTOS
-            # Isso vai tirar o erro de 'Conexão Recusada' imediatamente
-            docker compose up -d db nginx faceit_api
+            sudo docker compose up -d front-end
             
-            # 3. Tenta subir o front sem buildar de novo (usando o que foi feito até o timeout)
-            docker compose up -d front-end || echo "Front ainda não compilado"
-            
-            # 4. Me mostre se eles estão 'Up'
-            docker ps
+            sudo docker ps
