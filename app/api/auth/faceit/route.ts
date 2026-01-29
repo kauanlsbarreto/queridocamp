@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
     const authHeader = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
 
-c    const formData = new URLSearchParams()
+    const formData = new URLSearchParams()
     formData.append('grant_type', 'authorization_code')
     formData.append('code', code)
     formData.append('redirect_uri', redirectUri)
