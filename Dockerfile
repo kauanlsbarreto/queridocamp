@@ -3,21 +3,25 @@ FROM node:18-alpine AS builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Instalação direta
-COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+# Desativar telemetria e limitar memória
+ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_OPTIONS="--max-old-space-size=512"
 
-# Copia o código (que já tem seus IDs fixos)
+COPY package.json package-lock.json ./
+
+# TROCADO: npm install consome muito menos RAM que npm ci
+RUN npm install --legacy-peer-deps --no-audit --no-fund
+
 COPY . .
 
 # Build (Standalone)
-ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
 # ETAPA FINAL: RUNNER
 FROM node:18-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED 1
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./

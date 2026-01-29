@@ -13,10 +13,19 @@ jobs:
           username: "ubuntu"
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /home/ubuntu
-            cd front-end && git pull origin main && cd ..
+            # 1. Atualiza o código
+            cd /home/ubuntu/front-end && git pull origin main && cd ..
             
-            docker compose up -d --build
+            # 2. LIMPEZA TOTAL (Para o site atualizar de verdade e não travar)
+            docker compose down
+            docker builder prune -a -f
+            docker system prune -f
+            
+            # 3. Build e Start
+            docker compose up -d --build --force-recreate
+            
+            # 4. Limpeza de imagens mortas
+            docker image prune -f
             
             sleep 5
             docker ps --format "table {{.Names}}\t{{.Status}}"
