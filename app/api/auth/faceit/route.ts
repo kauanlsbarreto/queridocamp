@@ -8,13 +8,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Code and codeVerifier are required' }, { status: 400 })
     }
 
-    const clientId = process.env.FACEIT_CLIENT_ID
-    const clientSecret = process.env.FACEIT_CLIENT_SECRET
-    const redirectUri = process.env.FACEIT_REDIRECT_URI
-
-    if (!clientId || !clientSecret || !redirectUri) {
-      return NextResponse.json({ error: 'Missing Faceit credentials' }, { status: 500 })
-    }
+    const clientId = '6104e222-cee5-4c67-90c0-035196f28528'
+    const clientSecret = 'gEgxmcKLvU5NxH6bGKBOFo4q8L2deM8TzTWPsaGp'
+    const redirectUri = 'https://queridocamp.com.br/faceit/callback'
 
     const authHeader = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
 
