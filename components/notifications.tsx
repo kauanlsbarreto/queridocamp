@@ -1,32 +1,37 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Bell, Zap } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
 
 const updates = [
   {
+    id: 'search-btn',
     title: 'Botão de Pesquisa',
     date: '30/01/2026',
     description: 'Adicionamos um novo botão de pesquisa para facilitar a navegação em rodadas e classificação',
   },
   {
+    id: 'ranking-update',
     title: 'Atualização de Classificação',
     date: '30/01/2026',
     description: 'Adicionamos o detalhamento da classificação com as partidas de cada time',
   },
     {
+    id: 'notifications-btn',
     title: 'Botão de Notificações',
     date: '30/01/2026',
     description: 'Adicionamos um novo botão de notificações para facilitar o acesso às atualizações.',
   },
   {
+    id: 'login-btn',
     title: 'Botão de Login',
     date: '29/01/2026',
     description: 'Adicionamos um novo botão de login para facilitar o acesso dos usuários.',
   },
   {
+    id: 'redondo-page',
     title: 'Página de Redondo',
     date: '29/01/2026',
     description: 'Adicionamos uma nova página de redondo.',
@@ -34,11 +39,30 @@ const updates = [
 ]
 
 export function Notifications() {
-  const [hasUnread, setHasUnread] = useState(true) 
-  const unreadCount = updates.length
+  const [readIds, setReadIds] = useState<string[]>([])
+
+  useEffect(() => {
+    const stored = localStorage.getItem('qc_read_notifications')
+    if (stored) {
+      try {
+        setReadIds(JSON.parse(stored))
+      } catch (e) {
+        console.error(e)
+      }
+    }
+  }, [])
+
+  const unreadCount = updates.filter((u) => !readIds.includes(u.id)).length
+  const hasUnread = unreadCount > 0
 
   return (
-    <Popover onOpenChange={() => setHasUnread(false)}>
+    <Popover onOpenChange={(open) => {
+      if (open && hasUnread) {
+        const ids = updates.map((u) => u.id)
+        setReadIds(ids)
+        localStorage.setItem('qc_read_notifications', JSON.stringify(ids))
+      }
+    }}>
       <PopoverTrigger asChild>
         <button
           className="relative glass-gold p-2 rounded-xl text-gold focus:outline-none"
