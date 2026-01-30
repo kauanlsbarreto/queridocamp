@@ -63,31 +63,27 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
     const adrKey = isGeral ? 'adr' : `r${selectedRound}_adr`;
     const playedKey = 'played'; 
 
-    const sorted = [...allStats].sort((a, b) => {
-      const valAK = Number(a[kKey]) || 0;
-      const valBK = Number(b[kKey]) || 0;
+  const sorted = [...allStats].sort((a, b) => {
+    const valAK = Number(a[kKey]) || 0;
+    const valBK = Number(b[kKey]) || 0;
 
-      if (valAK === 0 && valBK > 0) return 1;
-      if (valAK > 0 && valBK === 0) return -1;
-      
-      const valAKR = parseFloat(a[krKey]) || 0;
-      const valBKR = parseFloat(b[krKey]) || 0;
-      if (valBKR !== valAKR) return valBKR - valAKR;
+    if (valAK === 0 && valBK > 0) return 1;
+    if (valAK > 0 && valBK === 0) return -1;
+    
+    const valAKD = parseFloat(a[kdKey]) || 0;
+    const valBKD = parseFloat(b[kdKey]) || 0;
+    if (valBKD !== valAKD) return valBKD - valAKD;
 
-      const valAADR = parseFloat(a[adrKey]) || 0;
-      const valBADR = parseFloat(b[adrKey]) || 0;
-      if (valBADR !== valAADR) return valBADR - valAADR;
+    const valAADR = parseFloat(a[adrKey]) || 0;
+    const valBADR = parseFloat(b[adrKey]) || 0;
+    if (valBADR !== valAADR) return valBADR - valAADR;
 
-      const valAKD = parseFloat(a[kdKey]) || 0;
-      const valBKD = parseFloat(b[kdKey]) || 0;
-      if (valBKD !== valAKD) return valBKD - valAKD;
+    const valAKR = parseFloat(a[krKey]) || 0;
+    const valBKR = parseFloat(b[krKey]) || 0;
+    if (valBKR !== valAKR) return valBKR - valAKR;
 
-      if (valBK !== valAK) return valBK - valAK;
-
-      const valAD = Number(a[dKey]) || 0;
-      const valBD = Number(b[dKey]) || 0;
-      return valAD - valBD;
-    });
+    return valBK - valAK;
+  });
 
     if (filterMe) {
       if (!myNick) return [];
@@ -150,6 +146,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
             const adr = Number(isGeral ? player.adr : player[`r${selectedRound}_adr`]) || 0;
             const m1Link = !isGeral ? player[`r${selectedRound}_m1_link`] : null;
             const m2Link = !isGeral ? player[`r${selectedRound}_m2_link`] : null;
+            const matchResult = !isGeral ? player[`r${selectedRound}_result`] : null;
 
             return (
               <motion.div
@@ -199,6 +196,15 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                           {isGeral && (
                              <p className="text-gold text-[10px] font-extrabold tracking-widest uppercase">
                                {getPlayedRounds(player)} Rodadas Jogadas
+                             </p>
+                          )}
+                          {!isGeral && matchResult && (
+                             <p className={`text-[10px] font-extrabold tracking-widest uppercase ${
+                               matchResult === '2-0' ? 'text-green-500' : 
+                               matchResult === '1-1' ? 'text-yellow-500' : 
+                               matchResult === '0-2' ? 'text-red-500' : 'text-gray-400'
+                             }`}>
+                               Resultado: {matchResult}
                              </p>
                           )}
                         </div>

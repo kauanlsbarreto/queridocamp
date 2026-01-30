@@ -136,9 +136,11 @@ export default async function StatsPage() {
       <section className="py-12 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           <UpdateTimer generatedAt={generatedAt} revalidate={revalidate} />
-          <div className="text-center mb-8">
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Critérios: <span className="text-gold">K/R</span> &gt; ADR &gt; K/D &gt; Kills &gt; Mortes</p>
-          </div>
+        <div className="text-center mb-8">
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">
+            Critérios: <span className="text-gold">K/D</span> &gt; ADR &gt; K/R &gt; Kills
+          </p>
+        </div>
           <StatsList allStats={allStats} />
         </div>
       </section>
