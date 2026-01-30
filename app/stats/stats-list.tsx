@@ -60,6 +60,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
     const dKey = isGeral ? 'd' : `r${selectedRound}_d`;
     const kdKey = isGeral ? 'kd' : `r${selectedRound}_kd`;
     const krKey = isGeral ? 'kr' : `r${selectedRound}_kr`;
+    const adrKey = isGeral ? 'adr' : `r${selectedRound}_adr`;
     const playedKey = 'played'; 
 
     const sorted = [...allStats].sort((a, b) => {
@@ -69,13 +70,17 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
       if (valAK === 0 && valBK > 0) return 1;
       if (valAK > 0 && valBK === 0) return -1;
       
-      const valAKD = parseFloat(a[kdKey]) || 0;
-      const valBKD = parseFloat(b[kdKey]) || 0;
-      if (valBKD !== valAKD) return valBKD - valAKD;
-
       const valAKR = parseFloat(a[krKey]) || 0;
       const valBKR = parseFloat(b[krKey]) || 0;
       if (valBKR !== valAKR) return valBKR - valAKR;
+
+      const valAADR = parseFloat(a[adrKey]) || 0;
+      const valBADR = parseFloat(b[adrKey]) || 0;
+      if (valBADR !== valAADR) return valBADR - valAADR;
+
+      const valAKD = parseFloat(a[kdKey]) || 0;
+      const valBKD = parseFloat(b[kdKey]) || 0;
+      if (valBKD !== valAKD) return valBKD - valAKD;
 
       if (valBK !== valAK) return valBK - valAK;
 
@@ -142,6 +147,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
             const d = Number(isGeral ? player.d : player[`r${selectedRound}_d`]) || 0;
             const kd = Number(isGeral ? player.kd : player[`r${selectedRound}_kd`]) || 0;
             const kr = Number(isGeral ? player.kr : player[`r${selectedRound}_kr`]) || 0;
+            const adr = Number(isGeral ? player.adr : player[`r${selectedRound}_adr`]) || 0;
             const m1Link = !isGeral ? player[`r${selectedRound}_m1_link`] : null;
             const m2Link = !isGeral ? player[`r${selectedRound}_m2_link`] : null;
 
@@ -205,23 +211,23 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                         <p className="text-2xl font-black text-gold">{Number(kd).toFixed(2)}</p>
                       </div>
                       <div className="bg-white/5 p-3 rounded-xl border border-white/5 text-center">
-                        <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">K/R Ratio</p>
-                        <p className="text-2xl font-black text-white">{Number(kr).toFixed(2)}</p>
+                        <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">ADR</p>
+                        <p className="text-2xl font-black text-white">{Number(adr).toFixed(1)}</p>
                       </div>
                     </div>
 
                     <div className="flex justify-between mt-5 px-2">
                       <div className="text-center">
+                        <span className="text-[9px] text-gray-600 font-bold uppercase block tracking-tighter">K/R</span>
+                        <span className="text-lg text-gray-300 font-black">{Number(kr).toFixed(2)}</span>
+                      </div>
+                      <div className="text-center border-x border-white/5 px-6">
                         <span className="text-[9px] text-gray-600 font-bold uppercase block tracking-tighter">Kills</span>
                         <span className="text-lg text-gray-300 font-black">{k}</span>
                       </div>
-                      <div className="text-center border-x border-white/5 px-6">
+                      <div className="text-center">
                         <span className="text-[9px] text-gray-600 font-bold uppercase block tracking-tighter">Mortes</span>
                         <span className="text-lg text-gray-300 font-black">{d}</span>
-                      </div>
-                      <div className="text-center">
-                        <span className="text-[9px] text-gray-600 font-bold uppercase block tracking-tighter">Clutches</span>
-                        <span className="text-lg text-gray-300 font-black">{isGeral ? player.clt : '-'}</span>
                       </div>
                     </div>
 

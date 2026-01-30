@@ -91,6 +91,7 @@ async function getStatsData() {
           ...faceitData,
           kd: parseFloat(stat.kd) || 0,
           kr: parseFloat(stat.kr) || 0,
+          adr: parseFloat(stat.adr) || 0,
           k: parseInt(stat.k) || 0,
           d: parseInt(stat.d) || 0,
           clt: parseInt(stat.clt) || 0
@@ -107,6 +108,7 @@ async function getStatsData() {
       pote: p.pote,
       kd: 0,
       kr: 0,
+      adr: 0,
       k: 0,
       d: 0,
       clt: 0,
@@ -135,7 +137,7 @@ export default async function StatsPage() {
         <div className="container mx-auto px-4">
           <UpdateTimer generatedAt={generatedAt} revalidate={revalidate} />
           <div className="text-center mb-8">
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Critérios: <span className="text-gold">K/D</span> &gt; K/R &gt; Kills</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Critérios: <span className="text-gold">K/R</span> &gt; ADR &gt; K/D &gt; Kills &gt; Mortes</p>
           </div>
           <StatsList allStats={allStats} />
         </div>
