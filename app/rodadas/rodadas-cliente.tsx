@@ -6,7 +6,8 @@ import { motion } from "framer-motion"
 import HeroBanner from "@/components/hero-banner"
 import PremiumCard from "@/components/premium-card"
 import Image from "next/image"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import { ChevronDown, ChevronUp, Search } from "lucide-react"
+import Link from "next/link"
 
 export interface Team {
   id: number
@@ -167,6 +168,14 @@ function MatchCard({ match }: { match: Match }) {
             />
           </div>
           <span className="text-white font-medium text-xs md:text-sm truncate max-w-[60px] md:max-w-[100px]">{match.teamA.name}</span>
+          <Link
+            href={`/times?search=${encodeURIComponent(match.teamA.name)}`}
+            className="text-gray-500 hover:text-gold transition-colors"
+            title={`Buscar time ${match.teamA.name}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <Search size={14} />
+          </Link>
         </div>
 
         {/* Placares dos 2 mapas */}
@@ -197,6 +206,14 @@ function MatchCard({ match }: { match: Match }) {
 
         {/* Time B */}
         <div className="flex items-center gap-2 md:gap-3 flex-1 justify-end">
+          <Link
+            href={`/times?search=${encodeURIComponent(match.teamB.name)}`}
+            className="text-gray-500 hover:text-gold transition-colors"
+            title={`Buscar time ${match.teamB.name}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <Search size={14} />
+          </Link>
           <span className="text-white font-medium text-xs md:text-sm truncate max-w-[60px] md:max-w-[100px] text-right">{match.teamB.name}</span>
           <div className="relative w-10 h-10 md:w-12 md:h-12 flex-shrink-0">
             <Image

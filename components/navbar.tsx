@@ -6,6 +6,7 @@ import { Menu, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import FaceitLogin from './FaceitLogin'
+import { Notifications } from './notifications'
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -14,14 +15,9 @@ const Navbar = () => {
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
-    const handleAuthUpdate = () => {
-      setAuthKey(prev => prev + 1)
-    }
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
-
-
 
   return (
     <motion.nav
@@ -29,33 +25,56 @@ const Navbar = () => {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, type: 'spring', stiffness: 100 }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled ? 'glass-gold backdrop-blur-xl border-b border-gold/20 py-2' : 'bg-transparent py-4'
+        scrolled
+          ? 'glass-gold backdrop-blur-xl border-b border-gold/20 py-2'
+          : 'bg-transparent py-4'
       }`}
     >
-      <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center">
-          <Link href="/" className="flex items-center group">
-            <div className="relative w-12 h-12 sm:w-16 sm:h-16 group-hover:scale-110 transition-transform duration-300">
-              <Image src="/logo.png" alt="Logo" fill className="object-contain" priority />
-            </div>
-          </Link>
-
-          <div className="hidden md:flex space-x-1 items-center glass-gold rounded-2xl px-6 py-2">
-            <NavLink href="/">Home</NavLink>
-            <NavLink href="/galeria">Galeria</NavLink>
-            <NavLink href="/regras">Regras</NavLink>
-            <NavLink href="/campeonato">Campeonato</NavLink>
-            <NavLink href="/times">Times</NavLink>
-            <NavLink href="/stats">Estatísticas</NavLink>
-            <NavLink href="/classificacao">Classificação</NavLink>
-            <NavLink href="/rodadas">Rodadas</NavLink>
-            <NavLink href="/redondo">Redondo</NavLink>
-            <NavLink href="/premiacao">Premiação</NavLink>
+      {/* Aumentei o padding horizontal (px-12) para afastar os itens das bordas da tela */}
+      <div className="w-full px-6 md:px-12">
+        <div className="flex items-center justify-between">
+          
+          {/* Lado Esquerdo: Logo */}
+          <div className="flex-none">
+            <Link href="/" className="flex items-center group">
+              <div className="relative w-12 h-12 sm:w-16 sm:h-16 group-hover:scale-110 transition-transform duration-300">
+                <Image
+                  src="/logo.png"
+                  alt="Logo"
+                  fill
+                  className="object-contain"
+                  priority
+                />
+              </div>
+            </Link>
           </div>
-          <div className="flex items-center gap-4">
-          <div className="ml-8"> 
+
+          {/* Centro: Links (Ocupa o meio e centraliza os links) */}
+          <div className="flex-1 hidden lg:flex justify-center">
+            <div className="flex space-x-1 items-center glass-gold rounded-2xl px-6 py-2">
+              <NavLink href="/">Home</NavLink>
+              <NavLink href="/galeria">Galeria</NavLink>
+              <NavLink href="/regras">Regras</NavLink>
+              <NavLink href="/campeonato">Campeonato</NavLink>
+              <NavLink href="/times">Times</NavLink>
+              <NavLink href="/stats">Estatísticas</NavLink>
+              <NavLink href="/classificacao">Classificação</NavLink>
+              <NavLink href="/rodadas">Rodadas</NavLink>
+              <NavLink href="/redondo">Redondo</NavLink>
+              <NavLink href="/premiacao">Premiação</NavLink>
+            </div>
+          </div>
+
+          {/* Lado Direito: Ações (Aumentei o gap-8 para o sino não ficar colado no login) */}
+          <div className="flex-none flex items-center gap-6 md:gap-8">
+            <div className="hidden md:flex items-center gap-6 md:gap-8">
+              <Notifications />
+              <div className="pl-2"> {/* Espaçamento extra opcional para o botão de login */}
                 <FaceitLogin key={authKey} />
               </div>
+            </div>
+            
+            {/* Menu Mobile Button */}
             <div className="md:hidden">
               <button
                 type="button"
@@ -68,6 +87,7 @@ const Navbar = () => {
           </div>
         </div>
 
+        {/* Menu Mobile Overlay */}
         {isMenuOpen && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -85,7 +105,8 @@ const Navbar = () => {
             <NavLink href="/redondo">Redondo</NavLink>
             <NavLink href="/premiacao">Premiação</NavLink>
 
-            <div className="flex items-center justify-center pt-4 border-t border-white/10">
+            <div className="flex items-center justify-center gap-6 pt-4 border-t border-white/10">
+              <Notifications />
               <FaceitLogin key={authKey} />
             </div>
           </motion.div>
@@ -96,7 +117,7 @@ const Navbar = () => {
 }
 
 const NavLink = ({ href, children }: any) => (
-  <Link href={href} className="text-white/80 hover:text-gold px-4 py-2 rounded-xl">
+  <Link href={href} className="text-white/80 hover:text-gold px-3 py-2 rounded-xl transition-colors whitespace-nowrap text-sm xl:text-base">
     {children}
   </Link>
 )

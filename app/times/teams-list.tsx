@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import PremiumCard from "@/components/premium-card";
 import Image from "next/image";
@@ -46,7 +46,9 @@ interface TeamData {
 
 export default function TeamsList({ teams }: { teams: TeamData[] }) {
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
   const poteOrder = [4, 5, 1, 2, 3];
 
   useEffect(() => {
