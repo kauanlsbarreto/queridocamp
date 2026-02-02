@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import CountdownTimer from "@/components/countdown-timer"
 import SponsorshipSection from "@/components/sponsorship-section"
 import SectionTitle from "@/components/section-title"
@@ -17,6 +17,19 @@ export default function Home() {
   const [currentImage, setCurrentImage] = useState({ src: "", alt: "" })
   const [currentIndex, setCurrentIndex] = useState(0)
   const [currentGallery, setCurrentGallery] = useState<"champions" | "draft">("champions")
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+
+      if (event.data.type === 'FACEIT_LOGIN_SUCCESS') {
+        window.location.reload()
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [])
 
   const championTeams = [
     {
@@ -99,23 +112,23 @@ export default function Home() {
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <Link
-                href="/rodadas"
-                className="bg-gold text-black font-bold py-3 px-8 rounded-md hover:bg-gold/80 transition-colors transform hover:scale-105 duration-200 shadow-lg shadow-gold/20"
-              >
-                Rodadas
-              </Link>
+              href="/rodadas"
+              className="bg-gold text-black font-bold py-3 px-8 rounded-md hover:bg-gold/80 transition-colors transform hover:scale-105 duration-200 shadow-lg shadow-gold/20"
+            >
+              Rodadas
+            </Link>
             <Link
               href="/campeonato"
               className="bg-gold text-black font-bold py-3 px-8 rounded-md hover:bg-gold/80 transition-colors transform hover:scale-105 duration-200 shadow-lg shadow-gold/20"
             >
               Saiba Mais
             </Link>
-            <a
+            <Link
               href="/inscricao"
               className="border-2 border-gold text-gold font-bold py-3 px-8 rounded-md hover:bg-gold/10 transition-colors transform hover:scale-105 duration-200 shadow-lg shadow-gold/10"
             >
               Inscreva-se
-            </a>
+            </Link>
           </motion.div>
         </div>
       </section>
