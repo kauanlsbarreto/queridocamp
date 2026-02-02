@@ -35,22 +35,16 @@ export default function Callback() {
         const tokenData = await tokenRes.json()
         const accessToken = tokenData.access_token
 
-        // 2️⃣ busca o perfil do usuário (ESSENCIAL)
-        const profileRes = await fetch(
-          'https://api.faceit.com/auth/v1/resources/userinfo',
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        )
+        // 2️⃣ busca o perfil do usuário na Faceit
+        const profileRes = await fetch('https://api.faceit.com/auth/v1/resources/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
 
         if (!profileRes.ok) throw new Error('Falha ao buscar perfil')
-
         const profile = await profileRes.json()
 
-        // 3️⃣ monta o user FINAL
-        const user = {
+        // 3️⃣ monta user parcial
+        const partialUser = {
           faceit_guid: profile.sub,
           nickname: profile.nickname || profile.given_name || 'Usuário',
           avatar: profile.picture || '',
@@ -58,21 +52,37 @@ export default function Callback() {
           steam_id_64: profile.steam_id_64,
         }
 
+        // 4️⃣ envia para o backend para pegar ID e Admin
+        const dbRes = await fetch('/api/players', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            guid: partialUser.faceit_guid,
+            nickname: partialUser.nickname,
+            avatar: partialUser.avatar,
+          }),
+        })
+
+        if (!dbRes.ok) throw new Error('Falha ao sincronizar com o banco')
+        const dbUser = await dbRes.json()
+
+        // 5️⃣ monta user completo
+        const fullUser = {
+          ...partialUser,
+          id: dbUser.id ?? dbUser.ID,
+          Admin: dbUser.Admin,
+          admin: dbUser.admin,
+        }
+
+        // 6️⃣ salva no localStorage
+        localStorage.setItem('faceit_user', JSON.stringify(fullUser))
         localStorage.removeItem('faceit_code_verifier')
 
-        // 4️⃣ envia para a janela principal
+        // 7️⃣ fecha popup ou redireciona
         if (window.opener) {
-          window.opener.postMessage(
-            {
-              type: 'FACEIT_LOGIN_SUCCESS',
-              user,
-            },
-            window.location.origin
-          )
-
+          window.opener.postMessage({ type: 'FACEIT_LOGIN_SUCCESS', user: fullUser }, window.location.origin)
           setTimeout(() => window.close(), 300)
         } else {
-          localStorage.setItem('faceit_user', JSON.stringify(user))
           router.push('/')
         }
       } catch (err) {

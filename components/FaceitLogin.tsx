@@ -24,9 +24,11 @@ const FaceitLogin = () => {
   const [user, setUser] = useState<UserProfileType | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // sincroniza com o banco de dados
   const syncUser = useCallback(async (rawUser: any) => {
     if (!rawUser?.faceit_guid) return
 
+    setLoading(true)
     try {
       const res = await fetch('/api/players', {
         method: 'POST',
@@ -34,8 +36,8 @@ const FaceitLogin = () => {
         body: JSON.stringify({
           guid: rawUser.faceit_guid,
           nickname: rawUser.nickname,
-          avatar: rawUser.avatar
-        })
+          avatar: rawUser.avatar,
+        }),
       })
 
       if (!res.ok) throw new Error('Erro ao sincronizar player')
@@ -49,34 +51,36 @@ const FaceitLogin = () => {
         avatar: dbUser.avatar,
         accessToken: rawUser.accessToken,
         Admin: dbUser.Admin,
-        admin: dbUser.admin
+        admin: dbUser.admin,
       }
 
       localStorage.setItem('faceit_user', JSON.stringify(finalUser))
       setUser(finalUser)
+
+      // recarrega a página para sumir com o botão
+      window.location.reload()
     } catch (err) {
       console.error('Erro sync:', err)
+      setUser(null)
+    } finally {
+      setLoading(false)
     }
   }, [])
 
+  // verifica localStorage ou recebe evento do popup
   useEffect(() => {
     const session = localStorage.getItem('faceit_user')
     if (session) {
       setUser(JSON.parse(session))
+      setLoading(false)
+      return
     }
-    setLoading(false)
 
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
       if (event.data?.type !== 'FACEIT_LOGIN_SUCCESS') return
 
-      const user = event.data.user
-
-      setUser(user)
-
-      localStorage.setItem('faceit_user', JSON.stringify(user))
-
-      syncUser(user)
+      syncUser(event.data.user)
     }
 
     window.addEventListener('message', handleMessage)
@@ -107,6 +111,7 @@ const FaceitLogin = () => {
     localStorage.removeItem('faceit_user')
     localStorage.removeItem('faceit_code_verifier')
     setUser(null)
+    window.location.reload()
   }
 
   if (loading) {
