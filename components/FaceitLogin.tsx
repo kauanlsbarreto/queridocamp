@@ -25,8 +25,9 @@ const FaceitLogin = () => {
   const [loading, setLoading] = useState(true)
 
   const syncUser = useCallback(async (rawUser?: any) => {
+    setLoading(true)
+
     let parsedUser = rawUser
-    const isLoginCallback = !!rawUser
 
     if (!parsedUser) {
       const session = localStorage.getItem('faceit_user')
@@ -59,7 +60,6 @@ const FaceitLogin = () => {
         faceit_guid: dbUser.faceit_guid,
         nickname: dbUser.nickname,
         avatar: dbUser.avatar,
-        steam_id_64: parsedUser.steam_id_64,
         accessToken: parsedUser.accessToken,
         Admin: dbUser.Admin,
         admin: dbUser.admin
@@ -67,9 +67,6 @@ const FaceitLogin = () => {
 
       localStorage.setItem('faceit_user', JSON.stringify(finalUser))
       setUser(finalUser)
-      if (isLoginCallback) {
-        window.location.reload()
-      }
     } catch (err) {
       console.error('Erro sync:', err)
       setUser(null)
@@ -78,10 +75,14 @@ const FaceitLogin = () => {
     }
   }, [])
 
+
+
   useEffect(() => {
     syncUser()
 
     const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+
       if (event.data?.type === 'FACEIT_LOGIN_SUCCESS') {
         syncUser(event.data.user)
       }
@@ -90,6 +91,7 @@ const FaceitLogin = () => {
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
   }, [syncUser])
+
 
   const handleLogin = async () => {
     const clientId = '6104e222-cee5-4c67-90c0-035196f28528'

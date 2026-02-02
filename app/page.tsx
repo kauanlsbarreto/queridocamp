@@ -18,19 +18,6 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [currentGallery, setCurrentGallery] = useState<"champions" | "draft">("champions")
 
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return
-
-      if (event.data.type === 'FACEIT_LOGIN_SUCCESS') {
-        window.location.reload()
-      }
-    }
-
-    window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
-  }, [])
-
   const championTeams = [
     {
       id: 1,

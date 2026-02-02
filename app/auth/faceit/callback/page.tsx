@@ -33,7 +33,6 @@ export default function Callback() {
 
       const user = await res.json()
       
-      localStorage.setItem('faceit_user', JSON.stringify(user))
       localStorage.removeItem('faceit_code_verifier')
 
       if (window.opener) {
@@ -41,12 +40,6 @@ export default function Callback() {
           type: 'FACEIT_LOGIN_SUCCESS', 
           user: user 
         }, window.location.origin)
-
-        try {
-          window.opener.location.reload()
-        } catch (e) {
-          window.opener.location.href = window.opener.location.href
-        }
 
         setTimeout(() => {
           window.close()
