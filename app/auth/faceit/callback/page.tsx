@@ -41,7 +41,7 @@ export default function Callback() {
             type: 'FACEIT_LOGIN_SUCCESS', 
             user: user 
           }, "*")
-          
+          window.opener.location.reload()
           setTimeout(() => {
             window.close()
           }, 300)
