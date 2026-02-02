@@ -17,8 +17,11 @@ import {
  */
 export type UserProfile = {
   id: number
+  faceit_guid: string  
   nickname: string
   avatar: string
+  steam_id_64?: string
+  accessToken?: string
   Admin?: number
   admin?: number
   ID?: number
