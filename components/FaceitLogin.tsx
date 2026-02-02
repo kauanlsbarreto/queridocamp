@@ -7,25 +7,33 @@ import { UserProfile, type UserProfile as UserProfileType } from './user-profile
 const FaceitLogin = () => {
   const [user, setUser] = useState<UserProfileType | null>(null)
 
+  // 🔹 Verifica localStorage ao carregar
   useEffect(() => {
-    const checkUserInterval = setInterval(() => {
-      const stored = localStorage.getItem('faceit_user')
-      if (stored) {
-        const parsed = JSON.parse(stored)
+    const stored = localStorage.getItem('faceit_user')
+    if (stored) {
+      const parsed: UserProfileType = JSON.parse(stored)
+
+      // 🔹 Se não tiver id/Admin, força logout
+      if (!parsed.id || (parsed.Admin === undefined && parsed.admin === undefined)) {
+        localStorage.removeItem('faceit_user')
+        setUser(null)
+      } else {
         setUser(parsed)
       }
-    }, 500)
-
-    return () => clearInterval(checkUserInterval)
+    }
   }, [])
 
+  // 🔹 Escuta mensagens do popup
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
       if (event.data?.type !== 'FACEIT_LOGIN_SUCCESS') return
 
-      localStorage.setItem('faceit_user', JSON.stringify(event.data.user))
-      setUser(event.data.user)
+      const user = event.data.user
+
+      // 🔹 Salva no localStorage
+      localStorage.setItem('faceit_user', JSON.stringify(user))
+      setUser(user)
     }
 
     window.addEventListener('message', handleMessage)
@@ -60,6 +68,7 @@ const FaceitLogin = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('faceit_user')
+    localStorage.removeItem('faceit_code_verifier')
     setUser(null)
   }
 
