@@ -22,36 +22,64 @@ export default function Callback() {
     }
 
     const run = async () => {
-    try {
-      const res = await fetch('/api/auth/faceit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, codeVerifier }),
-      })
+      try {
+        // 1️⃣ troca o code pelo access_token
+        const tokenRes = await fetch('/api/auth/faceit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, codeVerifier }),
+        })
 
-      if (!res.ok) throw new Error('Falha na troca do token')
+        if (!tokenRes.ok) throw new Error('Falha na troca do token')
 
-      const user = await res.json()
-      
-      localStorage.removeItem('faceit_code_verifier')
+        const tokenData = await tokenRes.json()
+        const accessToken = tokenData.access_token
 
-      if (window.opener) {
-        window.opener.postMessage({ 
-          type: 'FACEIT_LOGIN_SUCCESS', 
-          user: user 
-        }, window.location.origin)
+        // 2️⃣ busca o perfil do usuário (ESSENCIAL)
+        const profileRes = await fetch(
+          'https://api.faceit.com/auth/v1/resources/userinfo',
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        )
 
-        setTimeout(() => {
-          window.close()
-        }, 500) 
-      } else {
+        if (!profileRes.ok) throw new Error('Falha ao buscar perfil')
+
+        const profile = await profileRes.json()
+
+        // 3️⃣ monta o user FINAL
+        const user = {
+          faceit_guid: profile.sub,
+          nickname: profile.nickname || profile.given_name || 'Usuário',
+          avatar: profile.picture || '',
+          accessToken,
+          steam_id_64: profile.steam_id_64,
+        }
+
+        localStorage.removeItem('faceit_code_verifier')
+
+        // 4️⃣ envia para a janela principal
+        if (window.opener) {
+          window.opener.postMessage(
+            {
+              type: 'FACEIT_LOGIN_SUCCESS',
+              user,
+            },
+            window.location.origin
+          )
+
+          setTimeout(() => window.close(), 300)
+        } else {
+          localStorage.setItem('faceit_user', JSON.stringify(user))
+          router.push('/')
+        }
+      } catch (err) {
+        console.error(err)
         router.push('/')
       }
-    } catch (err) {
-      console.error(err)
-      router.push('/')
     }
-  }
 
     run()
   }, [params, router])
