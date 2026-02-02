@@ -27,8 +27,6 @@ const FaceitLogin = () => {
   const syncUser = useCallback(async (rawUser: any) => {
     if (!rawUser?.faceit_guid) return
 
-    setLoading(true)
-
     try {
       const res = await fetch('/api/players', {
         method: 'POST',
@@ -58,9 +56,6 @@ const FaceitLogin = () => {
       setUser(finalUser)
     } catch (err) {
       console.error('Erro sync:', err)
-      setUser(null)
-    } finally {
-      setLoading(false)
     }
   }, [])
 
@@ -73,9 +68,14 @@ const FaceitLogin = () => {
 
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
-      if (event.data?.type === 'FACEIT_LOGIN_SUCCESS') {
-        syncUser(event.data.user)
-      }
+      if (event.data?.type !== 'FACEIT_LOGIN_SUCCESS') return
+
+      // 🔥 SALVA IMEDIATAMENTE (faz o botão sumir)
+      localStorage.setItem('faceit_user', JSON.stringify(event.data.user))
+      setUser(event.data.user)
+
+      // 🔄 sincroniza banco em background
+      syncUser(event.data.user)
     }
 
     window.addEventListener('message', handleMessage)
