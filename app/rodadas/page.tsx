@@ -1,4 +1,4 @@
-import pool from "@/lib/db"
+import { pool } from '@/lib/db'
 import RodadasClient from "./rodadas-cliente"
 
 export const revalidate = 0 
