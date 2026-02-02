@@ -9,13 +9,10 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: "ubuntu"
+          host: ${{ secrets.SERVER_IP }}     # Cadastre o IP nos secrets também
+          username: "ubuntu"                 # Usuário padrão do Lightsail Ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 20m  
           script: |
-            cd /home/ubuntu/front-end && git pull origin main && cd ..
-            
+            # Comandos para atualizar
             cd /home/ubuntu
             ./atualizar_frontend.sh
-
