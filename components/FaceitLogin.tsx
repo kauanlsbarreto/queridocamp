@@ -70,12 +70,13 @@ const FaceitLogin = () => {
       if (event.origin !== window.location.origin) return
       if (event.data?.type !== 'FACEIT_LOGIN_SUCCESS') return
 
-      // 🔥 SALVA IMEDIATAMENTE (faz o botão sumir)
-      localStorage.setItem('faceit_user', JSON.stringify(event.data.user))
-      setUser(event.data.user)
+      const user = event.data.user
 
-      // 🔄 sincroniza banco em background
-      syncUser(event.data.user)
+      setUser(user)
+
+      localStorage.setItem('faceit_user', JSON.stringify(user))
+
+      syncUser(user)
     }
 
     window.addEventListener('message', handleMessage)
