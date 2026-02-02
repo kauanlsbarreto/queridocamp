@@ -106,13 +106,11 @@ const FaceitLogin = () => {
     window.addEventListener('message', handleMessage)
     window.addEventListener('storage', syncUser)
     window.addEventListener('faceit_auth_updated', syncUser)
-    window.addEventListener('focus', syncUser)
 
     return () => {
       window.removeEventListener('message', handleMessage)
       window.removeEventListener('storage', syncUser)
       window.removeEventListener('faceit_auth_updated', syncUser)
-      window.removeEventListener('focus', syncUser)
     }
   }, [syncUser])
 
@@ -154,9 +152,11 @@ const FaceitLogin = () => {
       {user ? (
         <UserProfile
           id={user.id}
+          ID={user.ID}
           nickname={user.nickname}
           avatar={user.avatar}
           Admin={user.Admin}
+          admin={user.admin}
           onLogout={handleLogout}
         />
       ) : (

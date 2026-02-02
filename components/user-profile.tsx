@@ -16,15 +16,22 @@ export type UserProfile = {
   nickname: string
   avatar: string
   Admin?: number
+  admin?: number // Handling potential inconsistency in property casing
+  ID?: number // Handling potential inconsistency in property casing
 }
 
 export const UserProfile = ({
   id,
+  ID,
   nickname,
   avatar,
   Admin,
+  admin,
   onLogout,
 }: UserProfile & { onLogout: () => void }) => {
+  const profileId = id ?? ID;
+  const userAdminLevel = Admin ?? admin;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -39,13 +46,13 @@ export const UserProfile = ({
       <DropdownMenuContent>
         <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {(Number(Admin) === 1 || Number(Admin) === 2) && (
+        {(Number(userAdminLevel) === 1 || Number(userAdminLevel) === 2) && (
           <DropdownMenuItem asChild>
             <Link href="/adminstracao" className="w-full cursor-pointer">Admin</Link>
           </DropdownMenuItem>
         )}
         <DropdownMenuItem asChild>
-          <Link href={`/perfil/${id}`} className="w-full cursor-pointer">Meu Perfil</Link>
+          <Link href={`/perfil/${profileId}`} className="w-full cursor-pointer">Meu Perfil</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/stats?filter=me" className="w-full cursor-pointer">Minhas Stats</Link>
