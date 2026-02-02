@@ -17,7 +17,6 @@ export default function Callback() {
     const codeVerifier = localStorage.getItem('faceit_code_verifier')
 
     if (!code || !codeVerifier) {
-      console.error('Código ou verifier ausentes')
       router.push('/')
       return
     }
@@ -34,19 +33,23 @@ export default function Callback() {
 
         const user = await res.json()
         
+        // Salva no localStorage da popup também por segurança
         localStorage.setItem('faceit_user', JSON.stringify(user))
-        window.localStorage.removeItem('faceit_code_verifier')
-        
+        localStorage.removeItem('faceit_code_verifier')
+
         if (window.opener) {
-          window.opener.postMessage({ faceitUser: user }, "*")
+          // Envia mensagem com TIPO explícito e dados do usuário
+          window.opener.postMessage({ 
+            type: 'FACEIT_LOGIN_SUCCESS', 
+            user: user 
+          }, "*")
           
+          // Pequeno delay para garantir que a mensagem foi processada
           setTimeout(() => {
             window.close()
-          }, 100) 
+          }, 300)
         } else {
-          const returnUrl = localStorage.getItem('faceit_return_url') || '/'
-          localStorage.removeItem('faceit_return_url')
-          router.push(returnUrl)
+          router.push('/')
         }
       } catch (err) {
         console.error(err)
@@ -60,7 +63,7 @@ export default function Callback() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white gap-4">
       <Loader2 className="animate-spin text-[#FF5500]" size={40} />
-      <p className="text-lg font-medium">Conectando...</p>
+      <p className="text-lg font-medium">Autenticando...</p>
     </div>
   )
 }
