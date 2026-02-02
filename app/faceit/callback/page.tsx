@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 interface UserProfile {
+  faceit_guid: string
   nickname: string
   avatar: string
   accessToken: string
@@ -64,27 +65,28 @@ const FaceitCallback = () => {
           return
         }
 
-        // Monta o objeto do usuário no formato esperado pelo seu site
         const user: UserProfile = {
+          faceit_guid: profileData.sub, // 🔥 ÚNICA identidade válida aqui
           nickname: profileData.nickname || profileData.given_name || 'Usuário',
           avatar: profileData.picture || profileData.avatar || '',
           accessToken,
-          steam_id_64: profileData.steam_id_64 
+          steam_id_64: profileData.steam_id_64
         }
 
         console.log("Usuário autenticado:", user.nickname)
 
-        // 3️⃣ Comunica com a janela principal e fecha o popup
         if (window.opener) {
-          // Envia o objeto para o FaceitLogin.tsx capturar no window.addEventListener('message')
-          window.opener.postMessage({ faceitUser: user }, window.location.origin)
-          
-          // Pequeno delay para garantir que a mensagem foi enviada antes de fechar a janela
+          window.opener.postMessage(
+            {
+              type: 'FACEIT_LOGIN_SUCCESS',
+              user
+            },
+            window.location.origin
+          )
           setTimeout(() => {
             window.close()
           }, 500)
         } else {
-          // Fallback caso não seja popup
           localStorage.setItem('faceit_user', JSON.stringify(user))
           router.push('/')
         }

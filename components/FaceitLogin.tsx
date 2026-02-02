@@ -29,50 +29,53 @@ const FaceitLogin = () => {
   const [loading, setLoading] = useState(true)
 
   const syncUser = useCallback(async (userToSync?: any) => {
-    let parsedUser = userToSync
+  let parsedUser = userToSync
 
-    if (!parsedUser) {
-      const session = localStorage.getItem('faceit_user')
-      if (session) {
-        try {
-          parsedUser = JSON.parse(session)
-        } catch (e) {
-          console.error(e)
-        }
-      }
-    }
+  if (!parsedUser) {
+    const session = localStorage.getItem('faceit_user')
+    if (session) parsedUser = JSON.parse(session)
+  }
 
-    if (parsedUser) {
-      setUser(parsedUser) 
-      try {
-        const guidToSync = parsedUser.faceit_guid || parsedUser.player_id || parsedUser.id
-
-        const res = await fetch('/api/players', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            guid: guidToSync,
-            nickname: parsedUser.nickname,
-            avatar: parsedUser.avatar,
-            steam_id_64: parsedUser.steam_id_64
-          })
-        })
-
-        if (res.ok) {
-          const dbUser = await res.json()
-          const finalUser = { ...parsedUser, ...dbUser }
-          
-          localStorage.setItem('faceit_user', JSON.stringify(finalUser))
-          setUser(finalUser) 
-        }
-      } catch (e) {
-        console.error("Erro sync API:", e)
-      }
-    } else {
-      setUser(null)
-    }
+  if (!parsedUser?.faceit_guid) {
+    setUser(null)
     setLoading(false)
-  }, [])
+    return
+  }
+
+  try {
+    const res = await fetch('/api/players', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        guid: parsedUser.faceit_guid,
+        nickname: parsedUser.nickname,
+        avatar: parsedUser.avatar
+      })
+    })
+
+    if (!res.ok) throw new Error('Erro ao sincronizar player')
+
+    const dbUser = await res.json()
+
+    const finalUser = {
+      id: dbUser.id,                  
+      faceit_guid: dbUser.faceit_guid,
+      nickname: dbUser.nickname,
+      avatar: dbUser.avatar,
+      steam_id_64: parsedUser.steam_id_64,
+      accessToken: parsedUser.accessToken
+    }
+
+    localStorage.setItem('faceit_user', JSON.stringify(finalUser))
+    setUser(finalUser)
+  } catch (e) {
+    console.error('Erro sync API:', e)
+    setUser(null)
+  } finally {
+    setLoading(false)
+  }
+}, [])
+
 
   useEffect(() => {
     syncUser()
