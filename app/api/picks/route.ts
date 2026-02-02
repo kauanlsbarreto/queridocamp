@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import mysql from 'mysql2/promise';
+
+ const pool = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
 export async function POST(request: Request) {
   try {

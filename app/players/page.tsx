@@ -1,5 +1,8 @@
-import { pool as dbPool, dbPoolJogadores } from '@/lib/db';
+import mysql from 'mysql2/promise';
 import PlayersList from './players-list';
+
+const dbPool = mysql.createPool("mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway");
+const dbPoolJogadores = mysql.createPool("mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway");
 
 function calculateSimilarity(str1: string, str2: string): number {
   const s1 = (str1 || "").toLowerCase().trim();

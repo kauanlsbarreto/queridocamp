@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import mysql from 'mysql2/promise';
+
+const databaseUrl = process.env.DATABASE_URL || "mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway";
+
+const dbPool = mysql.createPool(databaseUrl);
 
 export async function POST(req: Request) {
   try {
@@ -9,7 +13,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'GUID e nickname são obrigatórios.' }, { status: 400 });
     }
 
-    const connection = await pool.getConnection();
+    const connection = await dbPool.getConnection();
 
     try {
       await connection.execute(`
