@@ -83,6 +83,7 @@ const FaceitCallback = () => {
             },
             window.location.origin
           )
+          window.opener.location.reload()
           setTimeout(() => {
             window.close()
           }, 500)
