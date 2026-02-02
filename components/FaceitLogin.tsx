@@ -2,18 +2,34 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { UserProfile } from './user-profile'
+import { UserProfile, type UserProfile as UserProfileType } from './user-profile'
+
+const generateRandomString = (length: number) => {
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
+  return Array.from({ length }, () =>
+    possible.charAt(Math.floor(Math.random() * possible.length))
+  ).join('')
+}
+
+const generateCodeChallenge = async (codeVerifier: string) => {
+  const data = new TextEncoder().encode(codeVerifier)
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+}
 
 const FaceitLogin = () => {
-  const [user, setUser] = useState<UserProfile | null>(null)
+  const [user, setUser] = useState<UserProfileType | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const syncUser = useCallback(async (incomingUser?: any) => {
-    let parsedUser = incomingUser
+  const syncUser = useCallback(async (rawUser?: any) => {
+    let parsedUser = rawUser
 
     if (!parsedUser) {
-      const stored = localStorage.getItem('faceit_user')
-      if (stored) parsedUser = JSON.parse(stored)
+      const session = localStorage.getItem('faceit_user')
+      if (session) parsedUser = JSON.parse(session)
     }
 
     if (!parsedUser?.faceit_guid) {
@@ -29,15 +45,15 @@ const FaceitLogin = () => {
         body: JSON.stringify({
           guid: parsedUser.faceit_guid,
           nickname: parsedUser.nickname,
-          avatar: parsedUser.avatar,
-        }),
+          avatar: parsedUser.avatar
+        })
       })
 
       if (!res.ok) throw new Error('Erro ao sincronizar player')
 
       const dbUser = await res.json()
 
-      const finalUser: UserProfile = {
+      const finalUser: UserProfileType = {
         id: dbUser.id,
         faceit_guid: dbUser.faceit_guid,
         nickname: dbUser.nickname,
@@ -45,13 +61,13 @@ const FaceitLogin = () => {
         steam_id_64: parsedUser.steam_id_64,
         accessToken: parsedUser.accessToken,
         Admin: dbUser.Admin,
-        admin: dbUser.admin,
+        admin: dbUser.admin
       }
 
       localStorage.setItem('faceit_user', JSON.stringify(finalUser))
       setUser(finalUser)
     } catch (err) {
-      console.error('Erro ao sincronizar:', err)
+      console.error('Erro sync:', err)
       setUser(null)
     } finally {
       setLoading(false)
@@ -61,15 +77,35 @@ const FaceitLogin = () => {
   useEffect(() => {
     syncUser()
 
-    const onMessage = (event: MessageEvent) => {
+    const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'FACEIT_LOGIN_SUCCESS') {
         syncUser(event.data.user)
       }
     }
 
-    window.addEventListener('message', onMessage)
-    return () => window.removeEventListener('message', onMessage)
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
   }, [syncUser])
+
+  const handleLogin = async () => {
+    const clientId = '6104e222-cee5-4c67-90c0-035196f28528'
+    const redirectUri = 'https://queridocamp.com.br/faceit/callback'
+
+    const codeVerifier = generateRandomString(128)
+    localStorage.setItem('faceit_code_verifier', codeVerifier)
+
+    const codeChallenge = await generateCodeChallenge(codeVerifier)
+
+    const url = new URL('https://accounts.faceit.com/accounts/dialog/oauth')
+    url.searchParams.set('response_type', 'code')
+    url.searchParams.set('client_id', clientId)
+    url.searchParams.set('redirect_uri', redirectUri)
+    url.searchParams.set('code_challenge', codeChallenge)
+    url.searchParams.set('code_challenge_method', 'S256')
+    url.searchParams.set('scope', 'openid email profile')
+
+    window.open(url.toString(), 'FaceitLogin', 'width=600,height=700')
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('faceit_user')
@@ -77,9 +113,7 @@ const FaceitLogin = () => {
     setUser(null)
   }
 
-  if (loading) {
-    return <div className="w-10 h-10 animate-pulse bg-white/10 rounded-full" />
-  }
+  if (loading) return <div className="w-10 h-10 animate-pulse bg-white/10 rounded-full" />
 
   return (
     <div className="flex items-center">
@@ -87,7 +121,7 @@ const FaceitLogin = () => {
         <UserProfile {...user} onLogout={handleLogout} />
       ) : (
         <motion.button
-          onClick={() => window.open('/faceit/login', 'FaceitLogin', 'width=600,height=700')}
+          onClick={handleLogin}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           className="flex items-center gap-2 bg-[#FF5500] text-white px-4 py-2 rounded-xl font-bold"
