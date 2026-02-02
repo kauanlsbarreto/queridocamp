@@ -8,11 +8,18 @@ const FaceitLogin = () => {
   const [user, setUser] = useState<UserProfileType | null>(null)
 
   useEffect(() => {
-    // 1️⃣ lê do localStorage ao carregar
-    const session = localStorage.getItem('faceit_user')
-    if (session) setUser(JSON.parse(session))
+    const checkUserInterval = setInterval(() => {
+      const stored = localStorage.getItem('faceit_user')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        setUser(parsed)
+      }
+    }, 500)
 
-    // 2️⃣ escuta mensagem do popup
+    return () => clearInterval(checkUserInterval)
+  }, [])
+
+  useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
       if (event.data?.type !== 'FACEIT_LOGIN_SUCCESS') return
@@ -56,25 +63,27 @@ const FaceitLogin = () => {
     setUser(null)
   }
 
-  if (!user) {
-    return (
-      <motion.button
-        onClick={handleLogin}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        className="flex items-center gap-2 bg-[#FF5500] text-white px-4 py-2 rounded-xl font-bold"
-      >
-        <img
-          src="https://cdn.simpleicons.org/faceit/white"
-          className="w-5 h-5"
-          alt="Faceit"
-        />
-        Login Faceit
-      </motion.button>
-    )
-  }
-
-  return <UserProfile {...user} onLogout={handleLogout} />
+  return (
+    <div className="flex items-center">
+      {user ? (
+        <UserProfile {...user} onLogout={handleLogout} />
+      ) : (
+        <motion.button
+          onClick={handleLogin}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="flex items-center gap-2 bg-[#FF5500] text-white px-4 py-2 rounded-xl font-bold"
+        >
+          <img
+            src="https://cdn.simpleicons.org/faceit/white"
+            className="w-5 h-5"
+            alt="Faceit"
+          />
+          Login Faceit
+        </motion.button>
+      )}
+    </div>
+  )
 }
 
 export default FaceitLogin
