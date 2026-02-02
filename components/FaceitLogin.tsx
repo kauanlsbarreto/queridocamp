@@ -26,6 +26,7 @@ const FaceitLogin = () => {
 
   const syncUser = useCallback(async (rawUser?: any) => {
     let parsedUser = rawUser
+    const isLoginCallback = !!rawUser
 
     if (!parsedUser) {
       const session = localStorage.getItem('faceit_user')
@@ -54,7 +55,7 @@ const FaceitLogin = () => {
       const dbUser = await res.json()
 
       const finalUser: UserProfileType = {
-        id: dbUser.id,
+        id: dbUser.id ?? dbUser.ID,
         faceit_guid: dbUser.faceit_guid,
         nickname: dbUser.nickname,
         avatar: dbUser.avatar,
@@ -66,6 +67,9 @@ const FaceitLogin = () => {
 
       localStorage.setItem('faceit_user', JSON.stringify(finalUser))
       setUser(finalUser)
+      if (isLoginCallback) {
+        window.location.reload()
+      }
     } catch (err) {
       console.error('Erro sync:', err)
       setUser(null)
