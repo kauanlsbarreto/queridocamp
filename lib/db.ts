@@ -1,5 +1,31 @@
-import mysql from 'mysql2/promise';
+import mysql from 'mysql2/promise'
 
-const pool = mysql.createPool("mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway");
+declare global {
+  var mainPool: mysql.Pool | undefined
+  var jogadoresPool: mysql.Pool | undefined
+}
 
-export default pool;
+const pool =
+  global.mainPool ||
+  mysql.createPool({
+    uri: 'mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway',
+    waitForConnections: true,
+    connectionLimit: 5,
+    queueLimit: 0,
+  })
+
+const dbPoolJogadores =
+  global.jogadoresPool ||
+  mysql.createPool({
+    uri: 'mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway',
+    waitForConnections: true,
+    connectionLimit: 5,
+    queueLimit: 0,
+  })
+
+if (process.env.NODE_ENV !== 'production') {
+  global.mainPool = pool
+  global.jogadoresPool = dbPoolJogadores
+}
+
+export { pool, dbPoolJogadores }

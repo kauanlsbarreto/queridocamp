@@ -61,6 +61,9 @@ const Navbar = () => {
               <NavLink href="/classificacao">Classificação</NavLink>
               <NavLink href="/rodadas">Rodadas</NavLink>
               <NavLink href="/redondo">Redondo</NavLink>
+              <NavLink href="/players">Jogadores</NavLink>
+              {/*<NavLink href="/skins">Skins</NavLink>
+              <NavLink href="/servidor">Servidor</NavLink>*/}
               <NavLink href="/premiacao">Premiação</NavLink>
             </div>
           </div>
@@ -102,6 +105,7 @@ const Navbar = () => {
             <NavLink href="/stats">Estatísticas</NavLink>
             <NavLink href="/classificacao">Classificação</NavLink>
             <NavLink href="/rodadas">Rodadas</NavLink>
+            <NavLink href="/players">Jogadores</NavLink>
             <NavLink href="/redondo">Redondo</NavLink>
             <NavLink href="/premiacao">Premiação</NavLink>
 

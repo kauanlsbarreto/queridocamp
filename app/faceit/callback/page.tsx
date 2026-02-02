@@ -7,6 +7,7 @@ interface UserProfile {
   nickname: string
   avatar: string
   accessToken: string
+  steam_id_64?: string
 }
 
 const FaceitCallback = () => {
@@ -69,7 +70,8 @@ const FaceitCallback = () => {
         const user: UserProfile = {
           nickname: profileData.nickname || profileData.given_name || 'Usuário',
           avatar: profileData.picture || profileData.avatar || '',
-          accessToken
+          accessToken,
+          steam_id_64: profileData.steam_id_64 // Captura o SteamID se disponível
         }
 
         console.log("Usuário autenticado:", user.nickname)

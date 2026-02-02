@@ -2,10 +2,12 @@ import HeroBanner from "@/components/hero-banner"
 import RankingTable from "./ranking-table"
 import pool from "@/lib/db"
 
-export const dynamic = 'force-dynamic';
+// Em vez de force-dynamic, revalida a cada 60 segundos
+export const revalidate = 60; 
 
 async function getTeams() {
   try {
+    // Adicionado um limite ou cache se necessário, mas a query está ok
     const [rows] = await pool.query("SELECT * FROM team_config ORDER BY sp DESC, df DESC");
     
     return (rows as any[]).map((row: any) => ({
@@ -27,8 +29,8 @@ export default async function Classificacao() {
   const teams = await getTeams();
 
   return (
-    <div>
-      <HeroBanner title="Rodadas" subtitle="Acompanhe a tabela atualizada do campeonato" />
+    <div className="min-h-screen bg-black">
+      <HeroBanner title="Classificação" subtitle="Acompanhe a tabela atualizada do campeonato" />
 
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">

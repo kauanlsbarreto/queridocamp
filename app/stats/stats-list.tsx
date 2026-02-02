@@ -40,7 +40,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('faceit_user');
       if (saved) {
-        setMyNick(JSON.parse(saved).name);
+          setMyNick(JSON.parse(saved).nickname);
       }
     }
   }, []);
@@ -244,10 +244,10 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                             href={m1Link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/5 hover:bg-gold/20 border border-white/10 hover:border-gold/50 transition-all group/link"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#ff5500]/10 hover:bg-[#ff5500] border border-[#ff5500]/30 hover:border-[#ff5500] transition-all group/link"
                           >
-                            <span className="text-[10px] font-bold text-gray-400 group-hover/link:text-gold uppercase tracking-wider">Mapa 1</span>
-                            <ExternalLink size={10} className="text-gray-500 group-hover/link:text-gold" />
+                            <span className="text-[10px] font-bold text-gray-400 group-hover/link:text-white uppercase tracking-wider">Mapa 1</span>
+                            <ExternalLink size={10} className="text-gray-500 group-hover/link:text-white" />
                           </a>
                         )}
                         {m2Link && (
@@ -255,10 +255,10 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                             href={m2Link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/5 hover:bg-gold/20 border border-white/10 hover:border-gold/50 transition-all group/link"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#ff5500]/10 hover:bg-[#ff5500] border border-[#ff5500]/30 hover:border-[#ff5500] transition-all group/link"
                           >
-                            <span className="text-[10px] font-bold text-gray-400 group-hover/link:text-gold uppercase tracking-wider">Mapa 2</span>
-                            <ExternalLink size={10} className="text-gray-500 group-hover/link:text-gold" />
+                            <span className="text-[10px] font-bold text-gray-400 group-hover/link:text-white uppercase tracking-wider">Mapa 2</span>
+                            <ExternalLink size={10} className="text-gray-500 group-hover/link:text-white" />
                           </a>
                         )}
                       </div>

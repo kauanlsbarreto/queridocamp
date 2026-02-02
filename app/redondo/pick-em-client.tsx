@@ -13,11 +13,13 @@ interface TeamPick {
 }
 
 interface UserProfile {
+  id: number;
+  faceit_guid: string;
   nickname: string;
   avatar: string;
 }
 
-const ADMINS = ["Den1nh00", "0588KSh4y-_-", "Smk_T1"];
+const ADMIN_GUIDS = ["coloque-a-guid-do-deninho-aqui", "coloque-a-guid-do-shay-aqui", "coloque-a-guid-do-smk-aqui"];
 
 export default function PickEmClient({ initialTeams, usersWithPicks }: { initialTeams: TeamPick[], usersWithPicks: string[] }) {
   const [user, setUser] = useState<UserProfile | null>(null)
@@ -30,7 +32,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
   const [qualifiedTeams, setQualifiedTeams] = useState<(TeamPick | null)[]>(Array(8).fill(null))
   const [isLocked, setIsLocked] = useState(false)
 
-  const isAdmin = user && ADMINS.includes(user.nickname);
+  const isAdmin = user && ADMIN_GUIDS.includes(user.faceit_guid);
   const isViewingOther = viewingNickname && user && viewingNickname !== user.nickname;
 
   // 1. Monitorar Login do Usuário
@@ -58,7 +60,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
       window.removeEventListener('storage', checkUser)
       window.removeEventListener('faceit_auth_updated', checkUser)
     }
-  }, [initialTeams])
+  }, [initialTeams, viewingNickname])
 
   // Carrega os picks sempre que o viewingNickname mudar
   useEffect(() => {
@@ -69,10 +71,19 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
   const loadUserPicks = async (nickname: string) => {
     setLoadingPicks(true)
     try {
+      let guidToUpdate = user && user.nickname === nickname ? user.faceit_guid : undefined;
+      if (!guidToUpdate && typeof window !== 'undefined') {
+        const stored = localStorage.getItem('faceit_user');
+        if (stored) {
+           const p = JSON.parse(stored);
+           if (p.nickname === nickname) guidToUpdate = p.faceit_guid;
+        }
+      }
+
       const res = await fetch('/api/picks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'load', nickname })
+        body: JSON.stringify({ action: 'load', nickname, faceit_guid: guidToUpdate })
       })
       const data = await res.json()
       
@@ -115,6 +126,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
         body: JSON.stringify({
           action: 'save',
           nickname: user.nickname,
+          faceit_guid: user.faceit_guid,
           slotIndex,
           team
         })
@@ -152,7 +164,11 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
       await fetch('/api/picks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'lock', nickname: user.nickname })
+        body: JSON.stringify({ 
+          action: 'lock', 
+          nickname: user.nickname,
+          faceit_guid: user.faceit_guid
+        })
       })
       setIsLocked(true)
     } catch (error) {

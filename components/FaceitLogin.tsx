@@ -29,12 +29,58 @@ const FaceitLogin = () => {
   const [user, setUser] = useState<UserProfileType | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const syncUser = useCallback(() => {
+  const syncUser = useCallback(async () => {
     if (typeof window === 'undefined') return
+
+    // Auto-login para localhost (Desenvolvimento)
+    if (window.location.hostname === 'localhost' && !localStorage.getItem('faceit_user')) {
+      try {
+        const res = await fetch('https://open.faceit.com/data/v4/players/fcb1b15c-f3d4-47d1-bd27-b478b7ada9ee', {
+          headers: {
+            'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63'
+          }
+        })
+        
+        if (res.ok) {
+          const data = await res.json()
+          const devUser = {
+            nickname: data.nickname,
+            avatar: data.avatar,
+            faceit_guid: data.player_id,
+            id: data.player_id,
+            steam_id_64: data.steam_id_64
+          }
+          localStorage.setItem('faceit_user', JSON.stringify(devUser))
+        }
+      } catch (error) {
+        console.error("Erro ao carregar usuário de desenvolvimento:", error)
+      }
+    }
+
     const session = localStorage.getItem('faceit_user')
     if (session) {
       try {
-        setUser(JSON.parse(session))
+        let parsedUser = JSON.parse(session);
+
+        // Atualiza os dados do usuário sempre que carregar a página para garantir que o Admin esteja atualizado
+        if (parsedUser) {
+          const res = await fetch('/api/players', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              guid: parsedUser.faceit_guid || parsedUser.id,
+              nickname: parsedUser.nickname,
+              avatar: parsedUser.avatar,
+              steam_id_64: parsedUser.steam_id_64
+            })
+          });
+          if (res.ok) {
+            const dbUser = await res.json();
+            parsedUser = { ...parsedUser, ...dbUser };
+            localStorage.setItem('faceit_user', JSON.stringify(parsedUser));
+          }
+        }
+        setUser(parsedUser);
       } catch (e) {
         localStorage.removeItem('faceit_user')
         setUser(null)
@@ -106,10 +152,12 @@ const FaceitLogin = () => {
   return (
     <div className="flex items-center">
       {user ? (
-        <UserProfile 
-          nickname={user.nickname} 
-          avatar={user.avatar} 
-          onLogout={handleLogout} 
+        <UserProfile
+          id={user.id}
+          nickname={user.nickname}
+          avatar={user.avatar}
+          Admin={user.Admin}
+          onLogout={handleLogout}
         />
       ) : (
         <motion.button

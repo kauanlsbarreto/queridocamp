@@ -9,6 +9,7 @@ async function ensureTableExists() {
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS escolhas (
         nickname VARCHAR(255) PRIMARY KEY,
+        faceit_guid VARCHAR(255),
         slot_1 JSON,
         slot_2 JSON,
         slot_3 JSON,
@@ -26,6 +27,13 @@ async function ensureTableExists() {
     // Tenta adicionar a coluna locked caso a tabela já exista sem ela
     try {
       await pool1.execute("ALTER TABLE escolhas ADD COLUMN locked BOOLEAN DEFAULT FALSE");
+    } catch (e) {
+      // Ignora erro se a coluna já existir
+    }
+
+    // Tenta adicionar a coluna faceit_guid caso a tabela já exista sem ela
+    try {
+      await pool1.execute("ALTER TABLE escolhas ADD COLUMN faceit_guid VARCHAR(255)");
     } catch (e) {
       // Ignora erro se a coluna já existir
     }

@@ -6,7 +6,7 @@ import { motion } from "framer-motion"
 import HeroBanner from "@/components/hero-banner"
 import PremiumCard from "@/components/premium-card"
 import Image from "next/image"
-import { ChevronDown, ChevronUp, Search } from "lucide-react"
+import { ChevronDown, ChevronUp, Search, ExternalLink } from "lucide-react"
 import Link from "next/link"
 
 export interface Team {
@@ -40,6 +40,7 @@ interface Match {
   teamB: Team
   map1: MapScore
   map2: MapScore
+  faceitId?: string
 }
 
 interface Round {
@@ -111,6 +112,7 @@ const generateRoundRobinMatches = (teams: Team[], matchesData: DbMatch[]) => {
           teamB: teamB,
           map1: map1,
           map2: map2,
+          faceitId: dbMatch ? dbMatch.match_id : undefined
         })
       }
     }
@@ -156,7 +158,7 @@ function MatchCard({ match }: { match: Match }) {
       animate={{ opacity: 1, y: 0 }}
       className="p-4 bg-white/5 rounded-xl border border-white/10 hover:border-gold/30 transition-all"
     >
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Time A */}
         <div className="flex items-center gap-2 md:gap-3 flex-1">
           <div className="relative w-10 h-10 md:w-12 md:h-12 flex-shrink-0">
@@ -178,28 +180,31 @@ function MatchCard({ match }: { match: Match }) {
           </Link>
         </div>
 
-        {/* Placares dos 2 mapas */}
-        <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-          {/* Mapa 1 */}
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] md:text-xs text-gray-500 mb-1">Mapa 1</span>
-            <div className="flex items-center gap-1">
-              <ScoreBox score={match.map1.scoreA} isWinner={map1WinnerA} />
-              <span className="text-gray-500 text-xs">x</span>
-              <ScoreBox score={match.map1.scoreB} isWinner={map1WinnerB} />
+        {/* Centro: Data e Placares */}
+        <div className="flex flex-col items-center gap-2">
+          {/* Placares dos 2 mapas */}
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+            {/* Mapa 1 */}
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] md:text-xs text-gray-500 mb-1">Mapa 1</span>
+              <div className="flex items-center gap-1">
+                <ScoreBox score={match.map1.scoreA} isWinner={map1WinnerA} />
+                <span className="text-gray-500 text-xs">x</span>
+                <ScoreBox score={match.map1.scoreB} isWinner={map1WinnerB} />
+              </div>
             </div>
-          </div>
 
-          {/* Separador */}
-          <div className="w-px h-10 bg-white/20 hidden md:block" />
+            {/* Separador */}
+            <div className="w-px h-10 bg-white/20 hidden md:block" />
 
-          {/* Mapa 2 */}
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] md:text-xs text-gray-500 mb-1">Mapa 2</span>
-            <div className="flex items-center gap-1">
-              <ScoreBox score={match.map2.scoreA} isWinner={map2WinnerA} />
-              <span className="text-gray-500 text-xs">x</span>
-              <ScoreBox score={match.map2.scoreB} isWinner={map2WinnerB} />
+            {/* Mapa 2 */}
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] md:text-xs text-gray-500 mb-1">Mapa 2</span>
+              <div className="flex items-center gap-1">
+                <ScoreBox score={match.map2.scoreA} isWinner={map2WinnerA} />
+                <span className="text-gray-500 text-xs">x</span>
+                <ScoreBox score={match.map2.scoreB} isWinner={map2WinnerB} />
+              </div>
             </div>
           </div>
         </div>
@@ -224,6 +229,21 @@ function MatchCard({ match }: { match: Match }) {
             />
           </div>
         </div>
+
+        {/* Link para Faceit (se houver ID) */}
+        {match.faceitId && (
+          <div className="w-full md:w-auto flex justify-center md:justify-end pt-2 md:pt-0 md:pl-4 md:border-l border-white/10">
+            <a 
+              href={`https://www.faceit.com/en/cs2/room/${match.faceitId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 bg-[#ff5500] hover:bg-[#e04b00] text-white rounded-lg transition-colors shadow-lg"
+              title="Ver na Faceit"
+            >
+              <ExternalLink size={16} />
+            </a>
+          </div>
+        )}
       </div>
     </motion.div>
   )
