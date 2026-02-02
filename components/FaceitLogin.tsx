@@ -24,30 +24,19 @@ const FaceitLogin = () => {
   const [user, setUser] = useState<UserProfileType | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const syncUser = useCallback(async (rawUser?: any) => {
+  const syncUser = useCallback(async (rawUser: any) => {
+    if (!rawUser?.faceit_guid) return
+
     setLoading(true)
-
-    let parsedUser = rawUser
-
-    if (!parsedUser) {
-      const session = localStorage.getItem('faceit_user')
-      if (session) parsedUser = JSON.parse(session)
-    }
-
-    if (!parsedUser?.faceit_guid) {
-      setUser(null)
-      setLoading(false)
-      return
-    }
 
     try {
       const res = await fetch('/api/players', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          guid: parsedUser.faceit_guid,
-          nickname: parsedUser.nickname,
-          avatar: parsedUser.avatar
+          guid: rawUser.faceit_guid,
+          nickname: rawUser.nickname,
+          avatar: rawUser.avatar
         })
       })
 
@@ -60,7 +49,7 @@ const FaceitLogin = () => {
         faceit_guid: dbUser.faceit_guid,
         nickname: dbUser.nickname,
         avatar: dbUser.avatar,
-        accessToken: parsedUser.accessToken,
+        accessToken: rawUser.accessToken,
         Admin: dbUser.Admin,
         admin: dbUser.admin
       }
@@ -75,14 +64,15 @@ const FaceitLogin = () => {
     }
   }, [])
 
-
-
   useEffect(() => {
-    syncUser()
+    const session = localStorage.getItem('faceit_user')
+    if (session) {
+      setUser(JSON.parse(session))
+    }
+    setLoading(false)
 
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
-
       if (event.data?.type === 'FACEIT_LOGIN_SUCCESS') {
         syncUser(event.data.user)
       }
@@ -91,7 +81,6 @@ const FaceitLogin = () => {
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
   }, [syncUser])
-
 
   const handleLogin = async () => {
     const clientId = '6f737cca-6960-4f17-9493-4ff66340dd9b'
@@ -119,7 +108,9 @@ const FaceitLogin = () => {
     setUser(null)
   }
 
-  if (loading) return <div className="w-10 h-10 animate-pulse bg-white/10 rounded-full" />
+  if (loading) {
+    return <div className="w-10 h-10 animate-pulse bg-white/10 rounded-full" />
+  }
 
   return (
     <div className="flex items-center">
@@ -132,7 +123,11 @@ const FaceitLogin = () => {
           whileTap={{ scale: 0.95 }}
           className="flex items-center gap-2 bg-[#FF5500] text-white px-4 py-2 rounded-xl font-bold"
         >
-          <img src="https://cdn.simpleicons.org/faceit/white" className="w-5 h-5" />
+          <img
+            src="https://cdn.simpleicons.org/faceit/white"
+            className="w-5 h-5"
+            alt="Faceit"
+          />
           Login Faceit
         </motion.button>
       )}
