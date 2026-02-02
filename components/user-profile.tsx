@@ -16,8 +16,8 @@ export type UserProfile = {
   nickname: string
   avatar: string
   Admin?: number
-  admin?: number // Handling potential inconsistency in property casing
-  ID?: number // Handling potential inconsistency in property casing
+  admin?: number
+  ID?: number
 }
 
 export const UserProfile = ({
@@ -29,7 +29,8 @@ export const UserProfile = ({
   admin,
   onLogout,
 }: UserProfile & { onLogout: () => void }) => {
-  const profileId = id ?? ID;
+  // Prioriza o id (que deve ser o número retornado pelo DB)
+  const profileId = id || ID;
   const userAdminLevel = Admin ?? admin;
 
   return (
@@ -52,7 +53,12 @@ export const UserProfile = ({
           </DropdownMenuItem>
         )}
         <DropdownMenuItem asChild>
-          <Link href={`/perfil/${profileId}`} className="w-full cursor-pointer">Meu Perfil</Link>
+          <Link 
+            href={profileId ? `/perfil/${profileId}` : "#"} 
+            className="w-full cursor-pointer"
+          >
+            Meu Perfil
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/stats?filter=me" className="w-full cursor-pointer">Minhas Stats</Link>

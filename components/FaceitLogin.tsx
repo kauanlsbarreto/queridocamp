@@ -29,79 +29,56 @@ const FaceitLogin = () => {
   const [user, setUser] = useState<UserProfileType | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const syncUser = useCallback(async () => {
+  // Função para buscar o ID numérico no banco de dados
+  const syncUser = useCallback(async (userToSync?: any) => {
     if (typeof window === 'undefined') return
 
-    // Auto-login para localhost
-    if (window.location.hostname === 'localhost' && !localStorage.getItem('faceit_user')) {
-      try {
-        const res = await fetch('https://open.faceit.com/data/v4/players/fcb1b15c-f3d4-47d1-bd27-b478b7ada9ee', {
-          headers: {
-            'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63'
-          }
-        })
-        
-        if (res.ok) {
-          const data = await res.json()
-          const devUser = {
-            nickname: data.nickname,
-            avatar: data.avatar,
-            faceit_guid: data.player_id,
-            id: data.player_id, // Nota: Aqui é string, mas será atualizado para number após a chamada da API abaixo
-            steam_id_64: data.steam_id_64
-          }
-          localStorage.setItem('faceit_user', JSON.stringify(devUser))
+    // Se passarmos um usuário diretamente, usamos ele, senão pegamos do localStorage
+    let parsedUser = userToSync;
+    
+    if (!parsedUser) {
+      const session = localStorage.getItem('faceit_user')
+      if (session) {
+        try {
+          parsedUser = JSON.parse(session)
+        } catch (e) {
+          console.error(e)
         }
-      } catch (error) {
-        console.error("Erro ao carregar usuário de desenvolvimento:", error)
       }
     }
 
-    const session = localStorage.getItem('faceit_user')
-    if (session) {
+    if (parsedUser) {
       try {
-        let parsedUser = JSON.parse(session);
+        const guidToSync = parsedUser.faceit_guid || parsedUser.player_id || parsedUser.id;
 
-        if (parsedUser) {
-          // CORREÇÃO AQUI: Garante que pegamos o GUID correto independente do nome da propriedade vinda do Faceit
-          const guidToSync = parsedUser.faceit_guid || parsedUser.player_id || parsedUser.id;
+        const res = await fetch('/api/players', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            guid: guidToSync,
+            nickname: parsedUser.nickname,
+            avatar: parsedUser.avatar,
+            steam_id_64: parsedUser.steam_id_64
+          })
+        });
 
-          const res = await fetch('/api/players', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              guid: guidToSync,
-              nickname: parsedUser.nickname,
-              avatar: parsedUser.avatar,
-              steam_id_64: parsedUser.steam_id_64
-            })
-          });
-
-          if (res.ok) {
-            const dbUser = await res.json();
-            
-            // dbUser deve conter { id: 100, ... } vindo do MySQL
-            // Mesclamos: dbUser por último para garantir que o id numérico sobrescreva qualquer id string antigo
-            parsedUser = { ...parsedUser, ...dbUser };
-            
-            // Forçamos explicitamente o ID numérico caso a mesclagem falhe em sobrescrever
-            if (dbUser.id) {
-                parsedUser.id = dbUser.id;
-            }
-
-            localStorage.setItem('faceit_user', JSON.stringify(parsedUser));
-          } else {
-             console.error("Falha ao sincronizar usuário com DB:", await res.text());
+        if (res.ok) {
+          const dbUser = await res.json();
+          
+          // Mescla para garantir que o ID seja o numérico do banco
+          const updatedUser = { ...parsedUser, ...dbUser };
+          
+          if (dbUser.id) {
+              updatedUser.id = dbUser.id;
           }
+
+          localStorage.setItem('faceit_user', JSON.stringify(updatedUser));
+          setUser(updatedUser); // Atualiza o estado final com o ID correto
         }
-        setUser(parsedUser);
       } catch (e) {
-        console.error("Erro no fluxo de login:", e);
-        // Não remova o usuário imediatamente em caso de erro de rede, apenas se o JSON for inválido
-        if (e instanceof SyntaxError) {
-            localStorage.removeItem('faceit_user')
-            setUser(null)
-        }
+        console.error("Erro no sync com API:", e);
+        // Mesmo se der erro na API, mantemos o usuário logado (com dados do Faceit)
+        setUser(parsedUser); 
       }
     } else {
       setUser(null)
@@ -110,34 +87,49 @@ const FaceitLogin = () => {
   }, [])
 
   useEffect(() => {
+    // 1. Checa login ao carregar a página
     syncUser()
 
+    // 2. Ouve mensagens da janela Popup (Callback)
     const handleMessage = (event: MessageEvent) => {
       if (event.data && event.data.faceitUser) {
-        const userData = event.data.faceitUser
-        localStorage.setItem('faceit_user', JSON.stringify(userData))
-        // Chama o syncUser imediatamente para buscar o ID numérico
-        syncUser() 
+        const userData = event.data.faceitUser;
+        
+        // Salva no storage
+        localStorage.setItem('faceit_user', JSON.stringify(userData));
+
+        // ATUALIZAÇÃO OTIMISTA: 
+        // Atualiza a tela IMEDIATAMENTE para o usuário ver que logou, 
+        // sem esperar a resposta da API de players.
+        setUser(userData); 
+        
+        // Em background, busca o ID correto na tabela players
+        syncUser(userData); 
+      }
+    }
+
+    // 3. Ouve alterações no localStorage (caso use abas diferentes)
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'faceit_user') {
+        syncUser();
       }
     }
 
     window.addEventListener('message', handleMessage)
-    window.addEventListener('storage', syncUser)
-    window.addEventListener('faceit_auth_updated', syncUser)
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('faceit_auth_updated', () => syncUser())
 
     return () => {
       window.removeEventListener('message', handleMessage)
-      window.removeEventListener('storage', syncUser)
-      window.removeEventListener('faceit_auth_updated', syncUser)
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('faceit_auth_updated', () => syncUser())
     }
   }, [syncUser])
 
-  // ... Resto do código (handleLogout, handleLogin) permanece igual ...
-  
   const handleLogout = () => {
     localStorage.removeItem('faceit_user')
     localStorage.removeItem('faceit_token')
-    localStorage.removeItem('faceit_code_verifier') // Boa prática limpar isso também
+    localStorage.removeItem('faceit_code_verifier')
     setUser(null)
     window.dispatchEvent(new Event('faceit_auth_updated'))
   }
@@ -172,7 +164,7 @@ const FaceitLogin = () => {
     <div className="flex items-center">
       {user ? (
         <UserProfile
-          id={user.id} // Certifique-se que user.id agora é um number
+          id={user.id}
           ID={user.ID}
           nickname={user.nickname}
           avatar={user.avatar}
