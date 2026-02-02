@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
-
-const databaseUrl = process.env.DATABASE_URL || "mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway";
-
-const dbPool = mysql.createPool(databaseUrl);
+import { pool } from '@/lib/db';
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +9,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'GUID e nickname são obrigatórios.' }, { status: 400 });
     }
 
-    const connection = await dbPool.getConnection();
+    const connection = await pool.getConnection();
 
     try {
       await connection.execute(`
@@ -24,8 +20,11 @@ export async function POST(req: Request) {
           avatar VARCHAR(255),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
+        ) AUTO_INCREMENT = 100
       `);
+
+      // Garante que o AUTO_INCREMENT seja pelo menos 100, caso a tabela já exista
+      await connection.execute("ALTER TABLE players AUTO_INCREMENT = 100");
 
       let [rows]: any = await connection.execute(
         'SELECT * FROM players WHERE faceit_guid = ?',

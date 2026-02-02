@@ -1,9 +1,6 @@
-import mysql from 'mysql2/promise';
 import { notFound } from 'next/navigation';
 import PerfilClient from './PerfilClient';
-
-const dbPool = mysql.createPool("mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway");
-const dbPoolJogadores = mysql.createPool("mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway");
+import { pool as dbPool, dbPoolJogadores } from '@/lib/db';
 
 function calculateSimilarity(str1: string, str2: string): number {
   const s1 = (str1 || "").toLowerCase().trim();

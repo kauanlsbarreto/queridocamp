@@ -1,8 +1,5 @@
-import mysql from 'mysql2/promise';
+import { pool as dbPool, dbPoolJogadores } from '@/lib/db';
 import PlayersList from './players-list';
-
-const dbPool = mysql.createPool("mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway");
-const dbPoolJogadores = mysql.createPool("mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway");
 
 function calculateSimilarity(str1: string, str2: string): number {
   const s1 = (str1 || "").toLowerCase().trim();
@@ -45,6 +42,13 @@ function calculateSimilarity(str1: string, str2: string): number {
 }
 
 export default async function PlayersPage() {
+    // Garante que novos IDs comecem do 100
+    try {
+        await dbPool.execute("ALTER TABLE players AUTO_INCREMENT = 100");
+    } catch (e) {
+        console.error("Erro ao definir AUTO_INCREMENT:", e);
+    }
+
     // 1. Busca todos os jogadores (DB1)
     const [playersRows]: any = await dbPool.execute('SELECT id, nickname, avatar, faceit_guid FROM players ORDER BY nickname ASC');
     const players = playersRows;
