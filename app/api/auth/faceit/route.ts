@@ -8,9 +8,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Code and codeVerifier are required' }, { status: 400 })
     }
 
-    const clientId = '6104e222-cee5-4c67-90c0-035196f28528'
-    const clientSecret = 'gEgxmcKLvU5NxH6bGKBOFo4q8L2deM8TzTWPsaGp'
-    const redirectUri = 'https://queridocamp.com.br/faceit/callback'
+    const clientId = '6f737cca-6960-4f17-9493-4ff66340dd9b'
+    const clientSecret = 'LhmoT8jHMqux9wnSsI3M5rQP6RYOy7CmnAGNGWEf'
+    const redirectUri = 'https://queridocamp.com.br/auth/faceit/callback'
 
     const authHeader = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
 

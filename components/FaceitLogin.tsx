@@ -94,8 +94,8 @@ const FaceitLogin = () => {
 
 
   const handleLogin = async () => {
-    const clientId = '6104e222-cee5-4c67-90c0-035196f28528'
-    const redirectUri = 'https://queridocamp.com.br/faceit/callback'
+    const clientId = '6f737cca-6960-4f17-9493-4ff66340dd9b'
+    const redirectUri = 'https://queridocamp.com.br/auth/faceit/callback'
 
     const codeVerifier = generateRandomString(128)
     localStorage.setItem('faceit_code_verifier', codeVerifier)
