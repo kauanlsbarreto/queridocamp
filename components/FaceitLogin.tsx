@@ -28,11 +28,9 @@ const FaceitLogin = () => {
   const [user, setUser] = useState<UserProfileType | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Função que busca o ID numérico no banco
   const syncUser = useCallback(async (userToSync?: any) => {
     let parsedUser = userToSync
 
-    // Se não passou usuário direto, tenta ler do localStorage
     if (!parsedUser) {
       const session = localStorage.getItem('faceit_user')
       if (session) {
@@ -45,8 +43,7 @@ const FaceitLogin = () => {
     }
 
     if (parsedUser) {
-      // Atualiza estado visualmente com o que temos (mesmo que seja só ID string)
-      setUser(parsedUser) 
+      setUser(parsedUser) // Faz o botão sumir imediatamente se houver sessão
 
       try {
         const guidToSync = parsedUser.faceit_guid || parsedUser.player_id || parsedUser.id
@@ -64,13 +61,11 @@ const FaceitLogin = () => {
 
         if (res.ok) {
           const dbUser = await res.json()
+          // Mescla os dados. O dbUser.id será o ID real da tabela (pode ser < 100 ou >= 100)
           const finalUser = { ...parsedUser, ...dbUser }
           
-          // Garante ID numérico
-          if (dbUser.id) finalUser.id = dbUser.id
-
           localStorage.setItem('faceit_user', JSON.stringify(finalUser))
-          setUser(finalUser) // Atualiza novamente com o ID correto do banco
+          setUser(finalUser) // Atualiza estado com o ID oficial do banco
         }
       } catch (e) {
         console.error("Erro sync API:", e)
@@ -82,27 +77,16 @@ const FaceitLogin = () => {
   }, [])
 
   useEffect(() => {
-    // 1. Checa login inicial
     syncUser()
 
-    // 2. Listener para a mensagem da Popup
     const handleMessage = (event: MessageEvent) => {
-      // Verifica se é o evento correto de sucesso
       if (event.data && event.data.type === 'FACEIT_LOGIN_SUCCESS' && event.data.user) {
         const userData = event.data.user
-        
-        console.log("Login recebido via postMessage:", userData)
-        
-        // Salva e Atualiza Estado IMEDIATAMENTE (Faz o botão sumir)
-        localStorage.setItem('faceit_user', JSON.stringify(userData))
-        setUser(userData) 
-        
-        // Busca dados complementares (ID do banco) em background
+        setUser(userData)
         syncUser(userData)
       }
     }
 
-    // 3. Listener para Storage (abas diferentes)
     const handleStorage = (event: StorageEvent) => {
       if (event.key === 'faceit_user') {
         syncUser()

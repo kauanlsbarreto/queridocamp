@@ -27,9 +27,6 @@ export async function POST(req: Request) {
         ) AUTO_INCREMENT = 100
       `);
 
-      // Garante que o AUTO_INCREMENT seja pelo menos 100, caso a tabela já exista
-      await connection.execute("ALTER TABLE players AUTO_INCREMENT = 100");
-
       let [rows]: any = await connection.execute(
         'SELECT * FROM players WHERE faceit_guid = ?',
         [guid]

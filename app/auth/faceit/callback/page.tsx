@@ -33,18 +33,15 @@ export default function Callback() {
 
         const user = await res.json()
         
-        // Salva no localStorage da popup também por segurança
         localStorage.setItem('faceit_user', JSON.stringify(user))
         localStorage.removeItem('faceit_code_verifier')
 
         if (window.opener) {
-          // Envia mensagem com TIPO explícito e dados do usuário
           window.opener.postMessage({ 
             type: 'FACEIT_LOGIN_SUCCESS', 
             user: user 
           }, "*")
           
-          // Pequeno delay para garantir que a mensagem foi processada
           setTimeout(() => {
             window.close()
           }, 300)
