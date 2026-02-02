@@ -35,26 +35,23 @@ export default function Callback() {
         const user = await res.json()
         
         localStorage.setItem('faceit_user', JSON.stringify(user))
+        window.localStorage.removeItem('faceit_code_verifier')
         
 
         if (window.opener) {
-          window.opener.postMessage({ faceitUser: user }, window.location.origin)
+          window.opener.postMessage({ faceitUser: user }, "*")
           
           setTimeout(() => {
             window.close()
           }, 500)
         } else {
-          localStorage.setItem('faceit_user', JSON.stringify(user))
-          
           window.dispatchEvent(new Event("storage"))
 
           const returnUrl = localStorage.getItem('faceit_return_url') || '/'
           localStorage.removeItem('faceit_return_url')
           
           router.push(returnUrl)
-          }
-          window.localStorage.removeItem('faceit_code_verifier')
-          window.close() 
+        }
       } catch (err) {
         console.error(err)
         router.push('/')

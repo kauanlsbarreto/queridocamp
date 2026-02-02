@@ -27,8 +27,6 @@ const FaceitCallback = () => {
       try {
         console.log("Iniciando troca de token via API interna...")
 
-        // 1️⃣ Chama a sua API (route.ts) para trocar o código pelo token
-        // Isso evita o erro de CORS e protege suas credenciais
         const tokenRes = await fetch('/api/auth/faceit', {
           method: 'POST',
           headers: {
@@ -71,7 +69,7 @@ const FaceitCallback = () => {
           nickname: profileData.nickname || profileData.given_name || 'Usuário',
           avatar: profileData.picture || profileData.avatar || '',
           accessToken,
-          steam_id_64: profileData.steam_id_64 // Captura o SteamID se disponível
+          steam_id_64: profileData.steam_id_64 
         }
 
         console.log("Usuário autenticado:", user.nickname)

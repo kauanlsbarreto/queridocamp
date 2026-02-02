@@ -32,7 +32,7 @@ const FaceitLogin = () => {
   const syncUser = useCallback(async () => {
     if (typeof window === 'undefined') return
 
-    // Auto-login para localhost (Desenvolvimento)
+    // Auto-login para localhost
     if (window.location.hostname === 'localhost' && !localStorage.getItem('faceit_user')) {
       try {
         const res = await fetch('https://open.faceit.com/data/v4/players/fcb1b15c-f3d4-47d1-bd27-b478b7ada9ee', {
@@ -47,7 +47,7 @@ const FaceitLogin = () => {
             nickname: data.nickname,
             avatar: data.avatar,
             faceit_guid: data.player_id,
-            id: data.player_id,
+            id: data.player_id, // Nota: Aqui é string, mas será atualizado para number após a chamada da API abaixo
             steam_id_64: data.steam_id_64
           }
           localStorage.setItem('faceit_user', JSON.stringify(devUser))
@@ -62,28 +62,46 @@ const FaceitLogin = () => {
       try {
         let parsedUser = JSON.parse(session);
 
-        // Atualiza os dados do usuário sempre que carregar a página para garantir que o Admin esteja atualizado
         if (parsedUser) {
+          // CORREÇÃO AQUI: Garante que pegamos o GUID correto independente do nome da propriedade vinda do Faceit
+          const guidToSync = parsedUser.faceit_guid || parsedUser.player_id || parsedUser.id;
+
           const res = await fetch('/api/players', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              guid: parsedUser.faceit_guid || parsedUser.id,
+              guid: guidToSync,
               nickname: parsedUser.nickname,
               avatar: parsedUser.avatar,
               steam_id_64: parsedUser.steam_id_64
             })
           });
+
           if (res.ok) {
             const dbUser = await res.json();
+            
+            // dbUser deve conter { id: 100, ... } vindo do MySQL
+            // Mesclamos: dbUser por último para garantir que o id numérico sobrescreva qualquer id string antigo
             parsedUser = { ...parsedUser, ...dbUser };
+            
+            // Forçamos explicitamente o ID numérico caso a mesclagem falhe em sobrescrever
+            if (dbUser.id) {
+                parsedUser.id = dbUser.id;
+            }
+
             localStorage.setItem('faceit_user', JSON.stringify(parsedUser));
+          } else {
+             console.error("Falha ao sincronizar usuário com DB:", await res.text());
           }
         }
         setUser(parsedUser);
       } catch (e) {
-        localStorage.removeItem('faceit_user')
-        setUser(null)
+        console.error("Erro no fluxo de login:", e);
+        // Não remova o usuário imediatamente em caso de erro de rede, apenas se o JSON for inválido
+        if (e instanceof SyntaxError) {
+            localStorage.removeItem('faceit_user')
+            setUser(null)
+        }
       }
     } else {
       setUser(null)
@@ -98,8 +116,8 @@ const FaceitLogin = () => {
       if (event.data && event.data.faceitUser) {
         const userData = event.data.faceitUser
         localStorage.setItem('faceit_user', JSON.stringify(userData))
-        setUser(userData)
-        window.dispatchEvent(new Event('faceit_auth_updated'))
+        // Chama o syncUser imediatamente para buscar o ID numérico
+        syncUser() 
       }
     }
 
@@ -114,9 +132,12 @@ const FaceitLogin = () => {
     }
   }, [syncUser])
 
+  // ... Resto do código (handleLogout, handleLogin) permanece igual ...
+  
   const handleLogout = () => {
     localStorage.removeItem('faceit_user')
     localStorage.removeItem('faceit_token')
+    localStorage.removeItem('faceit_code_verifier') // Boa prática limpar isso também
     setUser(null)
     window.dispatchEvent(new Event('faceit_auth_updated'))
   }
@@ -151,7 +172,7 @@ const FaceitLogin = () => {
     <div className="flex items-center">
       {user ? (
         <UserProfile
-          id={user.id}
+          id={user.id} // Certifique-se que user.id agora é um number
           ID={user.ID}
           nickname={user.nickname}
           avatar={user.avatar}
