@@ -66,7 +66,7 @@ const FaceitCallback = () => {
         }
 
         const user: UserProfile = {
-          faceit_guid: profileData.sub, // 🔥 ÚNICA identidade válida aqui
+          faceit_guid: profileData.sub,
           nickname: profileData.nickname || profileData.given_name || 'Usuário',
           avatar: profileData.picture || profileData.avatar || '',
           accessToken,
