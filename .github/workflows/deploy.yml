@@ -16,9 +16,6 @@ jobs:
           script: |
             cd /home/ubuntu/front-end && git pull origin main && cd ..
             
-            docker compose up -d --build
-            
-            docker image prune -f
-            
-            sleep 5
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            cd /home/ubuntu
+            ./atualizar_frontend.sh
+
