@@ -1,5 +1,7 @@
-import { pool } from '@/lib/db'
+import mysql from 'mysql2/promise';
 import RodadasClient from "./rodadas-cliente"
+
+ const pool = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
 export const revalidate = 0 
 
