@@ -22,36 +22,43 @@ export default function Callback() {
     }
 
     const run = async () => {
-      try {
-        const res = await fetch('/api/auth/faceit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, codeVerifier }),
-        })
+    try {
+      const res = await fetch('/api/auth/faceit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, codeVerifier }),
+      })
 
-        if (!res.ok) throw new Error('Falha na troca do token')
+      if (!res.ok) throw new Error('Falha na troca do token')
 
-        const user = await res.json()
-        
-        localStorage.setItem('faceit_user', JSON.stringify(user))
-        localStorage.removeItem('faceit_code_verifier')
+      const user = await res.json()
+      
+      localStorage.setItem('faceit_user', JSON.stringify(user))
+      localStorage.removeItem('faceit_code_verifier')
 
-        if (window.opener) {
-          window.opener.postMessage({ 
-            type: 'FACEIT_LOGIN_SUCCESS', 
-            user: user 
-          }, "*")
-          setTimeout(() => {
-            window.close()
-          }, 300)
-        } else {
-          router.push('/')
+      if (window.opener) {
+        window.opener.postMessage({ 
+          type: 'FACEIT_LOGIN_SUCCESS', 
+          user: user 
+        }, window.location.origin)
+
+        try {
+          window.opener.location.reload()
+        } catch (e) {
+          window.opener.location.href = window.opener.location.href
         }
-      } catch (err) {
-        console.error(err)
+
+        setTimeout(() => {
+          window.close()
+        }, 500) 
+      } else {
         router.push('/')
       }
+    } catch (err) {
+      console.error(err)
+      router.push('/')
     }
+  }
 
     run()
   }, [params, router])
