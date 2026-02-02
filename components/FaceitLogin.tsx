@@ -54,7 +54,7 @@ const FaceitLogin = () => {
         .replace(/\//g, '_')
         .replace(/=+$/, '')
     })()
-
+    //
     const url = new URL('https://accounts.faceit.com/accounts/dialog/oauth')
     url.searchParams.set('response_type', 'code')
     url.searchParams.set('client_id', clientId)
