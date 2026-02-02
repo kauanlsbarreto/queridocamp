@@ -11,6 +11,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
+/**
+ * Definição do tipo para o Perfil do Usuário.
+ * O campo 'id' deve representar a Primary Key da sua tabela 'players'.
+ */
 export type UserProfile = {
   id: number
   nickname: string
@@ -18,6 +22,10 @@ export type UserProfile = {
   Admin?: number
   admin?: number
   ID?: number
+}
+
+interface UserProfileProps extends UserProfile {
+  onLogout: () => void
 }
 
 export const UserProfile = ({
@@ -28,9 +36,8 @@ export const UserProfile = ({
   Admin,
   admin,
   onLogout,
-}: UserProfile & { onLogout: () => void }) => {
-  // Prioriza o id (que deve ser o número retornado pelo DB)
-  const profileId = id || ID;
+}: UserProfileProps) => {
+  const profileId = id ?? ID;
   const userAdminLevel = Admin ?? admin;
 
   return (
@@ -38,32 +45,44 @@ export const UserProfile = ({
       <DropdownMenuTrigger asChild>
         <div className="flex items-center gap-3 cursor-pointer">
           <span className="text-white font-medium">{nickname}</span>
-          <Avatar>
+          <Avatar className="h-9 w-9 border border-white/10">
             <AvatarImage src={avatar} alt={nickname} />
-            <AvatarFallback>{nickname.slice(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarFallback className="bg-[#FF5500] text-white">
+              {nickname.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
           </Avatar>
         </div>
       </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
-        <DropdownMenuSeparator />
+
+      <DropdownMenuContent align="end" className="w-56 bg-[#121212] border-white/10 text-white">
+        <DropdownMenuLabel className="text-gray-400 font-normal">Minha Conta</DropdownMenuLabel>
+        <DropdownMenuSeparator className="bg-white/10" />
+        
         {(Number(userAdminLevel) === 1 || Number(userAdminLevel) === 2) && (
-          <DropdownMenuItem asChild>
-            <Link href="/adminstracao" className="w-full cursor-pointer">Admin</Link>
+          <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
+            <Link href="/adminstracao" className="w-full">Painel Admin</Link>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem asChild>
+
+        <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
           <Link 
-            href={profileId ? `/perfil/${profileId}` : "#"} 
-            className="w-full cursor-pointer"
+            href={profileId !== undefined ? `/perfil/${profileId}` : "#"} 
+            className="w-full"
           >
             Meu Perfil
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/stats?filter=me" className="w-full cursor-pointer">Minhas Stats</Link>
+
+        <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
+          <Link href="/stats?filter=me" className="w-full">Minhas Stats</Link>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onLogout} className="cursor-pointer">
+
+        <DropdownMenuSeparator className="bg-white/10" />
+        
+        <DropdownMenuItem 
+          onClick={onLogout} 
+          className="text-red-500 focus:bg-red-500/10 focus:text-red-500 cursor-pointer"
+        >
           Sair
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -43,8 +43,7 @@ const FaceitLogin = () => {
     }
 
     if (parsedUser) {
-      setUser(parsedUser) // Faz o botão sumir imediatamente se houver sessão
-
+      setUser(parsedUser) 
       try {
         const guidToSync = parsedUser.faceit_guid || parsedUser.player_id || parsedUser.id
 
@@ -61,11 +60,10 @@ const FaceitLogin = () => {
 
         if (res.ok) {
           const dbUser = await res.json()
-          // Mescla os dados. O dbUser.id será o ID real da tabela (pode ser < 100 ou >= 100)
           const finalUser = { ...parsedUser, ...dbUser }
           
           localStorage.setItem('faceit_user', JSON.stringify(finalUser))
-          setUser(finalUser) // Atualiza estado com o ID oficial do banco
+          setUser(finalUser) 
         }
       } catch (e) {
         console.error("Erro sync API:", e)
