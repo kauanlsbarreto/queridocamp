@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import Image from "next/image"
 import { Lock, Shield, AlertCircle, CheckCircle, Eye, X } from "lucide-react"
-import FaceitLogin from "../../components/FaceitLogin" // Certifique-se que o caminho está certo
+import FaceitLogin from "../../components/FaceitLogin" 
 
 interface TeamPick {
   id: string;
@@ -24,52 +24,63 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
   const [loadingPicks, setLoadingPicks] = useState(false)
   const [viewingNickname, setViewingNickname] = useState<string | null>(null)
   
-  // O estado inicial dos times disponíveis é todos os times
   const [availableTeams, setAvailableTeams] = useState<TeamPick[]>(initialTeams)
-  // O estado inicial dos slots é vazio
   const [qualifiedTeams, setQualifiedTeams] = useState<(TeamPick | null)[]>(Array(8).fill(null))
   const [isLocked, setIsLocked] = useState(false)
 
   const isAdmin = user && adminGuids.includes(user.faceit_guid);
   const isViewingOther = viewingNickname && user && viewingNickname !== user.nickname;
 
-  // 1. Monitorar Login do Usuário
-  useEffect(() => {
-    const checkUser = () => {
-      const storedUser = localStorage.getItem('faceit_user')
-      if (storedUser) {
+  // 🔹 Função para verificar usuário (usando useCallback para não recriar a cada render)
+  const checkUser = useCallback(() => {
+    const storedUser = localStorage.getItem('faceit_user')
+    if (storedUser) {
+      try {
         const parsedUser = JSON.parse(storedUser)
-        setUser(parsedUser)
-        if (!viewingNickname) setViewingNickname(parsedUser.nickname)
-      } else {
+        // Só atualiza se o ID mudou para evitar loops
+        setUser(prev => (prev?.faceit_guid !== parsedUser.faceit_guid ? parsedUser : prev))
+        
+        // Se não estiver visualizando ninguém, define como o próprio usuário
+        setViewingNickname(prev => prev ? prev : parsedUser.nickname)
+      } catch (e) {
+        console.error("Erro ao parsear usuário", e)
+        localStorage.removeItem('faceit_user')
         setUser(null)
-        setViewingNickname(null)
-        // Se deslogar, reseta tudo
-        setQualifiedTeams(Array(8).fill(null))
-        setAvailableTeams(initialTeams)
-        setIsLocked(false)
       }
+    } else {
+      setUser(null)
+      setViewingNickname(null)
+      setQualifiedTeams(Array(8).fill(null))
+      setAvailableTeams(initialTeams)
+      setIsLocked(false)
+    }
+  }, [initialTeams])
+
+  useEffect(() => {
+    checkUser() 
+
+    const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === 'faceit_user') checkUser()
     }
 
-    checkUser()
-    window.addEventListener('storage', checkUser)
+    window.addEventListener('storage', handleStorageChange)
     window.addEventListener('faceit_auth_updated', checkUser)
+
     return () => {
-      window.removeEventListener('storage', checkUser)
+      window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('faceit_auth_updated', checkUser)
     }
-  }, [initialTeams, viewingNickname])
+  }, [checkUser])
 
-  // Carrega os picks sempre que o viewingNickname mudar
   useEffect(() => {
     if (viewingNickname) loadUserPicks(viewingNickname)
   }, [viewingNickname])
 
-  // 2. Carregar escolhas do banco
   const loadUserPicks = async (nickname: string) => {
     setLoadingPicks(true)
     try {
       let guidToUpdate = user && user.nickname === nickname ? user.faceit_guid : undefined;
+      
       if (!guidToUpdate && typeof window !== 'undefined') {
         const stored = localStorage.getItem('faceit_user');
         if (stored) {
@@ -89,11 +100,9 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
         const savedPicks = Array(8).fill(null)
         const pickedTeamIds = new Set<string>()
 
-        // Preenche os slots baseados nas colunas slot_1 a slot_8
         for (let i = 0; i < 8; i++) {
           const slotKey = `slot_${i + 1}`
           if (data[slotKey]) {
-            // O banco retorna JSON string ou objeto direto dependendo do driver
             const team = typeof data[slotKey] === 'string' ? JSON.parse(data[slotKey]) : data[slotKey]
             savedPicks[i] = team
             pickedTeamIds.add(team.id)
@@ -103,7 +112,6 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
         setQualifiedTeams(savedPicks)
         setIsLocked(!!data.locked)
         
-        // Remove dos times disponíveis aqueles que já foram escolhidos
         const remainingTeams = initialTeams.filter(t => !pickedTeamIds.has(t.id))
         setAvailableTeams(remainingTeams)
       }
@@ -114,7 +122,6 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
     }
   }
 
-  // 3. Salvar escolha no banco
   const savePickToDb = async (slotIndex: number, team: TeamPick | null) => {
     if (!user || isViewingOther) return
     try {
@@ -131,11 +138,9 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
       })
     } catch (error) {
       console.error("Erro ao salvar pick:", error)
-      // Opcional: Reverter estado visual se der erro
     }
   }
 
-  // Função para remover um time do slot
   const removePick = (slotIndex: number) => {
     if (!user || isLocked || isViewingOther) return
     
@@ -152,7 +157,6 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
     savePickToDb(slotIndex, null)
   }
 
-  // 4. Confirmar escolhas (Bloquear)
   const confirmPicks = async () => {
     if (!user || isViewingOther) return
     const confirm = window.confirm("Tem certeza? Após confirmar, você não poderá mais alterar suas escolhas.")
@@ -175,12 +179,11 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
   }
 
   const onDragEnd = (result: any) => {
-    if (!user || isLocked || isViewingOther) return // Segurança extra e bloqueio
+    if (!user || isLocked || isViewingOther) return
 
     const { source, destination } = result
     if (!destination) return
 
-    // 1. Arrastar do Pool para um Slot
     if (source.droppableId === "pool" && destination.droppableId.startsWith("slot-")) {
       const slotIndex = parseInt(destination.droppableId.replace("slot-", ""))
       const movedTeam = availableTeams[source.index]
@@ -202,14 +205,12 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
       return
     }
 
-    // 2. Arrastar de um Slot de volta para o Pool (Remover)
     if (source.droppableId.startsWith("slot-") && destination.droppableId === "pool") {
       const slotIndex = parseInt(source.droppableId.replace("slot-", ""))
       removePick(slotIndex)
       return
     }
 
-    // 3. Arrastar de um Slot para outro Slot (Troca)
     if (source.droppableId.startsWith("slot-") && destination.droppableId.startsWith("slot-")) {
       const sourceSlotIndex = parseInt(source.droppableId.replace("slot-", ""))
       const destSlotIndex = parseInt(destination.droppableId.replace("slot-", ""))
@@ -239,25 +240,23 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
             {user ? `Bem-vindo, ${user.nickname}!` : "Faça login para começar seus palpites"}
           </span>
         </div>
-        <FaceitLogin />
+        {/* CORREÇÃO AQUI: Passando as props corretamente */}
+        <FaceitLogin user={user} onAuthChange={checkUser} />
       </div>
 
-      {/* Se não estiver logado, bloqueia a visão ou interação */}
       {!user ? (
         <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/30 border border-zinc-800 border-dashed rounded-3xl">
           <AlertCircle className="w-16 h-16 text-zinc-600 mb-4" />
           <h3 className="text-2xl font-bold text-zinc-400 mb-2">Login Necessário</h3>
           <p className="text-zinc-500">Conecte sua conta Faceit acima para liberar o quadro de escolhas.</p>
+          {/* Removido qualquer botão duplicado aqui, deixando apenas o da barra superior */}
         </div>
       ) : loadingPicks ? (
         <div className="text-center py-20 text-amber-500 animate-pulse">Carregando seus palpites...</div>
       ) : (
-        /* Jogo Real */
         <DragDropContext onDragEnd={onDragEnd}>
-          {/* Barra de Ferramentas (Admin Select + Botão Confirmar) */}
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
             
-            {/* Admin Select */}
             {isAdmin ? (
               <div className="flex items-center gap-2 bg-zinc-900 p-2 rounded-xl border border-zinc-700">
                 <Eye className="text-gold" size={20} />
@@ -276,7 +275,6 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
               </div>
             ) : <div></div>}
 
-            {/* Botão de Confirmação ou Status */}
             {isLocked ? (
               <div className="flex items-center gap-2 bg-green-500/20 text-green-400 px-6 py-3 rounded-xl border border-green-500/50">
                 <CheckCircle size={20} />
@@ -298,8 +296,6 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* Pool de Times Disponíveis */}
             <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/10 h-fit">
               <h2 className="text-amber-500 font-bold mb-6 uppercase tracking-tighter flex items-center gap-2 italic">
                 <Shield size={20} /> Equipes Disponíveis
@@ -338,7 +334,6 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
               </Droppable>
             </div>
 
-            {/* Slots das Quartas de Final */}
             <div className="lg:col-span-2">
               <h2 className="text-white font-bold mb-6 uppercase tracking-tighter flex items-center gap-2 italic">
                 <Lock size={20} className="text-amber-500" /> Quartas de Final (Passam 8)
@@ -368,7 +363,6 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                                 {...dragProvided.dragHandleProps}
                                 className="flex flex-col items-center animate-in zoom-in duration-300 relative group w-full h-full justify-center"
                               >
-                                {/* Botão de remover (só aparece se não estiver bloqueado) */}
                                 {!isLocked && !isViewingOther && (
                                   <button
                                     onClick={(e) => {
@@ -408,7 +402,6 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                 ))}
               </div>
 
-              {/* Parte decorativa inferior (Semi e Final) - Mantida igual */}
               <div className="mt-12 opacity-15 grayscale select-none pointer-events-none border-t border-zinc-800 pt-10">
                  <div className="flex justify-around items-center">
                     <div className="flex flex-col gap-6">

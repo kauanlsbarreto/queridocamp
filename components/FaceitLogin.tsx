@@ -11,16 +11,18 @@ interface FaceitLoginProps {
 
 const FaceitLogin = ({ user, onAuthChange }: FaceitLoginProps) => {
 
-  // 🔹 Escuta mensagens do popup
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
       if (event.data?.type !== 'FACEIT_LOGIN_SUCCESS') return
 
-      const user = event.data.user
+      const newUser = event.data.user
 
-      // 🔹 Salva no localStorage
-      localStorage.setItem('faceit_user', JSON.stringify(user))
+      localStorage.setItem('faceit_user', JSON.stringify(newUser))
+      
+      window.dispatchEvent(new Event('faceit_auth_updated'))
+      
+      // 🔹 Notifica o componente pai
       onAuthChange()
     }
 
@@ -42,7 +44,7 @@ const FaceitLogin = ({ user, onAuthChange }: FaceitLoginProps) => {
         .replace(/\//g, '_')
         .replace(/=+$/, '')
     })()
-    //
+
     const url = new URL('https://accounts.faceit.com/accounts/dialog/oauth')
     url.searchParams.set('response_type', 'code')
     url.searchParams.set('client_id', clientId)
@@ -57,6 +59,7 @@ const FaceitLogin = ({ user, onAuthChange }: FaceitLoginProps) => {
   const handleLogout = () => {
     localStorage.removeItem('faceit_user')
     localStorage.removeItem('faceit_code_verifier')
+    window.dispatchEvent(new Event('faceit_auth_updated'))
     onAuthChange()
   }
 
@@ -69,7 +72,7 @@ const FaceitLogin = ({ user, onAuthChange }: FaceitLoginProps) => {
           onClick={handleLogin}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="flex items-center gap-2 bg-[#FF5500] text-white px-4 py-2 rounded-xl font-bold"
+          className="flex items-center gap-2 bg-[#FF5500] text-white px-4 py-2 rounded-xl font-bold hover:bg-[#ff6a22] transition-colors"
         >
           <img
             src="https://cdn.simpleicons.org/faceit/white"
