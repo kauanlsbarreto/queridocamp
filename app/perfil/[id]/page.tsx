@@ -53,6 +53,12 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     const player = pRows[0];
     if (!player) notFound();
 
+    if (id === '0') {
+        player.nickname = "Level -Todos -1"; 
+        player.avatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSELngQdOTsSQXmSv9j1ltZDiGKXvSB8NJIsQ&s";
+        player.faceit_level = 10; 
+    }
+
     // 2. Busca Conquistas (e garante que a tabela existe)
     try {
         await dbPool.execute(`CREATE TABLE IF NOT EXISTS codigos_conquistas (
@@ -146,7 +152,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             }
         }
 
-        if (playerTeamName) {
+        if (playerTeamName && id !== '0') {
             // 3. Busca partidas já jogadas para filtrar
             const [playedMatches]: any = await dbPool.execute('SELECT time1, time2 FROM jogos');
 

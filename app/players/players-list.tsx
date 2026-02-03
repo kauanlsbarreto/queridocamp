@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, Shield, User } from "lucide-react";
+import { Search, Shield, User, ChevronLeft, ChevronRight } from "lucide-react";
 import PremiumCard from "@/components/premium-card";
+import { usePathname, useSearchParams } from "next/navigation";
 
 interface Player {
   id: number;
@@ -15,7 +16,42 @@ interface Player {
   team_logo?: string;
 }
 
-export default function PlayersList({ initialPlayers }: { initialPlayers: Player[] }) {
+const Pagination = ({ totalPages, currentPage }: { totalPages: number, currentPage: number }) => {
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
+    const createPageURL = (pageNumber: number) => {
+        const params = new URLSearchParams(searchParams);
+        params.set('page', pageNumber.toString());
+        return `${pathname}?${params.toString()}`;
+    };
+
+    if (totalPages <= 1) {
+        return null;
+    }
+
+    return (
+        <div className="flex justify-center items-center gap-4 mt-12 text-white">
+            <Link 
+                href={createPageURL(currentPage - 1)}
+                className={`px-4 py-2 rounded-md transition-colors ${currentPage <= 1 ? 'pointer-events-none bg-gray-800/50 text-gray-500' : 'bg-gray-800 hover:bg-gray-700'}`}
+            >
+                <ChevronLeft size={20} />
+            </Link>
+            <span className="font-semibold">
+                Página {currentPage} de {totalPages}
+            </span>
+            <Link 
+                href={createPageURL(currentPage + 1)}
+                className={`px-4 py-2 rounded-md transition-colors ${currentPage >= totalPages ? 'pointer-events-none bg-gray-800/50 text-gray-500' : 'bg-gray-800 hover:bg-gray-700'}`}
+            >
+                <ChevronRight size={20} />
+            </Link>
+        </div>
+    );
+};
+
+export default function PlayersList({ initialPlayers, totalPages, currentPage }: { initialPlayers: Player[], totalPages: number, currentPage: number }) {
   const [players, setPlayers] = useState<any[]>(initialPlayers.map(p => ({ ...p, faceit_level: 0, is_challenger: false })));
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState("level-desc");
@@ -24,6 +60,7 @@ export default function PlayersList({ initialPlayers }: { initialPlayers: Player
   useEffect(() => {
     const fetchLevels = async () => {
       const fetchPlayerLevel = async (player: any) => {
+          if (player.id === 0) return { ...player, faceit_level: -1 };
           if (!player.faceit_guid) return player;
           try {
               const res = await fetch(`https://open.faceit.com/data/v4/players/${player.faceit_guid}`, {
@@ -129,9 +166,13 @@ export default function PlayersList({ initialPlayers }: { initialPlayers: Player
 
        {/* Grid de Cards */}
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-          {filteredPlayers.map((player, index) => (
+          {filteredPlayers.length === 0 ? (
+            <div className="col-span-full text-center py-20">
+              <p className="text-zinc-500 text-lg">Nenhum jogador encontrado.</p>
+            </div>
+          ) : filteredPlayers.map((player, index) => (
              <Link href={`/perfil/${player.id}`} key={player.id} className="block h-full">
-                  <PremiumCard hoverEffect={true} delay={index * 0.05} className="h-full">
+                  <PremiumCard hoverEffect={true} className="h-full">
                     <div className="p-6 flex flex-col items-center gap-4">
                        {/* Avatar */}
                        <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-gold/30">
@@ -151,7 +192,7 @@ export default function PlayersList({ initialPlayers }: { initialPlayers: Player
                           {player.faceit_level > 0 && (
                              <div className="flex items-center justify-center gap-2 mt-2">
                                 <img 
-                                  src={player.id === 1 ? "/faceitlevel/-1.png" : (player.is_challenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${player.faceit_level}.png`)}
+                                  src={player.id === 1 || player.id === 0 ? "/faceitlevel/-1.png" : (player.is_challenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${player.faceit_level}.png`)}
                                   alt={`Level ${player.faceit_level}`}
                                   className="w-8 h-8"
                                 />
@@ -191,6 +232,9 @@ export default function PlayersList({ initialPlayers }: { initialPlayers: Player
              </Link>
           ))}
        </div>
+
+       {/* Controles de Paginação */}
+       <Pagination totalPages={totalPages} currentPage={currentPage} />
     </div>
   )
 }

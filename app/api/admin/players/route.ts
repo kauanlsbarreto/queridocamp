@@ -44,22 +44,54 @@ export async function PUT(req: Request) {
 
 export async function PATCH(req: Request) {
     try {
-        const { userId, faceitGuid } = await req.json();
+        const body = await req.json();
 
-        if (!userId || !faceitGuid) {
-            return NextResponse.json({ message: 'User ID and Faceit GUID are required.' }, { status: 400 });
+        // Verifica se é uma atualização de ID (originalId e newId presentes)
+        // Usamos !== undefined para permitir o ID 0
+        if (body.originalId !== undefined && body.newId !== undefined) {
+            const { originalId, newId } = body;
+            const connection = await pool.getConnection();
+            try {
+                await connection.beginTransaction();
+                await connection.query('SET FOREIGN_KEY_CHECKS=0');
+
+                await connection.execute(
+                    'UPDATE players SET id = ? WHERE id = ?',
+                    [newId, originalId]
+                );
+                await connection.execute(
+                    'UPDATE codigos_conquistas SET resgatado_por = ? WHERE resgatado_por = ?',
+                    [newId, originalId]
+                );
+
+                await connection.query('SET FOREIGN_KEY_CHECKS=1');
+                await connection.commit();
+                return NextResponse.json({ message: 'Player ID updated successfully.' });
+            } catch (error) {
+                await connection.rollback();
+                await connection.query('SET FOREIGN_KEY_CHECKS=1');
+                throw error;
+            } finally {
+                connection.release();
+            }
         }
 
-        const connection = await pool.getConnection();
-        try {
-            await connection.execute(
-                'UPDATE players SET faceit_guid = ? WHERE id = ?',
-                [faceitGuid, userId]
-            );
-            return NextResponse.json({ message: 'Faceit GUID updated successfully.' });
-        } finally {
-            connection.release();
+        // Lógica existente para Faceit GUID
+        const { userId, faceitGuid } = body;
+        if (userId && faceitGuid) {
+            const connection = await pool.getConnection();
+            try {
+                await connection.execute(
+                    'UPDATE players SET faceit_guid = ? WHERE id = ?',
+                    [faceitGuid, userId]
+                );
+                return NextResponse.json({ message: 'Faceit GUID updated successfully.' });
+            } finally {
+                connection.release();
+            }
         }
+
+        return NextResponse.json({ message: 'Invalid parameters. Required: (originalId, newId) or (userId, faceitGuid).' }, { status: 400 });
     } catch (error) {
         console.error('Error in API /api/admin/players:', error);
         return NextResponse.json({ message: 'Internal server error' }, { status: 500 });

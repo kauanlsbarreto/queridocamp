@@ -1,6 +1,9 @@
 import mysql from 'mysql2/promise';
 import PlayersList from './players-list';
 
+// A revalidação a cada acesso (0) garante que a paginação e futuras buscas/filtros sejam sempre em tempo real.
+export const revalidate = 0;
+
 const dbPool = mysql.createPool("mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway");
 const dbPoolJogadores = mysql.createPool("mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway");
 
@@ -44,38 +47,53 @@ function calculateSimilarity(str1: string, str2: string): number {
   return 1.0 - distance / maxLen;
 }
 
-export default async function PlayersPage() {
-    // Garante que novos IDs comecem do 100
-    try {
-        await dbPool.execute("ALTER TABLE players AUTO_INCREMENT = 100");
-    } catch (e) {
-        console.error("Erro ao definir AUTO_INCREMENT:", e);
-    }
+const ITEMS_PER_PAGE = 20;
 
-    // 1. Busca todos os jogadores (DB1)
-    const [playersRows]: any = await dbPool.execute('SELECT id, nickname, avatar, faceit_guid FROM players ORDER BY nickname ASC');
+export default async function PlayersPage(props: { searchParams: Promise<{ page?: string }> }) {
+    const searchParams = await props.searchParams;
+    const currentPage = Number(searchParams?.page) || 1;
+    const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+
+    // 1. Busca o total de jogadores para calcular o número de páginas
+    const [totalResult]: any = await dbPool.execute('SELECT COUNT(*) as count FROM players');
+    const totalPlayers = totalResult[0].count;
+    const totalPages = Math.ceil(totalPlayers / ITEMS_PER_PAGE);
+
+    // 2. Busca os jogadores da página atual (DB1)
+    const [playersRows]: any = await dbPool.query(
+        'SELECT id, nickname, avatar, faceit_guid FROM players ORDER BY nickname ASC LIMIT ? OFFSET ?',
+        [ITEMS_PER_PAGE, offset]
+    );
     const players = playersRows;
 
-    // 2. Busca informações de times (DB1 & DB2)
+    // 3. Busca informações de times (DB1 & DB2)
     const [teamsRows]: any = await dbPool.execute('SELECT * FROM team_config');
     const [jogadoresRows]: any = await dbPoolJogadores.execute('SELECT * FROM jogadores');
     
     const teamsConfig = teamsRows;
     const jogadores = jogadoresRows;
 
-    // 3. Mapeia jogadores para seus times
+    // Otimização: Criar um Map para busca rápida por nickname (case-insensitive)
+    const jogadoresMap = new Map(jogadores.map((j: any) => [j.nick?.toLowerCase(), j]));
+
+    // 4. Mapeia jogadores para seus times
     const playersWithTeams = players.map((player: any) => {
+        if (player.id === 0) {
+            player.nickname = "-1";
+            player.avatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSELngQdOTsSQXmSv9j1ltZDiGKXvSB8NJIsQ&s";
+        }
+
         let teamName = null;
         let teamLogo = null;
 
         // Encontra o jogador correspondente no DB2 (jogadores)
-        // Tenta match exato primeiro
-        let jogador = jogadores.find((j: any) => j.nick?.toLowerCase() === player.nickname.toLowerCase());
+        // Tenta match exato primeiro usando o Map (muito mais rápido)
+        let jogador: any = jogadoresMap.get(player.nickname.toLowerCase());
         
         // Se não achar, tenta por similaridade
         if (!jogador) {
              let bestSim = 0;
-             let bestCand = null;
+             let bestCand: any = null;
              for (const j of jogadores) {
                  if (!j.nick) continue;
                  const sim = calculateSimilarity(player.nickname, j.nick);
@@ -143,5 +161,9 @@ export default async function PlayersPage() {
         };
     });
 
-    return <PlayersList initialPlayers={playersWithTeams} />;
+    return <PlayersList 
+        initialPlayers={playersWithTeams} 
+        totalPages={totalPages}
+        currentPage={currentPage}
+    />;
 }

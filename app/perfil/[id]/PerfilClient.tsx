@@ -14,6 +14,7 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
     const [conquistas, setConquistas] = useState(initialConquistas);
     const [faceitLevel, setFaceitLevel] = useState<number | null>(null);
     const [isChallenger, setIsChallenger] = useState(false);
+    const [isOwnProfile, setIsOwnProfile] = useState(false);
 
     useEffect(() => {
         const fetchLevel = async () => {
@@ -50,6 +51,18 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
             }
         };
         fetchLevel();
+
+        const storedUser = localStorage.getItem("faceit_user");
+        if (storedUser) {
+            try {
+                const user = JSON.parse(storedUser);
+                if (String(user.id) === String(player.id)) {
+                    setIsOwnProfile(true);
+                }
+            } catch (e) {
+                console.error("Failed to parse user session", e);
+            }
+        }
     }, [player]);
 
     const handleResgatar = async () => {
@@ -98,10 +111,10 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                                         {player?.nickname}
                                     </h1>
                                     
-                                    {faceitLevel && (
+                                    {(faceitLevel || player.id === 0) && (
                                         <div className="mb-4 flex justify-center" title={`Faceit Level ${faceitLevel}`}>
                                             <img 
-                                                src={player.id === 1 ? "/faceitlevel/-1.png" : (isChallenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${faceitLevel}.png`)} 
+                                                src={player.id === 0 ? "/faceitlevel/-1.png" : (isChallenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${faceitLevel}.png`)} 
                                                 alt={`Level ${faceitLevel}`} 
                                                 width={36} 
                                                 height={36} 
@@ -109,17 +122,19 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                                         </div>
                                     )}
                                     
-                                    {/* O ID DE VOLTA AQUI */}
                                     <p className="text-sm text-zinc-500 font-mono mb-6 uppercase tracking-tighter">
                                         Querido ID: {player?.id}
                                     </p>
                                     
-                                    <Button asChild className="w-full bg-[#ff5500] hover:bg-[#e04b00] text-white font-bold py-6 rounded-xl mb-4">
-                                        <a href={`https://www.faceit.com/pt/players/${player?.nickname}`} target="_blank">
-                                            Perfil Faceit
-                                        </a>
-                                    </Button>
+                                    {player.id !== 0 && (
+                                        <Button asChild className="w-full bg-[#ff5500] hover:bg-[#e04b00] text-white font-bold py-6 rounded-xl mb-4">
+                                            <a href={`https://www.faceit.com/pt/players/${player?.nickname}`} target="_blank">
+                                                Perfil Faceit
+                                            </a>
+                                        </Button>
+                                    )}
 
+                                    {isOwnProfile && (
                                     <div className="w-full pt-4 border-t border-white/10 mt-2">
                                         <label className="text-[10px] text-zinc-400 uppercase font-black tracking-widest mb-3 block">
                                             Resgatar:
@@ -147,6 +162,7 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                                             )}
                                         </div>
                                     </div>
+                                    )}
                                 </div>
                             </PremiumCard>
 
@@ -185,11 +201,13 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                         </div>
                     </div>
                     <div className="lg:col-span-2">
-                        <PlayerMatches 
-                            faceitId={player?.faceit_guid} 
-                            upcomingMatches={upcomingMatches} 
-                            teamName={teamName} 
-                        />
+                        {player.id !== 0 && (
+                            <PlayerMatches 
+                                faceitId={player?.faceit_guid} 
+                                upcomingMatches={upcomingMatches} 
+                                teamName={teamName} 
+                            />
+                        )}
                     </div>
                 </div>
             </div>

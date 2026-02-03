@@ -267,6 +267,19 @@ const ManagePlayersTab = () => {
         if (res.ok) {
           alert('ID do jogador atualizado com sucesso!');
           setPlayers(players.map(p => p.originalId === originalId ? { ...p, originalId: Number(newId), id: Number(newId) } : p));
+
+          const storedUser = localStorage.getItem("faceit_user");
+          if (storedUser) {
+            try {
+              const user = JSON.parse(storedUser);
+              if (user.id === originalId) {
+                user.id = Number(newId);
+                localStorage.setItem("faceit_user", JSON.stringify(user));
+              }
+            } catch (e) {
+              console.error("Failed to update local storage", e);
+            }
+          }
         } else {
           alert('Falha ao atualizar o ID do jogador.');
         }
@@ -361,6 +374,19 @@ const SetAdminTab = ({ currentUser }: { currentUser: UserProfileType | null }) =
         if (res.ok) {
           alert('Nível de admin atualizado com sucesso!');
           setPlayers(players.map(p => p.id === userId ? { ...p, Admin: adminLevel } : p));
+
+          const storedUser = localStorage.getItem("faceit_user");
+          if (storedUser) {
+            try {
+              const user = JSON.parse(storedUser);
+              if (user.id === userId) {
+                user.Admin = adminLevel;
+                localStorage.setItem("faceit_user", JSON.stringify(user));
+              }
+            } catch (e) {
+              console.error("Failed to update local storage", e);
+            }
+          }
         } else {
           alert('Falha ao atualizar o nível de admin.');
         }
