@@ -111,10 +111,10 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                                         {player?.nickname}
                                     </h1>
                                     
-                                    {(faceitLevel || player.id === 0) && (
+                                    {(faceitLevel || player.id === 0 || player.faceit_level_image) && (
                                         <div className="mb-4 flex justify-center" title={`Faceit Level ${faceitLevel}`}>
                                             <img 
-                                                src={player.id === 0 ? "/faceitlevel/-1.png" : (isChallenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${faceitLevel}.png`)} 
+                                                src={player.faceit_level_image || (player.id === 0 ? "/faceitlevel/-1.png" : (isChallenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${faceitLevel}.png`))} 
                                                 alt={`Level ${faceitLevel}`} 
                                                 width={36} 
                                                 height={36} 

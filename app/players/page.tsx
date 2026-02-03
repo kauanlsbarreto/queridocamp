@@ -53,6 +53,11 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
     const currentPage = Number(searchParams?.page) || 1;
     const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
+    // Garante que a coluna 'adicionados' exista para evitar erro na query abaixo
+    try {
+        await dbPool.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS adicionados VARCHAR(255)");
+    } catch (e) {}
+
     const [totalResult]: any = await dbPool.execute('SELECT COUNT(*) as count FROM players');
     const totalPlayers = totalResult[0].count;
     const totalPages = Math.ceil(totalPlayers / ITEMS_PER_PAGE);

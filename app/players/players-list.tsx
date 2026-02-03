@@ -189,14 +189,14 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage }:
                        <div className="text-center">
                           <h3 className="text-xl font-bold text-white mb-1">{player.nickname}</h3>
                           <p className="text-xs text-zinc-500 font-mono mb-2">ID: {player.id}</p>
-                          {player.faceit_level > 0 && (
+                          {(player.faceit_level > 0 || player.faceit_level_image) && (
                              <div className="flex items-center justify-center gap-2 mt-2">
                                 <img 
-                                  src={player.id === 1 || player.id === 0 ? "/faceitlevel/-1.png" : (player.is_challenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${player.faceit_level}.png`)}
+                                  src={player.faceit_level_image || (player.id === 1 || player.id === 0 ? "/faceitlevel/-1.png" : (player.is_challenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${player.faceit_level}.png`))}
                                   alt={`Level ${player.faceit_level}`}
                                   className="w-8 h-8"
                                 />
-                                <span className="text-gold font-bold text-sm">Level {player.faceit_level}</span>
+                                {player.faceit_level > 0 && <span className="text-gold font-bold text-sm">Level {player.faceit_level}</span>}
                              </div>
                           )}
                        </div>

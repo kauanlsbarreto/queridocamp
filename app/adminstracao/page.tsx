@@ -622,14 +622,24 @@ export default function AdminstracaoPage() {
 
   useEffect(() => {
     const session = localStorage.getItem("faceit_user");
+    let loadedUser: UserProfileType | null = null;
+
     if (session) {
       try {
-        setUser(JSON.parse(session));
+        loadedUser = JSON.parse(session);
       } catch (e) {
         console.error("Failed to parse user session", e);
-        setUser(null);
       }
     }
+
+    // Libera acesso se estiver em localhost
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      if (!loadedUser || (loadedUser.Admin !== 1 && loadedUser.Admin !== 2)) {
+        loadedUser = { id: 999999, faceit_guid: 'local', nickname: 'Local Admin', avatar: '', Admin: 1 };
+      }
+    }
+
+    setUser(loadedUser);
     setLoading(false);
   }, []);
 
