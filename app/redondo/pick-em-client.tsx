@@ -19,9 +19,7 @@ interface UserProfile {
   avatar: string;
 }
 
-const ADMIN_GUIDS = ["coloque-a-guid-do-deninho-aqui", "coloque-a-guid-do-shay-aqui", "coloque-a-guid-do-smk-aqui"];
-
-export default function PickEmClient({ initialTeams, usersWithPicks }: { initialTeams: TeamPick[], usersWithPicks: string[] }) {
+export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids }: { initialTeams: TeamPick[], usersWithPicks: string[], adminGuids: string[] }) {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loadingPicks, setLoadingPicks] = useState(false)
   const [viewingNickname, setViewingNickname] = useState<string | null>(null)
@@ -32,7 +30,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks }: { initial
   const [qualifiedTeams, setQualifiedTeams] = useState<(TeamPick | null)[]>(Array(8).fill(null))
   const [isLocked, setIsLocked] = useState(false)
 
-  const isAdmin = user && ADMIN_GUIDS.includes(user.faceit_guid);
+  const isAdmin = user && adminGuids.includes(user.faceit_guid);
   const isViewingOther = viewingNickname && user && viewingNickname !== user.nickname;
 
   // 1. Monitorar Login do Usuário

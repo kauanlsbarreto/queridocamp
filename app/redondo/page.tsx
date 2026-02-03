@@ -71,11 +71,22 @@ async function getAllUsersWithPicks() {
   }
 }
 
+async function getAdminGuids() {
+  try {
+    const [rows]: any = await pool1.execute('SELECT faceit_guid FROM players WHERE Admin >= 1 AND Admin <= 5');
+    return rows.map((r: any) => r.faceit_guid);
+  } catch (error) {
+    console.error("Erro ao buscar admins:", error);
+    return [];
+  }
+}
+
 export default async function RedondoPage() {
   await ensureTableExists();
   
   const teams = await getTeamsForPickEm();
   const usersWithPicks = await getAllUsersWithPicks();
+  const adminGuids = await getAdminGuids();
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -86,7 +97,7 @@ export default async function RedondoPage() {
       
       <section className="py-12 px-4 max-w-7xl mx-auto">
         {teams.length > 0 ? (
-          <PickEmClient initialTeams={teams} usersWithPicks={usersWithPicks} />
+          <PickEmClient initialTeams={teams} usersWithPicks={usersWithPicks} adminGuids={adminGuids} />
         ) : (
           <div className="text-center p-20 border border-dashed border-zinc-800 rounded-2xl">
             <p className="text-zinc-500 italic">Carregando times ou erro na conexão com Railway...</p>
