@@ -177,9 +177,29 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
     // Se não for admin, só pode bloquear (confirmar), nunca desbloquear
     if (!isAdmin && currentState) return;
 
-    const confirmMsg = currentState 
-        ? "Deseja desbloquear estas escolhas?" 
-        : "Tem certeza? Após confirmar, você não poderá mais alterar suas escolhas.";
+    // Validação para usuários: só pode confirmar se a etapa estiver completa
+    if (!isAdmin && !currentState) {
+      let isComplete = false;
+      if (stage === 'quarters') isComplete = qualifiedTeams.every(t => t !== null);
+      else if (stage === 'semi') isComplete = semiTeams.every(t => t !== null);
+      else if (stage === 'final') isComplete = finalTeams.every(t => t !== null);
+
+      if (!isComplete) {
+        alert("Você precisa preencher todos os times desta etapa para confirmar.");
+        return;
+      }
+    }
+
+    let confirmMsg = "";
+    if (isAdmin) {
+        confirmMsg = currentState 
+            ? "ATENÇÃO: Isso irá DESBLOQUEAR esta etapa para TODOS os usuários. Continuar?" 
+            : "ATENÇÃO: Isso irá BLOQUEAR esta etapa para TODOS os usuários. Continuar?";
+    } else {
+        confirmMsg = currentState 
+            ? "Deseja desbloquear estas escolhas?" 
+            : "Tem certeza? Após confirmar, você não poderá mais alterar suas escolhas.";
+    }
     
     if (!window.confirm(confirmMsg)) return
 
@@ -192,7 +212,8 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
           nickname: viewingNickname || user.nickname,
           faceit_guid: user.faceit_guid,
           stage,
-          locked: !currentState
+          locked: !currentState,
+          global: isAdmin // Se for admin, aplica globalmente
         })
       })
       
@@ -209,7 +230,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
     if (!user || (isViewingOther && !isAdmin)) return
     
     if (stage === 'quarters') {
-        if (isLocked && !isAdmin) return
+        if (isLocked) return
         const teamToRemove = qualifiedTeams[index]
         if (!teamToRemove) return
         const newQualified = [...qualifiedTeams]
@@ -218,13 +239,13 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
         setAvailableTeams([...availableTeams, teamToRemove])
         savePickToDb(`slot_${index + 1}`, null)
     } else if (stage === 'semi') {
-        if (isSemiLocked && !isAdmin) return
+        if (isSemiLocked) return
         const newSemi = [...semiTeams]
         newSemi[index] = null
         setSemiTeams(newSemi)
         savePickToDb(`semi_${index + 1}`, null)
     } else if (stage === 'final') {
-        if (isFinalLocked && !isAdmin) return
+        if (isFinalLocked) return
         const newFinal = [...finalTeams]
         newFinal[index] = null
         setFinalTeams(newFinal)
@@ -240,7 +261,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
 
     // Lógica para Quartas (Move do Pool)
     if (source.droppableId === "pool" && destination.droppableId.startsWith("slot-")) {
-      if (isLocked && !isAdmin) return
+      if (isLocked) return
       const slotIndex = parseInt(destination.droppableId.replace("slot-", ""))
       const movedTeam = availableTeams[source.index]
       const previousTeam = qualifiedTeams[slotIndex]
@@ -260,7 +281,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
 
     // Lógica para Semis (Copia das Quartas)
     if (source.droppableId.startsWith("slot-") && destination.droppableId.startsWith("semi-")) {
-      if (isSemiLocked && !isAdmin) return
+      if (isSemiLocked) return
       const sourceIndex = parseInt(source.droppableId.replace("slot-", ""))
       const destIndex = parseInt(destination.droppableId.replace("semi-", ""))
       
@@ -276,7 +297,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
 
     // Lógica para Final (Copia das Semis)
     if (source.droppableId.startsWith("semi-") && destination.droppableId.startsWith("final-")) {
-      if (isFinalLocked && !isAdmin) return
+      if (isFinalLocked) return
       const sourceIndex = parseInt(source.droppableId.replace("semi-", ""))
       const destIndex = parseInt(destination.droppableId.replace("final-", ""))
       
@@ -307,7 +328,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                 }`}
             >
                 {isLockedState ? <Lock size={14} /> : <Unlock size={14} />}
-                {isLockedState ? `Desbloquear ${label}` : `Bloquear ${label}`}
+                {isLockedState ? `Desbloquear Geral` : `Bloquear Geral`}
             </button>
           )
       }
@@ -322,10 +343,16 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
       }
 
       if (!isViewingOther) {
+          let isComplete = false;
+          if (stage === 'quarters') isComplete = qualifiedTeams.every(t => t !== null);
+          else if (stage === 'semi') isComplete = semiTeams.every(t => t !== null);
+          else if (stage === 'final') isComplete = finalTeams.every(t => t !== null);
+
           return (
             <button
                 onClick={() => toggleLock(stage, false)}
-                className="flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 px-3 py-1.5 rounded-lg border border-amber-500/30 transition-all"
+                disabled={!isComplete}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${isComplete ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/30 cursor-pointer" : "bg-zinc-800 text-zinc-600 border-zinc-700 cursor-not-allowed opacity-50"}`}
             >
                 <CheckCircle size={12} />
                 <span className="text-[10px] font-bold uppercase">Confirmar</span>
@@ -390,7 +417,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                     className="grid grid-cols-3 gap-3"
                   >
                     {availableTeams.map((team, index) => (
-                      <Draggable key={team.id} draggableId={team.id} index={index} isDragDisabled={(isLocked && !isAdmin) || (isViewingOther && !isAdmin)}>
+                      <Draggable key={team.id} draggableId={team.id} index={index} isDragDisabled={isLocked || (isViewingOther && !isAdmin)}>
                         {(provided) => (
                           <div
                             ref={provided.innerRef}
@@ -428,7 +455,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                   
                   <div className="grid grid-cols-4 gap-4">
                     {qualifiedTeams.map((team, index) => (
-                      <Droppable key={`q-${index}`} droppableId={`slot-${index}`} isDropDisabled={(isLocked && !isAdmin) || (isViewingOther && !isAdmin)}> 
+                      <Droppable key={`q-${index}`} droppableId={`slot-${index}`} isDropDisabled={isLocked || (isViewingOther && !isAdmin)}> 
                         {(provided, snapshot) => (
                           <div
                             {...provided.droppableProps}
@@ -450,7 +477,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                                     {...dragProvided.dragHandleProps}
                                     className="flex flex-col items-center w-full h-full justify-center relative group"
                                   >
-                                    {(!isLocked || isAdmin) && (!isViewingOther || isAdmin) && (
+                                    {!isLocked && (!isViewingOther || isAdmin) && (
                                         <button onClick={(e) => { e.stopPropagation(); removePick(index, 'quarters'); }} className="absolute top-1 right-1 bg-red-500/80 text-white rounded-full p-0.5 hover:bg-red-600 z-10"><X size={10} /></button>
                                     )}
                                     <div className="relative w-12 h-12">
@@ -480,7 +507,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                   
                   <div className="grid grid-cols-4 gap-4">
                     {semiTeams.map((team, index) => (
-                      <Droppable key={`s-${index}`} droppableId={`semi-${index}`} isDropDisabled={(isSemiLocked && !isAdmin) || (isViewingOther && !isAdmin)}> 
+                      <Droppable key={`s-${index}`} droppableId={`semi-${index}`} isDropDisabled={isSemiLocked || (isViewingOther && !isAdmin)}> 
                         {(provided, snapshot) => (
                           <div
                             {...provided.droppableProps}
@@ -502,7 +529,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                                     {...dragProvided.dragHandleProps}
                                     className="flex flex-col items-center w-full h-full justify-center relative group"
                                   >
-                                    {(!isSemiLocked || isAdmin) && (!isViewingOther || isAdmin) && (
+                                    {!isSemiLocked && (!isViewingOther || isAdmin) && (
                                         <button onClick={(e) => { e.stopPropagation(); removePick(index, 'semi'); }} className="absolute top-1 right-1 bg-red-500/80 text-white rounded-full p-0.5 hover:bg-red-600 z-10"><X size={10} /></button>
                                     )}
                                     <div className="relative w-12 h-12">
@@ -532,7 +559,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                   
                   <div className="flex justify-center gap-8">
                     {finalTeams.map((team, index) => (
-                      <Droppable key={`f-${index}`} droppableId={`final-${index}`} isDropDisabled={(isFinalLocked && !isAdmin) || (isViewingOther && !isAdmin)}> 
+                      <Droppable key={`f-${index}`} droppableId={`final-${index}`} isDropDisabled={isFinalLocked || (isViewingOther && !isAdmin)}> 
                         {(provided, snapshot) => (
                           <div
                             {...provided.droppableProps}
@@ -554,7 +581,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                                     {...dragProvided.dragHandleProps}
                                     className="flex flex-col items-center w-full h-full justify-center relative group"
                                   >
-                                    {(!isFinalLocked || isAdmin) && (!isViewingOther || isAdmin) && (
+                                    {!isFinalLocked && (!isViewingOther || isAdmin) && (
                                         <button onClick={(e) => { e.stopPropagation(); removePick(index, 'final'); }} className="absolute top-1 right-1 bg-red-500/80 text-white rounded-full p-0.5 hover:bg-red-600 z-10"><X size={10} /></button>
                                     )}
                                     <div className="relative w-16 h-16">

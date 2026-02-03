@@ -6,9 +6,9 @@ const pool = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@noz
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, nickname, faceit_guid, field, team, stage, locked } = body;
+    const { action, nickname, faceit_guid, field, team, stage, locked, global } = body;
 
-    if (!nickname) {
+    if (!nickname && !global) {
       return NextResponse.json({ error: 'Nickname is required' }, { status: 400 });
     }
 
@@ -86,26 +86,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
+    // Bloquear ou Desbloquear etapa
     if (action === 'lock') {
       let column = 'locked';
       if (stage === 'semi') column = 'semi_locked';
       if (stage === 'final') column = 'final_locked';
 
-      if (locked === false) {
-           let isAdmin = false;
-           if (faceit_guid) {
-              const [adminRows]: any = await pool.execute(
-                  'SELECT Admin FROM players WHERE faceit_guid = ?',
-                  [faceit_guid]
-              );
-              isAdmin = adminRows.length > 0 && (adminRows[0].Admin === 1 || adminRows[0].Admin === 2);
-           }
-
-           if (!isAdmin) {
-               return NextResponse.json({ error: 'Apenas administradores podem desbloquear.' }, { status: 403 });
-           }
+      // Verificar permissão de admin se for desbloqueio ou bloqueio global
+      let isAdmin = false;
+      if (faceit_guid) {
+        const [adminRows]: any = await pool.execute(
+            'SELECT Admin FROM players WHERE faceit_guid = ?',
+            [faceit_guid]
+        );
+        isAdmin = adminRows.length > 0 && (adminRows[0].Admin === 1 || adminRows[0].Admin === 2);
       }
 
+      if (locked === false && !isAdmin) {
+           return NextResponse.json({ error: 'Apenas administradores podem desbloquear.' }, { status: 403 });
+      }
+
+      if (global) {
+        if (!isAdmin) {
+            return NextResponse.json({ error: 'Apenas administradores podem usar o bloqueio global.' }, { status: 403 });
+        }
+        
+        // Bloqueio Global: Atualiza TODOS os registros
+        await pool.execute(
+            `UPDATE escolhas SET ${column} = ?`,
+            [locked ? 1 : 0]
+        );
+        return NextResponse.json({ success: true, global: true });
+      }
+
+      // Bloqueio Individual
       const [existing]: any = await pool.execute('SELECT faceit_guid FROM escolhas WHERE nickname = ?', [nickname]);
       
       if (existing.length === 0) {
