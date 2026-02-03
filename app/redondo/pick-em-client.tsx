@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import Image from "next/image"
 import { Lock, Shield, AlertCircle, CheckCircle, Eye, X } from "lucide-react"
-import FaceitLogin from "../../components/FaceitLogin" 
 
 interface TeamPick {
   id: string;
@@ -44,7 +43,6 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
         setViewingNickname(prev => prev ? prev : parsedUser.nickname)
       } catch (e) {
         console.error("Erro ao parsear usuário", e)
-        localStorage.removeItem('faceit_user')
         setUser(null)
       }
     } else {
@@ -240,8 +238,6 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
             {user ? `Bem-vindo, ${user.nickname}!` : "Faça login para começar seus palpites"}
           </span>
         </div>
-        {/* CORREÇÃO AQUI: Passando as props corretamente */}
-        <FaceitLogin user={user} onAuthChange={checkUser} />
       </div>
 
       {!user ? (
