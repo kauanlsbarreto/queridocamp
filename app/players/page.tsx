@@ -58,7 +58,7 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
     const totalPages = Math.ceil(totalPlayers / ITEMS_PER_PAGE);
 
     const [playersRows]: any = await dbPool.query(
-        'SELECT id, nickname, avatar, faceit_guid, faceit_level, adicionados FROM players ORDER BY nickname ASC LIMIT ? OFFSET ?',
+        'SELECT id, nickname, avatar, faceit_guid, adicionados FROM players ORDER BY nickname ASC LIMIT ? OFFSET ?',
         [ITEMS_PER_PAGE, offset]
     );
     const players = playersRows;
@@ -77,7 +77,7 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
             player.avatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSELngQdOTsSQXmSv9j1ltZDiGKXvSB8NJIsQ&s";
         }
 
-        if (player.adicionados === 'QCS-CADEIRANTE') {
+        if (player.adicionados && player.adicionados.includes('QCS-CADEIRANTE')) {
             player.faceit_level_image = '/faceitlevel/cadeirante.png';
         }
 

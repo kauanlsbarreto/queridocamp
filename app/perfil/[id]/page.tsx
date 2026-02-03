@@ -58,7 +58,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         player.faceit_level = 10; 
     }
 
-    if (player.adicionados === 'QCS-CADEIRANTE') {
+    if (player.adicionados && player.adicionados.includes('QCS-CADEIRANTE')) {
         player.faceit_level_image = '/faceitlevel/cadeirante.png';
     }
 

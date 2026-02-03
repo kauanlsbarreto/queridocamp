@@ -545,7 +545,7 @@ const ManageAdicionadosTab = () => {
 
   const handleSave = async (userId: number) => {
     try {
-      const res = await fetch('/api/admin/players', {
+      const res = await fetch('/api/admin/players/update-adicionados', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, adicionados: editValue }),
@@ -590,7 +590,7 @@ const ManageAdicionadosTab = () => {
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
                         className="border rounded px-2 py-1 w-full"
-                        placeholder="Ex: QCS-CADEIRANTE"
+                        placeholder="Ex: QCS-CADEIRANTE, VIP"
                       />
                     ) : (
                       player.adicionados || '-'
