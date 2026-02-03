@@ -18,13 +18,7 @@ jobs:
           command_timeout: 20m
           script: |
             set -e
-
             cd /home/ubuntu/front-end
-
             git pull origin main
-
-            docker compose up -d --build --pull=never
-
-            sleep 5
-
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            docker system prune -f
+            docker compose up -d --build
