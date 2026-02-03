@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import Image from "next/image"
-import { Lock, Shield, AlertCircle, CheckCircle, Eye, X, Unlock } from "lucide-react"
+import { Lock, Shield, AlertCircle, CheckCircle, Eye, X, Unlock, Globe } from "lucide-react"
 
 interface TeamPick {
   id: string;
@@ -161,7 +161,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
         body: JSON.stringify({
           action: 'save',
           nickname: viewingNickname || user.nickname,
-          faceit_guid: user.faceit_guid, // Admin guid se for admin editando
+          faceit_guid: user.faceit_guid, 
           field,
           team
         })
@@ -171,33 +171,37 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
     }
   }
 
-  const toggleLock = async (stage: 'quarters' | 'semi' | 'final', currentState: boolean) => {
+  // ATUALIZADO: Agora aceita isGlobalAction para diferenciar bloqueio geral de confirmação pessoal
+  const toggleLock = async (stage: 'quarters' | 'semi' | 'final', currentState: boolean, isGlobalAction: boolean) => {
     if (!user) return
     
-    // Se não for admin, só pode bloquear (confirmar), nunca desbloquear
+    // Se não for admin, só pode bloquear (confirmar)
     if (!isAdmin && currentState) return;
 
-    // Validação para usuários: só pode confirmar se a etapa estiver completa
-    if (!isAdmin && !currentState) {
-      let isComplete = false;
-      if (stage === 'quarters') isComplete = qualifiedTeams.every(t => t !== null);
-      else if (stage === 'semi') isComplete = semiTeams.every(t => t !== null);
-      else if (stage === 'final') isComplete = finalTeams.every(t => t !== null);
+    // Se for Confirmação Pessoal (não global)
+    if (!isGlobalAction) {
+        // Validação: só pode confirmar se a etapa estiver completa
+        let isComplete = false;
+        if (stage === 'quarters') isComplete = qualifiedTeams.every(t => t !== null);
+        else if (stage === 'semi') isComplete = semiTeams.every(t => t !== null);
+        else if (stage === 'final') isComplete = finalTeams.every(t => t !== null);
 
-      if (!isComplete) {
-        alert("Você precisa preencher todos os times desta etapa para confirmar.");
-        return;
-      }
+        if (!isComplete && !currentState) {
+            alert("Você precisa preencher todos os times desta etapa para confirmar.");
+            return;
+        }
     }
 
     let confirmMsg = "";
-    if (isAdmin) {
+    if (isGlobalAction) {
+        // Mensagem para Admin usando Botão Global
         confirmMsg = currentState 
-            ? "ATENÇÃO: Isso irá DESBLOQUEAR esta etapa para TODOS os usuários. Continuar?" 
-            : "ATENÇÃO: Isso irá BLOQUEAR esta etapa para TODOS os usuários. Continuar?";
+            ? "GLOBAL: Isso irá DESBLOQUEAR esta etapa para TODOS os usuários. Continuar?" 
+            : "GLOBAL: Isso irá BLOQUEAR esta etapa para TODOS os usuários. Continuar?";
     } else {
+        // Mensagem para Usuário (ou Admin confirmando o seu)
         confirmMsg = currentState 
-            ? "Deseja desbloquear estas escolhas?" 
+            ? "Deseja desbloquear suas escolhas?" 
             : "Tem certeza? Após confirmar, você não poderá mais alterar suas escolhas.";
     }
     
@@ -213,10 +217,11 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
           faceit_guid: user.faceit_guid,
           stage,
           locked: !currentState,
-          global: isAdmin // Se for admin, aplica globalmente
+          global: isGlobalAction // Envia true apenas se clicou no botão global
         })
       })
       
+      // Atualiza o estado visual localmente
       if (stage === 'quarters') setIsLocked(!currentState)
       if (stage === 'semi') setIsSemiLocked(!currentState)
       if (stage === 'final') setIsFinalLocked(!currentState)
@@ -259,7 +264,6 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
     const { source, destination } = result
     if (!destination) return
 
-    // Lógica para Quartas (Move do Pool)
     if (source.droppableId === "pool" && destination.droppableId.startsWith("slot-")) {
       if (isLocked) return
       const slotIndex = parseInt(destination.droppableId.replace("slot-", ""))
@@ -279,15 +283,12 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
       return
     }
 
-    // Lógica para Semis (Copia das Quartas)
     if (source.droppableId.startsWith("slot-") && destination.droppableId.startsWith("semi-")) {
       if (isSemiLocked) return
       const sourceIndex = parseInt(source.droppableId.replace("slot-", ""))
       const destIndex = parseInt(destination.droppableId.replace("semi-", ""))
-      
       const teamToCopy = qualifiedTeams[sourceIndex]
       if (!teamToCopy) return
-
       const newSemi = [...semiTeams]
       newSemi[destIndex] = teamToCopy
       setSemiTeams(newSemi)
@@ -295,15 +296,12 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
       return
     }
 
-    // Lógica para Final (Copia das Semis)
     if (source.droppableId.startsWith("semi-") && destination.droppableId.startsWith("final-")) {
       if (isFinalLocked) return
       const sourceIndex = parseInt(source.droppableId.replace("semi-", ""))
       const destIndex = parseInt(destination.droppableId.replace("final-", ""))
-      
       const teamToCopy = semiTeams[sourceIndex]
       if (!teamToCopy) return
-
       const newFinal = [...finalTeams]
       newFinal[destIndex] = teamToCopy
       setFinalTeams(newFinal)
@@ -311,56 +309,74 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
       return
     }
     
-    // Remover das Quartas para o Pool
     if (source.droppableId.startsWith("slot-") && destination.droppableId === "pool") {
         removePick(parseInt(source.droppableId.replace("slot-", "")), 'quarters')
         return
     }
   }
 
-  const renderLockControl = (isLockedState: boolean, stage: 'quarters' | 'semi' | 'final', label: string) => {
-      if (isAdmin) {
-          return (
-            <button
-                onClick={() => toggleLock(stage, isLockedState)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs uppercase transition-all ${
-                    isLockedState ? "bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30" : "bg-green-500/20 text-green-400 border border-green-500/50 hover:bg-green-500/30"
-                }`}
-            >
-                {isLockedState ? <Lock size={14} /> : <Unlock size={14} />}
-                {isLockedState ? `Desbloquear Geral` : `Bloquear Geral`}
-            </button>
-          )
-      }
-      
-      if (isLockedState) {
-          return (
-            <div className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700">
-                <Lock size={12} className="text-zinc-500" />
-                <span className="text-[10px] font-bold uppercase text-zinc-500">Bloqueado</span>
-            </div>
-          )
-      }
+  const renderLockControl = (isLockedState: boolean, stage: 'quarters' | 'semi' | 'final') => {
+      // Verifica se a etapa está completa visualmente
+      let isComplete = false;
+      if (stage === 'quarters') isComplete = qualifiedTeams.every(t => t !== null);
+      else if (stage === 'semi') isComplete = semiTeams.every(t => t !== null);
+      else if (stage === 'final') isComplete = finalTeams.every(t => t !== null);
 
-      if (!isViewingOther) {
-          let isComplete = false;
-          if (stage === 'quarters') isComplete = qualifiedTeams.every(t => t !== null);
-          else if (stage === 'semi') isComplete = semiTeams.every(t => t !== null);
-          else if (stage === 'final') isComplete = finalTeams.every(t => t !== null);
+      return (
+        <div className="flex items-center gap-3">
+            {/* BOTÃO GLOBAL - APENAS ADMIN */}
+            {isAdmin && (
+                <button
+                    onClick={() => toggleLock(stage, isLockedState, true)}
+                    title="Trava Global (Impede novas submissões de todos)"
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${
+                        isLockedState 
+                        ? "bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30" 
+                        : "bg-blue-500/20 text-blue-400 border border-blue-500/50 hover:bg-blue-500/30"
+                    }`}
+                >
+                    <Globe size={12} />
+                    {isLockedState ? `Desbloquear Global` : `Bloquear Global`}
+                </button>
+            )}
 
-          return (
-            <button
-                onClick={() => toggleLock(stage, false)}
-                disabled={!isComplete}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${isComplete ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/30 cursor-pointer" : "bg-zinc-800 text-zinc-600 border-zinc-700 cursor-not-allowed opacity-50"}`}
-            >
-                <CheckCircle size={12} />
-                <span className="text-[10px] font-bold uppercase">Confirmar</span>
-            </button>
-          )
-      }
-
-      return null
+            {/* BOTÃO DE CONFIRMAÇÃO PESSOAL (ADMIN TAMBÉM VÊ O SEU) */}
+            {!isViewingOther && (
+                isLockedState ? (
+                    isAdmin ? (
+                        // Admin pode desbloquear o seu próprio
+                        <button
+                            onClick={() => toggleLock(stage, true, false)}
+                            className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700 hover:bg-zinc-700 transition-all cursor-pointer"
+                        >
+                            <Lock size={12} className="text-zinc-500" />
+                            <span className="text-[10px] font-bold uppercase text-zinc-500">Confirmado (Desbloquear)</span>
+                        </button>
+                    ) : (
+                        // Usuário comum só vê que está confirmado
+                        <div className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700">
+                            <Lock size={12} className="text-zinc-500" />
+                            <span className="text-[10px] font-bold uppercase text-zinc-500">Confirmado</span>
+                        </div>
+                    )
+                ) : (
+                    // Botão de Confirmar (Habilitado apenas se completo)
+                    <button
+                        onClick={() => toggleLock(stage, false, false)}
+                        disabled={!isComplete}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${
+                            isComplete 
+                            ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/30 cursor-pointer shadow-[0_0_10px_rgba(245,158,11,0.2)]" 
+                            : "bg-zinc-800 text-zinc-600 border-zinc-700 cursor-not-allowed opacity-50"
+                        }`}
+                    >
+                        <CheckCircle size={12} />
+                        <span className="text-[10px] font-bold uppercase">Confirmar Escolhas</span>
+                    </button>
+                )
+            )}
+        </div>
+      )
   }
 
   return (
@@ -450,7 +466,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                     <h2 className="text-white font-bold uppercase tracking-tighter flex items-center gap-2 italic">
                         <span className="text-amber-500">1.</span> Quartas de Final (8 Times)
                     </h2>
-                    {renderLockControl(isLocked, 'quarters', 'Quartas')}
+                    {renderLockControl(isLocked, 'quarters')}
                   </div>
                   
                   <div className="grid grid-cols-4 gap-4">
@@ -502,7 +518,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                     <h2 className="text-white font-bold uppercase tracking-tighter flex items-center gap-2 italic">
                         <span className="text-amber-500">2.</span> Semi-Finais (4 Times)
                     </h2>
-                    {renderLockControl(isSemiLocked, 'semi', 'Semi')}
+                    {renderLockControl(isSemiLocked, 'semi')}
                   </div>
                   
                   <div className="grid grid-cols-4 gap-4">
@@ -554,7 +570,7 @@ export default function PickEmClient({ initialTeams, usersWithPicks, adminGuids 
                     <h2 className="text-white font-bold uppercase tracking-tighter flex items-center gap-2 italic">
                         <span className="text-amber-500">3.</span> Grande Final (2 Times)
                     </h2>
-                    {renderLockControl(isFinalLocked, 'final', 'Final')}
+                    {renderLockControl(isFinalLocked, 'final')}
                   </div>
                   
                   <div className="flex justify-center gap-8">

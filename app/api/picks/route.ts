@@ -12,7 +12,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Nickname is required' }, { status: 400 });
     }
 
-    // Carregar escolhas
     if (action === 'load') {
       const [rows]: any = await pool.execute(
         'SELECT * FROM escolhas WHERE nickname = ?',
@@ -21,13 +20,11 @@ export async function POST(request: Request) {
       return NextResponse.json(rows[0] || {});
     }
 
-    // Salvar escolha
     if (action === 'save') {
       if (!field) {
           return NextResponse.json({ error: 'Field is required' }, { status: 400 });
       }
 
-      // Validação de campos permitidos para evitar SQL Injection
       const allowedFields = [
           'slot_1', 'slot_2', 'slot_3', 'slot_4', 'slot_5', 'slot_6', 'slot_7', 'slot_8',
           'semi_1', 'semi_2', 'semi_3', 'semi_4',
@@ -38,12 +35,10 @@ export async function POST(request: Request) {
          return NextResponse.json({ error: 'Invalid field' }, { status: 400 });
       }
 
-      // Determinar qual coluna de bloqueio verificar
       let lockColumn = 'locked';
       if (field.startsWith('semi_')) lockColumn = 'semi_locked';
       if (field.startsWith('final_')) lockColumn = 'final_locked';
 
-      // Verificar se está bloqueado
       const [rows]: any = await pool.execute(
         `SELECT ${lockColumn} as is_locked FROM escolhas WHERE nickname = ?`,
         [nickname]
@@ -52,7 +47,6 @@ export async function POST(request: Request) {
       const isLocked = rows.length > 0 && rows[0].is_locked;
 
       if (isLocked) {
-          // Se estiver bloqueado, verificar se é admin para permitir a edição
           let isAdmin = false;
           if (faceit_guid) {
               const [adminRows]: any = await pool.execute(
@@ -86,13 +80,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // Bloquear ou Desbloquear etapa
     if (action === 'lock') {
       let column = 'locked';
       if (stage === 'semi') column = 'semi_locked';
       if (stage === 'final') column = 'final_locked';
 
-      // Verificar permissão de admin se for desbloqueio ou bloqueio global
       let isAdmin = false;
       if (faceit_guid) {
         const [adminRows]: any = await pool.execute(
@@ -102,16 +94,11 @@ export async function POST(request: Request) {
         isAdmin = adminRows.length > 0 && (adminRows[0].Admin === 1 || adminRows[0].Admin === 2);
       }
 
-      if (locked === false && !isAdmin) {
-           return NextResponse.json({ error: 'Apenas administradores podem desbloquear.' }, { status: 403 });
-      }
-
       if (global) {
         if (!isAdmin) {
             return NextResponse.json({ error: 'Apenas administradores podem usar o bloqueio global.' }, { status: 403 });
         }
         
-        // Bloqueio Global: Atualiza TODOS os registros
         await pool.execute(
             `UPDATE escolhas SET ${column} = ?`,
             [locked ? 1 : 0]
@@ -119,7 +106,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, global: true });
       }
 
-      // Bloqueio Individual
+      if (locked === false && !isAdmin) {
+           return NextResponse.json({ error: 'Apenas administradores podem desbloquear.' }, { status: 403 });
+      }
+
       const [existing]: any = await pool.execute('SELECT faceit_guid FROM escolhas WHERE nickname = ?', [nickname]);
       
       if (existing.length === 0) {
