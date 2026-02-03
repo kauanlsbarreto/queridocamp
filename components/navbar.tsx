@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -17,42 +17,61 @@ interface NavbarProps {
 const Navbar = ({ user, onAuthChange }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(user)
 
-  useEffect(() => {
-    setCurrentUser(user)
-  }, [user])
+  const syncUserFromStorage = useCallback(() => {
+    if (typeof window === 'undefined') return
 
-  useEffect(() => {
     const stored = localStorage.getItem('faceit_user')
     if (stored) {
       try {
-        setCurrentUser(JSON.parse(stored))
+        const parsed = JSON.parse(stored)
+        setCurrentUser(prev => prev?.faceit_guid !== parsed.faceit_guid ? parsed : prev)
       } catch (e) {
-        console.error(e)
-      }
-    }
-  }, [])
-
-  const handleLocalAuthChange = () => {
-    const stored = localStorage.getItem('faceit_user')
-    if (stored) {
-      try {
-        setCurrentUser(JSON.parse(stored))
-      } catch (e) {
+        console.error("Erro ao ler usuário:", e)
         setCurrentUser(null)
       }
     } else {
-      setCurrentUser(null)
+      if (!user) setCurrentUser(null)
     }
-    onAuthChange()
-  }
+  }, [user])
+
+  useEffect(() => {
+    if (user) {
+      setCurrentUser(user)
+    }
+  }, [user])
+
+  useEffect(() => {
+    syncUserFromStorage()
+  }, [syncUserFromStorage])
+
+  useEffect(() => {
+    const handleGlobalAuth = () => {
+      syncUserFromStorage()
+      onAuthChange() 
+    }
+
+    window.addEventListener('faceit_auth_updated', handleGlobalAuth)
+    window.addEventListener('storage', handleGlobalAuth)
+
+    return () => {
+      window.removeEventListener('faceit_auth_updated', handleGlobalAuth)
+      window.removeEventListener('storage', handleGlobalAuth)
+    }
+  }, [syncUserFromStorage, onAuthChange])
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  const handleLocalAuthChange = () => {
+    syncUserFromStorage()
+    onAuthChange()
+  }
 
   return (
     <motion.nav
@@ -66,11 +85,10 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
       }`}
       style={{ transform: 'translateZ(0)' }}
     >
-      {/* Aumentei o padding horizontal (px-12) para afastar os itens das bordas da tela */}
       <div className="w-full px-6 md:px-12">
         <div className="flex items-center justify-between">
           
-          {/* Lado Esquerdo: Logo */}
+          {/* Logo */}
           <div className="flex-none">
             <Link href="/" className="flex items-center group">
               <div className="relative w-12 h-12 sm:w-16 sm:h-16 group-hover:scale-110 transition-transform duration-300">
@@ -85,7 +103,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
             </Link>
           </div>
 
-          {/* Centro: Links (Ocupa o meio e centraliza os links) */}
+          {/* Links Desktop */}
           <div className="flex-1 hidden lg:flex justify-center">
             <div className="flex space-x-1 items-center glass-gold rounded-2xl px-6 py-2">
               <NavLink href="/">Home</NavLink>
@@ -98,22 +116,18 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
               <NavLink href="/rodadas">Rodadas</NavLink>
               <NavLink href="/redondo">Redondo</NavLink>
               <NavLink href="/players">Jogadores</NavLink>
-              {/*<NavLink href="/skins">Skins</NavLink>
-              <NavLink href="/servidor">Servidor</NavLink>*/}
               <NavLink href="/premiacao">Premiação</NavLink>
             </div>
           </div>
 
-          {/* Lado Direito: Ações (Aumentei o gap-8 para o sino não ficar colado no login) */}
           <div className="flex-none flex items-center gap-6 md:gap-8">
             <div className="hidden md:flex items-center gap-6 md:gap-8">
               <Notifications />
-              <div className="pl-2"> {/* Espaçamento extra opcional para o botão de login */}
+              <div className="pl-2">
                 <FaceitLogin user={currentUser} onAuthChange={handleLocalAuthChange} />
               </div>
             </div>
             
-            {/* Menu Mobile Button */}
             <div className="md:hidden">
               <button
                 type="button"
@@ -126,7 +140,6 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
           </div>
         </div>
 
-        {/* Menu Mobile Overlay */}
         {isMenuOpen && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
