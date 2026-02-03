@@ -1,16 +1,13 @@
-FROM node:18-slim AS deps
+FROM node:18-alpine AS deps
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-  ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache libc6-compat
 
 COPY package.json package-lock.json ./
-
 RUN npm ci --legacy-peer-deps --no-audit --no-fund
 
 
-FROM node:18-slim AS builder
+FROM node:18-alpine AS builder
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -35,5 +32,4 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3000
-
 CMD ["node", "server.js"]
