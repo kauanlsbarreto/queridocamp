@@ -12,12 +12,13 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
     const [conquistas, setConquistas] = useState(initialConquistas);
-    const [faceitLevel, setFaceitLevel] = useState<number | null>(null);
+    const [faceitLevel, setFaceitLevel] = useState<number | null>(player.id === 0 ? -1 : null);
     const [isChallenger, setIsChallenger] = useState(false);
     const [isOwnProfile, setIsOwnProfile] = useState(false);
 
     useEffect(() => {
         const fetchLevel = async () => {
+            if (player.id === 0) return;
             if (player?.faceit_guid) {
                 try {
                     const res = await fetch(`https://open.faceit.com/data/v4/players/${player.faceit_guid}`, {
@@ -112,14 +113,14 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                                     </h1>
                                     
                                     {(faceitLevel || player.id === 0 || player.faceit_level_image) && (
-                                        <div className="mb-4 flex flex-col items-center justify-center" title={`Level -1`}>
+                                        <div className="mb-4 flex flex-col items-center justify-center" title={`Faceit Level ${faceitLevel ?? 0}`}>
                                             <img 
                                                 src={player.faceit_level_image || (player.id === 0 ? "/faceitlevel/-1.png" : (isChallenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${faceitLevel ?? 0}.png`))} 
                                                 alt={`Level ${faceitLevel ?? 0}`} 
                                                 width={36} 
                                                 height={36} 
                                             />
-                                            {(faceitLevel ?? 0) > 0 && <span className="text-gold font-bold text-sm mt-2">Level {faceitLevel}</span>}
+                                            {(faceitLevel ?? 0) !== 0 && <span className="text-gold font-bold text-sm mt-2">Level {faceitLevel}</span>}
                                         </div>
                                     )}
                                     

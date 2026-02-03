@@ -7,6 +7,24 @@ import { Separator } from '@/components/ui/separator'
 
 const updates = [
   {
+    id: 'pgn-login',
+    title: 'Atualização de Login',
+    date: '03/02/2026',
+    description: 'Fix no login via Faceit corrigido com sucesso.',
+  },
+  {
+    id: 'pgn-pessoal',
+    title: 'Página Pessoal',
+    date: '02/02/2026',
+    description: 'Adicionamos uma nova página pessoal com informações detalhadas do jogador',
+  },
+  {
+    id: 'pgn-players',
+    title: 'Página de Jogadores',
+    date: '02/02/2026',
+    description: 'Adicionamos uma nova página de jogadores com lista completa de jogadores logados',
+  },
+  {
     id: 'search-btn',
     title: 'Botão de Pesquisa',
     date: '30/01/2026',
