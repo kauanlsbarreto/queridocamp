@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { Search, Shield, User } from "lucide-react";
 import PremiumCard from "@/components/premium-card";
-import { motion } from "framer-motion";
 
 interface Player {
   id: number;
@@ -19,7 +18,7 @@ interface Player {
 export default function PlayersList({ initialPlayers }: { initialPlayers: Player[] }) {
   const [players, setPlayers] = useState<any[]>(initialPlayers.map(p => ({ ...p, faceit_level: 0, is_challenger: false })));
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
+  const [sortOption, setSortOption] = useState("level-desc");
 
   // Busca Níveis da Faceit
   useEffect(() => {
@@ -71,8 +70,27 @@ export default function PlayersList({ initialPlayers }: { initialPlayers: Player
   const filteredPlayers = players
     .filter(p => p.nickname.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => {
-      if (sortOrder === 'asc') return a.faceit_level - b.faceit_level;
-      if (sortOrder === 'desc') return b.faceit_level - a.faceit_level;
+      const [criteria, order] = sortOption.split('-');
+      const isAsc = order === 'asc';
+
+      if (criteria === 'level') {
+        if (a.faceit_level === b.faceit_level) return 0;
+        return isAsc ? a.faceit_level - b.faceit_level : b.faceit_level - a.faceit_level;
+      }
+      if (criteria === 'id') {
+        return isAsc ? a.id - b.id : b.id - a.id;
+      }
+      if (criteria === 'name') {
+        return isAsc ? a.nickname.localeCompare(b.nickname) : b.nickname.localeCompare(a.nickname);
+      }
+      if (criteria === 'team') {
+        const teamA = a.team_name || "";
+        const teamB = b.team_name || "";
+        if (!teamA && !teamB) return 0;
+        if (!teamA) return 1;
+        if (!teamB) return -1;
+        return isAsc ? teamA.localeCompare(teamB) : teamB.localeCompare(teamA);
+      }
       return 0;
     });
 
@@ -95,26 +113,25 @@ export default function PlayersList({ initialPlayers }: { initialPlayers: Player
           
           <select 
             className="bg-gray-900/60 border border-gray-800 text-gray-300 rounded-md px-4 py-3 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold sm:text-sm"
-            onChange={(e) => setSortOrder(e.target.value as any)}
-            value={sortOrder || ""}
+            onChange={(e) => setSortOption(e.target.value)}
+            value={sortOption}
           >
-            <option value="">Ordenar por Nível</option>
-            <option value="desc">Maior Nível</option>
-            <option value="asc">Menor Nível</option>
+            <option value="level-desc">Maior Nível</option>
+            <option value="level-asc">Menor Nível</option>
+            <option value="id-asc">Querido ID (Menor)</option>
+            <option value="id-desc">Querido ID (Maior)</option>
+            <option value="name-asc">Nome (A-Z)</option>
+            <option value="name-desc">Nome (Z-A)</option>
+            <option value="team-asc">Time (A-Z)</option>
+            <option value="team-desc">Time (Z-A)</option>
           </select>
        </div>
 
        {/* Grid de Cards */}
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
           {filteredPlayers.map((player, index) => (
-             <Link href={`/perfil/${player.id}`} key={player.id}>
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                >
-                  <PremiumCard hoverEffect={true}>
+             <Link href={`/perfil/${player.id}`} key={player.id} className="block h-full">
+                  <PremiumCard hoverEffect={true} delay={index * 0.05} className="h-full">
                     <div className="p-6 flex flex-col items-center gap-4">
                        {/* Avatar */}
                        <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-gold/30">
@@ -130,6 +147,7 @@ export default function PlayersList({ initialPlayers }: { initialPlayers: Player
                        {/* Nome e Level */}
                        <div className="text-center">
                           <h3 className="text-xl font-bold text-white mb-1">{player.nickname}</h3>
+                          <p className="text-xs text-zinc-500 font-mono mb-2">ID: {player.id}</p>
                           {player.faceit_level > 0 && (
                              <div className="flex items-center justify-center gap-2 mt-2">
                                 <img 
@@ -170,7 +188,6 @@ export default function PlayersList({ initialPlayers }: { initialPlayers: Player
                        </div>
                     </div>
                   </PremiumCard>
-                </motion.div>
              </Link>
           ))}
        </div>
