@@ -1,7 +1,6 @@
 import mysql from 'mysql2/promise';
 import PlayersList from './players-list';
 
-// A revalidação a cada acesso (0) garante que a paginação e futuras buscas/filtros sejam sempre em tempo real.
 export const revalidate = 0;
 
 const dbPool = mysql.createPool("mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway");
@@ -54,43 +53,40 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
     const currentPage = Number(searchParams?.page) || 1;
     const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
-    // 1. Busca o total de jogadores para calcular o número de páginas
     const [totalResult]: any = await dbPool.execute('SELECT COUNT(*) as count FROM players');
     const totalPlayers = totalResult[0].count;
     const totalPages = Math.ceil(totalPlayers / ITEMS_PER_PAGE);
 
-    // 2. Busca os jogadores da página atual (DB1)
     const [playersRows]: any = await dbPool.query(
-        'SELECT id, nickname, avatar, faceit_guid FROM players ORDER BY nickname ASC LIMIT ? OFFSET ?',
+        'SELECT id, nickname, avatar, faceit_guid, faceit_level, adicionados FROM players ORDER BY nickname ASC LIMIT ? OFFSET ?',
         [ITEMS_PER_PAGE, offset]
     );
     const players = playersRows;
 
-    // 3. Busca informações de times (DB1 & DB2)
     const [teamsRows]: any = await dbPool.execute('SELECT * FROM team_config');
     const [jogadoresRows]: any = await dbPoolJogadores.execute('SELECT * FROM jogadores');
     
     const teamsConfig = teamsRows;
     const jogadores = jogadoresRows;
 
-    // Otimização: Criar um Map para busca rápida por nickname (case-insensitive)
     const jogadoresMap = new Map(jogadores.map((j: any) => [j.nick?.toLowerCase(), j]));
 
-    // 4. Mapeia jogadores para seus times
     const playersWithTeams = players.map((player: any) => {
         if (player.id === 0) {
             player.nickname = "-1";
             player.avatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSELngQdOTsSQXmSv9j1ltZDiGKXvSB8NJIsQ&s";
         }
 
+        if (player.adicionados === 'QCS-CADEIRANTE') {
+            player.faceit_level_image = '/faceitlevel/cadeirante.png';
+        }
+
         let teamName = null;
         let teamLogo = null;
 
-        // Encontra o jogador correspondente no DB2 (jogadores)
-        // Tenta match exato primeiro usando o Map (muito mais rápido)
+
         let jogador: any = jogadoresMap.get(player.nickname.toLowerCase());
         
-        // Se não achar, tenta por similaridade
         if (!jogador) {
              let bestSim = 0;
              let bestCand: any = null;
@@ -115,7 +111,6 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
                 const rawNick = getProp(team, 'player_nick');
                 const teamNick = (rawNick || "").split(',').pop()?.trim() || "";
                 
-                // Busca capitão (lógica idêntica à página de Times/Perfil)
                 let captain = jogadores.find((p: any) => p.nick && p.nick.trim().toLowerCase() === teamNick.toLowerCase());
 
                 if (!captain && teamNick) {

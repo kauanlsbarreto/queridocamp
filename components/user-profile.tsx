@@ -61,7 +61,7 @@ export const UserProfile = ({
         <DropdownMenuLabel className="text-gray-400 font-normal">Minha Conta</DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-white/10" />
         
-        {(Number(userAdminLevel) === 1 || Number(userAdminLevel) === 2) && (
+        {(userAdminLevel === 1 || userAdminLevel === 2) && (
           <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
             <Link href="/adminstracao" className="w-full">Painel Admin</Link>
           </DropdownMenuItem>
@@ -69,7 +69,7 @@ export const UserProfile = ({
 
         <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
           <Link 
-            href={profileId !== undefined ? `/perfil/${profileId}` : "#"} 
+            href={profileId ? `/perfil/${profileId}` : "#"} 
             className="w-full"
           >
             Meu Perfil

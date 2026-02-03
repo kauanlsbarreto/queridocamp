@@ -48,7 +48,6 @@ function calculateSimilarity(str1: string, str2: string): number {
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
 
-    // 1. Busca Jogador
     const [pRows]: any = await dbPool.execute('SELECT * FROM players WHERE id = ?', [id]);
     const player = pRows[0];
     if (!player) notFound();
@@ -59,7 +58,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         player.faceit_level = 10; 
     }
 
-    // 2. Busca Conquistas (e garante que a tabela existe)
+    if (player.adicionados === 'QCS-CADEIRANTE') {
+        player.faceit_level_image = '/faceitlevel/cadeirante.png';
+    }
+
     try {
         await dbPool.execute(`CREATE TABLE IF NOT EXISTS codigos_conquistas (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -69,6 +71,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             nome VARCHAR(255) NOT NULL,
             data_conquista TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
+        await dbPool.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS adicionados VARCHAR(255)");
     } catch(e) {}
 
     let cRows: any[] = [];
@@ -91,7 +94,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     let allTeams: any[] = [];
 
     try {
-        // 1. Busca dados de times e jogadores (igual à página de Times)
         const [teamsResult, playersResult] = await Promise.all([
             dbPool.execute('SELECT * FROM team_config ORDER BY team_name ASC'),
             dbPoolJogadores.execute('SELECT * FROM jogadores')
@@ -101,7 +103,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         const jogadores = playersResult[0] as any[];
         allTeams = teamsConfig;
 
-        // 2. Lógica para encontrar o time do jogador
         for (const team of teamsConfig) {
             const getProp = (obj: any, prop: string) => {
                 const key = Object.keys(obj).find(k => k.toLowerCase() === prop.toLowerCase());
@@ -111,7 +112,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             const rawNick = getProp(team, 'player_nick');
             const teamNick = (rawNick || "").split(',').pop()?.trim() || "";
             
-            // Busca capitão (lógica idêntica à página de Times)
             let captain = jogadores.find((p: any) => p.nick && p.nick.trim().toLowerCase() === teamNick.toLowerCase());
 
             if (!captain && teamNick) {
@@ -153,11 +153,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         }
 
         if (playerTeamName && id !== '0') {
-            // 3. Busca partidas já jogadas para filtrar
             const [playedMatches]: any = await dbPool.execute('SELECT time1, time2 FROM jogos');
 
-            // 4. Gera o calendário (Round Robin) para encontrar partidas futuras
-            // Lógica replicada de rodadas-cliente.tsx para garantir consistência
             const teams = allTeams.map((t: any) => ({ id: t.id, name: t.team_name, logo: t.team_image }));
             const numTeams = teams.length;
 
@@ -171,7 +168,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
                 for (let round = 0; round < numRounds; round++) {
                     const currentRotation = [...rotatingTeams];
-                    // Rotaciona
                     for (let i = 0; i < round; i++) {
                         const last = currentRotation.pop();
                         if (last) currentRotation.unshift(last);
@@ -187,9 +183,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         const teamB = teams.find((t: any) => t.id === teamBId);
 
                         if (teamA && teamB) {
-                            // Verifica se o time do jogador está nesta partida
                             if (teamA.name === playerTeamName || teamB.name === playerTeamName) {
-                                // Verifica se o jogo já aconteceu (está na tabela jogos)
                                 const isPlayed = playedMatches.some((m: any) => 
                                     (m.time1 === teamA.name && m.time2 === teamB.name) || 
                                     (m.time1 === teamB.name && m.time2 === teamA.name)

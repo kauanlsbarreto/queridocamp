@@ -1,27 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { UserProfile, type UserProfile as UserProfileType } from './user-profile'
 
-const FaceitLogin = () => {
-  const [user, setUser] = useState<UserProfileType | null>(null)
+interface FaceitLoginProps {
+  user: UserProfileType | null
+  onAuthChange: () => void
+}
 
-  // 🔹 Verifica localStorage ao carregar
-  useEffect(() => {
-    const stored = localStorage.getItem('faceit_user')
-    if (stored) {
-      const parsed: UserProfileType = JSON.parse(stored)
-
-      // 🔹 Se não tiver id/Admin, força logout
-      if (!parsed.id || (parsed.Admin === undefined && parsed.admin === undefined)) {
-        localStorage.removeItem('faceit_user')
-        setUser(null)
-      } else {
-        setUser(parsed)
-      }
-    }
-  }, [])
+const FaceitLogin = ({ user, onAuthChange }: FaceitLoginProps) => {
 
   // 🔹 Escuta mensagens do popup
   useEffect(() => {
@@ -33,12 +21,12 @@ const FaceitLogin = () => {
 
       // 🔹 Salva no localStorage
       localStorage.setItem('faceit_user', JSON.stringify(user))
-      setUser(user)
+      onAuthChange()
     }
 
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
-  }, [])
+  }, [onAuthChange])
 
   const handleLogin = async () => {
     const clientId = '6f737cca-6960-4f17-9493-4ff66340dd9b'
@@ -69,7 +57,7 @@ const FaceitLogin = () => {
   const handleLogout = () => {
     localStorage.removeItem('faceit_user')
     localStorage.removeItem('faceit_code_verifier')
-    setUser(null)
+    onAuthChange()
   }
 
   return (

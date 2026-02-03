@@ -521,6 +521,100 @@ const SetAdminTab = ({ currentUser }: { currentUser: UserProfileType | null }) =
   );
 };
 
+const ManageAdicionadosTab = () => {
+  const [players, setPlayers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const fetchPlayers = async () => {
+    try {
+      const res = await fetch('/api/admin/players');
+      const data = await res.json();
+      setPlayers(data);
+    } catch (error) {
+      console.error("Failed to fetch players", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlayers();
+  }, []);
+
+  const handleSave = async (userId: number) => {
+    try {
+      const res = await fetch('/api/admin/players', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, adicionados: editValue }),
+      });
+      if (res.ok) {
+        setPlayers(players.map(p => p.id === userId ? { ...p, adicionados: editValue } : p));
+        setEditingId(null);
+        alert('Modificação salva com sucesso!');
+      } else {
+        alert('Falha ao salvar modificação.');
+      }
+    } catch (error) {
+      console.error("Failed to update", error);
+      alert('Erro ao conectar com o servidor.');
+    }
+  };
+
+  if (loading) return <p>Carregando...</p>;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Gerenciar Modificações (Adicionados)</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nickname</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adicionados</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {players.map((player) => (
+                <tr key={player.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{player.nickname}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {editingId === player.id ? (
+                      <input
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        className="border rounded px-2 py-1 w-full"
+                        placeholder="Ex: QCS-CADEIRANTE"
+                      />
+                    ) : (
+                      player.adicionados || '-'
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {editingId === player.id ? (
+                      <div className="flex gap-2">
+                        <button onClick={() => handleSave(player.id)} className="text-green-600 hover:text-green-900"><Check size={18} /></button>
+                        <button onClick={() => setEditingId(null)} className="text-red-600 hover:text-red-900"><X size={18} /></button>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setEditingId(player.id); setEditValue(player.adicionados || ''); }} className="text-indigo-600 hover:text-indigo-900"><Pencil size={18} /></button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 export default function AdminstracaoPage() {
   const [user, setUser] = useState<UserProfileType | null>(null);
@@ -563,6 +657,7 @@ export default function AdminstracaoPage() {
           <TabsTrigger value="add-code">Adicionar Códigos</TabsTrigger>
           <TabsTrigger value="manage-players">Gerenciar Jogadores</TabsTrigger>
           <TabsTrigger value="set-admin">Definir Admins</TabsTrigger>
+          <TabsTrigger value="manage-adicionados">Modificações</TabsTrigger>
         </TabsList>
         <TabsContent value="add-code">
           <AddCodeTab />
@@ -572,6 +667,9 @@ export default function AdminstracaoPage() {
         </TabsContent>
         <TabsContent value="set-admin">
           <SetAdminTab currentUser={user} />
+        </TabsContent>
+        <TabsContent value="manage-adicionados">
+          <ManageAdicionadosTab />
         </TabsContent>
       </Tabs>
     </div>

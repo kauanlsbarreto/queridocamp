@@ -7,11 +7,46 @@ import { motion } from 'framer-motion'
 import Image from 'next/image'
 import FaceitLogin from './FaceitLogin'
 import { Notifications } from './notifications'
+import { UserProfile } from './user-profile'
 
-const Navbar = () => {
+interface NavbarProps {
+  user: UserProfile | null
+  onAuthChange: () => void
+}
+
+const Navbar = ({ user, onAuthChange }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const [authKey, setAuthKey] = useState(0)
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(user)
+
+  useEffect(() => {
+    setCurrentUser(user)
+  }, [user])
+
+  useEffect(() => {
+    const stored = localStorage.getItem('faceit_user')
+    if (stored) {
+      try {
+        setCurrentUser(JSON.parse(stored))
+      } catch (e) {
+        console.error(e)
+      }
+    }
+  }, [])
+
+  const handleLocalAuthChange = () => {
+    const stored = localStorage.getItem('faceit_user')
+    if (stored) {
+      try {
+        setCurrentUser(JSON.parse(stored))
+      } catch (e) {
+        setCurrentUser(null)
+      }
+    } else {
+      setCurrentUser(null)
+    }
+    onAuthChange()
+  }
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
@@ -24,11 +59,12 @@ const Navbar = () => {
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, type: 'spring', stiffness: 100 }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+      className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-500 ${
         scrolled
           ? 'glass-gold backdrop-blur-xl border-b border-gold/20 py-2'
           : 'bg-transparent py-4'
       }`}
+      style={{ transform: 'translateZ(0)' }}
     >
       {/* Aumentei o padding horizontal (px-12) para afastar os itens das bordas da tela */}
       <div className="w-full px-6 md:px-12">
@@ -73,7 +109,7 @@ const Navbar = () => {
             <div className="hidden md:flex items-center gap-6 md:gap-8">
               <Notifications />
               <div className="pl-2"> {/* Espaçamento extra opcional para o botão de login */}
-                <FaceitLogin key={authKey} />
+                <FaceitLogin user={currentUser} onAuthChange={handleLocalAuthChange} />
               </div>
             </div>
             
@@ -111,7 +147,7 @@ const Navbar = () => {
 
             <div className="flex items-center justify-center gap-6 pt-4 border-t border-white/10">
               <Notifications />
-              <FaceitLogin key={authKey} />
+              <FaceitLogin user={currentUser} onAuthChange={handleLocalAuthChange} />
             </div>
           </motion.div>
         )}
