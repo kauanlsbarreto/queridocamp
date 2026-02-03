@@ -80,6 +80,7 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
         if (player.id === 0) {
             player.nickname = "-1";
             player.avatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSELngQdOTsSQXmSv9j1ltZDiGKXvSB8NJIsQ&s";
+            player.faceit_level_image = '/faceitlevel/-1.png';
         }
 
         if (player.adicionados && player.adicionados.includes('QCS-CADEIRANTE')) {
