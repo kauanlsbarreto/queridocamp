@@ -9,38 +9,63 @@ import FaceitLogin from './FaceitLogin'
 import { Notifications } from './notifications'
 import { UserProfile } from './user-profile'
 
-const Navbar = () => {
+interface NavbarProps {
+  user: UserProfile | null
+  onAuthChange: () => void
+}
+
+const Navbar = ({ user, onAuthChange }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
+  
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(user)
 
-  const syncUser = useCallback(() => {
+  const syncUserFromStorage = useCallback(() => {
     if (typeof window === 'undefined') return
-    const storedUser = localStorage.getItem('faceit_user')
-    if (storedUser) {
+
+    const stored = localStorage.getItem('faceit_user')
+    if (stored) {
       try {
-        const parsedUser = JSON.parse(storedUser)
-        setCurrentUser(parsedUser)
+        const parsed = JSON.parse(stored)
+        setCurrentUser(prev => prev?.faceit_guid !== parsed.faceit_guid ? parsed : prev)
       } catch (e) {
-        console.error('Erro ao analisar dados do usuário do localStorage', e)
+        console.error("Erro ao ler usuário:", e)
         setCurrentUser(null)
       }
     } else {
-      setCurrentUser(null)
+      if (!user) setCurrentUser(null)
     }
-  }, [])
+  }, [user])
 
   useEffect(() => {
-    syncUser()
+    if (user) {
+      setCurrentUser(user)
+    }
+  }, [user])
 
-    window.addEventListener('faceit_auth_updated', syncUser)
-    window.addEventListener('storage', syncUser)
+  useEffect(() => {
+    syncUserFromStorage()
+  }, [syncUserFromStorage])
+
+  useEffect(() => {
+    const handleGlobalAuth = () => {
+      syncUserFromStorage()
+      onAuthChange() 
+    }
+
+    window.addEventListener('faceit_auth_updated', handleGlobalAuth)
+    window.addEventListener('storage', handleGlobalAuth)
+
+    const interval = setInterval(() => {
+      syncUserFromStorage()
+    }, 500)
 
     return () => {
-      window.removeEventListener('faceit_auth_updated', syncUser)
-      window.removeEventListener('storage', syncUser)
+      window.removeEventListener('faceit_auth_updated', handleGlobalAuth)
+      window.removeEventListener('storage', handleGlobalAuth)
+      clearInterval(interval)
     }
-  }, [syncUser])
+  }, [syncUserFromStorage, onAuthChange])
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
@@ -48,8 +73,9 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  const handleAuthChange = () => {
-    syncUser()
+  const handleLocalAuthChange = () => {
+    syncUserFromStorage()
+    onAuthChange()
   }
 
   return (
@@ -103,7 +129,7 @@ const Navbar = () => {
             <div className="hidden md:flex items-center gap-6 md:gap-8">
               <Notifications />
               <div className="pl-2">
-                <FaceitLogin user={currentUser} onAuthChange={handleAuthChange} />
+                <FaceitLogin user={currentUser} onAuthChange={handleLocalAuthChange} />
               </div>
             </div>
             
@@ -139,7 +165,7 @@ const Navbar = () => {
 
             <div className="flex items-center justify-center gap-6 pt-4 border-t border-white/10">
               <Notifications />
-              <FaceitLogin user={currentUser} onAuthChange={handleAuthChange} />
+              <FaceitLogin user={currentUser} onAuthChange={handleLocalAuthChange} />
             </div>
           </motion.div>
         )}

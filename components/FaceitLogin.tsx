@@ -22,8 +22,9 @@ const FaceitLogin = ({ user, onAuthChange }: FaceitLoginProps) => {
       
       window.dispatchEvent(new Event('faceit_auth_updated'))
       
-      // 🔹 Notifica o componente pai
       onAuthChange()
+
+      window.location.reload()
     }
 
     window.addEventListener('message', handleMessage)

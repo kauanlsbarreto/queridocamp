@@ -18,25 +18,42 @@ async function ensureTableExists() {
         slot_6 JSON,
         slot_7 JSON,
         slot_8 JSON,
+        semi_1 JSON,
+        semi_2 JSON,
+        semi_3 JSON,
+        semi_4 JSON,
+        final_1 JSON,
+        final_2 JSON,
         locked BOOLEAN DEFAULT FALSE,
+        semi_locked BOOLEAN DEFAULT FALSE,
+        final_locked BOOLEAN DEFAULT FALSE,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `;
     await pool1.execute(createTableQuery);
 
-    // Tenta adicionar a coluna locked caso a tabela já exista sem ela
-    try {
-      await pool1.execute("ALTER TABLE escolhas ADD COLUMN locked BOOLEAN DEFAULT FALSE");
-    } catch (e) {
-      // Ignora erro se a coluna já existir
+    // Adiciona colunas se não existirem (migração manual)
+    const alterQueries = [
+      "ALTER TABLE escolhas ADD COLUMN locked BOOLEAN DEFAULT FALSE",
+      "ALTER TABLE escolhas ADD COLUMN faceit_guid VARCHAR(255)",
+      "ALTER TABLE escolhas ADD COLUMN semi_1 JSON",
+      "ALTER TABLE escolhas ADD COLUMN semi_2 JSON",
+      "ALTER TABLE escolhas ADD COLUMN semi_3 JSON",
+      "ALTER TABLE escolhas ADD COLUMN semi_4 JSON",
+      "ALTER TABLE escolhas ADD COLUMN final_1 JSON",
+      "ALTER TABLE escolhas ADD COLUMN final_2 JSON",
+      "ALTER TABLE escolhas ADD COLUMN semi_locked BOOLEAN DEFAULT FALSE",
+      "ALTER TABLE escolhas ADD COLUMN final_locked BOOLEAN DEFAULT FALSE"
+    ];
+
+    for (const query of alterQueries) {
+      try {
+        await pool1.execute(query);
+      } catch (e) {
+        // Ignora erro se a coluna já existir
+      }
     }
 
-    // Tenta adicionar a coluna faceit_guid caso a tabela já exista sem ela
-    try {
-      await pool1.execute("ALTER TABLE escolhas ADD COLUMN faceit_guid VARCHAR(255)");
-    } catch (e) {
-      // Ignora erro se a coluna já existir
-    }
   } catch (error) {
     console.error("Erro ao criar tabela:", error);
   }
@@ -73,7 +90,8 @@ async function getAllUsersWithPicks() {
 
 async function getAdminGuids() {
   try {
-    const [rows]: any = await pool1.execute('SELECT faceit_guid FROM players WHERE Admin >= 1 AND Admin <= 5');
+    // Filtra apenas admins nível 1 e 2 conforme solicitado
+    const [rows]: any = await pool1.execute('SELECT faceit_guid FROM players WHERE Admin IN (1, 2)');
     return rows.map((r: any) => r.faceit_guid);
   } catch (error) {
     console.error("Erro ao buscar admins:", error);
@@ -92,7 +110,7 @@ export default async function RedondoPage() {
     <main className="min-h-screen bg-black text-white">
       <HeroBanner 
         title="PICK'EM CHALLENGE" 
-        subtitle="Faça login com a Faceit para participar. Escolha seus 8 favoritos!" 
+        subtitle="Faça login com a Faceit para participar. Escolha seus favoritos!" 
       />
       
       <section className="py-12 px-4 max-w-7xl mx-auto">

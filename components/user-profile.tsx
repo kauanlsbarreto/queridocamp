@@ -69,7 +69,7 @@ export const UserProfile = ({
 
         <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
           <Link 
-            href={profileId ? `/perfil/${profileId}` : "#"} 
+            href={`/perfil/${profileId}`} 
             className="w-full"
           >
             Meu Perfil
