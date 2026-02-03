@@ -15,10 +15,25 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 20m
+          command_timeout: 30m # Aumentei para 30m por segurança
           script: |
             set -e
             cd /home/ubuntu/front-end
-            git pull origin main
+
+            echo "--- Limpando lixo do Docker para liberar RAM e Disco ---"
+            # Remove containers parados, redes não usadas e imagens sem nome (dangling)
             docker system prune -f
-            docker compose up -d --build
+
+            echo "--- Atualizando código ---"
+            git pull origin main
+
+            echo "--- Iniciando Build e Deploy ---"
+            # --build: Garante a atualização
+            # --remove-orphans: Limpa containers antigos que mudaram de nome
+            docker compose up -d --build --remove-orphans
+
+            echo "--- Limpeza pós-build ---"
+            docker image prune -f
+
+            echo "--- Status dos Containers ---"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
