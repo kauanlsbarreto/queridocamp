@@ -23,7 +23,7 @@ jobs:
 
             git pull origin main
 
-            docker compose up -d --build --pull=false
+            docker compose up -d --build --pull=never
 
             sleep 5
 
