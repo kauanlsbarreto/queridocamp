@@ -13,23 +13,20 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: "ubuntu"
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 20m
+          command_timeout: 30m
           script: |
-            cd /home/ubuntu/front-end
             
-            echo "--- Atualizando código ---"
-            git fetch origin main
+            echo "--- Limpando Git e Forçando Pull ---"
+            git clean -fd
+            git fetch --all
             git reset --hard origin/main
             
-            echo "--- Iniciando Build Docker ---"
-            # Usa progress=plain para mostrar logs detalhados do build
-            docker compose build --progress=plain
+            echo "--- Limpeza Pesada de Cache do Docker ---"
+            docker builder prune -a -f
             
-            echo "--- Subindo Containers ---"
+            echo "--- Iniciando Build Novo ---"
+            cd ..
+            docker compose build --no-cache
             docker compose up -d
-            
-            echo "--- Limpeza ---"
-            docker image prune -f
-            
-            echo "--- Status Final ---"
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            echo "--- Status dos Containers ---"
+            docker ps
