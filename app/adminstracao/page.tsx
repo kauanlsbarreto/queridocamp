@@ -621,26 +621,38 @@ export default function AdminstracaoPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const session = localStorage.getItem("faceit_user");
-    let loadedUser: UserProfileType | null = null;
+    const checkAuth = async () => {
+      const session = localStorage.getItem("faceit_user");
+      let loadedUser: UserProfileType | null = null;
 
-    if (session) {
-      try {
-        loadedUser = JSON.parse(session);
-      } catch (e) {
-        console.error("Failed to parse user session", e);
+      if (session) {
+        try {
+          const parsedUser = JSON.parse(session);
+          if (parsedUser.faceit_guid) {
+            const res = await fetch(`/api/admin/players?faceit_guid=${parsedUser.faceit_guid}`, { cache: 'no-store' });
+            if (res.ok) {
+              const dbUser = await res.json();
+              // Atualiza o usuário com os dados reais do banco (especialmente o Admin)
+              loadedUser = { ...parsedUser, ...dbUser, Admin: dbUser.admin };
+            }
+          }
+        } catch (e) {
+          console.error("Failed to parse user session", e);
+        }
       }
-    }
 
-    // Libera acesso se estiver em localhost
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-      if (!loadedUser || (loadedUser.Admin !== 1 && loadedUser.Admin !== 2)) {
-        loadedUser = { id: 999999, faceit_guid: 'local', nickname: 'Local Admin', avatar: '', Admin: 1 };
+      // Libera acesso se estiver em localhost
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        if (!loadedUser || (loadedUser.Admin !== 1 && loadedUser.Admin !== 2)) {
+          loadedUser = { id: 999999, faceit_guid: 'local', nickname: 'Local Admin', avatar: '', Admin: 1 };
+        }
       }
-    }
 
-    setUser(loadedUser);
-    setLoading(false);
+      setUser(loadedUser);
+      setLoading(false);
+    };
+
+    checkAuth();
   }, []);
 
   if (loading) {

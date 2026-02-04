@@ -7,11 +7,20 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const faceit_guid = searchParams.get('faceit_guid');
 
     const connection = await pool.getConnection();
     try {
       if (id) {
         const [rows]: any = await connection.execute('SELECT id, nickname, admin, faceit_guid, avatar FROM players WHERE id = ?', [id]);
+        if (rows.length === 0) {
+          return NextResponse.json({ message: 'Player not found' }, { status: 404 });
+        }
+        return NextResponse.json(rows[0]);
+      }
+
+      if (faceit_guid) {
+        const [rows]: any = await connection.execute('SELECT id, nickname, admin, faceit_guid, avatar FROM players WHERE faceit_guid = ?', [faceit_guid]);
         if (rows.length === 0) {
           return NextResponse.json({ message: 'Player not found' }, { status: 404 });
         }

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -38,10 +39,24 @@ export const UserProfile = ({
   avatar,
   Admin,
   admin,
+  faceit_guid,
   onLogout,
 }: UserProfileProps) => {
   const profileId = id ?? ID;
-  const userAdminLevel = Admin ?? admin;
+  const [userAdminLevel, setUserAdminLevel] = useState(Admin ?? admin ?? 0);
+
+  useEffect(() => {
+    if (faceit_guid) {
+      fetch(`/api/admin/players?faceit_guid=${faceit_guid}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && typeof data.admin === 'number') {
+            setUserAdminLevel(data.admin);
+          }
+        })
+        .catch((err) => console.error("Error fetching admin level:", err));
+    }
+  }, [faceit_guid]);
 
   return (
     <DropdownMenu>
