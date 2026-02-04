@@ -30,6 +30,7 @@ export default function PickEmClient({
 }) {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loadingPicks, setLoadingPicks] = useState(false)
+  const [picksCache, setPicksCache] = useState<Record<string, any>>({});
   const [viewingNickname, setViewingNickname] = useState<string | null>(null)
   
   const [availableTeams, setAvailableTeams] = useState<TeamPick[]>(initialTeams)
@@ -45,26 +46,50 @@ export default function PickEmClient({
   const isHighAdmin = userLevel >= 1 && userLevel <= 2; // 1 e 2 podem bloquear
   const isViewingOther = !!(viewingNickname && user && viewingNickname !== user.nickname);
 
+  const processPicksData = useCallback((data: any) => {
+    if (!data) return;
+
+    const parsePhase = (prefix: string, size: number) => {
+      return Array(size).fill(null).map((_, i) => {
+        const val = data[`${prefix}_${i + 1}`];
+        return typeof val === 'string' ? JSON.parse(val) : val;
+      });
+    };
+
+    const q = parsePhase('slot', 8);
+    setQualifiedTeams(q);
+    setSemiTeams(parsePhase('semi', 4));
+    setFinalTeams(parsePhase('final', 2));
+    setLocks({ 
+      slot: !!data.locked, 
+      semi: !!data.semi_locked, 
+      final: !!data.final_locked 
+    });
+
+    const pickedIds = new Set(q.filter(t => t).map(t => t.id));
+    setAvailableTeams(initialTeams.filter(t => !pickedIds.has(t.id)));
+  }, [initialTeams]);
+
   const checkUser = useCallback(() => {
     const storedUser = localStorage.getItem('faceit_user')
     if (storedUser) {
       const parsedUser = JSON.parse(storedUser)
       setUser(parsedUser)
-      if (!viewingNickname) setViewingNickname(parsedUser.nickname)
+      setViewingNickname(vn => vn || parsedUser.nickname)
     }
-  }, [viewingNickname])
+  }, [])
 
   useEffect(() => {
     checkUser()
     window.addEventListener('faceit_auth_updated', checkUser)
     return () => window.removeEventListener('faceit_auth_updated', checkUser)
   }, [checkUser])
-
-  useEffect(() => {
-    if (viewingNickname) loadUserPicks(viewingNickname)
-  }, [viewingNickname])
-
-  const loadUserPicks = async (nickname: string) => {
+  
+  const loadUserPicks = useCallback(async (nickname: string) => {
+    if (picksCache[nickname]) {
+      processPicksData(picksCache[nickname]);
+      return;
+    }
     setLoadingPicks(true)
     try {
       const res = await fetch('/api/picks', {
@@ -73,34 +98,20 @@ export default function PickEmClient({
         body: JSON.stringify({ action: 'load', nickname })
       })
       const data = await res.json()
-      
       if (data) {
-        const parsePhase = (prefix: string, size: number) => {
-          return Array(size).fill(null).map((_, i) => {
-            const val = data[`${prefix}_${i + 1}`];
-            return typeof val === 'string' ? JSON.parse(val) : val;
-          });
-        };
-
-        const q = parsePhase('slot', 8);
-        setQualifiedTeams(q);
-        setSemiTeams(parsePhase('semi', 4));
-        setFinalTeams(parsePhase('final', 2));
-        setLocks({ 
-          slot: !!data.locked, 
-          semi: !!data.semi_locked, 
-          final: !!data.final_locked 
-        });
-
-        const pickedIds = new Set(q.filter(t => t).map(t => t.id));
-        setAvailableTeams(initialTeams.filter(t => !pickedIds.has(t.id)));
+        setPicksCache(prev => ({ ...prev, [nickname]: data }));
+        processPicksData(data);
       }
     } catch (error) {
       console.error("Erro ao carregar:", error);
     } finally {
       setLoadingPicks(false)
     }
-  }
+  }, [picksCache, processPicksData]);
+
+  useEffect(() => {
+    if (viewingNickname) loadUserPicks(viewingNickname)
+  }, [viewingNickname, loadUserPicks])
 
   const savePickToDb = async (phase: string, slotIndex: number, team: TeamPick | null) => {
     if (!user || isViewingOther) return

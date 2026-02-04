@@ -4,6 +4,10 @@ on:
   push:
     branches: [ "main" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -16,33 +20,26 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 60m
           script: |
-            # 1. TENTATIVA DE CRIAR SWAP (Se não existir)
-            # Isso usa o disco como RAM para evitar que o Docker trave no "Download complete"
             if [ ! -f /swapfile ]; then
-              echo "Criando Swap para evitar travamento..."
+              echo "Configurando Swap..."
               sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
               sudo chmod 600 /swapfile
               sudo mkswap /swapfile
               sudo swapon /swapfile
+              echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
             fi
 
             cd /home/ubuntu/front-end
 
-            echo "[$(date)] 1. Resetando Git..."
+            echo "[$(date)] Atualizando código..."
             git fetch origin main
             git reset --hard origin/main
-            git clean -fd
 
-            echo "[$(date)] 2. Liberando RAM (Parando site antigo)..."
-            # IMPORTANTE: Parar o site antes do build libera RAM para o Docker descompactar a imagem
-            docker-compose down || true
-            docker system prune -f
-
-            echo "[$(date)] 3. Iniciando Build e Up..."
-            # Aqui o Docker vai baixar e extrair. Com o Swap criado acima, não deve travar.
+            echo "[$(date)] Iniciando Build Incremental..."
             docker-compose up -d --build
 
-            echo "[$(date)] 4. Limpeza final..."
+            # 4. LIMPEZA PÓS-DEPLOY
+            echo "[$(date)] Limpando imagens órfãs..."
             docker image prune -f
 
             echo "[$(date)] Deploy finalizado com sucesso!"
