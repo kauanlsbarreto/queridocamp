@@ -3,6 +3,10 @@ on:
   push:
     branches: [ "main" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -17,18 +21,20 @@ jobs:
           script: |
             cd /home/ubuntu/front-end
             
-            echo "--- Pull Rápido ---"
+            echo "--- Atualizando Código ---"
             git fetch origin main
             git reset --hard origin/main
             
-            echo "--- Limpeza Leve (Apenas imagens soltas) ---"
-            # Remove apenas o que não está sendo usado, sem tocar no cache de build útil
+            echo "--- Limpeza de Imagens Antigas ---"
+            # Remove apenas imagens órfãs, mantendo o cache de build
             docker image prune -f
             
-            echo "--- Deploy Inteligente (Usando Cache) ---"
+            echo "--- Build com Logs em Tempo Real (Evita Timeout) ---"
             cd ..
-            # Sem o --no-cache, ele só builda o que você alterou no commit
-            docker compose up -d --build
+            # Força a exibição de logs para manter a conexão ativa
+            docker compose build --progress=plain
+            docker compose up -d
             
-            echo "--- Pronto ---"
-            docker ps --format "table {{.Names}}\t{{.Status}}"
+            echo "--- Verificando Status Final ---"
+            sleep 5
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
