@@ -19,11 +19,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 30m
           script: |
-            cd /home/ubuntu/front-end
-            
-            echo "--- Atualizando Código ---"
-            git fetch origin main
-            git reset --hard origin/main
+            cd /home/ubuntu/front-end && git pull origin main && cd ..
             
             echo "--- Limpeza de Imagens Antigas ---"
             # Remove apenas imagens órfãs, mantendo o cache de build
