@@ -14,8 +14,11 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: "ubuntu"
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 30m
+          command_timeout: 60m 
           script: |
+            # set -e: se qualquer comando falhar, o deploy para e marca como erro
+            set -e
+
             cd /home/ubuntu/front-end
 
             echo "[$(date)] Resetando repositório local..."
@@ -23,13 +26,16 @@ jobs:
             git reset --hard origin/main
             git clean -fd
 
+            echo "[$(date)] Tentando baixar imagem base separadamente (Pre-pull)..."
+            # Isso ajuda a evitar o erro de TLS handshake timeout durante o build
+            docker pull node:18-slim
+
             echo "[$(date)] Reconstruindo e subindo container..."
+            # O --build garante que as mudanças do Dockerfile sejam aplicadas
             docker-compose up -d --build
 
-            echo "[$(date)] Limpando imagens dangling (versões anteriores)..."
+            echo "[$(date)] Limpando imagens antigas e cache..."
             docker image prune -f
-
-            echo "[$(date)] Limpando cache de build antigo (>48h)..."
             docker builder prune --filter "until=48h" -f
 
-            echo "[$(date)] Front-end atualizado e limpo com sucesso!"
+            echo "[$(date)] Front-end atualizado com sucesso!"
