@@ -17,18 +17,18 @@ jobs:
           script: |
             cd /home/ubuntu/front-end
             
-            echo "--- Limpando Git e Forçando Pull ---"
-            git clean -fd
+            echo "--- Pull Rápido ---"
             git fetch origin main
             git reset --hard origin/main
             
-            echo "--- Liberando Espaço no SSD ---"
-            docker builder prune -a -f
+            echo "--- Limpeza Leve (Apenas imagens soltas) ---"
+            # Remove apenas o que não está sendo usado, sem tocar no cache de build útil
             docker image prune -f
             
-            echo "--- Iniciando Build (Hardware 1GB RAM) ---"
+            echo "--- Deploy Inteligente (Usando Cache) ---"
             cd ..
-            docker compose up -d --build --no-cache
+            # Sem o --no-cache, ele só builda o que você alterou no commit
+            docker compose up -d --build
             
-            echo "--- Status Final ---"
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            echo "--- Pronto ---"
+            docker ps --format "table {{.Names}}\t{{.Status}}"
