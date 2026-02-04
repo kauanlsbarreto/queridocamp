@@ -1,8 +1,7 @@
-import HeroBanner from "@/components/hero-banner"
 import RankingTable from "./ranking-table"
 import { pool } from "@/lib/db"
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300; // Revalida a cada 5 minutos
 
 async function getTeams() {
   try {
@@ -28,8 +27,6 @@ export default async function Classificacao() {
 
   return (
     <div>
-      <HeroBanner title="Rodadas" subtitle="Acompanhe a tabela atualizada do campeonato" />
-
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">

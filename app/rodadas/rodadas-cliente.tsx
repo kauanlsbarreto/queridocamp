@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import HeroBanner from "@/components/hero-banner"
 import PremiumCard from "@/components/premium-card"
 import Image from "next/image"
 import { ChevronDown, ChevronUp, Search, ExternalLink } from "lucide-react"
@@ -293,11 +292,11 @@ export default function RodadasClient({ teams, matchesData = [] }: { teams: Team
   useEffect(() => {
     const interval = setInterval(() => {
       router.refresh()
-    }, 5000) // Atualiza a cada 5 segundos
+    }, 30000) // Atualiza a cada 30 segundos
     return () => clearInterval(interval)
   }, [router])
 
-  const rounds = generateRoundRobinMatches(teams, matchesData)
+  const rounds = useMemo(() => generateRoundRobinMatches(teams, matchesData), [teams, matchesData]);
 
   const handleToggleRound = (id: number) => {
     setOpenRoundId((prev) => (prev === id ? null : id))
@@ -305,7 +304,6 @@ export default function RodadasClient({ teams, matchesData = [] }: { teams: Team
 
   return (
     <div>
-      <HeroBanner title="RODADAS" subtitle="Acompanhe todos os confrontos do campeonato" />
 
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">

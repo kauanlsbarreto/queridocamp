@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import PremiumCard from "@/components/premium-card";
@@ -53,7 +53,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
       .length;
   };
 
-  const getDisplayData = () => {
+  const displayData = useMemo(() => {
     const isGeral = selectedRound === "Geral";
     
     const kKey = isGeral ? 'k' : `r${selectedRound}_k`;
@@ -61,29 +61,28 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
     const kdKey = isGeral ? 'kd' : `r${selectedRound}_kd`;
     const krKey = isGeral ? 'kr' : `r${selectedRound}_kr`;
     const adrKey = isGeral ? 'adr' : `r${selectedRound}_adr`;
-    const playedKey = 'played'; 
 
-  const sorted = [...allStats].sort((a, b) => {
-    const valAK = Number(a[kKey]) || 0;
-    const valBK = Number(b[kKey]) || 0;
+    const sorted = [...allStats].sort((a, b) => {
+      const valAK = Number(a[kKey]) || 0;
+      const valBK = Number(b[kKey]) || 0;
 
-    if (valAK === 0 && valBK > 0) return 1;
-    if (valAK > 0 && valBK === 0) return -1;
-    
-    const valAKD = parseFloat(a[kdKey]) || 0;
-    const valBKD = parseFloat(b[kdKey]) || 0;
-    if (valBKD !== valAKD) return valBKD - valAKD;
+      if (valAK === 0 && valBK > 0) return 1;
+      if (valAK > 0 && valBK === 0) return -1;
+      
+      const valAKD = parseFloat(a[kdKey]) || 0;
+      const valBKD = parseFloat(b[kdKey]) || 0;
+      if (valBKD !== valAKD) return valBKD - valAKD;
 
-    const valAADR = parseFloat(a[adrKey]) || 0;
-    const valBADR = parseFloat(b[adrKey]) || 0;
-    if (valBADR !== valAADR) return valBADR - valAADR;
+      const valAADR = parseFloat(a[adrKey]) || 0;
+      const valBADR = parseFloat(b[adrKey]) || 0;
+      if (valBADR !== valAADR) return valBADR - valAADR;
 
-    const valAKR = parseFloat(a[krKey]) || 0;
-    const valBKR = parseFloat(b[krKey]) || 0;
-    if (valBKR !== valAKR) return valBKR - valAKR;
+      const valAKR = parseFloat(a[krKey]) || 0;
+      const valBKR = parseFloat(b[krKey]) || 0;
+      if (valBKR !== valAKR) return valBKR - valAKR;
 
-    return valBK - valAK;
-  });
+      return valBK - valAK;
+    });
 
     if (filterMe) {
       if (!myNick) return [];
@@ -94,9 +93,8 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
     
     const poteNum = parseInt(activeTab.split(" ")[1]);
     return sorted.filter(p => p.pote === poteNum);
-  };
+  }, [allStats, activeTab, selectedRound, filterMe, myNick]);
 
-  const displayData = getDisplayData();
   const isGeral = selectedRound === "Geral";
 
   return (

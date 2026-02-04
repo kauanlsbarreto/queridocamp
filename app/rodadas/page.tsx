@@ -3,7 +3,7 @@ import RodadasClient from "./rodadas-cliente"
 
  const pool = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
-export const revalidate = 0 
+export const revalidate = 300; // Revalida a cada 5 minutos
 
 export default async function Rodadas() {
   try {

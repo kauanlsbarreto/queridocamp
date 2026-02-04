@@ -1,6 +1,5 @@
 import mysql from 'mysql2/promise';
 import PickEmClient from './pick-em-client';
-import HeroBanner from '@/components/hero-banner';
 
 const pool1 = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
@@ -79,11 +78,6 @@ export default async function RedondoPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <HeroBanner 
-        title="PICK'EM CHALLENGE" 
-        subtitle="Faça login com a Faceit para participar. Escolha seus 8 favoritos!" 
-      />
-      
       <section className="py-12 px-4 max-w-7xl mx-auto">
         {teams.length > 0 ? (
           <PickEmClient initialTeams={teams} usersWithPicks={usersWithPicks} />

@@ -1,5 +1,4 @@
 import mysql from 'mysql2/promise';
-import HeroBanner from '@/components/hero-banner';
 import StatsList from './stats-list';
 import UpdateTimer from './update-timer';
 
@@ -48,13 +47,23 @@ async function getStatsData() {
       }
     });
 
-    const enrichedStats = await Promise.all(
-      statsRows.map(async (stat) => {
-        let playerInscrito =
-          playersRows.find(p => p.nick.toLowerCase().trim() === stat.nick.toLowerCase().trim()) ||
-          playersRows.find(p => calculateSimilarity(p.nick, stat.nick) >= 0.6);
+    const playersMap = new Map();
+    playersRows.forEach(p => {
+      if (p.nick) {
+        playersMap.set(p.nick.toLowerCase().trim(), p);
+      }
+    });
 
-        let bestMatch = faceitMap.get(stat.nick.toLowerCase().trim());
+    const enrichedStats = statsRows.map((stat) => {
+        const statNickLower = stat.nick.toLowerCase().trim();
+        
+        let playerInscrito = playersMap.get(statNickLower);
+
+        if (!playerInscrito) {
+          playerInscrito = playersRows.find(p => calculateSimilarity(p.nick, stat.nick) >= 0.6);
+        }
+
+        let bestMatch = faceitMap.get(statNickLower);
         let maxSim = bestMatch ? 1.0 : 0;
 
         if (!bestMatch) {
@@ -96,8 +105,7 @@ async function getStatsData() {
           d: parseInt(stat.d) || 0,
           clt: parseInt(stat.clt) || 0
         };
-      })
-    );
+      });
 
     const playersWithoutStats = playersRows.filter(p =>
       !statsRows.some(s => calculateSimilarity(s.nick, p.nick) >= 0.6)
@@ -132,7 +140,6 @@ export default async function StatsPage() {
 
   return (
     <div className="min-h-screen bg-black">
-      <HeroBanner title="ESTATÍSTICAS" subtitle="Ranking de performance individual por Pote" />
       <section className="py-12 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           <UpdateTimer generatedAt={generatedAt} revalidate={revalidate} />

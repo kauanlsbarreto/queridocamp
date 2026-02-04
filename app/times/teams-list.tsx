@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import PremiumCard from "@/components/premium-card";
@@ -58,10 +58,12 @@ export default function TeamsList({ teams }: { teams: TeamData[] }) {
     return () => clearInterval(interval);
   }, [router]);
 
-  const filteredTeams = teams.filter(team => 
-    team.team_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    team.players.some(player => player.nick.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredTeams = useMemo(() => {
+    return teams.filter(team => 
+      team.team_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      team.players.some(player => player.nick.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [teams, searchTerm]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">

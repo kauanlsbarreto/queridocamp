@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Loader, ExternalLink } from "lucide-react"
 import Image from "next/image"
-import { usePathname } from "next/navigation"
 
 // --- Configurações das Streams ---
 const STREAMS_CONFIG = {
@@ -59,7 +58,6 @@ const HUB_IDS = [
 ];
 
 export default function LiveMatchesModal() {
-    const pathname = usePathname();
     const [internalOpen, setInternalOpen] = useState(false);
     const [matches, setMatches] = useState<MatchDetails[]>([]);
     const [loading, setLoading] = useState(false);
@@ -126,19 +124,17 @@ export default function LiveMatchesModal() {
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
-        const lastPath = sessionStorage.getItem("QC_lastPath");
-        if (lastPath === pathname) return;
-        sessionStorage.setItem("QC_lastPath", pathname);
+        const hasSeen = sessionStorage.getItem("QC_liveModalSeen");
+        if (hasSeen) return;
 
         // Busca partidas e só abre o modal se o array não estiver vazio
         fetchFaceitMatches().then(data => {
             if (data && data.length > 0) {
                 setInternalOpen(true);
-            } else {
-                setInternalOpen(false);
+                sessionStorage.setItem("QC_liveModalSeen", "true");
             }
         });
-    }, [pathname, fetchFaceitMatches]);
+    }, [fetchFaceitMatches]);
 
     const show = internalOpen;
 

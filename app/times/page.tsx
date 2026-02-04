@@ -1,5 +1,4 @@
 import mysql from 'mysql2/promise';
-import HeroBanner from '@/components/hero-banner';
 import TeamsList from '@/app/times/teams-list';
 
 export const revalidate = 600;
@@ -88,13 +87,21 @@ async function getTeamsData(): Promise<TeamData[]> {
       pote: Number(p.pote), 
     })) as Player[];
 
-    // Otimização: Mapa para busca rápida exata de Faceit players
+    // Otimização: Mapas para busca rápida
     const faceitMap = new Map<string, any>();
     faceitPlayers.forEach(fp => {
       if (fp.faceit_nickname) faceitMap.set(fp.faceit_nickname.toLowerCase().trim(), fp);
     });
 
-    const teamsWithPlayers: TeamData[] = await Promise.all(teams.map(async (team) => {
+    const playersMap = new Map<string, Player>();
+    const playersIdMap = new Map<string, Player>();
+    players.forEach(p => {
+        if (p.nick) playersMap.set(p.nick.toLowerCase().trim(), p);
+        playersIdMap.set(String(p.id), p);
+    });
+
+    // Processamento síncrono
+    const teamsWithPlayers: TeamData[] = teams.map((team) => {
       const getProp = (obj: any, prop: string) => {
         const key = Object.keys(obj).find(k => k.toLowerCase() === prop.toLowerCase());
         return key ? obj[key] : null;
@@ -105,10 +112,11 @@ async function getTeamsData(): Promise<TeamData[]> {
       const teamName = getProp(team, 'team_name') || "Time sem nome";
       const teamImage = getProp(team, 'team_image') || "";
       
-      let captain = players.find(p => p.nick && p.nick.trim().toLowerCase() === teamNick.toLowerCase());
+      // Busca otimizada de capitão
+      let captain = playersMap.get(teamNick.toLowerCase());
 
       if (!captain && teamNick) {
-        captain = players.find(p => String(p.id) === teamNick);
+        captain = playersIdMap.get(teamNick);
       }
 
       if (!captain && teamNick) {
@@ -139,7 +147,7 @@ async function getTeamsData(): Promise<TeamData[]> {
       
       const teamPlayers = Array.from(new Map(rawTeamPlayers.map(p => [p.id, p])).values());
 
-      const enrichedPlayers = await Promise.all(teamPlayers.map(async (player) => {
+      const enrichedPlayers = teamPlayers.map((player) => {
         let bestMatch = faceitMap.get(player.nick.toLowerCase().trim());
         let maxSim = bestMatch ? 1.0 : 0;
 
@@ -173,7 +181,7 @@ async function getTeamsData(): Promise<TeamData[]> {
         }
 
         return { ...player, ...faceitData };
-      }));
+      });
 
       const poteOrder = [4, 5, 1, 3, 2];
       
@@ -189,7 +197,7 @@ async function getTeamsData(): Promise<TeamData[]> {
         team_image: teamImage,
         players: enrichedPlayers
       };
-    }));
+    });
 
     return teamsWithPlayers;
 
@@ -204,8 +212,6 @@ export default async function TimesPage() {
 
   return (
     <div>
-      <HeroBanner title="TIMES" subtitle="Conheça as equipes e suas line-ups" />
-      
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           {teams.length > 0 ? (
