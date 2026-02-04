@@ -14,19 +14,27 @@ jobs:
           username: "ubuntu"
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 30m
+
           script: |
-            
+            # 1. Entrar na pasta e limpar Git
+            cd /home/ubuntu/front-end
             echo "--- Limpando Git e Forçando Pull ---"
             git clean -fd
             git fetch --all
             git reset --hard origin/main
             
-            echo "--- Limpeza Pesada de Cache do Docker ---"
+            # 2. Limpeza pesada de cache (Remove o que está a pesar no disco)
+            echo "--- Limpeza de Cache Docker ---"
             docker builder prune -a -f
+            docker image prune -f
             
+            # 3. Build e Deploy
             echo "--- Iniciando Build Novo ---"
-            cd ..
+            # Ajuste aqui: se o docker-compose.yml estiver dentro de /front-end, remova o 'cd ..'
+            # Se o docker-compose.yml estiver na /home/ubuntu, mantenha o 'cd ..'
+            cd .. 
             docker compose build --no-cache
             docker compose up -d
-            echo "--- Status dos Containers ---"
+            
+            echo "--- Status Final ---"
             docker ps
