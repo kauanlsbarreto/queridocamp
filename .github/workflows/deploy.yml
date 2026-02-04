@@ -21,16 +21,23 @@ jobs:
           script: |
             cd /home/ubuntu/front-end
             
-            git fetch origin main
-            git reset --hard origin/main
+            echo "--- GARANTINDO MEMÓRIA VIRTUAL (SWAP) ---"
+            # Cria 2GB de memória extra no SSD para o build não travar
+            if [ ! -f /swapfile ]; then
+              sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+            fi
             
-            echo "--- Limpeza Leve de Imagens ---"
-            docker image prune -f
+            echo "--- ATUALIZANDO CÓDIGO ---"
+            git fetch origin main && git reset --hard origin/main
             
-            echo "--- Build Veloz (Usando Cache de Camadas) ---"
+            echo "--- LIMPANDO CACHE PESADO (LIBERAR RAM) ---"
+            docker builder prune -f
+            
+            echo "--- BUILD COM FOCO EM ESTABILIDADE ---"
             cd ..
-            docker compose build --progress=plain
+            # Forçamos o build separado para monitorar melhor
+            docker compose --progress=plain build
             docker compose up -d
             
-            echo "--- Status do Deploy ---"
+            echo "--- STATUS FINAL ---"
             docker ps --format "table {{.Names}}\t{{.Status}}"
