@@ -19,18 +19,22 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 30m
           script: |
-            cd /home/ubuntu/front-end && git pull origin main && cd ..
+            cd /home/ubuntu/front-end
             
-            echo "--- Limpeza de Imagens Antigas ---"
-            # Remove apenas imagens órfãs, mantendo o cache de build
+            echo "--- SUBSTITUIÇÃO TOTAL DOS ARQUIVOS ---"
+            git fetch --all
+            # Apaga arquivos locais que não estão no git
+            git clean -fd 
+            # Força o código a ser IGUAL ao que você enviou
+            git reset --hard origin/main
+            
+            echo "--- LIMPANDO IMAGENS ANTIGAS ---"
             docker image prune -f
             
-            echo "--- Build com Logs em Tempo Real (Evita Timeout) ---"
+            echo "--- RECONSTRUINDO DOCKER (SEM LIXO) ---"
             cd ..
-            # Força a exibição de logs para manter a conexão ativa
-            docker compose build --progress=plain
-            docker compose up -d
+            # --build força o Docker a olhar para os novos arquivos
+            docker compose up -d --build
             
-            echo "--- Verificando Status Final ---"
-            sleep 5
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            echo "--- STATUS ATUAL ---"
+            docker ps --format "table {{.Names}}\t{{.Status}}"

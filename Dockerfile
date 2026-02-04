@@ -9,10 +9,10 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
-# Mantém o limite de 1024MB para o build 
 ENV NODE_OPTIONS="--max-old-space-size=1024"
 
 COPY --from=deps /app/node_modules ./node_modules
+# Aqui é onde ele pega os arquivos novos que o Git puxou
 COPY . .
 
 RUN npm run build 
@@ -25,7 +25,6 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN apk add --no-cache libc6-compat
 
-# Copia apenas o necessário para rodar standalone 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
