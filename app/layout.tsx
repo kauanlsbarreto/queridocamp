@@ -5,6 +5,7 @@ import Footer from "@/components/footer"
 import ClientProviders from "@/components/client-providers"
 import NavbarClient from "@/components/navbar-client"
 import SessionSync from "@/components/session-sync"
+import LocalhostWatcher from "@/components/localhost-watcher"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -22,6 +23,7 @@ export default function RootLayout({
       <body
         className={`${montserrat.className} bg-black text-white min-h-screen flex flex-col`}
       >
+        <LocalhostWatcher />
         <SessionSync />
         <NavbarClient />
 

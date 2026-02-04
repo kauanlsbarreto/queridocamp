@@ -21,20 +21,16 @@ jobs:
           script: |
             cd /home/ubuntu/front-end
             
-            echo "--- SUBSTITUIÇÃO TOTAL DOS ARQUIVOS ---"
-            git fetch --all
-            # Apaga arquivos locais que não estão no git
-            git clean -fd 
-            # Força o código a ser IGUAL ao que você enviou
+            git fetch origin main
             git reset --hard origin/main
             
-            echo "--- LIMPANDO IMAGENS ANTIGAS ---"
+            echo "--- Limpeza Leve de Imagens ---"
             docker image prune -f
             
-            echo "--- RECONSTRUINDO DOCKER (SEM LIXO) ---"
+            echo "--- Build Veloz (Usando Cache de Camadas) ---"
             cd ..
-            # --build força o Docker a olhar para os novos arquivos
-            docker compose up -d --build
+            docker compose build --progress=plain
+            docker compose up -d
             
-            echo "--- STATUS ATUAL ---"
+            echo "--- Status do Deploy ---"
             docker ps --format "table {{.Names}}\t{{.Status}}"

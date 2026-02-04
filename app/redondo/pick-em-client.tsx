@@ -18,16 +18,15 @@ interface UserProfile {
   nickname: string;
   avatar: string;
   admin?: number;
+  Admin?: number;
 }
 
 export default function PickEmClient({ 
   initialTeams, 
-  usersWithPicks, 
-  adminGuids 
+  usersWithPicks
 }: { 
   initialTeams: TeamPick[], 
-  usersWithPicks: string[], 
-  adminGuids: {guid: string, level: number}[] 
+  usersWithPicks: string[]
 }) {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loadingPicks, setLoadingPicks] = useState(false)
@@ -41,9 +40,9 @@ export default function PickEmClient({
   const [locks, setLocks] = useState({ slot: false, semi: false, final: false })
 
   // Permissões baseadas no Guid e Level
-  const currentUserAdmin = adminGuids.find(a => a.guid === user?.faceit_guid);
-  const isAdminView = !!currentUserAdmin; // 1 a 5 podem ver outros
-  const isHighAdmin = currentUserAdmin && currentUserAdmin.level <= 2; // 1 e 2 podem bloquear
+  const userLevel = user?.Admin ?? user?.admin ?? 0;
+  const isAdminView = userLevel >= 1 && userLevel <= 5; // 1 a 5 podem ver outros
+  const isHighAdmin = userLevel >= 1 && userLevel <= 2; // 1 e 2 podem bloquear
   const isViewingOther = !!(viewingNickname && user && viewingNickname !== user.nickname);
 
   const checkUser = useCallback(() => {
@@ -144,7 +143,7 @@ export default function PickEmClient({
         phase, 
         targetStatus, 
         nickname: user?.nickname,
-        adminLevel: currentUserAdmin?.level 
+        adminLevel: userLevel
       })
     });
     alert("Operação realizada com sucesso.");
@@ -234,11 +233,11 @@ export default function PickEmClient({
                   <select 
                     value={viewingNickname || ""} 
                     onChange={(e) => setViewingNickname(e.target.value)}
-                    className="bg-transparent text-xs font-bold uppercase outline-none cursor-pointer pr-4"
+                    className="bg-transparent text-xs font-bold uppercase outline-none cursor-pointer pr-4 text-amber-500"
                   >
-                    <option value={user.nickname}>Minhas Escolhas</option>
+                    <option value={user.nickname} className="bg-zinc-900 text-amber-500">Minhas Escolhas</option>
                     {usersWithPicks.filter(n => n !== user.nickname).map(name => (
-                      <option key={name} value={name}>{name}</option>
+                      <option key={name} value={name} className="bg-zinc-900 text-amber-500">{name}</option>
                     ))}
                   </select>
                 </div>
@@ -301,7 +300,13 @@ export default function PickEmClient({
                   { title: "Quartas de Final", data: qualifiedTeams, key: 'slot', cols: 4 },
                   { title: "Semi-Finais", data: semiTeams, key: 'semi', cols: 4 },
                   { title: "Grande Final", data: finalTeams, key: 'final', cols: 2 }
-                ].map((phase) => (
+                ].map((phase) => {
+                  const isLocked = locks[phase.key as keyof typeof locks];
+                  const nextPhaseKey = phase.key === 'slot' ? 'semi' : (phase.key === 'semi' ? 'final' : null);
+                  const isNextLocked = nextPhaseKey ? locks[nextPhaseKey as keyof typeof locks] : true;
+                  const dragDisabled = (isLocked && (!nextPhaseKey || isNextLocked)) || isViewingOther;
+
+                  return (
                   <div key={phase.key} className="relative">
                     <div className="flex justify-between items-center mb-6">
                       <h2 className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3">
@@ -327,7 +332,7 @@ export default function PickEmClient({
                                 ${team ? "border-amber-500 bg-amber-500/5" : "border-zinc-800 bg-zinc-900/20"}
                                 ${snapshot.isDraggingOver ? "border-amber-400 bg-amber-500/10 scale-105" : ""}`}>
                               {team ? (
-                                <Draggable draggableId={`${phase.key}-slot-${team.id}-${index}`} index={index} isDragDisabled={locks[phase.key as keyof typeof locks] || isViewingOther}>
+                                <Draggable draggableId={`${phase.key}-slot-${team.id}-${index}`} index={index} isDragDisabled={dragDisabled}>
                                   {(p) => (
                                     <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="flex flex-col items-center">
                                       <Image src={team.team_image} alt="" width={64} height={64} className="drop-shadow-2xl" unoptimized />
@@ -345,7 +350,7 @@ export default function PickEmClient({
                       ))}
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             </div>
           </DragDropContext>

@@ -12,7 +12,6 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max-old-space-size=1024"
 
 COPY --from=deps /app/node_modules ./node_modules
-# Aqui é onde ele pega os arquivos novos que o Git puxou
 COPY . .
 
 RUN npm run build 

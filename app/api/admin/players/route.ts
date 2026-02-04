@@ -8,11 +8,20 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     const faceit_guid = searchParams.get('faceit_guid');
+    const nickname = searchParams.get('nickname');
 
     const connection = await pool.getConnection();
     try {
       if (id) {
-        const [rows]: any = await connection.execute('SELECT id, nickname, admin, faceit_guid, avatar FROM players WHERE id = ?', [id]);
+        const [rows]: any = await connection.execute('SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players WHERE id = ?', [id]);
+        if (rows.length === 0) {
+          return NextResponse.json({ message: 'Player not found' }, { status: 404 });
+        }
+        return NextResponse.json(rows[0]);
+      }
+
+      if (nickname) {
+        const [rows]: any = await connection.execute('SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players WHERE nickname = ?', [nickname]);
         if (rows.length === 0) {
           return NextResponse.json({ message: 'Player not found' }, { status: 404 });
         }
@@ -20,14 +29,14 @@ export async function GET(req: Request) {
       }
 
       if (faceit_guid) {
-        const [rows]: any = await connection.execute('SELECT id, nickname, admin, faceit_guid, avatar FROM players WHERE faceit_guid = ?', [faceit_guid]);
+        const [rows]: any = await connection.execute('SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players WHERE faceit_guid = ?', [faceit_guid]);
         if (rows.length === 0) {
           return NextResponse.json({ message: 'Player not found' }, { status: 404 });
         }
         return NextResponse.json(rows[0]);
       }
 
-      const [rows] = await connection.execute('SELECT id, nickname, admin, faceit_guid FROM players ORDER BY nickname ASC');
+      const [rows] = await connection.execute('SELECT id, nickname, admin, faceit_guid, adicionados FROM players ORDER BY nickname ASC');
       return NextResponse.json(rows);
     } finally {
       connection.release();
@@ -74,19 +83,28 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
     try {
-        const { userId, adminLevel } = await req.json();
+        const body = await req.json();
+        const { userId, adminLevel, adicionados } = body;
 
-        if (!userId || adminLevel === undefined) {
-            return NextResponse.json({ message: 'User ID and admin level are required.' }, { status: 400 });
+        if (!userId) {
+            return NextResponse.json({ message: 'User ID is required.' }, { status: 400 });
         }
 
         const connection = await pool.getConnection();
         try {
-            await connection.execute(
-                'UPDATE players SET admin = ? WHERE id = ?',
-                [adminLevel, userId]
-            );
-            return NextResponse.json({ message: 'Admin level updated successfully.' });
+            if (adminLevel !== undefined) {
+                await connection.execute(
+                    'UPDATE players SET admin = ? WHERE id = ?',
+                    [adminLevel, userId]
+                );
+            }
+            if (adicionados !== undefined) {
+                await connection.execute(
+                    'UPDATE players SET adicionados = ? WHERE id = ?',
+                    [adicionados, userId]
+                );
+            }
+            return NextResponse.json({ message: 'Player updated successfully.' });
         } finally {
             connection.release();
         }

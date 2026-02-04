@@ -545,7 +545,7 @@ const ManageAdicionadosTab = () => {
 
   const handleSave = async (userId: number) => {
     try {
-      const res = await fetch('/api/admin/players/update-adicionados', {
+      const res = await fetch('/api/admin/players', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, adicionados: editValue }),
@@ -644,7 +644,7 @@ export default function AdminstracaoPage() {
       // Libera acesso se estiver em localhost
       if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
         if (!loadedUser || (loadedUser.Admin !== 1 && loadedUser.Admin !== 2)) {
-          loadedUser = { id: 999999, faceit_guid: 'local', nickname: 'Local Admin', avatar: '', Admin: 1 };
+          loadedUser = { id: 999999, faceit_guid: 'local', nickname: '-ShaykonBio-', avatar: '', Admin: 1 };
         }
       }
 

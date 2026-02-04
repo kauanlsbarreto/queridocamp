@@ -43,7 +43,8 @@ export const UserProfile = ({
   onLogout,
 }: UserProfileProps) => {
   const profileId = id ?? ID;
-  const [userAdminLevel, setUserAdminLevel] = useState(Admin ?? admin ?? 0);
+  // Inicia com 0 para não confiar no localStorage/props. Só atualiza após confirmação do banco.
+  const [userAdminLevel, setUserAdminLevel] = useState(0);
 
   useEffect(() => {
     if (faceit_guid) {
@@ -52,6 +53,19 @@ export const UserProfile = ({
         .then((data) => {
           if (data && typeof data.admin === 'number') {
             setUserAdminLevel(data.admin);
+
+            const storedSession = localStorage.getItem("faceit_user");
+            if (storedSession) {
+              try {
+                const currentUser = JSON.parse(storedSession);
+                if (currentUser.Admin !== data.admin || currentUser.id !== data.id) {
+                  const updatedUser = { ...currentUser, Admin: data.admin, id: data.id, nickname: data.nickname, avatar: data.avatar || currentUser.avatar };
+                  localStorage.setItem("faceit_user", JSON.stringify(updatedUser));
+                }
+              } catch (e) {
+                console.error("Failed to update user session in localStorage", e);
+              }
+            }
           }
         })
         .catch((err) => console.error("Error fetching admin level:", err));
