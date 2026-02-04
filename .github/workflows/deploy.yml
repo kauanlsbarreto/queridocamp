@@ -20,26 +20,29 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 60m
           script: |
-            if [ ! -f /swapfile ]; then
+              if [ ! -f /swapfile ]; then
               echo "Configurando Swap..."
               sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
               sudo chmod 600 /swapfile
               sudo mkswap /swapfile
               sudo swapon /swapfile
               echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-            fi
+              fi
 
-            cd /home/ubuntu/front-end
+              cd /home/ubuntu/front-end
 
-            echo "[$(date)] Atualizando código..."
-            git fetch origin main
-            git reset --hard origin/main
+              echo "[$(date)] Atualizando código..."
+              git fetch origin main
+              git reset --hard origin/main
 
-            echo "[$(date)] Iniciando Build Incremental..."
-            docker-compose up -d --build
+              # --- O PULO DO GATO ESTÁ AQUI ---
+              echo "[$(date)] Parando containers antigos para evitar conflitos..."
+              docker-compose down --remove-orphans
 
-            # 4. LIMPEZA PÓS-DEPLOY
-            echo "[$(date)] Limpando imagens órfãs..."
-            docker image prune -f
+              echo "[$(date)] Iniciando Build Incremental..."
+              docker-compose up -d --build
 
-            echo "[$(date)] Deploy finalizado com sucesso!"
+              echo "[$(date)] Limpando imagens órfãs..."
+              docker image prune -f
+
+              echo "[$(date)] Deploy finalizado com sucesso!"
