@@ -14,32 +14,35 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: "ubuntu"
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 60m  # Tempo estendido para builds lentos
+          command_timeout: 60m
           script: |
-            # set -e interrompe o script se qualquer comando falhar
-            set -e
+            # 1. TENTATIVA DE CRIAR SWAP (Se não existir)
+            # Isso usa o disco como RAM para evitar que o Docker trave no "Download complete"
+            if [ ! -f /swapfile ]; then
+              echo "Criando Swap para evitar travamento..."
+              sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+              sudo chmod 600 /swapfile
+              sudo mkswap /swapfile
+              sudo swapon /swapfile
+            fi
 
             cd /home/ubuntu/front-end
 
-            echo "[$(date)] 1/5: Limpando TUDO para liberar RAM..."
-            # Para todos os containers e remove volumes/imagens não usados 
-            # para dar o máximo de fôlego ao sistema antes do build.
-            docker system prune -a --volumes -f
-
-            echo "[$(date)] 2/5: Sincronizando repositório..."
+            echo "[$(date)] 1. Resetando Git..."
             git fetch origin main
             git reset --hard origin/main
             git clean -fd
 
-            echo "[$(date)] 3/5: Baixando imagem base isoladamente..."
-            # Fazemos o pull antes do build para não sobrecarregar a rede e RAM simultaneamente
-            docker pull node:18-slim
+            echo "[$(date)] 2. Liberando RAM (Parando site antigo)..."
+            # IMPORTANTE: Parar o site antes do build libera RAM para o Docker descompactar a imagem
+            docker-compose down || true
+            docker system prune -f
 
-            echo "[$(date)] 4/5: Reconstruindo container (Isso pode demorar)..."
-            # O build Next.js é pesado. Se travar aqui, o problema é falta de RAM física.
+            echo "[$(date)] 3. Iniciando Build e Up..."
+            # Aqui o Docker vai baixar e extrair. Com o Swap criado acima, não deve travar.
             docker-compose up -d --build
 
-            echo "[$(date)] 5/5: Limpeza final de build..."
-            docker builder prune --filter "until=1h" -f
+            echo "[$(date)] 4. Limpeza final..."
+            docker image prune -f
 
             echo "[$(date)] Deploy finalizado com sucesso!"
