@@ -2,11 +2,6 @@ name: Deploy Frontend
 on:
   push:
     branches: [ "main" ]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -14,30 +9,13 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: "ubuntu"
+          host: ${{ secrets.SERVER_IP }}     # Cadastre o IP nos secrets também
+          username: "ubuntu"                 # Usuário padrão do Lightsail Ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 30m
           script: |
-            cd /home/ubuntu/front-end
-            
-            echo "--- GARANTINDO MEMÓRIA VIRTUAL (SWAP) ---"
-            # Cria 2GB de memória extra no SSD para o build não travar
-            if [ ! -f /swapfile ]; then
-              sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
-            fi
-            
-            echo "--- ATUALIZANDO CÓDIGO ---"
-            git fetch origin main && git reset --hard origin/main
-            
-            echo "--- LIMPANDO CACHE PESADO (LIBERAR RAM) ---"
-            docker builder prune -f
-            
-            echo "--- BUILD COM FOCO EM ESTABILIDADE ---"
-            cd ..
-            # Forçamos o build separado para monitorar melhor
-            docker compose --progress=plain build
-            docker compose up -d
-            
-            echo "--- STATUS FINAL ---"
-            docker ps --format "table {{.Names}}\t{{.Status}}"
+            # Comandos para atualizar
+            cd /home/ubuntu
+            ./atualizar_frontend.sh
+
+                      
