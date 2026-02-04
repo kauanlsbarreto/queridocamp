@@ -14,28 +14,32 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: "ubuntu"
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 60m 
+          command_timeout: 60m  # Tempo estendido para builds lentos
           script: |
-            # set -e: se qualquer comando falhar, o deploy para e marca como erro
+            # set -e interrompe o script se qualquer comando falhar
             set -e
 
             cd /home/ubuntu/front-end
 
-            echo "[$(date)] Resetando repositório local..."
+            echo "[$(date)] 1/5: Limpando TUDO para liberar RAM..."
+            # Para todos os containers e remove volumes/imagens não usados 
+            # para dar o máximo de fôlego ao sistema antes do build.
+            docker system prune -a --volumes -f
+
+            echo "[$(date)] 2/5: Sincronizando repositório..."
             git fetch origin main
             git reset --hard origin/main
             git clean -fd
 
-            echo "[$(date)] Tentando baixar imagem base separadamente (Pre-pull)..."
-            # Isso ajuda a evitar o erro de TLS handshake timeout durante o build
+            echo "[$(date)] 3/5: Baixando imagem base isoladamente..."
+            # Fazemos o pull antes do build para não sobrecarregar a rede e RAM simultaneamente
             docker pull node:18-slim
 
-            echo "[$(date)] Reconstruindo e subindo container..."
-            # O --build garante que as mudanças do Dockerfile sejam aplicadas
+            echo "[$(date)] 4/5: Reconstruindo container (Isso pode demorar)..."
+            # O build Next.js é pesado. Se travar aqui, o problema é falta de RAM física.
             docker-compose up -d --build
 
-            echo "[$(date)] Limpando imagens antigas e cache..."
-            docker image prune -f
-            docker builder prune --filter "until=48h" -f
+            echo "[$(date)] 5/5: Limpeza final de build..."
+            docker builder prune --filter "until=1h" -f
 
-            echo "[$(date)] Front-end atualizado com sucesso!"
+            echo "[$(date)] Deploy finalizado com sucesso!"
