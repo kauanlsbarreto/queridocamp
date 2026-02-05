@@ -18,7 +18,7 @@ export default function AdPropaganda({ videoSrc, redirectUrl }: AdPropagandaProp
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser)
-        const adminLevel = user.admin
+        const adminLevel = user.Admin
         if (adminLevel && adminLevel >= 1 && adminLevel <= 5) {
           setIsVisible(false)
           return
@@ -26,6 +26,17 @@ export default function AdPropaganda({ videoSrc, redirectUrl }: AdPropagandaProp
       } catch (e) {
       }
     }
+
+    const lastShown = localStorage.getItem("ultimo_ad_visto")
+    const now = Date.now()
+    const sixHours = 6 * 60 * 60 * 1000
+
+    if (lastShown && (now - parseInt(lastShown) < sixHours)) {
+      setIsVisible(false)
+      return
+    }
+
+    localStorage.setItem("ultimo_ad_visto", now.toString())
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
