@@ -27,6 +27,7 @@ interface Match {
   placar_mapa2_time2: number;
   map_winner?: string;
   match_winner?: string;
+  rodada?: string;
 }
 
 interface TeamDetails {
@@ -116,6 +117,11 @@ const TeamRow = memo(({
                               <span className={m.time1 === team.name ? "text-gold font-bold" : "text-gray-400"}>{m.time1}</span>
                               <span className="text-gray-600">vs</span>
                               <span className={m.time2 === team.name ? "text-gold font-bold" : "text-gray-400"}>{m.time2}</span>
+                              {m.rodada && (
+                                <span className="text-[10px] text-zinc-500 uppercase ml-2 border border-zinc-700 px-1.5 rounded">
+                                  {m.rodada}
+                                </span>
+                              )}
                             </div>
                             <div className="flex gap-4 font-mono text-white/80 mt-2 sm:mt-0">
                               <span>M1: {m.placar_mapa1_time1}-{m.placar_mapa1_time2}</span>

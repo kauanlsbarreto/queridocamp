@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Search, Shield, User, ChevronLeft, ChevronRight } from "lucide-react";
 import PremiumCard from "@/components/premium-card";
 import { usePathname, useSearchParams } from "next/navigation";
+import AdPropaganda from "@/components/ad-propaganda";
 
 interface Player {
   id: number;
@@ -32,6 +33,10 @@ const Pagination = ({ totalPages, currentPage }: { totalPages: number, currentPa
 
     return (
         <div className="flex justify-center items-center gap-4 mt-12 text-white">
+                <AdPropaganda 
+                    videoSrc="/videosad/boxx.mp4" 
+                    redirectUrl="https://www.instagram.com/boxxaju/" 
+                />
             <Link 
                 href={createPageURL(currentPage - 1)}
                 className={`px-4 py-2 rounded-md transition-colors ${currentPage <= 1 ? 'pointer-events-none bg-gray-800/50 text-gray-500' : 'bg-gray-800 hover:bg-gray-700'}`}

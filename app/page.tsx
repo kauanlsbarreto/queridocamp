@@ -9,6 +9,8 @@ import PremiumCard from "@/components/premium-card"
 import HeroBanner from "@/components/hero-banner"
 import ImageModal from "@/components/image-modal"
 import { Trophy, Award } from "lucide-react"
+import AdPropaganda from "@/components/ad-propaganda"
+
 
 export default function Home() {
   const startDate = new Date("2026-01-19T00:00:00")
@@ -88,6 +90,10 @@ export default function Home() {
 
   return (
     <div>
+      <AdPropaganda 
+        videoSrc="/videosad/neshastore.mp4" 
+        redirectUrl="https://neshastore.com" 
+      />
       <HeroBanner title="" subtitle="O maior campeonato de Counter-Strike 2 de Sergipe" />
 
       <section className="py-12 bg-black">

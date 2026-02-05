@@ -1,6 +1,7 @@
 import mysql from 'mysql2/promise';
 import StatsList from './stats-list';
 import UpdateTimer from './update-timer';
+import AdPropaganda from '@/components/ad-propaganda';
 
 export const revalidate = 600;
 
@@ -140,6 +141,10 @@ export default async function StatsPage() {
 
   return (
     <div className="min-h-screen bg-black">
+      <AdPropaganda 
+          videoSrc="/videosad/boxx.mp4" 
+          redirectUrl="https://www.instagram.com/boxxaju/" 
+      />
       <section className="py-12 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           <UpdateTimer generatedAt={generatedAt} revalidate={revalidate} />

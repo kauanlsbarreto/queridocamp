@@ -26,6 +26,7 @@ export interface DbMatch {
   mapa2: string
   placar_mapa2_time1: number
   placar_mapa2_time2: number
+  rodada?: string
 }
 
 interface MapScore {

@@ -1,3 +1,4 @@
+import AdPropaganda from "@/components/ad-propaganda";
 import RankingTable from "./ranking-table"
 import { pool } from "@/lib/db"
 
@@ -27,6 +28,10 @@ export default async function Classificacao() {
 
   return (
     <div>
+      <AdPropaganda 
+          videoSrc="/videosad/boxx.mp4" 
+          redirectUrl="https://www.instagram.com/boxxaju/" 
+      />
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import Image from "next/image"
-import { Lock, Shield, AlertCircle, CheckCircle, Eye, X, Unlock } from "lucide-react"
+import { Lock, Shield, AlertCircle, CheckCircle, Eye, X, Unlock, BarChart2 } from "lucide-react"
 import FaceitLogin from "../../components/FaceitLogin"
 
 interface TeamPick {
@@ -23,10 +23,12 @@ interface UserProfile {
 
 export default function PickEmClient({ 
   initialTeams, 
-  usersWithPicks
+  usersWithPicks,
+  pickStats = {}
 }: { 
   initialTeams: TeamPick[], 
-  usersWithPicks: string[]
+  usersWithPicks: string[],
+  pickStats?: Record<string, number>
 }) {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loadingPicks, setLoadingPicks] = useState(false)
@@ -39,6 +41,7 @@ export default function PickEmClient({
   const [finalTeams, setFinalTeams] = useState<(TeamPick | null)[]>(Array(2).fill(null))
   
   const [locks, setLocks] = useState({ slot: false, semi: false, final: false })
+  const [statsTab, setStatsTab] = useState<'top' | 'unused'>('top')
 
   // Permissões baseadas no Guid e Level
   const userLevel = user?.Admin ?? user?.admin ?? 0;
@@ -215,6 +218,13 @@ export default function PickEmClient({
     }
   }
 
+  const sortedStats = initialTeams
+    .map(team => ({ ...team, count: pickStats[team.id] || 0 }))
+    .sort((a, b) => b.count - a.count);
+
+  const topPicks = sortedStats.filter(t => t.count > 0);
+  const unusedPicks = sortedStats.filter(t => t.count === 0);
+
   return (
     <div className="flex flex-col gap-8">
       {!user ? (
@@ -305,7 +315,7 @@ export default function PickEmClient({
               </div>
 
               {/* Grid Principal das Fases */}
-              <div className="lg:col-span-9 space-y-12">
+              <div className={`${isAdminView ? "lg:col-span-6" : "lg:col-span-9"} space-y-12`}>
                 {/* Renderização Dinâmica das Fases */}
                 {[
                   { title: "Quartas de Final", data: qualifiedTeams, key: 'slot', cols: 4 },
@@ -363,6 +373,54 @@ export default function PickEmClient({
                   </div>
                 )})}
               </div>
+
+              {/* Stats Sidebar */}
+              {isAdminView && (
+              <div className="lg:col-span-3 space-y-4">
+                <div className="bg-zinc-900/50 p-6 rounded-3xl border border-white/5 h-full">
+                  <h3 className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <BarChart2 size={14}/> Estatísticas
+                  </h3>
+                  
+                  <div className="flex gap-2 mb-4 bg-black/20 p-1 rounded-xl">
+                    <button 
+                      onClick={() => setStatsTab('top')}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all ${statsTab === 'top' ? 'bg-amber-500 text-black' : 'text-zinc-500 hover:text-white'}`}
+                    >
+                      Mais Escolhidos
+                    </button>
+                    <button 
+                      onClick={() => setStatsTab('unused')}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all ${statsTab === 'unused' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
+                    >
+                      Não Escolhidos
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                    {(statsTab === 'top' ? topPicks : unusedPicks).map((team, idx) => (
+                      <div key={team.id} className="flex items-center justify-between bg-black/40 p-2 rounded-xl border border-white/5">
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-bold w-4 text-center ${idx < 3 && statsTab === 'top' ? 'text-amber-500' : 'text-zinc-600'}`}>
+                            {idx + 1}
+                          </span>
+                          <Image src={team.team_image} alt={team.team_name} width={24} height={24} className="object-contain" unoptimized />
+                          <span className="text-xs font-bold text-zinc-300 truncate max-w-[100px]">{team.team_name}</span>
+                        </div>
+                        {statsTab === 'top' && (
+                          <div className="bg-amber-500/10 text-amber-500 text-[10px] font-black px-2 py-1 rounded-lg">
+                            {team.count}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {(statsTab === 'top' ? topPicks : unusedPicks).length === 0 && (
+                      <p className="text-center text-zinc-600 text-xs py-4">Nenhum time encontrado.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              )}
             </div>
           </DragDropContext>
         </div>

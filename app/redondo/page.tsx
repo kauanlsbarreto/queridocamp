@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
 import PickEmClient from './pick-em-client';
+import AdPropaganda from '@/components/ad-propaganda';
 
 const pool1 = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
@@ -70,19 +71,53 @@ async function getAllUsersWithPicks() {
   }
 }
 
+async function getPickStats() {
+  try {
+    const [rows]: any = await pool1.execute('SELECT slot_1, slot_2, slot_3, slot_4, slot_5, slot_6, slot_7, slot_8 FROM escolhas');
+    const stats: Record<string, number> = {};
+    
+    if (rows) {
+      rows.forEach((row: any) => {
+        const teamsInBracket = new Set<string>();
+        for (let i = 1; i <= 8; i++) {
+          let team = row[`slot_${i}`];
+          if (typeof team === 'string') {
+            try { team = JSON.parse(team); } catch (e) {}
+          }
+          if (team && team.id) {
+            teamsInBracket.add(team.id);
+          }
+        }
+        teamsInBracket.forEach((id) => {
+          stats[id] = (stats[id] || 0) + 1;
+        });
+      });
+    }
+    return stats;
+  } catch (error) {
+    console.error("Erro ao buscar estatísticas:", error);
+    return {};
+  }
+}
+
 export default async function RedondoPage() {
   await ensureTableExists();
   
   const teams = await getTeamsForPickEm();
   const usersWithPicks = await getAllUsersWithPicks();
+  const pickStats = await getPickStats();
 
   return (
     <main className="min-h-screen bg-black text-white">
       <section className="py-12 px-4 max-w-7xl mx-auto">
         {teams.length > 0 ? (
-          <PickEmClient initialTeams={teams} usersWithPicks={usersWithPicks} />
+          <PickEmClient initialTeams={teams} usersWithPicks={usersWithPicks} pickStats={pickStats} />
         ) : (
           <div className="text-center p-20 border border-dashed border-zinc-800 rounded-2xl">
+                  <AdPropaganda 
+                      videoSrc="/videosad/boxx.mp4" 
+                      redirectUrl="https://www.instagram.com/boxxaju/" 
+                  />
             <p className="text-zinc-500 italic">Carregando times ou erro na conexão com Railway...</p>
           </div>
         )}
