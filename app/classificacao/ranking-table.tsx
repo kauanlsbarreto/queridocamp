@@ -35,7 +35,6 @@ interface TeamDetails {
   adjustments: { motivo: string }[];
 }
 
-// Componente de linha otimizado para evitar lag no scroll e re-renderizações inúteis
 const TeamRow = memo(({ 
   team, 
   index, 
@@ -83,6 +82,7 @@ const TeamRow = memo(({
             </Link>
           </div>
         </td>
+        <td className="py-4 px-2 text-center text-white font-semibold">{(team.wins + team.losses) / 2}</td>
         <td className="py-4 px-2 text-center text-green-400 font-semibold">{team.wins}</td>
         <td className="py-4 px-2 text-center text-red-400 font-semibold">{team.losses}</td>
         <td className="py-4 px-2 text-center text-gold font-bold text-lg">{team.points}</td>
@@ -94,7 +94,7 @@ const TeamRow = memo(({
       <AnimatePresence>
         {isExpanded && (
           <tr>
-            <td colSpan={6} className="p-0 border-b border-gold/20">
+            <td colSpan={7} className="p-0 border-b border-gold/20">
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
@@ -196,15 +196,19 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
   return (
     <PremiumCard>
       <div className="p-4 md:p-8 overflow-x-auto">
+        <div className="mb-6 pb-6 border-b border-white/10 text-center text-xs text-gray-400">
+           R = Rodadas | V = Vitórias em Mapas | D = Derrotas em Mapas | PTS = Pontos | Rounds = Saldo de rounds
+        </div>
         <table className="w-full min-w-[600px] border-collapse">
           <thead>
             <tr className="border-b-2 border-gold/30">
               <th className="text-left py-4 px-2 text-gold font-bold">#</th>
               <th className="text-left py-4 px-2 text-gold font-bold">Time</th>
-              <th className="text-center py-4 px-2 text-gold font-bold">V</th>
-              <th className="text-center py-4 px-2 text-gold font-bold">D</th>
-              <th className="text-center py-4 px-2 text-gold font-bold">PTS</th>
-              <th className="text-center py-4 px-2 text-gold font-bold">Rounds</th>
+              <th title="Rodadas" className="text-center py-4 px-2 text-gold font-bold cursor-help">R</th>
+              <th title="Quantidade de mapas ganhos" className="text-center py-4 px-2 text-gold font-bold cursor-help">V</th>
+              <th title="Quantidade de mapas perdidos" className="text-center py-4 px-2 text-gold font-bold cursor-help">D</th>
+              <th title="Pontos" className="text-center py-4 px-2 text-gold font-bold cursor-help">PTS</th>
+              <th title="Saldo de Rounds" className="text-center py-4 px-2 text-gold font-bold cursor-help">Rounds</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -221,10 +225,6 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
             ))}
           </tbody>
         </table>
-        
-        <div className="mt-6 pt-6 border-t border-white/10 text-center text-xs text-gray-400">
-           V = Vitórias | D = Derrotas | PTS = Pontos | Rounds = Saldo de rounds
-        </div>
       </div>
     </PremiumCard>
   )

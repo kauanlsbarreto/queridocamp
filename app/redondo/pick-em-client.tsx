@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import Image from "next/image"
-import { Lock, Shield, AlertCircle, CheckCircle, Eye, X, Unlock, BarChart2 } from "lucide-react"
+import { Lock, Shield, AlertCircle, CheckCircle, Eye, X, Unlock, BarChart2, Trash2 } from "lucide-react"
 import FaceitLogin from "../../components/FaceitLogin"
 
 interface TeamPick {
@@ -164,6 +164,33 @@ export default function PickEmClient({
     window.location.reload();
   }
 
+  const adminManageUser = async (targetNickname: string, type: 'unlock' | 'clear', phase: string) => {
+    if (!isHighAdmin) return;
+    const actionText = type === 'unlock' ? "DESTRAVAR" : "LIMPAR e DESTRAVAR";
+    if (!confirm(`Tem certeza que deseja ${actionText} a fase ${phase} para ${targetNickname}?`)) return;
+
+    try {
+      const res = await fetch('/api/picks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'admin_manage_user', 
+          adminLevel: userLevel,
+          targetNickname,
+          type,
+          phase
+        })
+      });
+      
+      if (res.ok) {
+        alert("Ação realizada com sucesso!");
+        // Invalida o cache para recarregar os dados atualizados
+        setPicksCache(prev => { const n = {...prev}; delete n[targetNickname]; return n; });
+        loadUserPicks(targetNickname);
+      }
+    } catch (e) { console.error(e); alert("Erro ao realizar ação."); }
+  }
+
   const onDragEnd = (result: any) => {
     if (!user || isViewingOther) return;
     const { source, destination } = result;
@@ -234,7 +261,6 @@ export default function PickEmClient({
         </div>
       ) : (
         <div className="flex flex-col gap-6">
-          {/* Header de Usuário e Admin */}
           <div className="flex flex-wrap items-center justify-between gap-4 bg-zinc-900/80 p-6 rounded-3xl border border-white/10 backdrop-blur-md">
             <div className="flex items-center gap-4">
               <div className="relative group">
@@ -266,11 +292,10 @@ export default function PickEmClient({
             </div>
           </div>
 
-          {/* Painel de Controle de Admin Nível 1 e 2 */}
           {isHighAdmin && (
             <div className="bg-red-500/10 border-2 border-red-500/30 p-4 rounded-2xl flex items-center justify-between">
               <div className="flex items-center gap-2 text-red-500 font-black italic text-sm">
-                <Shield size={20} /> PAINEL MASTER ADMIN
+                <Shield size={20} /> ADMIN
               </div>
               <div className="flex gap-2">
                 {['slot', 'semi', 'final'].map(phase => (
@@ -286,9 +311,37 @@ export default function PickEmClient({
             </div>
           )}
 
+          {isHighAdmin && viewingNickname && (
+            <div className="bg-blue-500/10 border-2 border-blue-500/30 p-4 rounded-2xl flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-blue-500 font-black italic text-sm">
+                <Shield size={20} /> GERENCIAR: {viewingNickname}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {['slot', 'semi', 'final'].map(phase => (
+                  <div key={phase} className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase px-2 w-16 text-center">{phase === 'slot' ? 'Quartas' : phase}</span>
+                    <button 
+                      onClick={() => adminManageUser(viewingNickname, 'unlock', phase)}
+                      className="bg-green-600 hover:bg-green-700 text-white p-1.5 rounded-md transition-all"
+                      title="Destravar"
+                    >
+                      <Unlock size={12} />
+                    </button>
+                    <button 
+                      onClick={() => adminManageUser(viewingNickname, 'clear', phase)}
+                      className="bg-red-600 hover:bg-red-700 text-white p-1.5 rounded-md transition-all"
+                      title="Limpar e Destravar"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <DragDropContext onDragEnd={onDragEnd}>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Pool lateral de times */}
               <div className="lg:col-span-3 space-y-4">
                 <div className="bg-zinc-900/50 p-6 rounded-3xl border border-white/5">
                   <h3 className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2">

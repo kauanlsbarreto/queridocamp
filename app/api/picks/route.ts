@@ -43,6 +43,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === 'admin_manage_user') {
+      if (adminLevel > 2) return NextResponse.json({ error: 'Sem permissão' }, { status: 403 });
+      
+      const { targetNickname, type, phase } = body;
+      
+      if (type === 'unlock') {
+        const lockCol = phase === 'slot' ? 'locked' : `${phase}_locked`;
+        await pool.execute(`UPDATE escolhas SET ${lockCol} = FALSE WHERE nickname = ?`, [targetNickname]);
+      } else if (type === 'clear') {
+        let updateQuery = "";
+        if (phase === 'slot') updateQuery = "slot_1 = NULL, slot_2 = NULL, slot_3 = NULL, slot_4 = NULL, slot_5 = NULL, slot_6 = NULL, slot_7 = NULL, slot_8 = NULL, locked = FALSE";
+        else if (phase === 'semi') updateQuery = "semi_1 = NULL, semi_2 = NULL, semi_3 = NULL, semi_4 = NULL, semi_locked = FALSE";
+        else if (phase === 'final') updateQuery = "final_1 = NULL, final_2 = NULL, final_locked = FALSE";
+        
+        if (updateQuery) {
+          await pool.execute(`UPDATE escolhas SET ${updateQuery} WHERE nickname = ?`, [targetNickname]);
+        }
+      }
+      return NextResponse.json({ success: true });
+    }
+
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
     return NextResponse.json({ error: 'Internal Error' }, { status: 500 });

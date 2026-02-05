@@ -4,6 +4,8 @@ import AdPropaganda from '@/components/ad-propaganda';
 
 const pool1 = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
+export const revalidate = 0;
+
 async function ensureTableExists() {
   try {
     const createTableQuery = `
