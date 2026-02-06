@@ -2,7 +2,7 @@ import AdPropaganda from "@/components/ad-propaganda";
 import RankingTable from "./ranking-table"
 import { pool } from "@/lib/db"
 
-export const revalidate = 300; // Revalida a cada 5 minutos
+export const revalidate = 60; // Cache global de 1 minuto
 
 async function getTeams() {
   try {
@@ -29,8 +29,8 @@ export default async function Classificacao() {
   return (
     <div>
       <AdPropaganda 
-          videoSrc="/videosad/boxx.mp4" 
-          redirectUrl="https://www.instagram.com/boxxaju/" 
+          videoSrc="/videosad/radiante.mp4" 
+          redirectUrl="https://industriaradiante.com.br/" 
       />
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">

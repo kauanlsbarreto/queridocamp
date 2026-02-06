@@ -88,8 +88,8 @@ export default function PickEmClient({
     return () => window.removeEventListener('faceit_auth_updated', checkUser)
   }, [checkUser])
   
-  const loadUserPicks = useCallback(async (nickname: string) => {
-    if (picksCache[nickname]) {
+  const loadUserPicks = useCallback(async (nickname: string, force = false) => {
+    if (!force && picksCache[nickname]) {
       processPicksData(picksCache[nickname]);
       return;
     }
@@ -186,7 +186,7 @@ export default function PickEmClient({
         alert("Ação realizada com sucesso!");
         // Invalida o cache para recarregar os dados atualizados
         setPicksCache(prev => { const n = {...prev}; delete n[targetNickname]; return n; });
-        loadUserPicks(targetNickname);
+        loadUserPicks(targetNickname, true);
       }
     } catch (e) { console.error(e); alert("Erro ao realizar ação."); }
   }

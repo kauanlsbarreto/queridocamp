@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
+import { revalidatePath } from 'next/cache';
 
 const pool = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
@@ -26,12 +27,14 @@ export async function POST(request: Request) {
         `INSERT INTO escolhas (nickname, faceit_guid, ${col}) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE ${col} = ?, faceit_guid = ?`,
         [nickname, faceit_guid, teamJson, teamJson, faceit_guid]
       );
+      revalidatePath('/redondo'); // Atualiza o cache global da página
       return NextResponse.json({ success: true });
     }
 
     if (action === 'lock') {
       const lockCol = phase === 'slot' ? 'locked' : `${phase}_locked`;
-      await pool.execute(`UPDATE escolhas SET ${lockCol} = TRUE WHERE nickname = ?`, [nickname]);
+      await pool.execute(`UPDATE escolhas SET ${lockCol} = 1 WHERE nickname = ?`, [nickname]);
+      revalidatePath('/redondo');
       return NextResponse.json({ success: true });
     }
 
@@ -40,6 +43,7 @@ export async function POST(request: Request) {
       
       const lockCol = phase === 'slot' ? 'locked' : `${phase}_locked`;
       await pool.execute(`UPDATE escolhas SET ${lockCol} = ?`, [targetStatus]);
+      revalidatePath('/redondo');
       return NextResponse.json({ success: true });
     }
 
@@ -50,17 +54,18 @@ export async function POST(request: Request) {
       
       if (type === 'unlock') {
         const lockCol = phase === 'slot' ? 'locked' : `${phase}_locked`;
-        await pool.execute(`UPDATE escolhas SET ${lockCol} = FALSE WHERE nickname = ?`, [targetNickname]);
+        await pool.execute(`UPDATE escolhas SET ${lockCol} = 0 WHERE nickname = ?`, [targetNickname]);
       } else if (type === 'clear') {
         let updateQuery = "";
-        if (phase === 'slot') updateQuery = "slot_1 = NULL, slot_2 = NULL, slot_3 = NULL, slot_4 = NULL, slot_5 = NULL, slot_6 = NULL, slot_7 = NULL, slot_8 = NULL, locked = FALSE";
-        else if (phase === 'semi') updateQuery = "semi_1 = NULL, semi_2 = NULL, semi_3 = NULL, semi_4 = NULL, semi_locked = FALSE";
-        else if (phase === 'final') updateQuery = "final_1 = NULL, final_2 = NULL, final_locked = FALSE";
+        if (phase === 'slot') updateQuery = "slot_1 = NULL, slot_2 = NULL, slot_3 = NULL, slot_4 = NULL, slot_5 = NULL, slot_6 = NULL, slot_7 = NULL, slot_8 = NULL, locked = 0";
+        else if (phase === 'semi') updateQuery = "semi_1 = NULL, semi_2 = NULL, semi_3 = NULL, semi_4 = NULL, semi_locked = 0";
+        else if (phase === 'final') updateQuery = "final_1 = NULL, final_2 = NULL, final_locked = 0";
         
         if (updateQuery) {
           await pool.execute(`UPDATE escolhas SET ${updateQuery} WHERE nickname = ?`, [targetNickname]);
         }
       }
+      revalidatePath('/redondo');
       return NextResponse.json({ success: true });
     }
 

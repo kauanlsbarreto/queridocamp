@@ -4,7 +4,7 @@ import AdPropaganda from '@/components/ad-propaganda';
 
  const pool = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
-export const revalidate = 300; // Revalida a cada 5 minutos
+export const revalidate = 60; // Cache global de 1 minuto
 
 export default async function Rodadas() {
   try {
@@ -19,10 +19,10 @@ export default async function Rodadas() {
     console.error("Erro ao buscar dados:", error)
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-          <AdPropaganda 
-              videoSrc="/videosad/boxx.mp4" 
-              redirectUrl="https://www.instagram.com/boxxaju/" 
-          />
+        <AdPropaganda 
+            videoSrc="/videosad/radiante.mp4" 
+            redirectUrl="https://industriaradiante.com.br/" 
+        />
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-500 mb-4">Erro ao carregar rodadas</h1>
           <p className="text-gray-400">Não foi possível conectar ao banco de dados.</p>

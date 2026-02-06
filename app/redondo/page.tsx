@@ -4,7 +4,7 @@ import AdPropaganda from '@/components/ad-propaganda';
 
 const pool1 = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
-export const revalidate = 0;
+export const revalidate = 3600; // Cache global de 1 hora (atualizado via API)
 
 async function ensureTableExists() {
   try {
