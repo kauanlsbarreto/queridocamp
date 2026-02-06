@@ -26,18 +26,23 @@ async function ensureTableExists() {
     `;
     await pool1.execute(createTableQuery);
 
-    // Tenta adicionar a coluna locked caso a tabela já exista sem ela
-    try {
-      await pool1.execute("ALTER TABLE escolhas ADD COLUMN locked BOOLEAN DEFAULT FALSE");
-    } catch (e) {
-      // Ignora erro se a coluna já existir
-    }
+    // Garante que todas as colunas necessárias existam (migração simplificada)
+    const columnsToCheck = [
+      "locked BOOLEAN DEFAULT FALSE",
+      "faceit_guid VARCHAR(255)",
+      "slot_1 JSON", "slot_2 JSON", "slot_3 JSON", "slot_4 JSON", "slot_5 JSON", "slot_6 JSON", "slot_7 JSON", "slot_8 JSON",
+      "semi_1 JSON", "semi_2 JSON", "semi_3 JSON", "semi_4 JSON",
+      "final_1 JSON", "final_2 JSON",
+      "semi_locked BOOLEAN DEFAULT FALSE",
+      "final_locked BOOLEAN DEFAULT FALSE"
+    ];
 
-    // Tenta adicionar a coluna faceit_guid caso a tabela já exista sem ela
-    try {
-      await pool1.execute("ALTER TABLE escolhas ADD COLUMN faceit_guid VARCHAR(255)");
-    } catch (e) {
-      // Ignora erro se a coluna já existir
+    for (const col of columnsToCheck) {
+      try {
+        await pool1.execute(`ALTER TABLE escolhas ADD COLUMN ${col}`);
+      } catch (e) {
+        // Ignora erro se a coluna já existir
+      }
     }
   } catch (error) {
     console.error("Erro ao criar tabela:", error);
