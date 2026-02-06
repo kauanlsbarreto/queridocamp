@@ -42,7 +42,8 @@ export async function POST(request: Request) {
     }
 
     if (action === 'admin_toggle_global') {
-      if (adminLevel > 2) return NextResponse.json({ error: 'Sem permissão' }, { status: 403 });
+      const level = typeof adminLevel === 'string' ? parseInt(adminLevel) : adminLevel;
+      if (!level || level > 2) return NextResponse.json({ error: 'Sem permissão' }, { status: 403 });
       
       const lockCol = phase === 'slot' ? 'locked' : `${phase}_locked`;
       await pool.query(`UPDATE escolhas SET ${lockCol} = ?`, [targetStatus]);
@@ -51,9 +52,12 @@ export async function POST(request: Request) {
     }
 
     if (action === 'admin_manage_user') {
-      if (adminLevel > 2) return NextResponse.json({ error: 'Sem permissão' }, { status: 403 });
+      const level = typeof adminLevel === 'string' ? parseInt(adminLevel) : adminLevel;
+      if (!level || level > 2) return NextResponse.json({ error: 'Sem permissão' }, { status: 403 });
       
       const { targetNickname, type, phase } = body;
+      
+      if (!targetNickname) return NextResponse.json({ error: 'Nickname alvo não informado' }, { status: 400 });
       
       if (type === 'unlock') {
         const lockCol = phase === 'slot' ? 'locked' : `${phase}_locked`;

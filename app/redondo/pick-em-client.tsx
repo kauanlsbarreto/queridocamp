@@ -149,7 +149,7 @@ export default function PickEmClient({
     const actionText = targetStatus ? "BLOQUEAR NOVOS USUÁRIOS" : "DESBLOQUEAR NOVOS USUÁRIOS";
     if (!confirm(`Deseja ${actionText} para a fase ${phase}?`)) return;
 
-    await fetch('/api/picks', {
+    const res = await fetch('/api/picks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -160,8 +160,14 @@ export default function PickEmClient({
         adminLevel: userLevel
       })
     });
-    alert("Operação realizada com sucesso.");
-    window.location.reload();
+    
+    if (res.ok) {
+      alert("Operação realizada com sucesso.");
+      window.location.reload();
+    } else {
+      const data = await res.json();
+      alert(`Erro: ${data.error || "Falha na operação"}`);
+    }
   }
 
   const adminManageUser = async (targetNickname: string, type: 'unlock' | 'clear', phase: string) => {
@@ -187,6 +193,9 @@ export default function PickEmClient({
         // Invalida o cache para recarregar os dados atualizados
         setPicksCache(prev => { const n = {...prev}; delete n[targetNickname]; return n; });
         loadUserPicks(targetNickname, true);
+      } else {
+        const data = await res.json();
+        alert(`Erro: ${data.error || "Falha na operação"}`);
       }
     } catch (e) { console.error(e); alert("Erro ao realizar ação."); }
   }
