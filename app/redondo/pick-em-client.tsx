@@ -181,6 +181,7 @@ export default function PickEmClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           action: 'admin_manage_user', 
+          nickname: user?.nickname,
           adminLevel: userLevel,
           targetNickname,
           type,
