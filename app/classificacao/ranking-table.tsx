@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Fragment, useEffect, memo, useCallback } from "react"
+import { useState, Fragment, useEffect, memo, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import PremiumCard from "@/components/premium-card"
 import Image from "next/image"
@@ -25,9 +25,6 @@ interface Match {
   placar_mapa1_time2: number;
   placar_mapa2_time1: number;
   placar_mapa2_time2: number;
-  map_winner?: string;
-  match_winner?: string;
-  rodada?: string;
 }
 
 interface TeamDetails {
@@ -35,13 +32,42 @@ interface TeamDetails {
   adjustments: { motivo: string }[];
 }
 
+// Lógica de sincronização de rodadas (Baseada no rodadas-cliente.tsx)
+const getMatchRound = (teams: Team[], t1: string, t2: string) => {
+  const sortedTeams = [...teams].sort((a, b) => a.name.localeCompare(b.name));
+  const numTeams = sortedTeams.length;
+  if (numTeams < 2) return null;
+
+  const teamNames = sortedTeams.map(t => t.name);
+  const fixedTeam = teamNames[0];
+  const rotatingTeams = teamNames.slice(1);
+
+  for (let round = 0; round < numTeams - 1; round++) {
+    const currentRotation = [...rotatingTeams];
+    for (let i = 0; i < round; i++) {
+      const last = currentRotation.pop();
+      if (last) currentRotation.unshift(last);
+    }
+    const roundTeams = [fixedTeam, ...currentRotation];
+    for (let i = 0; i < Math.floor(numTeams / 2); i++) {
+      const teamA = roundTeams[i];
+      const teamB = roundTeams[numTeams - 1 - i];
+      if ((teamA === t1 && teamB === t2) || (teamA === t2 && teamB === t1)) {
+        return round + 1;
+      }
+    }
+  }
+  return null;
+};
+
 const TeamRow = memo(({ 
   team, 
   index, 
   isExpanded, 
   toggleTeam, 
   details, 
-  loading 
+  loading,
+  allTeams 
 }: { 
   team: Team; 
   index: number; 
@@ -49,6 +75,7 @@ const TeamRow = memo(({
   toggleTeam: (name: string) => void;
   details: TeamDetails | null;
   loading: boolean;
+  allTeams: Team[];
 }) => {
   return (
     <Fragment>
@@ -103,41 +130,66 @@ const TeamRow = memo(({
                 className="overflow-hidden bg-black/40 backdrop-blur-sm"
               >
                 <div className="p-6 border-l-4 border-gold ml-2">
-                  <h4 className="text-gold font-bold mb-4 text-xs uppercase tracking-widest">Detalhamento</h4>
+                  <h4 className="text-gold font-bold mb-4 text-xs uppercase tracking-widest">Detalhamento de Partidas</h4>
                   
                   {loading && !details ? (
                     <div className="text-gray-400 animate-pulse text-sm">Buscando dados...</div>
                   ) : (
-                    <div className="space-y-4">
-                      {/* Verificação segura usando Optional Chaining (?.) para evitar o erro de 'map' */}
+                    <div className="space-y-3">
                       {details?.matches?.length ? (
-                        details.matches.map(m => (
-                          <div key={m.match_id} className="flex flex-col sm:flex-row justify-between bg-white/5 p-3 rounded text-sm border border-white/5">
-                            <div className="flex items-center gap-2">
-                              <span className={m.time1 === team.name ? "text-gold font-bold" : "text-gray-400"}>{m.time1}</span>
-                              <span className="text-gray-600">vs</span>
-                              <span className={m.time2 === team.name ? "text-gold font-bold" : "text-gray-400"}>{m.time2}</span>
-                              {m.rodada && (
-                                <span className="text-[10px] text-zinc-500 uppercase ml-2 border border-zinc-700 px-1.5 rounded">
-                                  {m.rodada}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex gap-4 font-mono text-white/80 mt-2 sm:mt-0">
-                              <span>M1: {m.placar_mapa1_time1}-{m.placar_mapa1_time2}</span>
-                              <span>M2: {m.placar_mapa2_time1}-{m.placar_mapa2_time2}</span>
-                            </div>
-                          </div>
-                        ))
-                      ) : !loading && <p className="text-gray-500 text-xs italic">Nenhum jogo registrado.</p>}
+                        details.matches.map(m => {
+                          const roundNum = getMatchRound(allTeams, m.time1, m.time2);
+                          
+                          // Lógica de destaque: identifica qual placar pertence ao time clicado
+                          const isTime1 = m.time1 === team.name;
 
-                      {/* Correção do erro: Optional chaining no adjustments */}
-                      {details?.adjustments?.map((adj, i) => (
-                        <div key={i} className="p-3 bg-gold/10 border border-gold/30 rounded-r-lg">
-                          <span className="text-[10px] text-gold font-black uppercase">Ajuste Manual</span>
-                          <p className="text-white text-sm mt-1">"{adj.motivo}"</p>
-                        </div>
-                      ))}
+                          return (
+                            <div key={m.match_id} className="flex flex-col sm:flex-row justify-between items-center bg-white/5 p-4 rounded-lg border border-white/10 gap-4 mb-2">
+                              <div className="flex items-center gap-4 flex-1">
+                                <div className="flex flex-col items-center justify-center bg-gold/20 border border-gold/40 rounded px-3 py-1 min-w-[75px]">
+                                  <span className="text-[9px] text-gold uppercase font-black leading-none">Rodada</span>
+                                  <span className="text-white font-bold text-sm">{roundNum || "?"}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <span className={isTime1 ? "text-gold font-bold" : "text-gray-400"}>{m.time1}</span>
+                                  <span className="text-gray-600 font-bold">vs</span>
+                                  <span className={!isTime1 ? "text-gold font-bold" : "text-gray-400"}>{m.time2}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-6 font-mono bg-black/30 px-4 py-2 rounded-md border border-white/5">
+                                {/* Mapa 1 */}
+                                <div className="flex flex-col items-center border-r border-white/10 pr-6">
+                                  <span className="text-[10px] text-gray-500 uppercase mb-1">Mapa 1</span>
+                                  <div className="text-lg font-bold flex items-center gap-2">
+                                    <span className={isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
+                                      {m.placar_mapa1_time1}
+                                    </span>
+                                    <span className="text-gray-700 text-sm">—</span>
+                                    <span className={!isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
+                                      {m.placar_mapa1_time2}
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                {/* Mapa 2 */}
+                                <div className="flex flex-col items-center pl-2">
+                                  <span className="text-[10px] text-gray-500 uppercase mb-1">Mapa 2</span>
+                                  <div className="text-lg font-bold flex items-center gap-2">
+                                    <span className={isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
+                                      {m.placar_mapa2_time1}
+                                    </span>
+                                    <span className="text-gray-700 text-sm">—</span>
+                                    <span className={!isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
+                                      {m.placar_mapa2_time2}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })
+                      ) : !loading && <p className="text-gray-500 text-xs italic">Nenhum jogo registrado.</p>}
                     </div>
                   )}
                 </div>
@@ -168,7 +220,6 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
 
     setExpandedTeam(teamName)
 
-    // Só faz o fetch se não estiver no cache (melhora muito a velocidade)
     if (!detailsCache[teamName]) {
       setLoading(true)
       try {
@@ -176,7 +227,6 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
         if (!res.ok) throw new Error("Erro na API")
         const data = await res.json()
         
-        // Garante que os campos existam para não quebrar o map
         const validatedData = {
           matches: data.matches || [],
           adjustments: data.adjustments || []
@@ -221,6 +271,7 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
                 toggleTeam={toggleTeam}
                 details={detailsCache[team.name] || null}
                 loading={loading && expandedTeam === team.name}
+                allTeams={teams}
               />
             ))}
           </tbody>

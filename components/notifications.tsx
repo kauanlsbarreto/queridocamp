@@ -7,6 +7,12 @@ import { Separator } from '@/components/ui/separator'
 
 const updates = [
   {
+    id: 'att-classificacao',
+    title: 'Atualização na pagina Classificação',
+    date: '09/02/2026',
+    description: 'Adicionamos a rodada e destacamos a cor no placar em Detalhamento',
+  },
+  {
     id: 'pgn-login',
     title: 'Atualização de Login',
     date: '03/02/2026',
