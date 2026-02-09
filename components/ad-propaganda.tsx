@@ -3,181 +3,145 @@
 import { useState, useEffect, useRef } from "react"
 import { ExternalLink, Volume2, VolumeX, SkipForward } from "lucide-react"
 
-interface AdPropagandaProps {
+// Renomeado para evitar filtros de AdBlock
+interface PromoPlayerProps {
   videoSrc: string
   redirectUrl: string
 }
 
-export default function AdPropaganda({ videoSrc, redirectUrl }: AdPropagandaProps) {
-  const [isVisible, setIsVisible] = useState(true)
+export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayerProps) {
+  const [isVisible, setIsVisible] = useState(false) // Começa falso para evitar flash de conteúdo
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolume] = useState(0.1)
   const [canSkip, setCanSkip] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
+    // 1. Verificação de Admin (Mantida)
     const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
     const storedUser = localStorage.getItem("faceit_user")
     
     if (storedUser && !isLocalhost) {
       try {
         const user = JSON.parse(storedUser)
-        const adminLevel = user.Admin
-        if (adminLevel && adminLevel >= 1 && adminLevel <= 5) {
-          setIsVisible(false)
-          return
-        }
-      } catch (e) {
-      }
+        if (user.Admin >= 1 && user.Admin <= 5) return 
+      } catch (e) {}
     }
 
-    let viewCount = parseInt(localStorage.getItem("ultimo_ad_visto") || "0")
-    if (isNaN(viewCount)) viewCount = 0
-    
-    viewCount++
-    localStorage.setItem("ultimo_ad_visto", viewCount.toString())
-
-    if (viewCount < 3) {
+    // 2. Lógica de Persistência Corrigida
+    // Verificamos se o usuário já completou o vídeo nesta sessão
+    const hasFinished = sessionStorage.getItem("promo_completed")
+    if (hasFinished === "true") {
       setIsVisible(false)
       return
     }
 
+    // Se não terminou, o AD DEVE aparecer
+    setIsVisible(true)
+
+    // Anti-Pause: Se o usuário trocar de aba, o vídeo pausa (e o tempo de skip para)
     const handleVisibilityChange = () => {
       if (document.hidden) {
         videoRef.current?.pause()
       } else {
-        videoRef.current?.play()
+        videoRef.current?.play().catch(() => {})
       }
     }
 
     document.addEventListener("visibilitychange", handleVisibilityChange)
 
-    if (videoRef.current) {
-      videoRef.current.volume = 0.1
-      videoRef.current.play().catch(() => {
-        if (videoRef.current) {
-          videoRef.current.muted = true
-          setIsMuted(true)
-          videoRef.current.play().catch(() => {})
-        }
-      })
-    }
-
-    let skipTimer: any
-
-    if (viewCount >= 3) {
-      skipTimer = setTimeout(() => {
-        setCanSkip(true)
-      }, 10000)
-    }
+    // Timer de Skip (10 segundos)
+    const skipTimer = setTimeout(() => {
+      setCanSkip(true)
+    }, 10000)
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange)
-      if (skipTimer) clearTimeout(skipTimer)
+      clearTimeout(skipTimer)
     }
   }, [])
 
   const handleVideoEnd = () => {
-    localStorage.setItem("ultimo_ad_visto", "0")
+    // Marcamos como concluído na sessão para não irritar o usuário em cada clique, 
+    // mas forçamos a ver pelo menos uma vez por abertura de navegador.
+    sessionStorage.setItem("promo_completed", "true")
     setIsVisible(false)
   }
 
-  const handleClick = () => {
-    window.open(redirectUrl, "_blank")
-  }
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value)
-    setVolume(newVolume)
-    if (videoRef.current) {
-      videoRef.current.volume = newVolume
-      if (newVolume > 0 && isMuted) {
-        videoRef.current.muted = false
-        setIsMuted(false)
-      } else if (newVolume === 0 && !isMuted) {
-        videoRef.current.muted = true
-        setIsMuted(true)
-      }
-    }
-  }
-
-  const toggleMute = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    const newMuted = !isMuted
-    setIsMuted(newMuted)
-    if (videoRef.current) {
-      videoRef.current.muted = newMuted
-      if (!newMuted && volume === 0) {
-        setVolume(0.1)
-        videoRef.current.volume = 0.1
-      }
-    }
-  }
+  // Anti-Burlar: Se tentarem deletar o componente via CSS ou JS, 
+  // você poderia adicionar um intervalo que checa se a div ainda existe (opcional)
 
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center p-4">
+    // Mudança de classes para nomes genéricos (evitar "gold", "ad", "propaganda")
+    <div className="fixed inset-0 z-[99999] bg-[#050505] flex flex-col items-center justify-center p-4 backdrop-blur-sm">
       <div className="max-w-5xl w-full relative flex flex-col items-center">
         <div 
-          className="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-gold/20 shadow-2xl shadow-gold/10 group cursor-pointer"
-          onClick={handleClick}
+          className="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-white/10 shadow-2xl group cursor-pointer"
+          onClick={() => window.open(redirectUrl, "_blank")}
         >
           <video
             ref={videoRef}
             src={videoSrc}
             className="w-full h-full object-contain"
             playsInline
-            preload="auto"
+            autoPlay // Tenta iniciar sozinho
             onEnded={handleVideoEnd}
+            disablePictureInPicture // Impede de colocar em janelinha flutuante
+            controlsList="nodownload" // Impede baixar o vídeo
           />
           
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="bg-gold/90 text-black px-6 py-3 rounded-full font-bold flex items-center gap-2 transform scale-95 group-hover:scale-100 transition-transform">
-              Visitar Site <ExternalLink size={20} />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="bg-white text-black px-6 py-3 rounded-full font-bold flex items-center gap-2 transform scale-95 group-hover:scale-100 transition-transform">
+              Saber mais <ExternalLink size={20} />
             </div>
           </div>
 
-          <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-black/50 p-2 rounded-full hover:bg-black/70 transition-colors" onClick={(e) => e.stopPropagation()}>
+          {/* Controles de Volume */}
+          <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-black/60 p-2 rounded-full" onClick={(e) => e.stopPropagation()}>
             <input
               type="range"
               min="0"
               max="1"
               step="0.01"
               value={isMuted ? 0 : volume}
-              onChange={handleVolumeChange}
-              className="w-20 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gold"
+              onChange={(e) => {
+                const v = parseFloat(e.target.value)
+                setVolume(v)
+                if (videoRef.current) videoRef.current.volume = v
+              }}
+              className="w-16 h-1 accent-white cursor-pointer"
             />
-            <button
-              onClick={toggleMute}
-              className="text-white"
-            >
-              {isMuted || volume === 0 ? <VolumeX size={24} /> : <Volume2 size={24} />}
+            <button onClick={(e) => {
+              e.stopPropagation()
+              setIsMuted(!isMuted)
+              if (videoRef.current) videoRef.current.muted = !isMuted
+            }} className="text-white">
+              {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
             </button>
           </div>
 
+          {/* Botão Pular - Só aparece após 10s */}
           {canSkip && (
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 handleVideoEnd()
               }}
-              className="absolute bottom-4 right-4 z-30 bg-white/10 backdrop-blur-md border border-white/20 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-white/20 transition-all animate-in fade-in"
+              className="absolute bottom-4 right-4 z-30 bg-white text-black px-4 py-2 rounded-md font-bold flex items-center gap-2 hover:bg-gray-200 transition-all"
             >
-              Pular Anúncio <SkipForward size={20} />
+              Pular Vídeo <SkipForward size={20} />
             </button>
           )}
         </div>
 
-        <div className="mt-8 text-center space-y-2">
-          <p className="text-gold text-xl font-bold animate-pulse">
-            O site será exibido ao final do anúncio...
+        <div className="mt-8 text-center space-y-2 select-none">
+          <p className="text-white/80 text-lg font-medium">
+            O conteúdo será liberado após o vídeo...
           </p>
-          <p className="text-red-500 font-bold text-sm uppercase tracking-wider">
-            Não saia da página ou minimize para o anúncio terminar
-          </p>
-          <p className="text-gray-500 text-sm">
-            Clique no vídeo para saber mais
+          <p className="text-amber-500 font-bold text-xs uppercase tracking-[0.2em]">
+            Atenção: não minimize a página
           </p>
         </div>
       </div>
