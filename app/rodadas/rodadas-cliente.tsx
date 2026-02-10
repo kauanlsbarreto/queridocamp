@@ -7,6 +7,7 @@ import PremiumCard from "@/components/premium-card"
 import Image from "next/image"
 import { ChevronDown, ChevronUp, Search, ExternalLink } from "lucide-react"
 import Link from "next/link"
+import UpdateTimer from "@/components/update-timer"
 
 export interface Team {
   id: number
@@ -286,7 +287,7 @@ function RoundSection({ round, isOpen, onToggle }: { round: Round; isOpen: boole
   )
 }
 
-export default function RodadasClient({ teams, matchesData = [] }: { teams: Team[]; matchesData?: DbMatch[] }) {
+export default function RodadasClient({ teams, matchesData = [], lastUpdate }: { teams: Team[]; matchesData?: DbMatch[]; lastUpdate: string }) {
   const router = useRouter()
   const [openRoundId, setOpenRoundId] = useState<number | null>(1)
 
@@ -309,6 +310,7 @@ export default function RodadasClient({ teams, matchesData = [] }: { teams: Team
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto space-y-4">
+            <UpdateTimer lastUpdate={lastUpdate} />
             {rounds.map((round, index) => (
               <motion.div
                 key={round.id}
@@ -325,16 +327,6 @@ export default function RodadasClient({ teams, matchesData = [] }: { teams: Team
               </motion.div>
             ))}
           </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="mt-8 text-center"
-          >
-            <p className="text-gray-300 text-sm">Última atualização: {new Date().toLocaleDateString("pt-BR")}</p>
-          </motion.div>
         </div>
       </section>
     </div>

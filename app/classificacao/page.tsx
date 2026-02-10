@@ -1,8 +1,9 @@
 import AdPropaganda from "@/components/ad-propaganda";
 import RankingTable from "./ranking-table"
 import { pool } from "@/lib/db"
+import UpdateTimer from "@/components/update-timer";
 
-export const revalidate = 60; // Cache global de 1 minuto
+export const revalidate = 0; 
 
 async function getTeams() {
   try {
@@ -35,6 +36,7 @@ export default async function Classificacao() {
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
+            <UpdateTimer lastUpdate={new Date().toISOString()} />
             <RankingTable teams={teams} />
           </div>
         </div>

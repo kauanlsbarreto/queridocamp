@@ -8,6 +8,7 @@ import Image from 'next/image'
 import FaceitLogin from './FaceitLogin'
 import { Notifications } from './notifications'
 import { UserProfile } from './user-profile'
+import { UpdateDataButton } from './UpdateDataButton'
 
 interface NavbarProps {
   user: UserProfile | null
@@ -127,6 +128,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
 
           <div className="flex-none flex items-center gap-6 md:gap-8">
             <div className="hidden md:flex items-center gap-6 md:gap-8">
+              {(currentUser?.Admin === 1 || currentUser?.Admin === 2) && <UpdateDataButton />}
               <Notifications />
               <div className="pl-2">
                 <FaceitLogin user={currentUser} onAuthChange={handleLocalAuthChange} />
@@ -164,6 +166,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
             <NavLink href="/premiacao">Premiação</NavLink>
 
             <div className="flex items-center justify-center gap-6 pt-4 border-t border-white/10">
+              {(currentUser?.Admin === 1 || currentUser?.Admin === 2) && <UpdateDataButton />}
               <Notifications />
               <FaceitLogin user={currentUser} onAuthChange={handleLocalAuthChange} />
             </div>

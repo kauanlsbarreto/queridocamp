@@ -14,7 +14,7 @@ export default async function Rodadas() {
     const [matchRows] = await pool.query("SELECT * FROM jogos")
     const matchesData = matchRows as any[]
 
-    return <RodadasClient teams={teams} matchesData={matchesData} />
+    return <RodadasClient teams={teams} matchesData={matchesData} lastUpdate={new Date().toISOString()} />
   } catch (error) {
     console.error("Erro ao buscar dados:", error)
     return (

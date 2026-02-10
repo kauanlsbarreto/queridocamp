@@ -1,43 +1,19 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface UpdateTimerProps {
-  generatedAt: number
-  revalidate: number
+  lastUpdate: string;
 }
 
-export default function UpdateTimer({ generatedAt, revalidate }: UpdateTimerProps) {
-  const router = useRouter()
-  const [minutes, setMinutes] = useState(Math.ceil(revalidate / 60))
-
-  useEffect(() => {
-    const calculateTime = () => {
-      const now = Date.now()
-      const expiresAt = generatedAt + (revalidate * 1000)
-      const diffMs = expiresAt - now
-      
-      const mins = Math.ceil(diffMs / 60000)
-      
-      setMinutes(mins > 0 ? mins : 0)
-
-      if (diffMs <= 0) {
-        router.refresh()
-      }
-    }
-
-    calculateTime()
-    const interval = setInterval(calculateTime, 10000)
-
-    return () => clearInterval(interval)
-  }, [generatedAt, revalidate, router])
+export default function UpdateTimer({ lastUpdate }: UpdateTimerProps) {
+  
+  const formattedDate = format(new Date(lastUpdate), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
 
   return (
-    <p className="text-center text-gray-400 mb-6">
-      {minutes > 0 
-        ? `Próxima atualização em ${minutes} minutos`
-        : "Atualizando dados..."}
+    <p className="text-center text-gray-400 mb-6 text-sm">
+      Última atualização: <span className="text-gold font-bold">{formattedDate}</span>
     </p>
   )
 }

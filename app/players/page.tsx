@@ -166,5 +166,6 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
         initialPlayers={playersWithTeams} 
         totalPages={totalPages}
         currentPage={currentPage}
+        lastUpdate={new Date().toISOString()}
     />;
 }

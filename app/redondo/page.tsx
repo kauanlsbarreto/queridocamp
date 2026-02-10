@@ -1,10 +1,11 @@
 import mysql from 'mysql2/promise';
 import PickEmClient from './pick-em-client';
 import AdPropaganda from '@/components/ad-propaganda';
+import UpdateTimer from '@/components/update-timer';
 
 const pool1 = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
-export const revalidate = 3600; // Cache global de 1 hora (atualizado via API)
+export const revalidate = 0; 
 
 async function ensureTableExists() {
   try {
@@ -26,7 +27,6 @@ async function ensureTableExists() {
     `;
     await pool1.execute(createTableQuery);
 
-    // Garante que todas as colunas necessárias existam (migração simplificada)
     const columnsToCheck = [
       "locked BOOLEAN DEFAULT FALSE",
       "faceit_guid VARCHAR(255)",
@@ -41,7 +41,6 @@ async function ensureTableExists() {
       try {
         await pool1.execute(`ALTER TABLE escolhas ADD COLUMN ${col}`);
       } catch (e) {
-        // Ignora erro se a coluna já existir
       }
     }
   } catch (error) {
@@ -117,6 +116,7 @@ export default async function RedondoPage() {
   return (
     <main className="min-h-screen bg-black text-white">
       <section className="py-12 px-4 max-w-7xl mx-auto">
+        <UpdateTimer lastUpdate={new Date().toISOString()} />
         {teams.length > 0 ? (
           <PickEmClient initialTeams={teams} usersWithPicks={usersWithPicks} pickStats={pickStats} />
         ) : (

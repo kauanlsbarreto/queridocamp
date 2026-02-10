@@ -7,6 +7,7 @@ import { Search, Shield, User, ChevronLeft, ChevronRight } from "lucide-react";
 import PremiumCard from "@/components/premium-card";
 import { usePathname, useSearchParams } from "next/navigation";
 import AdPropaganda from "@/components/ad-propaganda";
+import UpdateTimer from "@/components/update-timer";
 
 interface Player {
   id: number;
@@ -56,7 +57,7 @@ const Pagination = ({ totalPages, currentPage }: { totalPages: number, currentPa
     );
 };
 
-export default function PlayersList({ initialPlayers, totalPages, currentPage }: { initialPlayers: Player[], totalPages: number, currentPage: number }) {
+export default function PlayersList({ initialPlayers, totalPages, currentPage, lastUpdate }: { initialPlayers: Player[], totalPages: number, currentPage: number, lastUpdate: string }) {
   const [players, setPlayers] = useState<any[]>(initialPlayers.map(p => ({ ...p, faceit_level: 0, is_challenger: false })));
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState("level-desc");
@@ -138,6 +139,7 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage }:
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 p-4 pt-24">
+       <UpdateTimer lastUpdate={lastUpdate} />
        {/* Barra de Pesquisa e Filtro */}
        <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
