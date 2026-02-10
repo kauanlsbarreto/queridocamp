@@ -26,10 +26,16 @@ jobs:
 
             # ---------- GARANTIR SEM SWAP ----------
             if swapon --show | grep -q swap; then
-              echo "[$(date)] Removendo swap..."
-              sudo swapoff -a
-              sudo rm -f /swapfile
-              sudo sed -i '/swapfile/d' /etc/fstab
+              USED_SWAP=$(free | awk '/Swap:/ {print $3}')
+
+              if [ "$USED_SWAP" -eq 0 ]; then
+                echo "[$(date)] Swap não está em uso, removendo..."
+                sudo swapoff -a
+                sudo rm -f /swapfile
+                sudo sed -i '/swapfile/d' /etc/fstab
+              else
+                echo "[$(date)] Swap em uso (${USED_SWAP} KB). Mantendo para evitar OOM."
+              fi
             fi
 
             # ---------- LIMPEZA DE SERVIÇOS INÚTEIS ----------
