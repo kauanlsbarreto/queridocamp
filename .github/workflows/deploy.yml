@@ -20,46 +20,74 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 60m
           script: |
-              set -e
+            set -e
 
-              echo "[$(date)] Iniciando deploy..."
+            echo "[$(date)] Iniciando deploy..."
 
-              # ---------- SWAP ----------
-              if [ ! -f /swapfile ]; then
-                echo "[$(date)] Configurando swap..."
-                sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
-                sudo chmod 600 /swapfile
-                sudo mkswap /swapfile
-                sudo swapon /swapfile
-                echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+            # ---------- GARANTIR SEM SWAP ----------
+            if swapon --show | grep -q swap; then
+              echo "[$(date)] Removendo swap..."
+              sudo swapoff -a
+              sudo rm -f /swapfile
+              sudo sed -i '/swapfile/d' /etc/fstab
+            fi
+
+            # ---------- LIMPEZA DE SERVIÇOS INÚTEIS ----------
+            echo "[$(date)] Desativando serviços desnecessários..."
+
+            SERVICES=(
+              snapd
+              snapd.seeded
+              unattended-upgrades
+              apt-daily
+              apt-daily-upgrade
+              motd-news
+            )
+
+            for service in "${SERVICES[@]}"; do
+              if systemctl list-unit-files | grep -q "$service"; then
+                sudo systemctl stop $service || true
+                sudo systemctl disable $service || true
               fi
+            done
 
-              # ---------- CÓDIGO ----------
-              cd /home/ubuntu/front-end
+            # ---------- LIMPEZA DE PROCESSOS ZUMBIS ----------
+            echo "[$(date)] Finalizando processos órfãos..."
+            ps -eo pid,ppid,cmd,%cpu --sort=-%cpu | awk '$2==1 {print $1}' | xargs -r sudo kill -9 || true
 
-              echo "[$(date)] Atualizando código..."
-              git fetch origin main
-              git reset --hard origin/main
+            # ---------- CÓDIGO ----------
+            cd /home/ubuntu/front-end
 
-              # ---------- DOCKER ----------
-              echo "[$(date)] Parando containers antigos..."
-              docker-compose down --remove-orphans
+            echo "[$(date)] Atualizando código..."
+            git fetch origin main
+            git reset --hard origin/main
 
-              echo "[$(date)] Subindo containers com build..."
-              docker-compose up -d --build
+            # ---------- DOCKER ----------
+            echo "[$(date)] Parando containers antigos..."
+            docker-compose down --remove-orphans
 
-              # ---------- LIMPEZA INTELIGENTE ----------
-              if [ ! -f /tmp/docker-prune.lock ] || find /tmp/docker-prune.lock -mmin +1440; then
-                echo "[$(date)] Limpando cache Docker com mais de 3 dias..."
-                touch /tmp/docker-prune.lock
+            echo "[$(date)] Limpando containers parados..."
+            docker container prune -f
 
-                docker container prune -f --filter "until=72h"
-                docker image prune -a -f --filter "until=72h"
-                docker builder prune -f --filter "until=72h"
+            echo "[$(date)] Subindo containers com build..."
+            docker-compose up -d --build
 
-                echo "[$(date)] Limpeza concluída"
-              else
-                echo "[$(date)] Limpeza ignorada (executada recentemente)"
-              fi
+            # ---------- LIMPEZA AGRESSIVA CONTROLADA ----------
+            if [ ! -f /tmp/docker-prune.lock ] || find /tmp/docker-prune.lock -mmin +1440; then
+              echo "[$(date)] Limpando cache Docker (72h)..."
+              touch /tmp/docker-prune.lock
 
-              echo "[$(date)] Deploy finalizado com sucesso!"
+              docker image prune -a -f --filter "until=72h"
+              docker builder prune -f --filter "until=72h"
+              docker volume prune -f
+
+              echo "[$(date)] Cache limpo"
+            else
+              echo "[$(date)] Limpeza ignorada (executada recentemente)"
+            fi
+
+            # ---------- CHECK FINAL ----------
+            echo "[$(date)] Uso de CPU e memória após deploy:"
+            top -b -n1 | head -20
+
+            echo "[$(date)] Deploy finalizado com sucesso!"
