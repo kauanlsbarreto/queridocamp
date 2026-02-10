@@ -1,13 +1,7 @@
 name: Deploy Frontend
-
 on:
   push:
     branches: [ "main" ]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -15,85 +9,11 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: "ubuntu"
+          host: ${{ secrets.SERVER_IP }}     # Cadastre o IP nos secrets também
+          username: "ubuntu"                 # Usuário padrão do Lightsail Ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 60m
           script: |
-            set -e
-
-            echo "[$(date)] Iniciando deploy..."
-
-            # ---------- GARANTIR SEM SWAP ----------
-            if swapon --show | grep -q swap; then
-              USED_SWAP=$(free | awk '/Swap:/ {print $3}')
-
-              if [ "$USED_SWAP" -eq 0 ]; then
-                echo "[$(date)] Swap não está em uso, removendo..."
-                sudo swapoff -a
-                sudo rm -f /swapfile
-                sudo sed -i '/swapfile/d' /etc/fstab
-              else
-                echo "[$(date)] Swap em uso (${USED_SWAP} KB). Mantendo para evitar OOM."
-              fi
-            fi
-
-            # ---------- LIMPEZA DE SERVIÇOS INÚTEIS ----------
-            echo "[$(date)] Desativando serviços desnecessários..."
-
-            SERVICES=(
-              snapd
-              snapd.seeded
-              unattended-upgrades
-              apt-daily
-              apt-daily-upgrade
-              motd-news
-            )
-
-            for service in "${SERVICES[@]}"; do
-              if systemctl list-unit-files | grep -q "$service"; then
-                sudo systemctl stop $service || true
-                sudo systemctl disable $service || true
-              fi
-            done
-
-            # ---------- LIMPEZA DE PROCESSOS ZUMBIS ----------
-            echo "[$(date)] Finalizando processos órfãos..."
-            ps -eo pid,ppid,cmd,%cpu --sort=-%cpu | awk '$2==1 {print $1}' | xargs -r sudo kill -9 || true
-
-            # ---------- CÓDIGO ----------
-            cd /home/ubuntu/front-end
-
-            echo "[$(date)] Atualizando código..."
-            git fetch origin main
-            git reset --hard origin/main
-
-            # ---------- DOCKER ----------
-            echo "[$(date)] Parando containers antigos..."
-            docker-compose down --remove-orphans
-
-            echo "[$(date)] Limpando containers parados..."
-            docker container prune -f
-
-            echo "[$(date)] Subindo containers com build..."
-            docker-compose up -d --build
-
-            # ---------- LIMPEZA AGRESSIVA CONTROLADA ----------
-            if [ ! -f /tmp/docker-prune.lock ] || find /tmp/docker-prune.lock -mmin +1440; then
-              echo "[$(date)] Limpando cache Docker (72h)..."
-              touch /tmp/docker-prune.lock
-
-              docker image prune -a -f --filter "until=72h"
-              docker builder prune -f --filter "until=72h"
-              docker volume prune -f
-
-              echo "[$(date)] Cache limpo"
-            else
-              echo "[$(date)] Limpeza ignorada (executada recentemente)"
-            fi
-
-            # ---------- CHECK FINAL ----------
-            echo "[$(date)] Uso de CPU e memória após deploy:"
-            top -b -n1 | head -20
-
-            echo "[$(date)] Deploy finalizado com sucesso!"
+            # Comandos para atualizar
+            cd /home/ubuntu
+            ./atualizar_frontend.sh
