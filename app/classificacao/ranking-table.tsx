@@ -216,7 +216,7 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
 
   const correctedTeams = useMemo(() => teams.map(team => {
     if (team.name === "22Cao") {
-      return { ...team, name: "22Cao Na chapa" };
+      return { ...team, name: "22Cao Na Chapa" };
     }
     return team;
   }), [teams]);
