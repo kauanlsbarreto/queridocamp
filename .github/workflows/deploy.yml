@@ -20,29 +20,35 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 60m
           script: |
+              # Configuração de Swap (Essencial para builds Next.js em VPS pequenas)
               if [ ! -f /swapfile ]; then
-              echo "Configurando Swap..."
-              sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
-              sudo chmod 600 /swapfile
-              sudo mkswap /swapfile
-              sudo swapon /swapfile
-              echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+                sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+                sudo chmod 600 /swapfile
+                sudo mkswap /swapfile
+                sudo swapon /swapfile
+                echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
               fi
 
               cd /home/ubuntu/front-end
 
-              echo "[$(date)] Atualizando código..."
+              echo "--- Atualizando código ---"
               git fetch origin main
               git reset --hard origin/main
 
-              # --- O PULO DO GATO ESTÁ AQUI ---
-              echo "[$(date)] Parando containers antigos para evitar conflitos..."
-              docker-compose down --remove-orphans
+              echo "--- Limpeza de Cache de Build do Docker ---"
+              # Remove builds inacabados e caches antigos para liberar espaço
+              docker builder prune -f --filter "until=24h"
 
-              echo "[$(date)] Iniciando Build Incremental..."
-              docker-compose up -d --build
+              echo "--- Iniciando Build (Zero Downtime Preparation) ---"
+              # Constrói a nova imagem sem derrubar a atual ainda
+              docker-compose build --pull
 
-              echo "[$(date)] Limpando imagens órfãs..."
+              echo "--- Reiniciando Containers ---"
+              # O up -d substitui os containers assim que a imagem está pronta
+              docker-compose up -d --remove-orphans
+
+              echo "--- Limpeza Final de Imagens Órfãs ---"
               docker image prune -f
+              docker system prune -f --volumes
 
-              echo "[$(date)] Deploy finalizado com sucesso!"
+              echo "Deploy finalizado com sucesso!"
