@@ -20,29 +20,46 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 60m
           script: |
+              set -e
+
+              echo "[$(date)] Iniciando deploy..."
+
+              # ---------- SWAP ----------
               if [ ! -f /swapfile ]; then
-              echo "Configurando Swap..."
-              sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
-              sudo chmod 600 /swapfile
-              sudo mkswap /swapfile
-              sudo swapon /swapfile
-              echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+                echo "[$(date)] Configurando swap..."
+                sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+                sudo chmod 600 /swapfile
+                sudo mkswap /swapfile
+                sudo swapon /swapfile
+                echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
               fi
 
+              # ---------- CÓDIGO ----------
               cd /home/ubuntu/front-end
 
               echo "[$(date)] Atualizando código..."
               git fetch origin main
               git reset --hard origin/main
 
-              # --- O PULO DO GATO ESTÁ AQUI ---
-              echo "[$(date)] Parando containers antigos para evitar conflitos..."
+              # ---------- DOCKER ----------
+              echo "[$(date)] Parando containers antigos..."
               docker-compose down --remove-orphans
 
-              echo "[$(date)] Iniciando Build Incremental..."
+              echo "[$(date)] Subindo containers com build..."
               docker-compose up -d --build
 
-              echo "[$(date)] Limpando imagens órfãs..."
-              docker image prune -f
+              # ---------- LIMPEZA INTELIGENTE ----------
+              if [ ! -f /tmp/docker-prune.lock ] || find /tmp/docker-prune.lock -mmin +1440; then
+                echo "[$(date)] Limpando cache Docker com mais de 3 dias..."
+                touch /tmp/docker-prune.lock
+
+                docker container prune -f --filter "until=72h"
+                docker image prune -a -f --filter "until=72h"
+                docker builder prune -f --filter "until=72h"
+
+                echo "[$(date)] Limpeza concluída"
+              else
+                echo "[$(date)] Limpeza ignorada (executada recentemente)"
+              fi
 
               echo "[$(date)] Deploy finalizado com sucesso!"
