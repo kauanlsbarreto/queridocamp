@@ -210,7 +210,16 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
   const [loading, setLoading] = useState(false)
   const [hasMounted, setHasMounted] = useState(false)
 
-  useEffect(() => setHasMounted(true), [])
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
+
+  const correctedTeams = useMemo(() => teams.map(team => {
+    if (team.name === "22Cao") {
+      return { ...team, name: "22Cao Na chapa" };
+    }
+    return team;
+  }), [teams]);
 
   const toggleTeam = useCallback(async (teamName: string) => {
     if (expandedTeam === teamName) {
@@ -239,7 +248,7 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
         setLoading(false)
       }
     }
-  }, [expandedTeam, detailsCache])
+  }, [expandedTeam, detailsCache]);
 
   if (!hasMounted) return null;
 
@@ -262,7 +271,7 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
-            {teams.map((team, index) => (
+            {correctedTeams.map((team, index) => (
               <TeamRow
                 key={team.id || index}
                 team={team}
@@ -271,7 +280,7 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
                 toggleTeam={toggleTeam}
                 details={detailsCache[team.name] || null}
                 loading={loading && expandedTeam === team.name}
-                allTeams={teams}
+                allTeams={correctedTeams}
               />
             ))}
           </tbody>
