@@ -12,6 +12,8 @@ const pool =
     waitForConnections: true,
     connectionLimit: 5,
     queueLimit: 0,
+    enableKeepAlive: true,       
+    keepAliveInitialDelay: 10000  
   })
 
 const dbPoolJogadores =
@@ -21,6 +23,8 @@ const dbPoolJogadores =
     waitForConnections: true,
     connectionLimit: 5,
     queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000
   })
 
 if (process.env.NODE_ENV !== 'production') {

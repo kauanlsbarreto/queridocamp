@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
 import TeamsList from '@/app/times/teams-list';
+import { pool as pool1, dbPoolJogadores as pool2 } from '@/lib/db';
 
 export const revalidate = 600;
 
@@ -40,14 +41,8 @@ function calculateSimilarity(str1: string, str2: string): number {
   if (maxLen === 0) return 1.0;
   
   const matrix: number[][] = [];
-  
-  for (let i = 0; i <= len2; i++) {
-    matrix[i] = [i];
-  }
-  
-  for (let j = 0; j <= len1; j++) {
-    matrix[0][j] = j;
-  }
+  for (let i = 0; i <= len2; i++) matrix[i] = [i];
+  for (let j = 0; j <= len1; j++) matrix[0][j] = j;
   
   for (let i = 1; i <= len2; i++) {
     for (let j = 1; j <= len1; j++) {
@@ -61,20 +56,16 @@ function calculateSimilarity(str1: string, str2: string): number {
       }
     }
   }
-  
   const distance = matrix[len2][len1];
   return 1.0 - distance / maxLen;
 }
 
-const pool1 = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
-const pool2 = mysql.createPool('mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway');
-
 async function getTeamsData(): Promise<TeamData[]> {
   try {
     const [teamsResult, playersResult, faceitResult] = await Promise.all([
-      pool1.execute('SELECT * FROM team_config'),
-      pool2.execute('SELECT * FROM jogadores'),
-      pool2.execute('SELECT * FROM faceit_players')
+      pool1.query('SELECT * FROM team_config'),
+      pool2.query('SELECT * FROM jogadores'),
+      pool2.query('SELECT * FROM faceit_players')
     ]);
 
     const teams = teamsResult[0] as any[];
@@ -87,7 +78,6 @@ async function getTeamsData(): Promise<TeamData[]> {
       pote: Number(p.pote), 
     })) as Player[];
 
-    // Otimização: Mapas para busca rápida
     const faceitMap = new Map<string, any>();
     faceitPlayers.forEach(fp => {
       if (fp.faceit_nickname) faceitMap.set(fp.faceit_nickname.toLowerCase().trim(), fp);
@@ -100,7 +90,6 @@ async function getTeamsData(): Promise<TeamData[]> {
         playersIdMap.set(String(p.id), p);
     });
 
-    // Processamento síncrono
     const teamsWithPlayers: TeamData[] = teams.map((team) => {
       const getProp = (obj: any, prop: string) => {
         const key = Object.keys(obj).find(k => k.toLowerCase() === prop.toLowerCase());
@@ -112,37 +101,25 @@ async function getTeamsData(): Promise<TeamData[]> {
       const teamName = getProp(team, 'team_name') || "Time sem nome";
       const teamImage = getProp(team, 'team_image') || "";
       
-      // Busca otimizada de capitão
       let captain = playersMap.get(teamNick.toLowerCase());
-
-      if (!captain && teamNick) {
-        captain = playersIdMap.get(teamNick);
-      }
+      if (!captain && teamNick) captain = playersIdMap.get(teamNick);
 
       if (!captain && teamNick) {
         let bestSimilarity = 0;
         let bestCandidate: Player | undefined;
-
         for (const player of players) {
           if (!player.nick) continue;
           const similarity = calculateSimilarity(player.nick, teamNick);
-          
           if (similarity > bestSimilarity) {
             bestSimilarity = similarity;
             bestCandidate = player;
           }
         }
-
-        if (bestSimilarity >= 0.6) {
-          captain = bestCandidate;
-        }
+        if (bestSimilarity >= 0.6) captain = bestCandidate;
       }
 
       const rawTeamPlayers = captain 
-        ? players.filter(p => {
-            if (p.id === captain!.id) return true;
-            return p.captain_id && String(p.captain_id) === String(captain!.id);
-          }) 
+        ? players.filter(p => p.id === captain!.id || (p.captain_id && String(p.captain_id) === String(captain!.id))) 
         : [];
       
       const teamPlayers = Array.from(new Map(rawTeamPlayers.map(p => [p.id, p])).values());
@@ -171,20 +148,14 @@ async function getTeamsData(): Promise<TeamData[]> {
 
         if (bestMatch && maxSim >= 0.6) {
           faceitData.discord_id = bestMatch.discord_id;
-          
-          if (bestMatch.fotoperfil) {
-            faceitData.faceit_image = bestMatch.fotoperfil;
-          }
-          if (bestMatch.faceit_nickname) {
-            faceitData.faceit_url = `https://www.faceit.com/en/players/${bestMatch.faceit_nickname}`;
-          }
+          if (bestMatch.fotoperfil) faceitData.faceit_image = bestMatch.fotoperfil;
+          if (bestMatch.faceit_nickname) faceitData.faceit_url = `https://www.faceit.com/en/players/${bestMatch.faceit_nickname}`;
         }
 
         return { ...player, ...faceitData };
       });
 
       const poteOrder = [4, 5, 1, 3, 2];
-      
       enrichedPlayers.sort((a, b) => {
         const indexA = poteOrder.indexOf(a.pote);
         const indexB = poteOrder.indexOf(b.pote);
@@ -218,7 +189,7 @@ export default async function TimesPage() {
             <TeamsList teams={teams} />
           ) : (
             <div className="text-center text-gray-400 py-12">
-              <p>Nenhum time encontrado ou erro ao carregar dados.</p>
+              <p>Nenhum time encontrado ou erro ao carregar dados do banco.</p>
             </div>
           )}
         </div>
