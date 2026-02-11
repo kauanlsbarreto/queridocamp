@@ -3,7 +3,7 @@ import RankingTable from "./ranking-table"
 import { pool } from "@/lib/db"
 import UpdateTimer from "@/components/update-timer";
 
-export const revalidate = 86400; // Cache de 24 horas (ISR)
+export const revalidate = 86400; 
 
 async function getTeams() {
   try {
