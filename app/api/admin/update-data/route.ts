@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 async function updateAllData() {
   const pages = [
     { name: 'Classificação', path: '/classificacao' },
+    { name: 'Times', path: '/times' },
     { name: 'Players', path: '/players' },
     { name: 'Stats', path: '/stats' },
     { name: 'Redondo', path: '/redondo' },
