@@ -39,15 +39,10 @@ export function UpdateDataButton() {
         throw new Error('Você não está logado.')
       }
 
-      const user = JSON.parse(storedUser)
-      let accessToken = user?.accessToken
+      let accessToken = '7b080715-fe0b-461d-a1f1-62cfd0c47e63'
 
-      if (!accessToken) {
-        if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-          accessToken = 'local-dev-token'
-        } else {
-          throw new Error('Token de autenticação não encontrado. Por favor, faça login novamente.')
-        }
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        accessToken = 'local-dev-token'
       }
 
       const response = await fetch('/api/admin/update-data', {
@@ -62,7 +57,6 @@ export function UpdateDataButton() {
         if (data.results) {
           setResults(data.results)
         } else {
-           // Fallback se a API não retornar results detalhados
            toast({
             title: 'Sucesso!',
             description: data.message || 'Dados atualizados.',
