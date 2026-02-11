@@ -7,6 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
@@ -16,24 +17,20 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 60m
           script: |
-            echo "Iniciando atualização do Front-end..."
+            echo "🚀 Iniciando deploy do Front-end"
 
             cd /home/ubuntu/front-end
 
-            echo "Baixando alterações do Git..."
+            echo "📥 Atualizando código do GitHub"
             git pull origin main
 
-            echo "Parando containers antigos..."
-            docker compose down
+            echo "🐳 Build + Update de containers (zero downtime)"
+            docker compose up -d --build
 
-            echo "Reconstruindo e subindo container..."
-            docker compose build
-            docker compose up -d
-
-            echo "Limpando imagens dangling..."
+            echo "🧹 Limpando imagens antigas"
             docker image prune -f
 
-            echo "Limpando cache de build antigo..."
+            echo "🧽 Limpando cache de build antigo"
             docker builder prune -f --filter "until=48h"
 
-            echo "Front-end atualizado e limpo com sucesso!"
+            echo "✅ Deploy finalizado com sucesso"

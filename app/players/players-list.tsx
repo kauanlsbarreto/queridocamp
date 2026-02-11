@@ -78,8 +78,7 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
                       // Verifica Challenger se for level 10
                       if (data.games.cs2.skill_level === 10 && data.games.cs2.region) {
                           try {
-                              // Nota: Para o ranking, idealmente você também criaria uma rota de API separada
-                              // Por enquanto, removemos a chamada direta insegura ou você deve criar outra rota API
+                              const rankRes = await fetch(`/api/faceit/player-rank?guid=${player.faceit_guid}&region=${data.games.cs2.region}`);
                               if (rankRes.ok) {
                                   const rankData = await rankRes.json();
                                   if (rankData.position && rankData.position <= 1000) {
