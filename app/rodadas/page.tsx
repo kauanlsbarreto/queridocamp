@@ -4,7 +4,16 @@ import AdPropaganda from '@/components/ad-propaganda';
 
  const pool = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
-export const revalidate = 60; // Cache global de 1 minuto
+export const revalidate = 86400; // Cache de 24 horas (ISR)
+
+async function getLastUpdate() {
+  try {
+    const [rows] = await pool.query("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
+    return (rows as any[])[0]?.value || new Date().toISOString();
+  } catch (error) {
+    return new Date().toISOString();
+  }
+}
 
 export default async function Rodadas() {
   try {
@@ -14,7 +23,9 @@ export default async function Rodadas() {
     const [matchRows] = await pool.query("SELECT * FROM jogos")
     const matchesData = matchRows as any[]
 
-    return <RodadasClient teams={teams} matchesData={matchesData} lastUpdate={new Date().toISOString()} />
+    const lastUpdate = await getLastUpdate();
+
+    return <RodadasClient teams={teams} matchesData={matchesData} lastUpdate={lastUpdate} />
   } catch (error) {
     console.error("Erro ao buscar dados:", error)
     return (

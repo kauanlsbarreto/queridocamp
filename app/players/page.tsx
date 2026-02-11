@@ -1,7 +1,7 @@
 import mysql from 'mysql2/promise';
 import PlayersList from './players-list';
 
-export const revalidate = 0;
+export const revalidate = 86400; // Cache de 24 horas (ISR)
 
 const dbPool = mysql.createPool("mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway");
 const dbPoolJogadores = mysql.createPool("mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway");
@@ -47,6 +47,15 @@ function calculateSimilarity(str1: string, str2: string): number {
 }
 
 const ITEMS_PER_PAGE = 20;
+
+async function getLastUpdate() {
+  try {
+    const [rows] = await dbPool.query("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
+    return (rows as any[])[0]?.value || new Date().toISOString();
+  } catch (error) {
+    return new Date().toISOString();
+  }
+}
 
 export default async function PlayersPage(props: { searchParams: Promise<{ page?: string }> }) {
     const searchParams = await props.searchParams;
@@ -162,10 +171,12 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
         };
     });
 
+    const lastUpdate = await getLastUpdate();
+
     return <PlayersList 
         initialPlayers={playersWithTeams} 
         totalPages={totalPages}
         currentPage={currentPage}
-        lastUpdate={new Date().toISOString()}
+        lastUpdate={lastUpdate}
     />;
 }

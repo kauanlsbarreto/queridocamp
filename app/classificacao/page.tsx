@@ -3,7 +3,7 @@ import RankingTable from "./ranking-table"
 import { pool } from "@/lib/db"
 import UpdateTimer from "@/components/update-timer";
 
-export const revalidate = 0; 
+export const revalidate = 86400; // Cache de 24 horas (ISR)
 
 async function getTeams() {
   try {
@@ -24,8 +24,18 @@ async function getTeams() {
   }
 }
 
+async function getLastUpdate() {
+  try {
+    const [rows] = await pool.query("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
+    return (rows as any[])[0]?.value || new Date().toISOString();
+  } catch (error) {
+    return new Date().toISOString();
+  }
+}
+
 export default async function Classificacao() {
   const teams = await getTeams();
+  const lastUpdate = await getLastUpdate();
 
   return (
     <div>
@@ -36,7 +46,7 @@ export default async function Classificacao() {
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
-            <UpdateTimer lastUpdate={new Date().toISOString()} />
+            <UpdateTimer lastUpdate={lastUpdate} />
             <RankingTable teams={teams} />
           </div>
         </div>

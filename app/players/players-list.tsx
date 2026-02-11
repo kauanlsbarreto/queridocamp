@@ -69,9 +69,8 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
           if (player.id === 0) return { ...player, faceit_level: -1 };
           if (!player.faceit_guid) return player;
           try {
-              const res = await fetch(`https://open.faceit.com/data/v4/players/${player.faceit_guid}`, {
-                  headers: { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' }
-              });
+              // Chama nossa API interna em vez de chamar a Faceit diretamente
+              const res = await fetch(`/api/faceit/player-level?guid=${player.faceit_guid}`);
               if (res.ok) {
                   const data = await res.json();
                   if (data.games?.cs2?.skill_level) {
@@ -79,9 +78,8 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
                       // Verifica Challenger se for level 10
                       if (data.games.cs2.skill_level === 10 && data.games.cs2.region) {
                           try {
-                              const rankRes = await fetch(`https://open.faceit.com/data/v4/rankings/games/cs2/regions/${data.games.cs2.region}/players/${player.faceit_guid}`, {
-                                  headers: { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' }
-                              });
+                              // Nota: Para o ranking, idealmente você também criaria uma rota de API separada
+                              // Por enquanto, removemos a chamada direta insegura ou você deve criar outra rota API
                               if (rankRes.ok) {
                                   const rankData = await rankRes.json();
                                   if (rankData.position && rankData.position <= 1000) {

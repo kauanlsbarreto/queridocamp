@@ -5,7 +5,7 @@ import UpdateTimer from '@/components/update-timer';
 
 const pool1 = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
-export const revalidate = 0; 
+export const revalidate = 86400; // Cache de 24 horas (ISR)
 
 async function ensureTableExists() {
   try {
@@ -106,17 +106,27 @@ async function getPickStats() {
   }
 }
 
+async function getLastUpdate() {
+  try {
+    const [rows] = await pool1.query("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
+    return (rows as any[])[0]?.value || new Date().toISOString();
+  } catch (error) {
+    return new Date().toISOString();
+  }
+}
+
 export default async function RedondoPage() {
   await ensureTableExists();
   
   const teams = await getTeamsForPickEm();
   const usersWithPicks = await getAllUsersWithPicks();
   const pickStats = await getPickStats();
+  const lastUpdate = await getLastUpdate();
 
   return (
     <main className="min-h-screen bg-black text-white">
       <section className="py-12 px-4 max-w-7xl mx-auto">
-        <UpdateTimer lastUpdate={new Date().toISOString()} />
+        <UpdateTimer lastUpdate={lastUpdate} />
         {teams.length > 0 ? (
           <PickEmClient initialTeams={teams} usersWithPicks={usersWithPicks} pickStats={pickStats} />
         ) : (

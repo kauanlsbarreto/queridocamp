@@ -2,12 +2,22 @@ import StatsList from './stats-list';
 import UpdateTimer from '@/components/update-timer';
 import AdPropaganda from '@/components/ad-propaganda';
 import { getStatsData } from '@/lib/data-fetchers';
+import { pool } from '@/lib/db';
 
-export const revalidate = 0; 
+export const revalidate = 86400; // Cache de 24 horas (ISR)
+
+async function getLastUpdate() {
+  try {
+    const [rows] = await pool.query("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
+    return (rows as any[])[0]?.value || new Date().toISOString();
+  } catch (error) {
+    return new Date().toISOString();
+  }
+}
 
 export default async function StatsPage() {
   const allStats = await getStatsData();
-  const lastUpdate = new Date().toISOString();
+  const lastUpdate = await getLastUpdate();
 
   return (
     <div className="min-h-screen bg-black">

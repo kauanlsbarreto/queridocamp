@@ -46,6 +46,21 @@ async function updateAllData() {
     results.push({ name: 'Rodadas', status: 'error', message: 'Falha ao atualizar.' })
   }
 
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS site_metadata (
+        key_name VARCHAR(50) PRIMARY KEY,
+        value TEXT
+      )
+    `);
+    const now = new Date().toISOString();
+    await pool.query(`
+      INSERT INTO site_metadata (key_name, value) VALUES ('last_update', ?) ON DUPLICATE KEY UPDATE value = ?
+    `, [now, now]);
+  } catch (e) {
+    console.error("Erro ao salvar timestamp:", e);
+  }
+
   return { success: true, results }
 }
 

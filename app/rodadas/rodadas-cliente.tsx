@@ -291,13 +291,6 @@ export default function RodadasClient({ teams, matchesData = [], lastUpdate }: {
   const router = useRouter()
   const [openRoundId, setOpenRoundId] = useState<number | null>(1)
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      router.refresh()
-    }, 30000) // Atualiza a cada 30 segundos
-    return () => clearInterval(interval)
-  }, [router])
-
   const rounds = useMemo(() => generateRoundRobinMatches(teams, matchesData), [teams, matchesData]);
 
   const handleToggleRound = (id: number) => {
