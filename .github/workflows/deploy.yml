@@ -16,21 +16,26 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 60m
+
           script: |
-            echo "🚀 Iniciando deploy do Front-end"
+            echo "Iniciando atualização do Front-end..."
 
             cd /home/ubuntu/front-end
 
-            echo "📥 Atualizando código do GitHub"
+            echo "Baixando alterações do Git..."
             git pull origin main
 
-            echo "🐳 Build + Update de containers (zero downtime)"
-            docker compose up -d --build
+            echo "Parando containers antigos..."
+            docker compose down
 
-            echo "🧹 Limpando imagens antigas"
+            echo "Reconstruindo e subindo container..."
+            docker compose build
+            docker compose up -d
+
+            echo "Limpando imagens dangling..."
             docker image prune -f
 
-            echo "🧽 Limpando cache de build antigo"
+            echo "Limpando cache de build antigo..."
             docker builder prune -f --filter "until=48h"
 
-            echo "✅ Deploy finalizado com sucesso"
+            echo "Front-end atualizado e limpo com sucesso!"

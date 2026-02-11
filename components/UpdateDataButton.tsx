@@ -23,13 +23,15 @@ export function UpdateDataButton() {
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [results, setResults] = useState<UpdateResult[]>([])
+  const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
   const router = useRouter()
 
   const handleUpdate = async () => {
     setIsLoading(true)
-    setResults([]) // Limpa resultados anteriores
-    setIsOpen(true) // Abre o modal
+    setResults([]) 
+    setError(null)
+    setIsOpen(true) 
 
     try {
       const storedUser = localStorage.getItem('faceit_user')
@@ -75,12 +77,13 @@ export function UpdateDataButton() {
       }
     } catch (error) {
       console.error('Update failed:', error)
+      const errorMessage = (error as Error).message
+      setError(errorMessage)
       toast({
         title: 'Erro',
-        description: (error as Error).message,
+        description: errorMessage,
         variant: 'destructive',
       })
-      setIsOpen(false)
     } finally {
       setIsLoading(false)
     }
@@ -118,6 +121,13 @@ export function UpdateDataButton() {
                   <Loader className="h-8 w-8 text-gold animate-spin" />
                   <p className="text-sm text-gray-400">Atualizando dados do servidor...</p>
                </div>
+            )}
+
+            {error && (
+              <div className="flex items-center justify-between p-3 bg-red-900/20 rounded-lg border border-red-500/20">
+                <span className="text-sm text-red-400">{error}</span>
+                <XCircle className="h-5 w-5 text-red-500" />
+              </div>
             )}
 
             <div className="space-y-2">
