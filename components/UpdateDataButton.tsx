@@ -38,7 +38,7 @@ export function UpdateDataButton() {
       if (!storedUser) throw new Error('Sessão não encontrada. Faça login novamente.')
 
       const userData = JSON.parse(storedUser)
-      let accessToken = userData.accessToken 
+      let accessToken = userData.accessToken || userData.access_token
 
       if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
         accessToken = 'local-dev-token'
@@ -48,7 +48,11 @@ export function UpdateDataButton() {
 
       const response = await fetch('/api/admin/update-data', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}` }
+        headers: { 
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ faceit_guid: userData.faceit_guid })
       })
 
       const data = await response.json()
@@ -62,6 +66,11 @@ export function UpdateDataButton() {
         }
         router.refresh()
       } else {
+        if (response.status === 403 || response.status === 401) {
+          localStorage.removeItem('faceit_user')
+          window.dispatchEvent(new Event('faceit_auth_updated'))
+          throw new Error('Sessão expirada. Por favor, faça login novamente.')
+        }
         throw new Error(data.message || 'Erro ao atualizar.')
       }
     } catch (error) {

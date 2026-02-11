@@ -60,41 +60,20 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ message: 'Não autorizado: Token não fornecido.' }, { status: 401 })
+    const body = await req.json().catch(() => ({}))
+    const { faceit_guid } = body
+
+    if (!faceit_guid) {
+      return NextResponse.json({ message: 'Identificação do usuário ausente.' }, { status: 401 })
     }
-
-    const accessToken = authHeader.split(' ')[1]
-
-    if (accessToken === 'local-dev-token' || accessToken === '7b080715-fe0b-461d-a1f1-62cfd0c47e63') {
-      const result = await updateAllData()
-      return NextResponse.json(result)
-    }
-
-    const profileRes = await fetch('https://api.faceit.com/auth/v1/resources/userinfo', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-
-    if (!profileRes.ok) {
-      return NextResponse.json({ message: 'Token da Faceit inválido ou expirado.' }, { status: 403 })
-    }
-
-    const profile = await profileRes.json()
-    const faceitGuid = profile.sub
 
     const [rows]: any = await pool.execute(
       'SELECT admin FROM players WHERE faceit_guid = ?',
-      [faceitGuid]
+      [faceit_guid]
     )
 
-    if (rows.length === 0) {
-      return NextResponse.json({ message: 'Usuário não encontrado no banco de dados.' }, { status: 403 })
-    }
-
-    const user = rows[0]
-    if (user.admin !== 1 && user.admin !== 2) {
-      return NextResponse.json({ message: 'Você não tem permissão de administrador.' }, { status: 403 })
+    if (rows.length === 0 || (rows[0].admin !== 1 && rows[0].admin !== 2)) {
+      return NextResponse.json({ message: 'Dessa vez nao pequeno gafanhoto' }, { status: 403 })
     }
 
     const result = await updateAllData()
