@@ -1,7 +1,9 @@
 name: Deploy Frontend
+
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -9,11 +11,29 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SERVER_IP }}     # Cadastre o IP nos secrets também
-          username: "ubuntu"                 # Usuário padrão do Lightsail Ubuntu
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 60m
           script: |
-            # Comandos para atualizar
-            cd /home/ubuntu
-            ./atualizar_frontend.sh
+            echo "Iniciando atualização do Front-end..."
+
+            cd /home/ubuntu/front-end
+
+            echo "Baixando alterações do Git..."
+            git pull origin main
+
+            echo "Parando containers antigos..."
+            docker compose down
+
+            echo "Reconstruindo e subindo container..."
+            docker compose build
+            docker compose up -d
+
+            echo "Limpando imagens dangling..."
+            docker image prune -f
+
+            echo "Limpando cache de build antigo..."
+            docker builder prune -f --filter "until=48h"
+
+            echo "Front-end atualizado e limpo com sucesso!"
