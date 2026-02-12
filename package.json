@@ -6,7 +6,8 @@
     "build": "NODE_OPTIONS='--max-old-space-size=1024' next build",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "pages:build": "npx @cloudflare/next-on-pages"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",
