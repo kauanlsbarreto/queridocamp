@@ -8,13 +8,23 @@ const poolConfig = {
 }
 
 export const getPools = (env: any) => {
+  const cleanUri = (uri: string) => {
+    try {
+      const url = new URL(uri);
+      url.searchParams.delete('ssl-mode'); 
+      return url.toString();
+    } catch {
+      return uri;
+    }
+  };
+
   const mainPool = mysql.createPool({
-    uri: env.DB_PRINCIPAL?.connectionString || 'mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway',
+    uri: cleanUri(env.DB_PRINCIPAL?.connectionString || 'mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway'),
     ...poolConfig
   });
 
   const jogadoresPool = mysql.createPool({
-    uri: env.DB_jogadores?.connectionString || 'mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway',
+    uri: cleanUri(env.DB_jogadores?.connectionString || 'mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway'),
     ...poolConfig
   });
 
