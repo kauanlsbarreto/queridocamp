@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sitequeridocamp",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-02-04",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "hyperdrive": [
+    {
+      "binding": "DB_PRINCIPAL",
+      "id": "aa334a49183040a6bdc1d4eaa38341e5"
+    },
+    {
+      "binding": "DB_jogadores",
+      "id": "1824943cc777470591f56e5a1857256b"
+    }
+  ]
+}
