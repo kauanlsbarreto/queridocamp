@@ -4,11 +4,11 @@ import { getPools } from "@/lib/db"
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import UpdateTimer from "@/components/update-timer";
 
-export const revalidate = 86400; 
+export const revalidate = 0; 
 
 async function getTeams(pool: any) {
   try {
-    const [rows] = await pool.query("SELECT * FROM team_config ORDER BY sp DESC, df DESC");
+    const [rows] = await pool.execute("SELECT * FROM team_config ORDER BY sp DESC, df DESC");
     
     return (rows as any[]).map((row: any) => ({
       id: row.id,
@@ -27,7 +27,7 @@ async function getTeams(pool: any) {
 
 async function getLastUpdate(pool: any) {
   try {
-    const [rows] = await pool.query("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
+    const [rows] = await pool.execute("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
     return (rows as any[])[0]?.value || new Date().toISOString();
   } catch (error) {
     return new Date().toISOString();
@@ -39,7 +39,9 @@ export default async function Classificacao() {
   try {
     const ctx = await getCloudflareContext();
     env = ctx.env;
-  } catch (e) { }
+  } catch (e) {
+    console.error("Erro ao obter contexto Cloudflare:", e);
+  }
   const { mainPool: pool } = getPools(env);
 
   const teams = await getTeams(pool);

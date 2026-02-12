@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Fragment, useEffect, memo, useCallback, useMemo } from "react"
+import { useState, Fragment, memo, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import PremiumCard from "@/components/premium-card"
 import Image from "next/image"
@@ -208,11 +208,6 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null)
   const [detailsCache, setDetailsCache] = useState<Record<string, TeamDetails>>({})
   const [loading, setLoading] = useState(false)
-  const [hasMounted, setHasMounted] = useState(false)
-
-  useEffect(() => {
-    setHasMounted(true)
-  }, [])
 
   const correctedTeams = useMemo(() => teams.map(team => {
     if (team.name === "22Cao") {
@@ -249,8 +244,6 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
       }
     }
   }, [expandedTeam, detailsCache]);
-
-  if (!hasMounted) return null;
 
   return (
     <PremiumCard>

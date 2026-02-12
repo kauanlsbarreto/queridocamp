@@ -63,9 +63,9 @@ function calculateSimilarity(str1: string, str2: string): number {
 async function getTeamsData(pool1: any, pool2: any): Promise<TeamData[]> {
   try {
     const [teamsResult, playersResult, faceitResult] = await Promise.all([
-      pool1.query('SELECT * FROM team_config'),
-      pool2.query('SELECT * FROM jogadores'),
-      pool2.query('SELECT * FROM faceit_players')
+      pool1.execute('SELECT * FROM team_config'),
+      pool2.execute('SELECT * FROM jogadores'),
+      pool2.execute('SELECT * FROM faceit_players')
     ]);
 
     const teams = teamsResult[0] as any[];
