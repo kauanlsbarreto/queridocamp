@@ -2,11 +2,12 @@ import StatsList from './stats-list';
 import UpdateTimer from '@/components/update-timer';
 import AdPropaganda from '@/components/ad-propaganda';
 import { getStatsData } from '@/lib/data-fetchers';
-import { pool } from '@/lib/db';
+import { getPools } from '@/lib/db';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 export const revalidate = 86400; 
 
-async function getLastUpdate() {
+async function getLastUpdate(pool: any) {
   try {
     const [rows] = await pool.query("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
     return (rows as any[])[0]?.value || new Date().toISOString();
@@ -20,10 +21,17 @@ export default async function StatsPage() {
   let allStats: any[] = [];
   let lastUpdate = new Date().toISOString();
 
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (error) {}
+  const { mainPool: pool } = getPools(env);
+
   try {
     const [statsResult, updateResult] = await Promise.all([
       getStatsData(),
-      getLastUpdate()
+      getLastUpdate(pool)
     ]);
     
     allStats = statsResult || [];

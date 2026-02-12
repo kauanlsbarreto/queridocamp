@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "sitequeridocamp",
+  "name": "querido-camp",
   "main": ".open-next/worker.js",
   "compatibility_date": "2025-02-04",
   "compatibility_flags": [

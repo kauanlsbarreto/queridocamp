@@ -1,8 +1,8 @@
-import mysql from 'mysql2/promise';
 import TeamsList from '@/app/times/teams-list';
-import { pool as pool1, dbPoolJogadores as pool2 } from '@/lib/db';
+import { getPools } from '@/lib/db';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
-export const revalidate = 600;
+export const revalidate = 86400;
 
 export interface Player {
   id: number;
@@ -60,7 +60,7 @@ function calculateSimilarity(str1: string, str2: string): number {
   return 1.0 - distance / maxLen;
 }
 
-async function getTeamsData(): Promise<TeamData[]> {
+async function getTeamsData(pool1: any, pool2: any): Promise<TeamData[]> {
   try {
     const [teamsResult, playersResult, faceitResult] = await Promise.all([
       pool1.query('SELECT * FROM team_config'),
@@ -179,7 +179,14 @@ async function getTeamsData(): Promise<TeamData[]> {
 }
 
 export default async function TimesPage() {
-  const teams = await getTeamsData();
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (e) { }
+  const { mainPool, jogadoresPool } = getPools(env);
+
+  const teams = await getTeamsData(mainPool, jogadoresPool);
 
   return (
     <div>
