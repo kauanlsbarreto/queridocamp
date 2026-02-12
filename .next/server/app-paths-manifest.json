@@ -1,9 +1,4 @@
 {
-  "/api/last-update/route": "app/api/last-update/route.js",
-  "/api/admin/update-data/route": "app/api/admin/update-data/route.js",
   "/api/admin/players/route": "app/api/admin/players/route.js",
-  "/icon.ico/route": "app/icon.ico/route.js",
-  "/page": "app/page.js",
-  "/times/page": "app/times/page.js",
-  "/classificacao/page": "app/classificacao/page.js"
+  "/page": "app/page.js"
 }
