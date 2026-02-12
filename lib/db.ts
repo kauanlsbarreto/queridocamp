@@ -4,15 +4,16 @@ const poolConfig = {
   waitForConnections: true,
   connectionLimit: 10,
   enableKeepAlive: true,
-  connectTimeout: 10000
+  connectTimeout: 10000,
+  noPreparedStatements: true, 
+  forceTextProtocol: true, 
 }
-
 export const getPools = (env: any) => {
   const cleanUri = (uri: string) => {
     try {
       const url = new URL(uri);
       url.searchParams.delete('ssl-mode');
-      url.searchParams.set('preparedStatements', 'false'); 
+      url.searchParams.delete('preparedStatements'); 
       return url.toString();
     } catch {
       return uri;
