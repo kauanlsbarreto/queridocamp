@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import { ExternalLink } from "lucide-react";
 import PremiumCard from "@/components/premium-card";
-export const runtime = 'edge';
 
 export default function PlayerStatsDetails({ playerStats }: { playerStats: any }) {
     if (!playerStats || playerStats.k === 0) {

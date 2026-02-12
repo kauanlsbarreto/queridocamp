@@ -6,7 +6,6 @@ import PremiumCard from "@/components/premium-card"
 import Link from "next/link"
 import Image from "next/image"
 import { useParams } from "next/navigation"
-export const runtime = 'edge';
 
 interface Player {
   id: string

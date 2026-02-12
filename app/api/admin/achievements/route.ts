@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { randomBytes } from 'crypto';
-export const runtime = 'edge';
 
 async function createAchievementsTable() {
   const connection = await pool.getConnection();

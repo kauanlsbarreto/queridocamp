@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
-export const runtime = 'edge';
 
 async function updateAllData() {
   const pages = [

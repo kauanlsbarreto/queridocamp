@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { pool } from '@/lib/db'
-export const runtime = 'edge';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

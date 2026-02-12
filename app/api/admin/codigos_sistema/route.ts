@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-export const runtime = 'edge';
 export async function GET() {
     try {
         const [rows] = await pool.execute('SELECT * FROM codigos_sistema ORDER BY id DESC');

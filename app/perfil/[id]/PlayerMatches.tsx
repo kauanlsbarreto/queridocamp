@@ -5,7 +5,6 @@ import Image from "next/image"
 import { ExternalLink, Trophy, Calendar, Map as MapIcon, Swords, Medal } from "lucide-react"
 import { motion } from "framer-motion"
 import PlayerUpcomingMatches from "./PlayerUpcomingMatches"
-export const runtime = 'edge';
 
 const API_KEY = "7b080715-fe0b-461d-a1f1-62cfd0c47e63"
 const MAIN_QUEUES = [
