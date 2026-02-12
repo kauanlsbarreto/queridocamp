@@ -35,8 +35,8 @@ const Pagination = ({ totalPages, currentPage }: { totalPages: number, currentPa
     return (
         <div className="flex justify-center items-center gap-4 mt-12 text-white">
                 <AdPropaganda 
-                    videoSrc="/videosad/boxx.mp4" 
-                    redirectUrl="https://www.instagram.com/boxxaju/" 
+                    videoSrc="/videosad/radiante.mp4" 
+                    redirectUrl="https://industriaradiante.com.br/" 
                 />
             <Link 
                 href={createPageURL(currentPage - 1)}

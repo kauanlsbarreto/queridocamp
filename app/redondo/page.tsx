@@ -132,8 +132,8 @@ export default async function RedondoPage() {
         ) : (
           <div className="text-center p-20 border border-dashed border-zinc-800 rounded-2xl">
                   <AdPropaganda 
-                      videoSrc="/videosad/boxx.mp4" 
-                      redirectUrl="https://www.instagram.com/boxxaju/" 
+                      videoSrc="/videosad/radiante.mp4" 
+                      redirectUrl="https://industriaradiante.com.br/" 
                   />
             <p className="text-zinc-500 italic">Carregando times ou erro na conexão com Railway...</p>
           </div>
