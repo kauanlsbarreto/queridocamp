@@ -1,0 +1,12 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "my-v0-project"
+main = ".open-next/worker.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Se você tiver variáveis de ambiente, pode colocá-las aqui ou no painel da Cloudflare
+# DB_HOST = "seu_host"
+
+[site]
+bucket = ".open-next/assets"
