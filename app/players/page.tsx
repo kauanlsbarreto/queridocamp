@@ -1,6 +1,6 @@
 import mysql from 'mysql2/promise';
 import PlayersList from './players-list';
-
+export const runtime = 'edge';
 export const revalidate = 86400; // Cache de 24 horas (ISR)
 
 const dbPool = mysql.createPool("mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway");

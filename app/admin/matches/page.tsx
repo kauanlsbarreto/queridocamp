@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -69,7 +69,7 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState(matchesData)
   const [matchToDelete, setMatchToDelete] = useState<number | null>(null)
 
-  const filteredMatches = matches.filter((match) => {
+  const filteredMatches = useMemo(() => matches.filter((match) => {
     const matchesSearch =
       match.team1.toLowerCase().includes(searchTerm.toLowerCase()) ||
       match.team2.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -78,7 +78,7 @@ export default function MatchesPage() {
     const matchesStatus = statusFilter === "all" || match.status === statusFilter
 
     return matchesSearch && matchesStatus
-  })
+  }), [matches, searchTerm, statusFilter])
 
   const handleDeleteMatch = () => {
     if (matchToDelete !== null) {

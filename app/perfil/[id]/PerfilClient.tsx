@@ -6,6 +6,7 @@ import PremiumCard from '@/components/premium-card';
 import { Button } from '@/components/ui/button';
 import { Trophy, Crown, Medal, Ticket } from 'lucide-react';
 import PlayerMatches from './PlayerMatches';
+export const runtime = 'edge';
 
 export default function PerfilClient({ player, initialConquistas, upcomingMatches, teamName }: { player: any, initialConquistas: any[], upcomingMatches?: any[], teamName?: string }) {
     const [codigo, setCodigo] = useState('');

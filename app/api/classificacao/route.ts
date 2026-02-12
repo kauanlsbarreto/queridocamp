@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import mysql from 'mysql2/promise';
+export const runtime = 'edge';
 
- const pool = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
+const pool = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
 
 export async function GET() {
   try {

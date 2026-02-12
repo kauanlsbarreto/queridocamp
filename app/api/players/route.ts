@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
+export const runtime = 'edge';
 
 const databaseUrl = process.env.DATABASE_URL || "mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway";
 

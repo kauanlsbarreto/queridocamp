@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { Calendar, Swords, MapPin } from "lucide-react";
+export const runtime = 'edge';
 
 export default function PlayerUpcomingMatches({ matches, teamName }: { matches: any[], teamName?: string }) {
     return (

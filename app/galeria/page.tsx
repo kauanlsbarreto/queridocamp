@@ -8,81 +8,80 @@ import ImageModal from "@/components/image-modal"
 import Image from "next/image"
 import { Search, Camera } from "lucide-react"
 
+// Dados estáticos movidos para fora do componente para evitar recriação a cada render
+const teamShowcases = [
+  {
+    id: 1,
+    teamName: "Kings",
+    position: "1º Lugar - Campeão",
+    image: "/images/kings-trophy.png",
+    description:
+      "A equipe Kings conquistou o título com uma performance dominante durante todo o campeonato, demonstrando habilidade e trabalho em equipe excepcionais.",
+  },
+  {
+    id: 2,
+    teamName: "Querido CS",
+    position: "2º Lugar - Vice-Campeão",
+    image: "/images/querido-cs.png",
+    description:
+      "A equipe Querido CS mostrou grande talento e determinação, chegando à final e garantindo o vice-campeonato em uma disputa emocionante.",
+  },
+  {
+    id: 3,
+    teamName: "CTG",
+    position: "3º/4º Lugar",
+    image: "/images/ctg.png",
+    description:
+      "A equipe CTG surpreendeu a todos com estratégias inovadoras e jogadas de alto nível, garantindo uma posição entre os melhores do campeonato.",
+  },
+  {
+    id: 4,
+    teamName: "Noel",
+    position: "3º/4º Lugar",
+    image: "/images/noel.png",
+    description:
+      "A equipe Noel demonstrou grande potencial e habilidade técnica, conquistando uma posição de destaque entre os semifinalistas do campeonato.",
+  },
+]
+
+const draftGalleryImages = [
+  {
+    id: 1,
+    src: "/uti-do-cs-campeao.jpeg",
+    alt: "Time Campeão UTI DO CS",
+    description: "Equipe campeã UTI DO CS com o troféu",
+  },
+  {
+    id: 2,
+    src: "/sundown-vice-campeao.jpeg",
+    alt: "Time Vice-Campeão Sundown",
+    description: "Equipe Sundown - Vice-campeã do torneio",
+  },
+  {
+    id: 3,
+    src: "/mvp-gabri.jpeg",
+    alt: "MVP Gabri com Troféu",
+    description: "Gabri - MVP do campeonato",
+  },
+]
+
+// Pré-processamento das imagens para o modal
+const teamImages = teamShowcases.map((team) => ({
+  src: team.image,
+  alt: `Equipe ${team.teamName}`,
+}))
+
+const draftImages = draftGalleryImages.map((img) => ({
+  src: img.src,
+  alt: img.alt,
+}))
+
 export default function Galeria() {
   // Estado para controlar o modal de imagem
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [currentImage, setCurrentImage] = useState({ src: "", alt: "" })
   const [currentIndex, setCurrentIndex] = useState(0)
   const [currentGallery, setCurrentGallery] = useState<"teams" | "draft">("teams")
-
-  // Equipes que se destacaram
-  const teamShowcases = [
-    {
-      id: 1,
-      teamName: "Kings",
-      position: "1º Lugar - Campeão",
-      image: "/images/kings-trophy.png",
-      description:
-        "A equipe Kings conquistou o título com uma performance dominante durante todo o campeonato, demonstrando habilidade e trabalho em equipe excepcionais.",
-    },
-    {
-      id: 2,
-      teamName: "Querido CS",
-      position: "2º Lugar - Vice-Campeão",
-      image: "/images/querido-cs.png",
-      description:
-        "A equipe Querido CS mostrou grande talento e determinação, chegando à final e garantindo o vice-campeonato em uma disputa emocionante.",
-    },
-    {
-      id: 3,
-      teamName: "CTG",
-      position: "3º/4º Lugar",
-      image: "/images/ctg.png",
-      description:
-        "A equipe CTG surpreendeu a todos com estratégias inovadoras e jogadas de alto nível, garantindo uma posição entre os melhores do campeonato.",
-    },
-    {
-      id: 4,
-      teamName: "Noel",
-      position: "3º/4º Lugar",
-      image: "/images/noel.png",
-      description:
-        "A equipe Noel demonstrou grande potencial e habilidade técnica, conquistando uma posição de destaque entre os semifinalistas do campeonato.",
-    },
-  ]
-
-  // Imagens para o modal
-  const teamImages = teamShowcases.map((team) => ({
-    src: team.image,
-    alt: `Equipe ${team.teamName}`,
-  }))
-
-  // Draft gallery images from home page
-  const draftGalleryImages = [
-    {
-      id: 1,
-      src: "/uti-do-cs-campeao.jpeg",
-      alt: "Time Campeão UTI DO CS",
-      description: "Equipe campeã UTI DO CS com o troféu",
-    },
-    {
-      id: 2,
-      src: "/sundown-vice-campeao.jpeg",
-      alt: "Time Vice-Campeão Sundown",
-      description: "Equipe Sundown - Vice-campeã do torneio",
-    },
-    {
-      id: 3,
-      src: "/mvp-gabri.jpeg",
-      alt: "MVP Gabri com Troféu",
-      description: "Gabri - MVP do campeonato",
-    },
-  ]
-
-  const draftImages = draftGalleryImages.map((img) => ({
-    src: img.src,
-    alt: img.alt,
-  }))
 
   // Função para abrir o modal com a imagem selecionada
   const openImageModal = (src: string, alt: string, index: number, gallery: "teams" | "draft" = "teams") => {

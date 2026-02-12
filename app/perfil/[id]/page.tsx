@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import PerfilClient from './PerfilClient';
 import mysql from 'mysql2/promise';
+export const runtime = 'edge';
 
 const dbPool = mysql.createPool("mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway");
 const dbPoolJogadores = mysql.createPool("mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway");

@@ -8,6 +8,7 @@ import PremiumCard from "@/components/premium-card";
 import { usePathname, useSearchParams } from "next/navigation";
 import AdPropaganda from "@/components/ad-propaganda";
 import UpdateTimer from "@/components/update-timer";
+export const runtime = 'edge';
 
 interface Player {
   id: number;
