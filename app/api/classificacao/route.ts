@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server'
-import mysql from 'mysql2/promise';
-
-const pool = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getPools } from '@/lib/db';
 
 export async function GET() {
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (e) { }
+  const { mainPool: pool } = getPools(env);
+
   try {
     const [rows]: any = await pool.query(
       'SELECT * FROM team_config ORDER BY sp DESC, df DESC'

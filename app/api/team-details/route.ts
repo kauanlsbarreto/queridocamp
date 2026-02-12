@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
-import { pool } from '@/lib/db'
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getPools } from '@/lib/db'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const teamName = searchParams.get("teamName");
+
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (e) { }
+  const { mainPool: pool } = getPools(env);
 
   if (!teamName) {
     return NextResponse.json({ error: "Time não especificado" }, { status: 400 });

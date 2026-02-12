@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getPools } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-const dbPool = mysql.createPool("mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway");
-
 export async function PUT(request: Request) {
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (e) { }
+  const { mainPool: dbPool } = getPools(env);
+
   try {
     const body = await request.json();
     const { userId, adicionados } = body;

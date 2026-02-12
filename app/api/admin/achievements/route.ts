@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getPools } from '@/lib/db';
 import { randomBytes } from 'crypto';
 
-async function createAchievementsTable() {
+async function createAchievementsTable(pool: any) {
   const connection = await pool.getConnection();
   try {
     await connection.execute(`
@@ -19,10 +20,14 @@ async function createAchievementsTable() {
   }
 }
 
-// Call this function once to ensure the table exists
-createAchievementsTable().catch(console.error);
-
 export async function POST(req: Request) {
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (e) { }
+  const { mainPool: pool } = getPools(env);
+
   try {
     const { tipo, nome, codigo } = await req.json();
 
@@ -31,6 +36,9 @@ export async function POST(req: Request) {
     }
 
     const codeToUse = codigo || randomBytes(8).toString('hex');
+
+    // Ensure table exists before inserting
+    await createAchievementsTable(pool);
 
     const connection = await pool.getConnection();
     try {
@@ -49,6 +57,13 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (e) { }
+  const { mainPool: pool } = getPools(env);
+
   try {
     const [rows] = await pool.execute('SELECT * FROM codigos_sistema ORDER BY created_at DESC');
     return NextResponse.json(rows);
@@ -58,6 +73,13 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (e) { }
+  const { mainPool: pool } = getPools(env);
+
   try {
     const { id, nome, codigo } = await req.json();
     if (!id || !nome || !codigo) {
@@ -79,6 +101,13 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (e) { }
+  const { mainPool: pool } = getPools(env);
+
   try {
     const { id } = await req.json();
     if (!id) {

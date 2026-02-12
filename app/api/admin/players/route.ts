@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
-
- const pool = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getPools } from '@/lib/db';
 
 export async function GET(req: Request) {
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (e) { }
+  const { mainPool: pool } = getPools(env);
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
@@ -48,6 +54,13 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+    let env = {};
+    try {
+        const ctx = await getCloudflareContext();
+        env = ctx.env;
+    } catch (e) { }
+    const { mainPool: pool } = getPools(env);
+
     try {
         const { identifier, adminLevel } = await req.json();
 
@@ -82,6 +95,13 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
+    let env = {};
+    try {
+        const ctx = await getCloudflareContext();
+        env = ctx.env;
+    } catch (e) { }
+    const { mainPool: pool } = getPools(env);
+
     try {
         const body = await req.json();
         const { userId, adminLevel, adicionados } = body;
@@ -115,6 +135,13 @@ export async function PUT(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+    let env = {};
+    try {
+        const ctx = await getCloudflareContext();
+        env = ctx.env;
+    } catch (e) { }
+    const { mainPool: pool } = getPools(env);
+
     try {
         const body = await req.json();
 

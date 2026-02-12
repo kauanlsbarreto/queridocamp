@@ -1,4 +1,5 @@
-import mysql from 'mysql2/promise';
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getPools } from "./db";
 
 function calculateSimilarity(str1: string, str2: string): number {
   const s1 = (str1 || "").toLowerCase().trim();
@@ -21,10 +22,17 @@ function calculateSimilarity(str1: string, str2: string): number {
   return 1.0 - matrix[len2][len1] / maxLen;
 }
 
-const poolStats = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
-const poolPlayers = mysql.createPool('mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway');
-
 export async function getStatsData() {
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (error) {
+    // Fallback para ambiente local ou erro ao obter contexto
+  }
+
+  const { mainPool: poolStats, jogadoresPool: poolPlayers } = getPools(env);
+
   try {
     const [statsResult, playersResult, faceitResult] = await Promise.all([
       poolStats.execute('SELECT * FROM top90_stats'),

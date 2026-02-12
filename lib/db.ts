@@ -1,38 +1,22 @@
 import mysql from 'mysql2/promise'
 
-declare global {
-  var mainPool: mysql.Pool | undefined
-  var jogadoresPool: mysql.Pool | undefined
-}
-
 const poolConfig = {
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0,
-  enableKeepAlive: true,       
-  keepAliveInitialDelay: 10000,
-  maxIdle: 10,
-  idleTimeout: 60000, 
+  enableKeepAlive: true,
   connectTimeout: 10000
 }
 
-const pool =
-  global.mainPool ||
-  mysql.createPool({
-    uri: 'mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway',
+export const getPools = (env: any) => {
+  const mainPool = mysql.createPool({
+    uri: env.DB_PRINCIPAL?.connectionString || 'mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway',
     ...poolConfig
-  })
+  });
 
-const dbPoolJogadores =
-  global.jogadoresPool ||
-  mysql.createPool({
-    uri: 'mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway',
+  const jogadoresPool = mysql.createPool({
+    uri: env.DB_jogadores?.connectionString || 'mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway',
     ...poolConfig
-  })
+  });
 
-if (process.env.NODE_ENV !== 'production') {
-  global.mainPool = pool
-  global.jogadoresPool = dbPoolJogadores
+  return { mainPool, jogadoresPool };
 }
-
-export { pool, dbPoolJogadores }

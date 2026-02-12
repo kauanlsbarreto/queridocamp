@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
-
-const dbPool = mysql.createPool("mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway");
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getPools } from '@/lib/db';
 
 export async function POST(req: Request) {
+    let env = {};
+    try {
+        const ctx = await getCloudflareContext();
+        env = ctx.env;
+    } catch (e) { }
+    const { mainPool: dbPool } = getPools(env);
+
     try {
         const body = await req.json();
         const { codigo, playerId } = body;

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { pool } from '@/lib/db'
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getPools } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 
-async function updateAllData() {
+async function updateAllData(pool: any) {
   const pages = [
     { name: 'Classificação', path: '/classificacao' },
     { name: 'Times', path: '/times' },
@@ -47,10 +48,17 @@ async function updateAllData() {
 }
 
 export async function GET(req: Request) {
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (e) { }
+  const { mainPool: pool } = getPools(env);
+
   try {
     const authHeader = req.headers.get('Authorization')
     if (authHeader === `Bearer ${process.env.CRON_SECRET}` || authHeader === 'Bearer local-dev-token') {
-      const result = await updateAllData()
+      const result = await updateAllData(pool)
       return NextResponse.json(result)
     }
     return NextResponse.json({ message: 'Não autorizado' }, { status: 401 })
@@ -60,6 +68,13 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  let env = {};
+  try {
+    const ctx = await getCloudflareContext();
+    env = ctx.env;
+  } catch (e) { }
+  const { mainPool: pool } = getPools(env);
+
   try {
     const body = await req.json().catch(() => ({}))
     const { faceit_guid } = body
@@ -77,7 +92,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Dessa vez nao pequeno gafanhoto' }, { status: 403 })
     }
 
-    const result = await updateAllData()
+    const result = await updateAllData(pool)
     return NextResponse.json(result)
 
   } catch (error) {

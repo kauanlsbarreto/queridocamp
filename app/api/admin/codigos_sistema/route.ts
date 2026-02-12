@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getPools } from '@/lib/db';
+
 export async function GET() {
+    let env = {};
+    try {
+        const ctx = await getCloudflareContext();
+        env = ctx.env;
+    } catch (e) { }
+    const { mainPool: pool } = getPools(env);
+
     try {
         const [rows] = await pool.execute('SELECT * FROM codigos_sistema ORDER BY id DESC');
         return NextResponse.json(rows);
@@ -11,6 +20,13 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+    let env = {};
+    try {
+        const ctx = await getCloudflareContext();
+        env = ctx.env;
+    } catch (e) { }
+    const { mainPool: pool } = getPools(env);
+
     try {
         const body = await req.json();
         const { tipo, nome, codigo } = body;
@@ -37,6 +53,13 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
+    let env = {};
+    try {
+        const ctx = await getCloudflareContext();
+        env = ctx.env;
+    } catch (e) { }
+    const { mainPool: pool } = getPools(env);
+
     try {
         const body = await req.json();
         const { id, nome, codigo } = body;
@@ -58,6 +81,13 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+    let env = {};
+    try {
+        const ctx = await getCloudflareContext();
+        env = ctx.env;
+    } catch (e) { }
+    const { mainPool: pool } = getPools(env);
+
     try {
         const body = await req.json();
         const { id } = body;
