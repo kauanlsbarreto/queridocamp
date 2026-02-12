@@ -11,7 +11,7 @@ export async function GET() {
     const { mainPool: pool } = getPools(env);
 
     try {
-        const [rows] = await pool.execute('SELECT * FROM codigos_sistema ORDER BY id DESC');
+        const [rows] = await pool.query('SELECT * FROM codigos_sistema ORDER BY id DESC');
         return NextResponse.json(rows);
     } catch (error) {
         console.error("Database error:", error);
@@ -35,12 +35,12 @@ export async function POST(req: Request) {
             return NextResponse.json({ message: 'Campos obrigatórios faltando' }, { status: 400 });
         }
 
-        const [existing]: any = await pool.execute('SELECT id FROM codigos_sistema WHERE codigo = ?', [codigo]);
+        const [existing]: any = await pool.query('SELECT id FROM codigos_sistema WHERE codigo = ?', [codigo]);
         if (existing.length > 0) {
              return NextResponse.json({ message: 'Este código já existe.' }, { status: 400 });
         }
 
-        await pool.execute(
+        await pool.query(
             'INSERT INTO codigos_sistema (tipo, nome, codigo, usado) VALUES (?, ?, ?, 0)',
             [tipo, nome, codigo]
         );
@@ -68,7 +68,7 @@ export async function PUT(req: Request) {
             return NextResponse.json({ message: 'Campos obrigatórios faltando' }, { status: 400 });
         }
 
-        await pool.execute(
+        await pool.query(
             'UPDATE codigos_sistema SET nome = ?, codigo = ? WHERE id = ?',
             [nome, codigo, id]
         );
@@ -96,7 +96,7 @@ export async function DELETE(req: Request) {
             return NextResponse.json({ message: 'ID é obrigatório' }, { status: 400 });
         }
 
-        await pool.execute('DELETE FROM codigos_sistema WHERE id = ?', [id]);
+        await pool.query('DELETE FROM codigos_sistema WHERE id = ?', [id]);
 
         return NextResponse.json({ success: true });
     } catch (error) {

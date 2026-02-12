@@ -35,9 +35,9 @@ export async function getStatsData() {
 
   try {
     const [statsResult, playersResult, faceitResult] = await Promise.all([
-      poolStats.execute('SELECT * FROM top90_stats'),
-      poolPlayers.execute('SELECT * FROM jogadores'),
-      poolPlayers.execute('SELECT * FROM faceit_players')
+      poolStats.query('SELECT * FROM top90_stats'),
+      poolPlayers.query('SELECT * FROM jogadores'),
+      poolPlayers.query('SELECT * FROM faceit_players')
     ]);
 
     const statsRows = statsResult[0] as any[];

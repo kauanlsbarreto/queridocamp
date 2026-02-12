@@ -6,7 +6,7 @@ import { randomBytes } from 'crypto';
 async function createAchievementsTable(pool: any) {
   const connection = await pool.getConnection();
   try {
-    await connection.execute(`
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS codigos_sistema (
         id INT AUTO_INCREMENT PRIMARY KEY,
         codigo VARCHAR(255) NOT NULL UNIQUE,
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 
     const connection = await pool.getConnection();
     try {
-      await connection.execute(
+      await connection.query(
         'INSERT INTO codigos_sistema (codigo, tipo, nome) VALUES (?, ?, ?)',
         [codeToUse, tipo, nome]
       );
@@ -65,7 +65,7 @@ export async function GET() {
   const { mainPool: pool } = getPools(env);
 
   try {
-    const [rows] = await pool.execute('SELECT * FROM codigos_sistema ORDER BY created_at DESC');
+    const [rows] = await pool.query('SELECT * FROM codigos_sistema ORDER BY created_at DESC');
     return NextResponse.json(rows);
   } catch (error) {
     return NextResponse.json({ message: 'Erro ao buscar códigos' }, { status: 500 });
@@ -87,7 +87,7 @@ export async function PUT(req: Request) {
     }
     const connection = await pool.getConnection();
     try {
-      await connection.execute(
+      await connection.query(
         'UPDATE codigos_sistema SET nome = ?, codigo = ? WHERE id = ?',
         [nome, codigo, id]
       );
@@ -115,7 +115,7 @@ export async function DELETE(req: Request) {
     }
     const connection = await pool.getConnection();
     try {
-      await connection.execute('DELETE FROM codigos_sistema WHERE id = ?', [id]);
+      await connection.query('DELETE FROM codigos_sistema WHERE id = ?', [id]);
       return NextResponse.json({ success: true });
     } finally {
       connection.release();

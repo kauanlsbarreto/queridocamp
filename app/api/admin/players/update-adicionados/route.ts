@@ -21,7 +21,7 @@ export async function PUT(request: Request) {
     }
 
     // Atualiza apenas a coluna adicionados
-    await dbPool.execute('UPDATE players SET adicionados = ? WHERE id = ?', [adicionados, userId]);
+    await dbPool.query('UPDATE players SET adicionados = ? WHERE id = ?', [adicionados, userId]);
 
     return NextResponse.json({ message: 'Success' });
   } catch (error) {

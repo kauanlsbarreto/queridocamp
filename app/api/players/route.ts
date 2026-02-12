@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     const connection = await dbPool.getConnection();
 
     try {
-      await connection.execute(`
+      await connection.query(`
         CREATE TABLE IF NOT EXISTS players (
           id INT AUTO_INCREMENT PRIMARY KEY,
           faceit_guid VARCHAR(255) NOT NULL UNIQUE,
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
         ) AUTO_INCREMENT = 100
       `);
 
-      let [rows]: any = await connection.execute(
+      let [rows]: any = await connection.query(
         'SELECT * FROM players WHERE faceit_guid = ?',
         [guid]
       );
@@ -39,21 +39,21 @@ export async function POST(req: Request) {
       let user = rows[0];
 
       if (!user) {
-        const [insertResult]: any = await connection.execute(
+        const [insertResult]: any = await connection.query(
           'INSERT INTO players (faceit_guid, nickname, avatar) VALUES (?, ?, ?)',
           [guid, nickname, avatar || '']
         );
         
         const newUserId = insertResult.insertId;
 
-        [rows] = await connection.execute(
+        [rows] = await connection.query(
           'SELECT * FROM players WHERE id = ?',
           [newUserId]
         );
         user = rows[0];
       } else {
         if (user.nickname !== nickname || user.avatar !== (avatar || '')) {
-          await connection.execute(
+          await connection.query(
             'UPDATE players SET nickname = ?, avatar = ? WHERE faceit_guid = ?',
             [nickname, avatar || '', guid]
           );

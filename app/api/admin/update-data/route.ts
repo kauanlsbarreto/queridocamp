@@ -83,7 +83,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Identificação do usuário ausente.' }, { status: 401 })
     }
 
-    const [rows]: any = await pool.execute(
+    const [rows]: any = await pool.query(
       'SELECT admin FROM players WHERE faceit_guid = ?',
       [faceit_guid]
     )

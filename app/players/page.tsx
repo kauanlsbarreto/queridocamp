@@ -63,10 +63,10 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
 
     // Garante que a coluna 'adicionados' exista para evitar erro na query abaixo
     try {
-        await dbPool.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS adicionados VARCHAR(255)");
+        await dbPool.query("ALTER TABLE players ADD COLUMN IF NOT EXISTS adicionados VARCHAR(255)");
     } catch (e) {}
 
-    const [totalResult]: any = await dbPool.execute('SELECT COUNT(*) as count FROM players');
+    const [totalResult]: any = await dbPool.query('SELECT COUNT(*) as count FROM players');
     const totalPlayers = totalResult[0].count;
     const totalPages = Math.ceil(totalPlayers / ITEMS_PER_PAGE);
 
@@ -76,8 +76,8 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
     );
     const players = playersRows;
 
-    const [teamsRows]: any = await dbPool.execute('SELECT * FROM team_config');
-    const [jogadoresRows]: any = await dbPoolJogadores.execute('SELECT * FROM jogadores');
+    const [teamsRows]: any = await dbPool.query('SELECT * FROM team_config');
+    const [jogadoresRows]: any = await dbPoolJogadores.query('SELECT * FROM jogadores');
     
     const teamsConfig = teamsRows;
     const jogadores = jogadoresRows;

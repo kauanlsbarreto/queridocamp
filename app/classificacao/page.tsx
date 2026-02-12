@@ -8,7 +8,7 @@ export const revalidate = 0;
 
 async function getTeams(pool: any) {
   try {
-    const [rows] = await pool.execute("SELECT * FROM team_config ORDER BY sp DESC, df DESC");
+    const [rows] = await pool.query("SELECT * FROM team_config ORDER BY sp DESC, df DESC");
     
     return (rows as any[]).map((row: any) => ({
       id: row.id,

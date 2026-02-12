@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     const connection = await pool.getConnection();
     try {
       if (id) {
-        const [rows]: any = await connection.execute('SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players WHERE id = ?', [id]);
+        const [rows]: any = await connection.query('SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players WHERE id = ?', [id]);
         if (rows.length === 0) {
           return NextResponse.json({ message: 'Player not found' }, { status: 404 });
         }
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
       }
 
       if (nickname) {
-        const [rows]: any = await connection.execute('SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players WHERE nickname = ?', [nickname]);
+        const [rows]: any = await connection.query('SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players WHERE nickname = ?', [nickname]);
         if (rows.length === 0) {
           return NextResponse.json({ message: 'Player not found' }, { status: 404 });
         }
@@ -35,14 +35,14 @@ export async function GET(req: Request) {
       }
 
       if (faceit_guid) {
-        const [rows]: any = await connection.execute('SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players WHERE faceit_guid = ?', [faceit_guid]);
+        const [rows]: any = await connection.query('SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players WHERE faceit_guid = ?', [faceit_guid]);
         if (rows.length === 0) {
           return NextResponse.json({ message: 'Player not found' }, { status: 404 });
         }
         return NextResponse.json(rows[0]);
       }
 
-      const [rows] = await connection.execute('SELECT id, nickname, admin, faceit_guid, adicionados FROM players ORDER BY nickname ASC');
+      const [rows] = await connection.query('SELECT id, nickname, admin, faceit_guid, adicionados FROM players ORDER BY nickname ASC');
       return NextResponse.json(rows);
     } finally {
       connection.release();
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
                 params = [adminLevel, identifier];
             }
 
-            const [result]: any = await connection.execute(query, params);
+            const [result]: any = await connection.query(query, params);
 
             if (result.affectedRows === 0) {
                 return NextResponse.json({ message: 'Player not found.' }, { status: 404 });
@@ -113,13 +113,13 @@ export async function PUT(req: Request) {
         const connection = await pool.getConnection();
         try {
             if (adminLevel !== undefined) {
-                await connection.execute(
+                await connection.query(
                     'UPDATE players SET admin = ? WHERE id = ?',
                     [adminLevel, userId]
                 );
             }
             if (adicionados !== undefined) {
-                await connection.execute(
+                await connection.query(
                     'UPDATE players SET adicionados = ? WHERE id = ?',
                     [adicionados, userId]
                 );
@@ -154,11 +154,11 @@ export async function PATCH(req: Request) {
                 await connection.beginTransaction();
                 await connection.query('SET FOREIGN_KEY_CHECKS=0');
 
-                await connection.execute(
+                await connection.query(
                     'UPDATE players SET id = ? WHERE id = ?',
                     [newId, originalId]
                 );
-                await connection.execute(
+                await connection.query(
                     'UPDATE codigos_conquistas SET resgatado_por = ? WHERE resgatado_por = ?',
                     [newId, originalId]
                 );
@@ -180,7 +180,7 @@ export async function PATCH(req: Request) {
         if (userId && faceitGuid) {
             const connection = await pool.getConnection();
             try {
-                await connection.execute(
+                await connection.query(
                     'UPDATE players SET faceit_guid = ? WHERE id = ?',
                     [faceitGuid, userId]
                 );

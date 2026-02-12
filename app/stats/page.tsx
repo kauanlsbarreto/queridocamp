@@ -9,7 +9,7 @@ export const revalidate = 86400;
 
 async function getLastUpdate(pool: any) {
   try {
-    const [rows] = await pool.execute("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
+    const [rows] = await pool.query("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
     return (rows as any[])[0]?.value || new Date().toISOString();
   } catch (error) {
     console.error("Erro ao buscar lastUpdate:", error);

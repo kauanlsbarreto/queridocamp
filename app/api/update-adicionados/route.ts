@@ -20,7 +20,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ message: 'User ID is required' }, { status: 400 });
     }
 
-    await dbPool.execute('UPDATE players SET adicionados = ? WHERE id = ?', [adicionados, userId]);
+    await dbPool.query('UPDATE players SET adicionados = ? WHERE id = ?', [adicionados, userId]);
 
     return NextResponse.json({ message: 'Success' });
   } catch (error) {

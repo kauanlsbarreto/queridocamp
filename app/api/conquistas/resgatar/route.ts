@@ -19,7 +19,7 @@ export async function POST(req: Request) {
         }
 
         // 1. Verificar se o código existe no sistema
-        const [codes]: any = await dbPool.execute('SELECT * FROM codigos_sistema WHERE codigo = ?', [codigo]);
+        const [codes]: any = await dbPool.query('SELECT * FROM codigos_sistema WHERE codigo = ?', [codigo]);
         
         if (codes.length === 0) {
             return NextResponse.json({ message: 'Código inválido ou não encontrado' }, { status: 404 });
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
         // 2. Tentar inserir usando 'resgatado_por' (novo padrão)
         try {
             // Verificar duplicidade
-            const [existing]: any = await dbPool.execute(
+            const [existing]: any = await dbPool.query(
                 'SELECT id FROM codigos_conquistas WHERE codigo = ? AND resgatado_por = ?',
                 [codigo, playerId]
             );
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
             }
 
             // Inserir
-            await dbPool.execute(
+            await dbPool.query(
                 'INSERT INTO codigos_conquistas (resgatado_por, codigo, tipo, nome) VALUES (?, ?, ?, ?)',
                 [playerId, conquista.codigo, conquista.tipo, conquista.nome]
             );
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
         } catch (err: any) {
             // Se der erro de coluna desconhecida, tenta com 'player_id' (padrão antigo)
             if (err.code === 'ER_BAD_FIELD_ERROR') {
-                 const [existingOld]: any = await dbPool.execute(
+                 const [existingOld]: any = await dbPool.query(
                     'SELECT id FROM codigos_conquistas WHERE codigo = ? AND player_id = ?',
                     [codigo, playerId]
                 );
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
                     return NextResponse.json({ message: 'Você já resgatou este código' }, { status: 400 });
                 }
 
-                await dbPool.execute(
+                await dbPool.query(
                     'INSERT INTO codigos_conquistas (player_id, codigo, tipo, nome) VALUES (?, ?, ?, ?)',
                     [playerId, conquista.codigo, conquista.tipo, conquista.nome]
                 );

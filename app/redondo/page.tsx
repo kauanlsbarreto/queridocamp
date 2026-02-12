@@ -25,7 +25,7 @@ async function ensureTableExists() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `;
-    await pool1.execute(createTableQuery);
+    await pool1.query(createTableQuery);
 
     const columnsToCheck = [
       "locked BOOLEAN DEFAULT FALSE",
@@ -39,7 +39,7 @@ async function ensureTableExists() {
 
     for (const col of columnsToCheck) {
       try {
-        await pool1.execute(`ALTER TABLE escolhas ADD COLUMN ${col}`);
+        await pool1.query(`ALTER TABLE escolhas ADD COLUMN ${col}`);
       } catch (e) {
       }
     }
@@ -50,7 +50,7 @@ async function ensureTableExists() {
 
 async function getTeamsForPickEm() {
   try {
-    const [rows]: any = await pool1.execute(
+    const [rows]: any = await pool1.query(
       'SELECT DISTINCT team_name, team_image FROM team_config'
     );
     
@@ -69,7 +69,7 @@ async function getTeamsForPickEm() {
 
 async function getAllUsersWithPicks() {
   try {
-    const [rows]: any = await pool1.execute('SELECT nickname FROM escolhas ORDER BY nickname ASC');
+    const [rows]: any = await pool1.query('SELECT nickname FROM escolhas ORDER BY nickname ASC');
     return rows.map((r: any) => r.nickname);
   } catch (error) {
     console.error("Erro ao buscar usuários:", error);
@@ -79,7 +79,7 @@ async function getAllUsersWithPicks() {
 
 async function getPickStats() {
   try {
-    const [rows]: any = await pool1.execute('SELECT slot_1, slot_2, slot_3, slot_4, slot_5, slot_6, slot_7, slot_8 FROM escolhas');
+    const [rows]: any = await pool1.query('SELECT slot_1, slot_2, slot_3, slot_4, slot_5, slot_6, slot_7, slot_8 FROM escolhas');
     const stats: Record<string, number> = {};
     
     if (rows) {
