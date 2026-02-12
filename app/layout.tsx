@@ -19,9 +19,9 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <body
-        className={`${montserrat.className} bg-black text-white min-h-screen flex flex-col`}
+        className={`${montserrat.className} min-h-screen flex flex-col`}
       >
         <LocalhostWatcher />
         <SessionSync />

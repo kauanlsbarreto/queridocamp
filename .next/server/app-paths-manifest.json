@@ -1,4 +1,7 @@
 {
   "/page": "app/page.js",
-  "/api/admin/players/route": "app/api/admin/players/route.js"
+  "/api/admin/players/route": "app/api/admin/players/route.js",
+  "/icon.ico/route": "app/icon.ico/route.js",
+  "/times/page": "app/times/page.js",
+  "/stats/page": "app/stats/page.js"
 }
