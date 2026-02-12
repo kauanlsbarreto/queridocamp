@@ -11,7 +11,8 @@ export const getPools = (env: any) => {
   const cleanUri = (uri: string) => {
     try {
       const url = new URL(uri);
-      url.searchParams.delete('ssl-mode'); 
+      url.searchParams.delete('ssl-mode');
+      url.searchParams.set('preparedStatements', 'false'); 
       return url.toString();
     } catch {
       return uri;
