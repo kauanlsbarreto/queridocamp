@@ -246,7 +246,7 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
   }, [expandedTeam, detailsCache]);
 
   return (
-    <PremiumCard>
+    <PremiumCard hoverEffect={true}>
       <div className="p-4 md:p-8 overflow-x-auto">
         <div className="mb-6 pb-6 border-b border-white/10 text-center text-xs text-gray-400">
            R = Rodadas | V = Vitórias em Mapas | D = Derrotas em Mapas | PTS = Pontos | Rounds = Saldo de rounds

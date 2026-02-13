@@ -168,7 +168,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                   </div>
                 )}
 
-                <PremiumCard>
+                <PremiumCard hoverEffect={true}>
                   <div className={`p-6 transition-opacity duration-500 ${k === 0 ? 'opacity-30 grayscale' : 'opacity-100'}`}>
                     <div className="flex items-center gap-5">
                       <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-gray-800 bg-black shadow-inner group">

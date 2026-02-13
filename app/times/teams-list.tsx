@@ -88,7 +88,7 @@ export default function TeamsList({ teams }: { teams: TeamData[] }) {
           viewport={{ once: true, margin: "-50px" }}
           transition={{ duration: 0.5, delay: (index % 5) * 0.1 }}
         >
-          <PremiumCard hoverEffect={false}>
+          <PremiumCard hoverEffect={true}>
             <div className="p-6 md:p-8">
               <div className="flex flex-col items-center gap-8">
                 

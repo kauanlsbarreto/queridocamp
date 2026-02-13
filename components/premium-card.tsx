@@ -18,14 +18,17 @@ const PremiumCard = ({
   hoverEffect = true,
   variant = "glass",
 }: PremiumCardProps) => {
-  const getCardStyles = () => {
+
+  const baseStyles = "relative rounded-2xl overflow-hidden border border-white/10 bg-black/40 backdrop-blur-md"
+  
+  const getVariantAnimations = () => {
     switch (variant) {
       case "glass":
-        return "glass-gold glass-hover glass-shine"
+        return "animate-glass-shine" 
       case "floating":
-        return "glass-gold glass-hover float-slow"
+        return "animate-float"
       default:
-        return "glass-gold glass-hover"
+        return ""
     }
   }
 
@@ -41,17 +44,18 @@ const PremiumCard = ({
         stiffness: 100,
         damping: 15,
       }}
-      className={`relative ${hoverEffect ? "group" : ""} ${getCardStyles()} rounded-2xl overflow-hidden ${className}`}
+      className={`${baseStyles} ${getVariantAnimations()} ${hoverEffect ? "group" : ""} ${className}`}
     >
-      {/* Glass reflection effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-50 rounded-2xl pointer-events-none"></div>
+      <div className="absolute inset-0 rounded-2xl border border-gold/20 pointer-events-none z-0"></div>
 
-      {/* Content */}
+      <div className="absolute inset-0 bg-gradient-to-br from-gold/15 via-transparent to-transparent opacity-60 pointer-events-none"></div>
+
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-gold/40 to-transparent"></div>
+
       <div className="relative z-10 h-full">{children}</div>
 
-      {/* Hover glow effect */}
       {hoverEffect && (
-        <div className="absolute -inset-0.5 bg-gradient-to-r from-gold/20 via-gold/40 to-gold/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm -z-10"></div>
+        <div className="absolute -inset-0.5 bg-gradient-to-r from-gold-dark/20 via-gold/30 to-gold-dark/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-md -z-10"></div>
       )}
     </motion.div>
   )
