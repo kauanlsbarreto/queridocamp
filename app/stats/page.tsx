@@ -3,7 +3,6 @@ import UpdateTimer from '@/components/update-timer';
 import AdPropaganda from '@/components/ad-propaganda';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
-import mysql from 'mysql2'; 
 
 export const revalidate = 86400; 
 
@@ -23,7 +22,7 @@ async function getLastUpdate(connection: any) {
 async function getStats(connection: any) {
   try {
     const [rows] = await connection.query(
-      "SELECT * FROM top90_stats ORDER BY kd DESC, adr DESC, kr DESC, kills DESC"
+      "SELECT * FROM top90_stats ORDER BY kd DESC, adr DESC, kr DESC, k DESC"
     ) as [any[], any];
 
     return rows || [];
@@ -39,12 +38,12 @@ export default async function StatsPage() {
   let connection: any;
 
   try {
+    // ⚡ async mode obrigatório
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as any;
 
     connection = await createMainConnection(env);
 
-    // Busca em paralelo
     const [statsResult, lastUpdateResult] = await Promise.all([
       getStats(connection),
       getLastUpdate(connection)
