@@ -33,6 +33,7 @@ export default function PickEmClient({
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loadingPicks, setLoadingPicks] = useState(false)
   const [picksCache, setPicksCache] = useState<Record<string, any>>({});
+  const [isMounted, setIsMounted] = useState(false);
   const [viewingNickname, setViewingNickname] = useState<string | null>(null)
   
   const [availableTeams, setAvailableTeams] = useState<TeamPick[]>(initialTeams)
@@ -55,7 +56,11 @@ export default function PickEmClient({
     const parsePhase = (prefix: string, size: number) => {
       return Array(size).fill(null).map((_, i) => {
         const val = data[`${prefix}_${i + 1}`];
-        return typeof val === 'string' ? JSON.parse(val) : val;
+        try {
+          return typeof val === 'string' ? JSON.parse(val) : val;
+        } catch (e) {
+          return null;
+        }
       });
     };
 
@@ -76,13 +81,18 @@ export default function PickEmClient({
   const checkUser = useCallback(() => {
     const storedUser = localStorage.getItem('faceit_user')
     if (storedUser) {
-      const parsedUser = JSON.parse(storedUser)
-      setUser(parsedUser)
-      setViewingNickname(vn => vn || parsedUser.nickname)
+      try {
+        const parsedUser = JSON.parse(storedUser)
+        setUser(parsedUser)
+        setViewingNickname(vn => vn || parsedUser.nickname)
+      } catch (e) {
+        console.error("Erro ao ler usuário do cache:", e);
+      }
     }
   }, [])
 
   useEffect(() => {
+    setIsMounted(true);
     checkUser()
     window.addEventListener('faceit_auth_updated', checkUser)
     return () => window.removeEventListener('faceit_auth_updated', checkUser)
@@ -261,6 +271,8 @@ export default function PickEmClient({
 
   const topPicks = sortedStats.filter(t => t.count > 0);
   const unusedPicks = sortedStats.filter(t => t.count === 0);
+
+  if (!isMounted) return null;
 
   return (
     <div className="flex flex-col gap-8">

@@ -40,9 +40,13 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('faceit_user');
       if (saved) {
-          const user = JSON.parse(saved);
-          setMyNick(user.nickname);
-          if (user.Admin === 1 || user.Admin === 2) setIsAdmin(true);
+          try {
+            const user = JSON.parse(saved);
+            setMyNick(user.nickname);
+            if (user.Admin === 1 || user.Admin === 2) setIsAdmin(true);
+          } catch (e) {
+            console.error("Erro ao ler usuário:", e);
+          }
       }
     }
   }, []);
@@ -71,7 +75,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
     const krKey = isGeral ? 'kr' : `r${selectedRound}_kr`;
     const adrKey = isGeral ? 'adr' : `r${selectedRound}_adr`;
 
-    const sorted = [...allStats].sort((a, b) => {
+    const sorted = [...(allStats || [])].sort((a, b) => {
       const valAK = Number(a[kKey]) || 0;
       const valBK = Number(b[kKey]) || 0;
 

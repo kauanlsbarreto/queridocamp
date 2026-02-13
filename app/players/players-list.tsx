@@ -48,7 +48,7 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
 
   useEffect(() => {
     const fetchLevels = async () => {
-      const updatedPlayers = await Promise.all(initialPlayers.map(async (player) => {
+      const updatedPlayers = await Promise.all((initialPlayers || []).map(async (player) => {
         if (!player.faceit_guid || player.id === 0) return player;
         try {
           const res = await fetch(`https://open.faceit.com/data/v4/players/${player.faceit_guid}`, {

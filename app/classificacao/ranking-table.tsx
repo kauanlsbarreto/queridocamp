@@ -80,7 +80,6 @@ const TeamRow = memo(({
   return (
     <Fragment>
       <motion.tr
-        layout="position" 
         onClick={() => toggleTeam(team.name)}
         className={`border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer ${
           index < 8 ? "bg-green-500/5" : ""
@@ -209,7 +208,7 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
   const [detailsCache, setDetailsCache] = useState<Record<string, TeamDetails>>({})
   const [loading, setLoading] = useState(false)
 
-  const correctedTeams = useMemo(() => teams.map(team => {
+  const correctedTeams = useMemo(() => (teams || []).map(team => {
     if (team.name === "22Cao") {
       return { ...team, name: "22Cao Na Chapa" };
     }
