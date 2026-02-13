@@ -25,7 +25,7 @@ async function getLastUpdate(connection: any) {
 async function getStats(connection: any) {
   try {
     const [rows] = await connection.query(
-      "SELECT * FROM stats ORDER BY kd DESC, adr DESC, kr DESC, kills DESC"
+      "SELECT * FROM top90_stats ORDER BY kd DESC, adr DESC, kr DESC, kills DESC"
     ) as [any[], any];
 
     return rows || [];
