@@ -133,63 +133,62 @@ export default function TeamsList({ teams }: { teams: TeamData[] }) {
                   </h4>
                   
                   <div className="flex flex-wrap justify-center gap-8 md:gap-12">
-                    {[...team.players].sort((a, b) => {
-                      const indexA = poteOrder.indexOf(a.pote);
-                      const indexB = poteOrder.indexOf(b.pote);
-                      return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-                    }).map((player) => (
-                      <div 
-                        key={player.id} 
-                        className="group relative flex flex-col items-center"
-                      >
-                        <div className={`relative w-28 h-28 rounded-full overflow-hidden border-2 ${!player.faceit_url ? 'border-gray-800 opacity-20 group-hover:opacity-100' : 'border-gray-700'} bg-black shadow-lg group-hover:border-gold/50 transition-all duration-300`}>
-                          <PlayerAvatar 
-                            src={player.faceit_image} 
-                            alt={player.nick}
-                          />
-                          
-                          {/* Hover Overlay Buttons */}
-                          <div className="absolute inset-0 bg-black/80 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            {player.faceit_url ? (
-                              <a 
-                                href={player.faceit_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="p-2 bg-[#ff5500] rounded-full text-white hover:scale-110 transition-transform"
-                                title="Perfil Faceit"
-                              >
-                                <div className="relative w-5 h-5">
-                                  <Image 
-                                    src="/images/faceit.png" 
-                                    alt="Faceit" 
-                                    fill 
-                                    className="object-contain" 
-                                  />
-                                </div>
-                              </a>
-                            ) : (
-                              <a 
-                                href="https://discord.com/channels/1357681113358930010/1403748672373657650" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="px-3 py-1 bg-[#5865F2] rounded-full text-white text-[10px] font-bold hover:scale-105 transition-transform uppercase tracking-wider shadow-lg"
-                                title="Vincular Conta"
-                              >
-                                Vincular
-                              </a>
-                            )}
-                          </div>
-                        </div>
-
-                        <span className="text-white font-bold text-xl mt-3 text-center">{player.nick}</span>
+                  {[...team.players].sort((a, b) => {
+                    const indexA = poteOrder.indexOf(a.pote);
+                    const indexB = poteOrder.indexOf(b.pote);
+                    return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+                  }).map((player) => (
+                    <div 
+                      key={player.id} 
+                      className="group relative flex flex-col items-center"
+                    >
+                      <div className={`relative w-28 h-28 rounded-full overflow-hidden border-2 ${!player.faceit_url ? 'border-gray-800 opacity-20 group-hover:opacity-100' : 'border-gray-700'} bg-black shadow-lg group-hover:border-gold/50 transition-all duration-300`}>
+                        <PlayerAvatar 
+                          src={player.faceit_image} 
+                          alt={player.nick}
+                        />
                         
-                        <span className={`text-xs font-bold px-3 py-1 rounded-full border mt-2
-                          ${player.pote === 1 ? 'bg-gold/20 text-gold border-gold/30' : 
-                            player.pote === 2 ? 'bg-gray-300/20 text-gray-300 border-gray-300/30' :
-                            'bg-gray-700/30 text-gray-400 border-gray-700'
-                          }`}
-                        >
-                          Pote {player.pote}
+                        <div className="absolute inset-0 bg-black/80 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          {player.faceit_url ? (
+                            <a 
+                              href={player.faceit_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="p-2 bg-[#ff5500] rounded-full text-white hover:scale-110 transition-transform"
+                              title="Perfil Faceit"
+                            >
+                              <div className="relative w-5 h-5">
+                                <Image 
+                                  src="/images/faceit.png" 
+                                  alt="Faceit" 
+                                  fill 
+                                  className="object-contain" 
+                                />
+                              </div>
+                            </a>
+                          ) : (
+                            <a 
+                              href="https://discord.com/channels/1357681113358930010/1403748672373657650" 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="px-3 py-1 bg-[#5865F2] rounded-full text-white text-[10px] font-bold hover:scale-105 transition-transform uppercase tracking-wider shadow-lg"
+                              title="Vincular Conta"
+                            >
+                              Vincular
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      <span className="text-white font-bold text-xl mt-3 text-center">{player.nick}</span>
+                      
+                      <span className={`text-xs font-bold px-3 py-1 rounded-full border mt-2
+                        ${player.pote === 1 ? 'bg-gold/20 text-gold border-gold/30' : 
+                          player.pote === 2 ? 'bg-gray-300/20 text-gray-300 border-gray-300/30' :
+                          'bg-gray-700/30 text-gray-400 border-gray-700'
+                        }`}
+                      >
+                        Pote {player.pote}
                         </span>
                       </div>
                     ))}

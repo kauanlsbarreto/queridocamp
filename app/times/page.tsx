@@ -47,7 +47,6 @@ function calculateSimilarity(str1: string, str2: string): number {
 
 async function getTeamsData(mainConnection: any, jogadoresConnection: any): Promise<TeamData[]> {
   try {
-    // ⚠️ Usar query() no Hyperdrive
     const [teamsResult] = await mainConnection.query('SELECT * FROM team_config') as [any[], any];
     const [playersResult] = await jogadoresConnection.query('SELECT * FROM jogadores') as [any[], any];
     const [faceitResult] = await jogadoresConnection.query('SELECT * FROM faceit_players') as [any[], any];
@@ -70,7 +69,6 @@ async function getTeamsData(mainConnection: any, jogadoresConnection: any): Prom
       const rawNick = (team.player_nick || "").split(',').pop()?.trim() || "";
       let captain = playersMap.get(rawNick.toLowerCase()) || playersById.get(rawNick);
 
-      // fallback por similaridade
       if (!captain && rawNick) {
         let bestSim = 0;
         for (const player of playersResult) {
@@ -107,8 +105,8 @@ async function getTeamsData(mainConnection: any, jogadoresConnection: any): Prom
         return { ...player, ...faceitData };
       });
 
-      const poteOrder = [4,5,1,3,2];
-      enrichedPlayers.sort((a,b) => (poteOrder.indexOf(a.pote)||999) - (poteOrder.indexOf(b.pote)||999));
+      const poteOrder = [4, 5, 1, 2, 3];
+      enrichedPlayers.sort((a,b) => (poteOrder.indexOf(a.pote) || 999) - (poteOrder.indexOf(b.pote) || 999));
 
       return {
         team_name: team.team_name || "Time sem nome",
@@ -129,7 +127,6 @@ export default async function TimesPage() {
   let teams: TeamData[] = [];
 
   try {
-    // 🔹 async mode obrigatório
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as any
 

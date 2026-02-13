@@ -32,15 +32,30 @@ async function getStats(connection: any, jogadoresConnection: any) {
       "SELECT nick, pote FROM jogadores"
     ) as [any[], any];
 
+    // Busca imagens dos jogadores
+    const [faceitRows] = await jogadoresConnection.query(
+      "SELECT faceit_nickname, fotoperfil FROM faceit_players"
+    ) as [any[], any];
+
+    // Mapear nick -> pote
     const nickToPote = new Map<string, number>();
     playersRows.forEach(p => {
       if (p.nick) nickToPote.set(p.nick.toLowerCase(), Number(p.pote));
     });
 
-    // Enriquecer stats com pote
+    // Mapear nick -> fotoperfil
+    const nickToImage = new Map<string, string>();
+    faceitRows.forEach(f => {
+      if (f.faceit_nickname && f.fotoperfil) {
+        nickToImage.set(f.faceit_nickname.toLowerCase(), f.fotoperfil);
+      }
+    });
+
+    // Enriquecer stats com pote e foto
     const enrichedStats = statsRows.map(stat => ({
       ...stat,
-      pote: nickToPote.get(stat.nick?.toLowerCase() || "") || 0
+      pote: nickToPote.get(stat.nick?.toLowerCase() || "") || 0,
+      faceit_image: nickToImage.get(stat.nick?.toLowerCase() || "") || '/images/cs2-player.png'
     }));
 
     return enrichedStats;
