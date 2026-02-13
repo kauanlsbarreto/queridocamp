@@ -2,10 +2,10 @@ import StatsList from './stats-list';
 import UpdateTimer from '@/components/update-timer';
 import AdPropaganda from '@/components/ad-propaganda';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { createMainConnection } from '@/lib/db';
-import type { Env } from '@/lib/db' 
+import { createMainConnection, createJogadoresConnection } from '@/lib/db';
+import type { Env } from '@/lib/db';
 
-export const revalidate = 86400;
+export const revalidate = 86400; // Cache de 24h
 
 async function getLastUpdate(connection: any) {
   try {
@@ -20,15 +20,31 @@ async function getLastUpdate(connection: any) {
   }
 }
 
-async function getStats(connection: any) {
+async function getStats(connection: any, jogadoresConnection: any) {
   try {
-    const [rows] = await connection.query(
+    // Busca stats
+    const [statsRows] = await connection.query(
       "SELECT * FROM top90_stats ORDER BY kd DESC, adr DESC, kr DESC, k DESC"
     ) as [any[], any];
 
-    console.log("Stats Query Result:", rows);  // Adicionando log para depuração
+    // Busca jogadores para adicionar pote
+    const [playersRows] = await jogadoresConnection.query(
+      "SELECT nick, pote FROM jogadores"
+    ) as [any[], any];
 
-    return rows || [];
+    const nickToPote = new Map<string, number>();
+    playersRows.forEach(p => {
+      if (p.nick) nickToPote.set(p.nick.toLowerCase(), Number(p.pote));
+    });
+
+    // Enriquecer stats com pote
+    const enrichedStats = statsRows.map(stat => ({
+      ...stat,
+      pote: nickToPote.get(stat.nick?.toLowerCase() || "") || 0
+    }));
+
+    return enrichedStats;
+
   } catch (error) {
     console.error("Erro ao buscar estatísticas:", error);
     return [];
@@ -38,24 +54,29 @@ async function getStats(connection: any) {
 export default async function StatsPage() {
   let allStats: any[] = [];
   let lastUpdate = new Date().toISOString();
-  let connection: any;
+  let mainConnection: any;
+  let jogadoresConnection: any;
 
   try {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as Env;
-    connection = await createMainConnection(env);
+
+    mainConnection = await createMainConnection(env);
+    jogadoresConnection = await createJogadoresConnection(env);
 
     const [statsResult, lastUpdateResult] = await Promise.all([
-      getStats(connection),
-      getLastUpdate(connection)
+      getStats(mainConnection, jogadoresConnection),
+      getLastUpdate(mainConnection)
     ]);
 
     allStats = statsResult;
     lastUpdate = lastUpdateResult;
+
   } catch (error) {
-    console.error("Erro geral na StatsPage (DB Connection):", error);
+    console.error("Erro geral na StatsPage:", error);
   } finally {
-    if (connection) await connection.end?.();
+    if (mainConnection) await mainConnection.end?.();
+    if (jogadoresConnection) await jogadoresConnection.end?.();
   }
 
   if (allStats.length === 0) {
