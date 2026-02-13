@@ -4,7 +4,7 @@ import AdPropaganda from '@/components/ad-propaganda';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
 
-export const revalidate = 86400; 
+export const revalidate = 86400;
 
 async function getLastUpdate(connection: any) {
   try {
@@ -13,8 +13,7 @@ async function getLastUpdate(connection: any) {
     ) as [{ value: string }[], any];
 
     return rows[0]?.value || new Date().toISOString();
-  } catch (error) {
-    console.error("Erro ao buscar lastUpdate:", error);
+  } catch {
     return new Date().toISOString();
   }
 }
@@ -26,8 +25,7 @@ async function getStats(connection: any) {
     ) as [any[], any];
 
     return rows || [];
-  } catch (error) {
-    console.error("Erro ao buscar stats:", error);
+  } catch {
     return [];
   }
 }
@@ -38,10 +36,8 @@ export default async function StatsPage() {
   let connection: any;
 
   try {
-    // ⚡ async mode obrigatório
     const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
-
+    const env = ctx.env as any; 
     connection = await createMainConnection(env);
 
     const [statsResult, lastUpdateResult] = await Promise.all([
@@ -54,14 +50,14 @@ export default async function StatsPage() {
   } catch (error) {
     console.error("Erro geral na StatsPage (DB Connection):", error);
   } finally {
-    if (connection) await connection.end();
+    if (connection) await connection.end?.(); 
   }
 
   return (
     <div className="min-h-screen bg-black">
-      <AdPropaganda 
-        videoSrc="/videosad/radiante.mp4" 
-        redirectUrl="https://industriaradiante.com.br/" 
+      <AdPropaganda
+        videoSrc="/videosad/radiante.mp4"
+        redirectUrl="https://industriaradiante.com.br/"
       />
       <section className="py-12 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
