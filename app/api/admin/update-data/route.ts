@@ -27,6 +27,25 @@ async function updateAllData(connection: any) {
     })
   );
 
+  try {
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS site_metadata (
+        key_name VARCHAR(50) NOT NULL,
+        value TEXT,
+        PRIMARY KEY (key_name)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    const now = new Date().toISOString();
+    await connection.query(`
+      INSERT INTO site_metadata (key_name, value) 
+      VALUES ('last_update', ?) 
+      ON DUPLICATE KEY UPDATE value = ?
+    `, [now, now]);
+  } catch (error) {
+    console.error("Erro ao atualizar metadata:", error);
+  }
+
   return { results };
 }
 
@@ -45,7 +64,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Identificação ausente." }, { status: 401 });
     }
 
-    // 2. Verificar permissão de admin
     const [rows]: any = await connection.query(
       "SELECT admin FROM players WHERE faceit_guid = ?",
       [faceit_guid]

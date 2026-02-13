@@ -1,6 +1,7 @@
 import TeamsList from '@/app/times/teams-list';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, createJogadoresConnection } from '@/lib/db';
+import UpdateTimer from '@/components/update-timer';
 
 export const revalidate = 86400;
 
@@ -43,6 +44,17 @@ function calculateSimilarity(str1: string, str2: string): number {
     }
   }
   return 1.0 - matrix[len2][len1] / maxLen;
+}
+
+async function getLastUpdate(connection: any) {
+  try {
+    const [rows]: any = await connection.query(
+      "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
+    );
+    return rows[0]?.value || new Date().toISOString();
+  } catch (error) {
+    return new Date().toISOString();
+  }
 }
 
 async function getTeamsData(mainConnection: any, jogadoresConnection: any): Promise<TeamData[]> {
@@ -125,6 +137,7 @@ export default async function TimesPage() {
   let mainConnection: any;
   let jogadoresConnection: any;
   let teams: TeamData[] = [];
+  let lastUpdate = new Date().toISOString();
 
   try {
     const ctx = await getCloudflareContext({ async: true });
@@ -134,6 +147,7 @@ export default async function TimesPage() {
     jogadoresConnection = await createJogadoresConnection(env);
 
     teams = await getTeamsData(mainConnection, jogadoresConnection);
+    lastUpdate = await getLastUpdate(mainConnection);
   } catch (err) {
     console.error("Erro na página Times:", err);
   } finally {
@@ -145,6 +159,7 @@ export default async function TimesPage() {
     <div>
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
+          <UpdateTimer lastUpdate={lastUpdate} />
           {teams.length > 0 ? (
             <TeamsList teams={teams} />
           ) : (

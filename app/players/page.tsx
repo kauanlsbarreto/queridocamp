@@ -4,7 +4,6 @@ import { createMainConnection, createJogadoresConnection } from '@/lib/db';
 import type { Env } from '@/lib/db';
 
 export const revalidate = 86400; 
-export const dynamic = "force-dynamic";
 
 const ITEMS_PER_PAGE = 20;
 

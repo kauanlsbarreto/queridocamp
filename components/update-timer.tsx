@@ -20,7 +20,7 @@ export default function UpdateTimer({ lastUpdate }: UpdateTimerProps) {
   useEffect(() => {
     const checkUpdate = async () => {
       try {
-        const res = await fetch('/api/last-update');
+        const res = await fetch('/api/last-update', { cache: 'no-store' });
         const data = await res.json();
         // Se a data no banco for mais nova que a data atual da página, recarrega
         if (data.lastUpdate && new Date(data.lastUpdate).getTime() > new Date(lastUpdate).getTime()) {

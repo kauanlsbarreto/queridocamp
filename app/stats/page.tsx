@@ -6,7 +6,6 @@ import { createMainConnection, createJogadoresConnection } from '@/lib/db';
 import type { Env } from '@/lib/db';
 
 export const revalidate = 86400;
-export const dynamic = "force-dynamic";
 
 function calculateSimilarity(str1: string, str2: string): number {
   const normalize = (str: string) => str.replace(/[_\s]+/g, '').toLowerCase().trim();

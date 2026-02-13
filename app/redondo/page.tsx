@@ -4,7 +4,6 @@ import UpdateTimer from '@/components/update-timer';
 import { createMainConnection, Env, HyperdriveBinding } from '@/lib/db';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
-export const dynamic = 'force-dynamic'; // força renderização no runtime
 export const revalidate = 86400; // Cache de 24h (ISR)
 
 // --------------------------- Helpers do DB ---------------------------
