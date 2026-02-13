@@ -1,49 +1,23 @@
-import mysql from 'mysql2/promise';
+import mysql from "mysql2";
 
-const poolConfig: mysql.PoolOptions = {
-  waitForConnections: true,
-  connectionLimit: 10,
-  enableKeepAlive: true,
-  connectTimeout: 10000,
-  maxPreparedStatements: 0,
-  namedPlaceholders: false,
-  decimalNumbers: true,
-  ...({ forceTextProtocol: true } as any)
-};
-
-const cleanUri = (uri: string) => {
-  try {
-    const url = new URL(uri);
-    url.searchParams.delete('ssl-mode');
-    url.searchParams.delete('preparedStatements');
-    url.searchParams.delete('cachePrepStmts');
-    url.searchParams.delete('useServerPrepStmts');
-    return url.toString();
-  } catch {
-    return uri;
+export function createMainConnection(env: any) {
+  if (!env?.DB_PRINCIPAL?.connectionString) {
+    throw new Error("Hyperdrive binding DB_PRINCIPAL não encontrado.");
   }
-};
 
-export const getPools = (env: any) => {
-  const mainConnectionString = 
-    env.DB_PRINCIPAL?.connectionString || 
-    env.DB_PRINCIPAL || 
-    'mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway';
-
-  const jogadoresConnectionString = 
-    env.DB_jogadores?.connectionString || 
-    env.DB_jogadores || 
-    'mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway';
-
-  const mainPool = mysql.createPool({
-    uri: cleanUri(mainConnectionString),
-    ...poolConfig
+  return mysql.createConnection({
+    uri: env.DB_PRINCIPAL.connectionString,
+    decimalNumbers: true,
   });
+}
 
-  const jogadoresPool = mysql.createPool({
-    uri: cleanUri(jogadoresConnectionString),
-    ...poolConfig
+export function createJogadoresConnection(env: any) {
+  if (!env?.DB_jogadores?.connectionString) {
+    throw new Error("Hyperdrive binding DB_jogadores não encontrado.");
+  }
+
+  return mysql.createConnection({
+    uri: env.DB_jogadores.connectionString,
+    decimalNumbers: true,
   });
-
-  return { mainPool, jogadoresPool };
-};
+}
