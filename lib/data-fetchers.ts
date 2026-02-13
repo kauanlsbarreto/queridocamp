@@ -28,8 +28,28 @@ export async function getStatsData() {
   let jogadoresConnection: any;
 
   try {
-    const ctx = await getCloudflareContext();
-    env = ctx.env;
+    try {
+      const ctx = await getCloudflareContext({ async: true });
+      env = ctx.env;
+    } catch (e) {
+      // Fallback for local development or build environments where Cloudflare context is missing
+      env = {
+        DB_PRINCIPAL: {
+          host: "127.0.0.1",
+          user: "root",
+          password: "senha",
+          database: "meu_db",
+          port: 3306,
+        },
+        DB_JOGADORES: {
+          host: "127.0.0.1",
+          user: "root",
+          password: "senha",
+          database: "meu_db",
+          port: 3306,
+        },
+      };
+    }
 
     mainConnection = await createMainConnection(env);
     jogadoresConnection = await createJogadoresConnection(env);

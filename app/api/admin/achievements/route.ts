@@ -55,13 +55,14 @@ function getLocalEnv(): Env {
 }
 
 async function getEnv(): Promise<Env> {
-  try {
-    const ctx = await getCloudflareContext({ async: true });
-    return ctx.env as unknown as Env;
-  } catch {
-    // fallback para desenvolvimento local
-    return getLocalEnv();
+  const ctx = await getCloudflareContext({ async: true });
+  const env = ctx.env as unknown as Env;
+
+  if (!env.DB_PRINCIPAL) {
+    throw new Error("DB_PRINCIPAL não configurado no Hyperdrive");
   }
+
+  return env;
 }
 
 async function ensureAchievementsTable(connection: any) {
