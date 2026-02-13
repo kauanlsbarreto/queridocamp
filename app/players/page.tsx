@@ -7,26 +7,14 @@ export const revalidate = 86400;
 
 const ITEMS_PER_PAGE = 20;
 
-function calculateSimilarity(str1: string, str2: string): number {
-  const s1 = (str1 || '').toLowerCase().trim();
-  const s2 = (str2 || '').toLowerCase().trim();
-  if (!s1 || !s2) return 0.0;
-  if (s1 === s2) return 1.0;
-
-  const len1 = s1.length;
-  const len2 = s2.length;
-  const maxLen = Math.max(len1, len2);
-  const matrix: number[][] = Array.from({ length: len2 + 1 }, (_, i) => [i]);
-  for (let j = 0; j <= len1; j++) matrix[0][j] = j;
-
-  for (let i = 1; i <= len2; i++) {
-    for (let j = 1; j <= len1; j++) {
-      if (s2.charAt(i - 1) === s1.charAt(j - 1)) matrix[i][j] = matrix[i - 1][j - 1];
-      else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
-    }
-  }
-  return 1.0 - matrix[len2][len1] / maxLen;
-}
+const normalizeText = (str: string | null | undefined): string => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') 
+    .replace(/[^a-z0-9]/g, '');
+};
 
 async function getLastUpdate(connection: any) {
   try {
@@ -51,24 +39,30 @@ async function getPlayersData(mainConn: any, jogadoresConn: any, offset: number)
 
   const [teamsRows]: any = await mainConn.query('SELECT * FROM team_config');
   const [jogadoresRows]: any = await jogadoresConn.query('SELECT * FROM jogadores');
+  const normalizedJogadoresMap = new Map<string, any>(jogadoresRows.map((j: any) => [normalizeText(j.nick), j]));
 
   const playersWithTeams = playersRows.map((player: any) => {
     if (player.id === 0) {
       player.nickname = "-1";
       player.avatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSELngQdOTsSQXmSv9j1ltZDiGKXvSB8NJIsQ&s";
     }
-
-    // Busca jogador por similaridade para achar o time
-    let jogador = jogadoresRows.find((j: any) => calculateSimilarity(player.nickname, j.nick) > 0.85);
     
     let teamName = null;
     let teamLogo = null;
 
+    const normalizedPlayerNick = normalizeText(player.nickname);
+    const jogador = normalizedJogadoresMap.get(normalizedPlayerNick);
+
     if (jogador) {
-      const team = teamsRows.find((t: any) => t.player_nick?.includes(jogador.nick));
-      if (team) {
-        teamName = team.team_name;
-        teamLogo = team.team_image;
+      const captainId = jogador.captain_id || jogador.id;
+      const captain = jogadoresRows.find((j: any) => String(j.id) === String(captainId));
+
+      if (captain) {
+        const team = teamsRows.find((t: any) => (t.player_nick || '').split(',').map((n:string) => n.trim()).includes(captain.nick));
+        if (team) {
+          teamName = team.team_name;
+          teamLogo = team.team_image;
+        }
       }
     }
 

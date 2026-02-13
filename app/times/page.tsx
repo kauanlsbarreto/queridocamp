@@ -22,29 +22,14 @@ export interface TeamData {
   players: Player[];
 }
 
-function calculateSimilarity(str1: string, str2: string): number {
-  const s1 = (str1 || "").toLowerCase().trim();
-  const s2 = (str2 || "").toLowerCase().trim();
-  if (!s1 || !s2) return 0.0;
-  if (s1 === s2) return 1.0;
-
-  const len1 = s1.length;
-  const len2 = s2.length;
-  const maxLen = Math.max(len1, len2);
-  if (maxLen === 0) return 1.0;
-
-  const matrix: number[][] = [];
-  for (let i = 0; i <= len2; i++) matrix[i] = [i];
-  for (let j = 0; j <= len1; j++) matrix[0][j] = j;
-
-  for (let i = 1; i <= len2; i++) {
-    for (let j = 1; j <= len1; j++) {
-      matrix[i][j] = s2[i-1] === s1[j-1] ? matrix[i-1][j-1] 
-        : Math.min(matrix[i-1][j-1]+1, matrix[i][j-1]+1, matrix[i-1][j]+1);
-    }
-  }
-  return 1.0 - matrix[len2][len1] / maxLen;
-}
+const normalizeText = (str: string | null | undefined): string => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/[^a-z0-9]/g, ''); // Remove non-alphanumeric characters
+};
 
 async function getLastUpdate(connection: any) {
   try {
@@ -65,32 +50,30 @@ async function getTeamsData(mainConnection: any, jogadoresConnection: any): Prom
 
     const playersMap = new Map<string, Player>();
     const playersById = new Map<string, Player>();
+    const normalizedPlayersMap = new Map<string, Player>();
 
     playersResult.forEach(p => {
       const player: Player = { ...p, pote: Number(p.pote) };
-      if (player.nick) playersMap.set(player.nick.toLowerCase().trim(), player);
+      if (player.nick) {
+        playersMap.set(player.nick.toLowerCase().trim(), player);
+        normalizedPlayersMap.set(normalizeText(player.nick), player);
+      }
       playersById.set(String(player.id), player);
     });
 
     const faceitMap = new Map<string, any>();
+    const normalizedFaceitMap = new Map<string, any>();
     faceitResult.forEach(fp => {
-      if (fp.faceit_nickname) faceitMap.set(fp.faceit_nickname.toLowerCase().trim(), fp);
+      if (fp.faceit_nickname) {
+        faceitMap.set(fp.faceit_nickname.toLowerCase().trim(), fp);
+        normalizedFaceitMap.set(normalizeText(fp.faceit_nickname), fp);
+      }
     });
 
     return teamsResult.map(team => {
       const rawNick = (team.player_nick || "").split(',').pop()?.trim() || "";
-      let captain = playersMap.get(rawNick.toLowerCase()) || playersById.get(rawNick);
-
-      if (!captain && rawNick) {
-        let bestSim = 0;
-        for (const player of playersResult) {
-          const sim = calculateSimilarity(player.nick, rawNick);
-          if (sim > bestSim) {
-            bestSim = sim;
-            captain = player;
-          }
-        }
-      }
+      const normalizedRawNick = normalizeText(rawNick);
+      let captain = playersMap.get(rawNick.toLowerCase()) || playersById.get(rawNick) || normalizedPlayersMap.get(normalizedRawNick);
 
       const rawTeamPlayers = captain
         ? playersResult.filter(p => p.id === captain.id || String(p.captain_id) === String(captain.id))
@@ -98,17 +81,9 @@ async function getTeamsData(mainConnection: any, jogadoresConnection: any): Prom
       const uniquePlayers = Array.from(new Map(rawTeamPlayers.map(p => [p.id, p])).values());
 
       const enrichedPlayers = uniquePlayers.map(player => {
+        const normalizedPlayerNick = normalizeText(player.nick);
         let faceitData = { faceit_image: '/images/cs2-player.png', faceit_url: '', discord_id: '' };
-        let bestMatch = faceitMap.get(player.nick.toLowerCase().trim());
-        if (!bestMatch) {
-          for (const fp of faceitResult) {
-            const sim = calculateSimilarity(player.nick, fp.faceit_nickname || '');
-            if (sim >= 0.6) {
-              bestMatch = fp;
-              break;
-            }
-          }
-        }
+        let bestMatch = faceitMap.get(player.nick.toLowerCase().trim()) || normalizedFaceitMap.get(normalizedPlayerNick);
         if (bestMatch) {
           faceitData.discord_id = bestMatch.discord_id;
           if (bestMatch.fotoperfil) faceitData.faceit_image = bestMatch.fotoperfil;

@@ -21,6 +21,7 @@ export default function UpdateTimer({ lastUpdate }: UpdateTimerProps) {
     const checkUpdate = async () => {
       try {
         const res = await fetch('/api/last-update', { cache: 'no-store' });
+        if (!res.ok) return;
         const data = await res.json();
         // Se a data no banco for mais nova que a data atual da página, recarrega
         if (data.lastUpdate && new Date(data.lastUpdate).getTime() > new Date(lastUpdate).getTime()) {

@@ -7,30 +7,14 @@ import type { Env } from '@/lib/db';
 
 export const revalidate = 86400;
 
-function calculateSimilarity(str1: string, str2: string): number {
-  const normalize = (str: string) => str.replace(/[_\s]+/g, '').toLowerCase().trim();
-  
-  const s1 = normalize(str1);
-  const s2 = normalize(str2);
-  
-  if (!s1 || !s2) return 0.0;
-  if (s1 === s2) return 1.0;
-
-  const len1 = s1.length;
-  const len2 = s2.length;
-  const maxLen = Math.max(len1, len2);
-  const matrix: number[][] = Array.from({ length: len2 + 1 }, (_, i) => [i]);
-  
-  for (let j = 0; j <= len1; j++) matrix[0][j] = j;
-
-  for (let i = 1; i <= len2; i++) {
-    for (let j = 1; j <= len1; j++) {
-      if (s2.charAt(i - 1) === s1.charAt(j - 1)) matrix[i][j] = matrix[i - 1][j - 1];
-      else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
-    }
-  }
-  return 1.0 - matrix[len2][len1] / maxLen;
-}
+const normalizeText = (str: string | null | undefined): string => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/[^a-z0-9]/g, ''); // Remove non-alphanumeric characters
+};
 
 
 async function getLastUpdate(connection: any) {
@@ -53,37 +37,13 @@ async function getStats(mainConn: any, jogadoresConn: any) {
     const [playersRows]: any = await jogadoresConn.query("SELECT nick, pote FROM jogadores");
     const [faceitRows]: any = await jogadoresConn.query("SELECT faceit_nickname, fotoperfil FROM faceit_players");
 
-    const nickToPote = new Map(playersRows.map((p: any) => [p.nick?.toLowerCase().trim(), p.pote]));
-    const nickToImage = new Map(faceitRows.map((f: any) => [f.faceit_nickname?.toLowerCase().trim(), f.fotoperfil]));
+    const nickToPote = new Map(playersRows.map((p: any) => [normalizeText(p.nick), p.pote]));
+    const nickToImage = new Map(faceitRows.map((f: any) => [normalizeText(f.faceit_nickname), f.fotoperfil]));
 
     return statsRows.map((stat: any) => {
-      const originalNick = stat.nick || "";
-      const searchNick = originalNick.toLowerCase().trim();
-      
-      let pote = nickToPote.get(searchNick);
-      let foto = nickToImage.get(searchNick);
-
-      if (pote === undefined || pote === null) {
-        let bestSim = 0;
-        for (const p of playersRows) {
-          const sim = calculateSimilarity(originalNick, p.nick);
-          if (sim > 0.80 && sim > bestSim) { 
-            bestSim = sim;
-            pote = p.pote;
-          }
-        }
-      }
-
-      if (!foto) {
-        let bestSim = 0;
-        for (const f of faceitRows) {
-          const sim = calculateSimilarity(originalNick, f.faceit_nickname);
-          if (sim > 0.80 && sim > bestSim) {
-            bestSim = sim;
-            foto = f.fotoperfil;
-          }
-        }
-      }
+      const normalizedNick = normalizeText(stat.nick);
+      const pote = nickToPote.get(normalizedNick);
+      const foto = nickToImage.get(normalizedNick);
 
       return {
         ...stat,

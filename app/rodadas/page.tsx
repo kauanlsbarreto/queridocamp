@@ -3,11 +3,10 @@ import AdPropaganda from '@/components/ad-propaganda';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
 
-export const revalidate = 86400; // Cache de 24 horas (ISR)
+export const revalidate = 86400; 
 
 async function getLastUpdate(connection: any) {
   try {
-    // ⚠️ use .query() para evitar COM_STMT_PREPARE
     const [rows] = await connection.query(
       "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
     ) as [{ value: string }[], any];
@@ -23,23 +22,19 @@ export default async function Rodadas() {
   let connection: any;
 
   try {
-    // 🔹 async mode obrigatório para Cloudflare
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as any;
 
     connection = await createMainConnection(env);
 
-    // busca times
     const [teamRows] = await connection.query(
       "SELECT id, team_name AS name, team_image AS logo FROM team_config ORDER BY team_name ASC"
     ) as [any[], any];
 
-    // busca partidas
     const [matchRows] = await connection.query(
       "SELECT * FROM jogos"
     ) as [any[], any];
 
-    // busca última atualização
     const lastUpdate = await getLastUpdate(connection);
 
     return <RodadasClient teams={teamRows} matchesData={matchRows} lastUpdate={lastUpdate} />;
@@ -58,6 +53,6 @@ export default async function Rodadas() {
       </div>
     );
   } finally {
-    if (connection) await connection.end(); // garante fechamento da conexão
+    if (connection) await connection.end();
   }
 }
