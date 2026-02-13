@@ -18,8 +18,8 @@ type TeamRow = RowDataPacket & {
 };
 
 async function getTeams(connection: any) {
-  // Cast para TeamRow[] para evitar erro de generics no TypeScript
-  const [rows] = await connection.execute(
+  // ⚠️ use query() ao invés de execute() para Hyperdrive
+  const [rows] = await connection.query(
     "SELECT * FROM team_config ORDER BY sp DESC, df DESC"
   ) as [TeamRow[], any];
 
@@ -35,7 +35,7 @@ async function getTeams(connection: any) {
 }
 
 async function getLastUpdate(connection: any) {
-  const [rows] = await connection.execute(
+  const [rows] = await connection.query(
     "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
   ) as [({ value: string })[], any];
 
@@ -45,7 +45,7 @@ async function getLastUpdate(connection: any) {
 export default async function Classificacao() {
   let connection: any;
   try {
-    const ctx = await getCloudflareContext();
+    const ctx = await getCloudflareContext({ async: true }); 
     const env = ctx.env as any;
 
     connection = await createMainConnection(env);
@@ -77,6 +77,6 @@ export default async function Classificacao() {
       </div>
     );
   } finally {
-    if (connection) await connection.end(); // fecha a conexão
+    if (connection) await connection.end();
   }
 }
