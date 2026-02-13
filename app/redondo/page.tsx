@@ -1,10 +1,13 @@
 import PickEmClient from './pick-em-client';
 import AdPropaganda from '@/components/ad-propaganda';
 import UpdateTimer from '@/components/update-timer';
-import { createMainConnection } from '@/lib/db';
+import { createMainConnection, Env, HyperdriveBinding } from '@/lib/db';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
+export const dynamic = 'force-dynamic'; // força renderização no runtime
 export const revalidate = 86400; // Cache de 24h (ISR)
+
+// --------------------------- Helpers do DB ---------------------------
 
 async function ensureTableExists(connection: any) {
   try {
@@ -107,13 +110,21 @@ async function getLastUpdate(connection: any) {
   }
 }
 
+// --------------------------- Componente ---------------------------
+
 export default async function RedondoPage() {
   let connection: any;
 
   try {
-    // ⚡ Opção 1: força ctx.env como Env
+    // Obter o contexto do Cloudflare
     const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as import('@/lib/db').Env;
+
+    // Cast seguro para o tipo Env, evita erro de TS
+    const env = ctx.env as unknown as Env;
+
+    if (!env.DB_PRINCIPAL) {
+      throw new Error("DB_PRINCIPAL não definido no Cloudflare Env");
+    }
 
     connection = await createMainConnection(env);
 

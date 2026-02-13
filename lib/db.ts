@@ -14,11 +14,6 @@ export type Env = {
   DB_JOGADORES?: HyperdriveBinding;
 };
 
-/**
- * Cria uma conexão MySQL usando as variáveis do binding Hyperdrive
- * Conforme exemplo oficial do Cloudflare Hyperdrive
- * https://developers.cloudflare.com/hyperdrive/examples/connect-to-mysql/
- */
 export async function connectToDB(binding: HyperdriveBinding): Promise<Connection> {
   if (!binding) {
     throw new Error("Binding para conexão MySQL não foi definido");
@@ -33,14 +28,11 @@ export async function connectToDB(binding: HyperdriveBinding): Promise<Connectio
     database,
     port,
 
-    // necessária para compatibilidade com Workers/Hyperdrive
     disableEval: true,
   });
 }
 
-/**
- * Conexão para o banco principal
- */
+
 export async function createMainConnection(env: Env): Promise<Connection> {
   if (!env.DB_PRINCIPAL) {
     throw new Error("Variável de ambiente DB_PRINCIPAL não configurada");
@@ -48,9 +40,6 @@ export async function createMainConnection(env: Env): Promise<Connection> {
   return connectToDB(env.DB_PRINCIPAL);
 }
 
-/**
- * Conexão para o banco de jogadores
- */
 export async function createJogadoresConnection(env: Env): Promise<Connection> {
   if (!env.DB_JOGADORES) {
     throw new Error("Variável de ambiente DB_JOGADORES não configurada");
