@@ -23,28 +23,19 @@ interface Player {
 const Pagination = ({ totalPages, currentPage }: { totalPages: number, currentPage: number }) => {
     const pathname = usePathname();
     const searchParams = useSearchParams();
-
     const createPageURL = (pageNumber: number) => {
         const params = new URLSearchParams(searchParams);
         params.set('page', pageNumber.toString());
         return `${pathname}?${params.toString()}`;
     };
-
     if (totalPages <= 1) return null;
-
     return (
         <div className="flex justify-center items-center gap-4 mt-12 text-white">
-            <Link 
-                href={createPageURL(currentPage - 1)}
-                className={`p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors ${currentPage <= 1 ? 'pointer-events-none opacity-30' : ''}`}
-            >
+            <Link href={createPageURL(currentPage - 1)} className={`p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors ${currentPage <= 1 ? 'pointer-events-none opacity-30' : ''}`}>
                 <ChevronLeft size={20} />
             </Link>
             <span className="text-sm font-medium italic">Página {currentPage} de {totalPages}</span>
-            <Link 
-                href={createPageURL(currentPage + 1)}
-                className={`p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors ${currentPage >= totalPages ? 'pointer-events-none opacity-30' : ''}`}
-            >
+            <Link href={createPageURL(currentPage + 1)} className={`p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors ${currentPage >= totalPages ? 'pointer-events-none opacity-30' : ''}`}>
                 <ChevronRight size={20} />
             </Link>
         </div>
@@ -55,7 +46,6 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
   const [players, setPlayers] = useState<Player[]>(initialPlayers);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Busca os níveis via API (Igual ao PerfilClient)
   useEffect(() => {
     const fetchLevels = async () => {
       const updatedPlayers = await Promise.all(initialPlayers.map(async (player) => {
@@ -93,7 +83,6 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
              <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">Jogadores</h1>
              <p className="text-zinc-500 text-sm font-medium uppercase tracking-widest mt-1">Lista Geral de Atletas</p>
           </div>
-          
           <div className="relative w-full md:w-96">
              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
              <input
@@ -110,7 +99,7 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
 
        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
           {filteredPlayers.map((player) => (
-             <Link href={`/perfil/${player.id === 0 ? '0' : player.nickname}`} key={player.id} className="group">
+             <Link href={`/perfil/${player.id}`} key={player.id} className="group">
                   <PremiumCard className="h-full hover:scale-[1.03] transition-all duration-300 border-white/5 group-hover:border-gold/30 shadow-2xl">
                     <div className="relative p-8 flex flex-col items-center text-center h-full">
                        
@@ -127,42 +116,32 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
                           </div>
                        </div>
 
-                       <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-6 group-hover:text-gold transition-colors">
+                       <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-2 group-hover:text-gold transition-colors">
                           {player.nickname}
                        </h3>
 
                        <div className="mt-auto w-full pt-6 border-t border-white/10 flex flex-col items-center gap-4">
                           
-                          {/* Faceit Level Badge DINÂMICO */}
-                          {(player.faceit_level || player.id === 0) ? (
-                             <div className="flex flex-col items-center gap-1">
-                                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-[0.2em]">Faceit Rank</span>
-                                <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-md">
-                                    <img 
-                                        src={player.id === 0 ? "/faceitlevel/-1.png" : (player.is_challenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${player.faceit_level}.png`)}
-                                        alt="Level"
-                                        className="w-5 h-5"
-                                    />
-                                    <span className="text-xs font-black text-gold italic uppercase tracking-tighter">
-                                        Level {player.id === 0 ? '-1' : player.faceit_level}
-                                    </span>
-                                </div>
+                          <div className="flex flex-col items-center gap-1">
+                             <span className="text-[10px] text-zinc-500 font-bold uppercase">Querido ID: {player.id}</span>
+                             
+                             <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-md">
+                                 <img 
+                                     src={player.id === 0 ? "/faceitlevel/-1.png" : (player.is_challenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${player.faceit_level || 1}.png`)}
+                                     alt="Level"
+                                     className="w-5 h-5"
+                                 />
+                                 <span className="text-xs font-black text-gold italic uppercase tracking-tighter">
+                                     Level {player.id === 0 ? '-1' : (player.faceit_level || '...')}
+                                 </span>
                              </div>
-                          ) : (
-                             <div className="h-[38px] flex items-center italic text-[10px] text-zinc-600">Carregando rank...</div>
-                          )}
+                          </div>
 
                           {player.team_name ? (
                              <div className="flex items-center justify-center gap-3 text-zinc-300 bg-white/5 w-full py-2 rounded-lg border border-transparent group-hover:border-white/5 group-hover:bg-white/10 transition-all">
                                 {player.team_logo ? (
                                    <div className="relative w-6 h-6">
-                                      <Image 
-                                        src={player.team_logo} 
-                                        alt={player.team_name} 
-                                        fill 
-                                        className="object-contain"
-                                        unoptimized
-                                      />
+                                      <Image src={player.team_logo} alt={player.team_name} fill className="object-contain" unoptimized />
                                    </div>
                                 ) : (
                                    <Shield size={16} className="text-gold" />
@@ -181,7 +160,6 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
              </Link>
           ))}
        </div>
-
        <Pagination totalPages={totalPages} currentPage={currentPage} />
     </div>
   )

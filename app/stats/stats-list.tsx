@@ -7,7 +7,6 @@ import PremiumCard from "@/components/premium-card";
 import { Trophy, ChevronDown, ExternalLink } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
-const tabs = ["Pote 1", "Pote 2", "Pote 3", "Pote 4", "Pote 5", "MVP"];
 
 const PlayerAvatar = ({ src, alt }: { src?: string; alt: string }) => {
   const placeholder = "/images/cs2-player.png";
@@ -30,20 +29,30 @@ const PlayerAvatar = ({ src, alt }: { src?: string; alt: string }) => {
 };
 
 export default function StatsList({ allStats }: { allStats: any[] }) {
-  const [activeTab, setActiveTab] = useState<string>("Pote 1");
+  const [activeTab, setActiveTab] = useState<string>("Geral");
   const [selectedRound, setSelectedRound] = useState<string>("Geral");
   const searchParams = useSearchParams();
   const filterMe = searchParams.get('filter') === 'me';
   const [myNick, setMyNick] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('faceit_user');
       if (saved) {
-          setMyNick(JSON.parse(saved).nickname);
+          const user = JSON.parse(saved);
+          setMyNick(user.nickname);
+          if (user.Admin === 1 || user.Admin === 2) setIsAdmin(true);
       }
     }
   }, []);
+
+  const tabs = useMemo(() => {
+    const t = ["Geral", "Pote 1", "Pote 2", "Pote 3", "Pote 4", "Pote 5"];
+    if (isAdmin) t.push("Sem Pote");
+    t.push("MVP");
+    return t;
+  }, [isAdmin]);
 
   const TOTAL_ROUNDS = 17;
 
@@ -89,6 +98,8 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
       return sorted.filter(p => p.nick?.toLowerCase() === myNick.toLowerCase());
     }
 
+    if (activeTab === "Geral") return sorted;
+    if (activeTab === "Sem Pote") return sorted.filter(p => !p.pote || p.pote === 0);
     if (activeTab === "MVP") return sorted.slice(0, 1);
     
     const poteNum = parseInt(activeTab.split(" ")[1]);
