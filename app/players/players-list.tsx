@@ -16,6 +16,7 @@ interface Player {
   faceit_guid: string;
   team_name?: string;
   team_logo?: string;
+  level?: number | string;
 }
 
 const Pagination = ({ totalPages, currentPage }: { totalPages: number, currentPage: number }) => {
@@ -28,28 +29,20 @@ const Pagination = ({ totalPages, currentPage }: { totalPages: number, currentPa
         return `${pathname}?${params.toString()}`;
     };
 
-    if (totalPages <= 1) {
-        return null;
-    }
+    if (totalPages <= 1) return null;
 
     return (
         <div className="flex justify-center items-center gap-4 mt-12 text-white">
-                <AdPropaganda 
-                    videoSrc="/videosad/radiante.mp4" 
-                    redirectUrl="https://industriaradiante.com.br/" 
-                />
             <Link 
                 href={createPageURL(currentPage - 1)}
-                className={`px-4 py-2 rounded-md transition-colors ${currentPage <= 1 ? 'pointer-events-none bg-gray-800/50 text-gray-500' : 'bg-gray-800 hover:bg-gray-700'}`}
+                className={`p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors ${currentPage <= 1 ? 'pointer-events-none opacity-30' : ''}`}
             >
                 <ChevronLeft size={20} />
             </Link>
-            <span className="font-semibold">
-                Página {currentPage} de {totalPages}
-            </span>
+            <span className="text-sm font-medium italic">Página {currentPage} de {totalPages}</span>
             <Link 
                 href={createPageURL(currentPage + 1)}
-                className={`px-4 py-2 rounded-md transition-colors ${currentPage >= totalPages ? 'pointer-events-none bg-gray-800/50 text-gray-500' : 'bg-gray-800 hover:bg-gray-700'}`}
+                className={`p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors ${currentPage >= totalPages ? 'pointer-events-none opacity-30' : ''}`}
             >
                 <ChevronRight size={20} />
             </Link>
@@ -58,159 +51,87 @@ const Pagination = ({ totalPages, currentPage }: { totalPages: number, currentPa
 };
 
 export default function PlayersList({ initialPlayers, totalPages, currentPage, lastUpdate }: { initialPlayers: Player[], totalPages: number, currentPage: number, lastUpdate: string }) {
-  const [players, setPlayers] = useState<any[]>(initialPlayers.map(p => ({ ...p, faceit_level: 0, is_challenger: false })));
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortOption, setSortOption] = useState("level-desc");
+  const [filteredPlayers, setFilteredPlayers] = useState(initialPlayers);
 
-  // Busca Níveis da Faceit
   useEffect(() => {
-    const fetchLevels = async () => {
-      const fetchPlayerLevel = async (player: any) => {
-          if (player.id === 0) return { ...player, faceit_level: -1 };
-          if (!player.faceit_guid) return player;
-          try {
-              // Chama nossa API interna em vez de chamar a Faceit diretamente
-              const res = await fetch(`/api/faceit/player-level?guid=${player.faceit_guid}`);
-              if (res.ok) {
-                  const data = await res.json();
-                  if (data.games?.cs2?.skill_level) {
-                      let isChallenger = false;
-                      // Verifica Challenger se for level 10
-                      if (data.games.cs2.skill_level === 10 && data.games.cs2.region) {
-                          try {
-                              const rankRes = await fetch(`/api/faceit/player-rank?guid=${player.faceit_guid}&region=${data.games.cs2.region}`);
-                              if (rankRes.ok) {
-                                  const rankData = await rankRes.json();
-                                  if (rankData.position && rankData.position <= 1000) {
-                                      isChallenger = true;
-                                  }
-                              }
-                          } catch (e) {
-                              console.error("Failed to fetch rank", e);
-                          }
-                      }
-                      return { ...player, faceit_level: data.games.cs2.skill_level, is_challenger: isChallenger };
-                  }
-              }
-          } catch (e) {
-              console.error(`Erro ao buscar level para ${player.nickname}`, e);
-          }
-          return player;
-      };
-
-      // Executa as requisições (limitado pelo navegador, mas ok para essa quantidade)
-      const promises = initialPlayers.map(p => fetchPlayerLevel(p));
-      const results = await Promise.all(promises);
-      setPlayers(results);
-    };
-
-    fetchLevels();
-  }, [initialPlayers]);
-
-  const filteredPlayers = players
-    .filter(p => p.nickname.toLowerCase().includes(searchTerm.toLowerCase()))
-    .sort((a, b) => {
-      const [criteria, order] = sortOption.split('-');
-      const isAsc = order === 'asc';
-
-      if (criteria === 'level') {
-        if (a.faceit_level === b.faceit_level) return 0;
-        return isAsc ? a.faceit_level - b.faceit_level : b.faceit_level - a.faceit_level;
-      }
-      if (criteria === 'id') {
-        return isAsc ? a.id - b.id : b.id - a.id;
-      }
-      if (criteria === 'name') {
-        return isAsc ? a.nickname.localeCompare(b.nickname) : b.nickname.localeCompare(a.nickname);
-      }
-      if (criteria === 'team') {
-        const teamA = a.team_name || "";
-        const teamB = b.team_name || "";
-        if (!teamA && !teamB) return 0;
-        if (!teamA) return 1;
-        if (!teamB) return -1;
-        return isAsc ? teamA.localeCompare(teamB) : teamB.localeCompare(teamA);
-      }
-      return 0;
-    });
+    const filtered = initialPlayers.filter(player =>
+      player.nickname.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredPlayers(filtered);
+  }, [searchTerm, initialPlayers]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 p-4 pt-24">
-       <UpdateTimer lastUpdate={lastUpdate} />
-       {/* Barra de Pesquisa e Filtro */}
-       <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              className="block w-full pl-10 pr-3 py-3 border border-gray-800 rounded-md leading-5 bg-gray-900/60 text-gray-300 placeholder-gray-500 focus:outline-none focus:bg-gray-900 focus:border-gold focus:ring-1 focus:ring-gold sm:text-sm transition duration-150 ease-in-out"
-              placeholder="Pesquisar jogador..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+    <div className="container mx-auto px-4 py-8">
+       <AdPropaganda videoSrc="/videosad/radiante.mp4" redirectUrl="https://industriaradiante.com.br/" />
+       
+       <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
+          <div>
+             <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">Jogadores</h1>
+             <p className="text-zinc-500 text-sm font-medium uppercase tracking-widest mt-1">Lista Geral de Atletas</p>
           </div>
           
-          <select 
-            className="bg-gray-900/60 border border-gray-800 text-gray-300 rounded-md px-4 py-3 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold sm:text-sm"
-            onChange={(e) => setSortOption(e.target.value)}
-            value={sortOption}
-          >
-            <option value="level-desc">Maior Nível</option>
-            <option value="level-asc">Menor Nível</option>
-            <option value="id-asc">Querido ID (Menor)</option>
-            <option value="id-desc">Querido ID (Maior)</option>
-            <option value="name-asc">Nome (A-Z)</option>
-            <option value="name-desc">Nome (Z-A)</option>
-            <option value="team-asc">Time (A-Z)</option>
-            <option value="team-desc">Time (Z-A)</option>
-          </select>
+          <div className="relative w-full md:w-96">
+             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+             <input
+                type="text"
+                placeholder="PROCURAR JOGADOR..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all uppercase text-sm font-bold"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+             />
+          </div>
        </div>
 
-       {/* Grid de Cards */}
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-          {filteredPlayers.length === 0 ? (
-            <div className="col-span-full text-center py-20">
-              <p className="text-zinc-500 text-lg">Nenhum jogador encontrado.</p>
-            </div>
-          ) : filteredPlayers.map((player, index) => (
-             <Link href={`/perfil/${player.id}`} key={player.id} className="block h-full">
-                  <PremiumCard hoverEffect={true} className="h-full">
-                    <div className="p-6 flex flex-col items-center gap-4">
-                       {/* Avatar */}
-                       <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-gold/30">
-                          <Image 
-                            src={player.avatar || '/images/cs2-player.png'} 
-                            alt={player.nickname} 
-                            fill 
-                            className="object-cover"
-                            unoptimized
-                          />
+       <UpdateTimer lastUpdate={lastUpdate} />
+
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
+          {filteredPlayers.map((player) => (
+             <Link href={`/perfil/${player.id === 0 ? '0' : player.nickname}`} key={player.id} className="group">
+                  <PremiumCard className="h-full hover:scale-[1.03] transition-all duration-300 border-white/5 group-hover:border-gold/30 shadow-2xl">
+                    <div className="relative p-8 flex flex-col items-center text-center h-full">
+                       
+                       {/* Foto de Perfil com Glow */}
+                       <div className="relative w-28 h-28 mb-6">
+                          <div className="absolute inset-0 bg-gold/10 group-hover:bg-gold/20 blur-3xl rounded-full transition-colors" />
+                          <div className="relative w-full h-full rounded-full border-2 border-white/10 p-1.5 bg-black/40 group-hover:border-gold/50 transition-all">
+                             <Image
+                                src={player.avatar || "/images/cs2-player.png"}
+                                alt={player.nickname}
+                                fill
+                                className="rounded-full object-cover"
+                                unoptimized
+                             />
+                          </div>
                        </div>
 
-                       {/* Nome e Level */}
-                       <div className="text-center">
-                          <h3 className="text-xl font-bold text-white mb-1">{player.nickname}</h3>
-                          <p className="text-xs text-zinc-500 font-mono mb-2">ID: {player.id}</p>
-                          {(player.faceit_level > 0 || player.faceit_level_image) && (
-                             <div className="flex items-center justify-center gap-2 mt-2">
-                                <img 
-                                  src={player.faceit_level_image || (player.id === 1 || player.id === 0 ? "/faceitlevel/-1.png" : (player.is_challenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${player.faceit_level}.png`))}
-                                  alt={`Level ${player.faceit_level}`}
-                                  className="w-8 h-8"
-                                />
-                                {player.faceit_level > 0 && <span className="text-gold font-bold text-sm">Level {player.faceit_level}</span>}
+                       {/* Nickname em Destaque */}
+                       <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-6 group-hover:text-gold transition-colors">
+                          {player.nickname}
+                       </h3>
+
+                       {/* Footer do Card com Level e Time */}
+                       <div className="mt-auto w-full pt-6 border-t border-white/10 flex flex-col items-center gap-4">
+                          
+                          {/* Faceit Level Badge */}
+                          {player.level ? (
+                             <div className="flex flex-col items-center gap-1">
+                                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-[0.2em]">Faceit Rank</span>
+                                <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-md">
+                                    <span className="text-xs font-black text-gold italic uppercase tracking-tighter">
+                                        Level {player.level}
+                                    </span>
+                                </div>
                              </div>
+                          ) : (
+                             <div className="h-[38px]" /> // Spacer para manter o alinhamento se não houver level
                           )}
-                       </div>
 
-                       {/* Time */}
-                       <div className="w-full pt-4 border-t border-white/10 mt-2">
+                          {/* Nome do Time */}
                           {player.team_name ? (
-                             <div className="flex items-center justify-center gap-2 text-zinc-400 text-sm">
+                             <div className="flex items-center justify-center gap-3 text-zinc-300 bg-white/5 w-full py-2 rounded-lg border border-transparent group-hover:border-white/5 group-hover:bg-white/10 transition-all">
                                 {player.team_logo ? (
-                                   <div className="relative w-5 h-5">
+                                   <div className="relative w-6 h-6">
                                       <Image 
                                         src={player.team_logo} 
                                         alt={player.team_name} 
@@ -220,12 +141,12 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
                                       />
                                    </div>
                                 ) : (
-                                   <Shield size={14} className="text-gold" />
+                                   <Shield size={16} className="text-gold" />
                                 )}
-                                <span>{player.team_name}</span>
+                                <span className="font-bold text-sm tracking-tight">{player.team_name}</span>
                              </div>
                           ) : (
-                             <div className="flex items-center justify-center gap-2 text-zinc-600 text-sm">
+                             <div className="flex items-center justify-center gap-2 text-zinc-600 text-xs uppercase font-bold tracking-widest py-2">
                                 <User size={14} />
                                 <span>Sem time</span>
                              </div>
@@ -237,7 +158,6 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
           ))}
        </div>
 
-       {/* Controles de Paginação */}
        <Pagination totalPages={totalPages} currentPage={currentPage} />
     </div>
   )

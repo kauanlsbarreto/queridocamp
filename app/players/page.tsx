@@ -8,7 +8,6 @@ export const dynamic = "force-dynamic";
 
 const ITEMS_PER_PAGE = 20;
 
-// Função para calcular a semelhança entre dois nomes (0.0 a 1.0)
 function calculateSimilarity(str1: string, str2: string): number {
   const s1 = (str1 || '').toLowerCase().trim();
   const s2 = (str2 || '').toLowerCase().trim();
@@ -42,69 +41,46 @@ async function getLastUpdate(connection: any) {
 }
 
 async function getPlayersData(mainConn: any, jogadoresConn: any, offset: number) {
-  // Busca total para paginação
   const [totalResult]: any = await mainConn.query('SELECT COUNT(*) as count FROM players');
   const totalPlayers = totalResult[0].count;
   const totalPages = Math.ceil(totalPlayers / ITEMS_PER_PAGE);
 
-  // Busca jogadores da página atual
   const [playersRows]: any = await mainConn.query(
     'SELECT id, nickname, avatar, faceit_guid, adicionados FROM players ORDER BY nickname ASC LIMIT ? OFFSET ?',
     [ITEMS_PER_PAGE, offset]
   );
 
-  // Busca configurações de times e lista de jogadores cadastrados
   const [teamsRows]: any = await mainConn.query('SELECT * FROM team_config');
   const [jogadoresRows]: any = await jogadoresConn.query('SELECT * FROM jogadores');
-
-  // Mapa para busca exata (mais rápida)
-  const jogadoresMap = new Map(jogadoresRows.map((j: any) => [j.nick?.toLowerCase(), j]));
+  const [faceitRows]: any = await jogadoresConn.query('SELECT faceit_nickname, skill_level FROM faceit_players');
 
   const playersWithTeams = playersRows.map((player: any) => {
-    // Tratamento para ID especial
     if (player.id === 0) {
       player.nickname = "-1";
       player.avatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSELngQdOTsSQXmSv9j1ltZDiGKXvSB8NJIsQ&s";
     }
 
-    let jogador: any = jogadoresMap.get(player.nickname?.toLowerCase());
-
-    if (!jogador) {
-      let bestSim = 0;
-      for (const j of jogadoresRows) {
-        if (!j.nick) continue;
-        const sim = calculateSimilarity(player.nickname, j.nick);
-        if (sim > 0.7 && sim > bestSim) {
-          bestSim = sim;
-          jogador = j;
-        }
-      }
-    }
+    let jogador = jogadoresRows.find((j: any) => calculateSimilarity(player.nickname, j.nick) > 0.85);
+    
+    let faceitData = faceitRows.find((f: any) => calculateSimilarity(player.nickname, f.faceit_nickname) > 0.85);
 
     let teamName = null;
     let teamLogo = null;
 
-    // 3. Se o jogador foi identificado, buscar o time dele
     if (jogador) {
-      for (const team of teamsRows) {
-        const rawNick = team.player_nick || '';
-        const teamNick = rawNick.split(',').pop()?.trim() || '';
-        
-        // Encontrar o capitão/referência do time
-        const captain = jogadoresRows.find((p: any) =>
-          (p.nick || '').trim().toLowerCase() === teamNick.toLowerCase() ||
-          String(p.id) === teamNick
-        );
-
-        if (captain && (captain.id === jogador.id || String(jogador.captain_id) === String(captain.id))) {
-          teamName = team.team_name;
-          teamLogo = team.team_image;
-          break;
-        }
+      const team = teamsRows.find((t: any) => t.player_nick?.includes(jogador.nick));
+      if (team) {
+        teamName = team.team_name;
+        teamLogo = team.team_image;
       }
     }
 
-    return { ...player, team_name: teamName, team_logo: teamLogo };
+    return { 
+      ...player, 
+      team_name: teamName, 
+      team_logo: teamLogo,
+      level: faceitData?.skill_level || null 
+    };
   });
 
   return { playersWithTeams, totalPages };
@@ -127,7 +103,6 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
     mainConnection = await createMainConnection(env);
     jogadoresConnection = await createJogadoresConnection(env);
 
-    // Consultas sequenciais para evitar erros de pool no Hyperdrive
     playersData = await getPlayersData(mainConnection, jogadoresConnection, offset);
     lastUpdate = await getLastUpdate(mainConnection);
 
@@ -138,7 +113,6 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
     if (jogadoresConnection) await jogadoresConnection.end().catch(() => {});
   }
 
-  // Fallback caso o banco falhe
   if (!playersData.playersWithTeams || playersData.playersWithTeams.length === 0) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center p-6 text-center">

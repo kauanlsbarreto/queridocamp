@@ -45,23 +45,25 @@ async function getStats(mainConn: any, jogadoresConn: any) {
     const [statsRows]: any = await mainConn.query(
       "SELECT * FROM top90_stats ORDER BY kd DESC, adr DESC, kr DESC, k DESC"
     );
+
     const [playersRows]: any = await jogadoresConn.query("SELECT nick, pote FROM jogadores");
     const [faceitRows]: any = await jogadoresConn.query("SELECT faceit_nickname, fotoperfil FROM faceit_players");
 
-    const nickToPote = new Map(playersRows.map((p: any) => [p.nick?.toLowerCase(), p.pote]));
-    const nickToImage = new Map(faceitRows.map((f: any) => [f.faceit_nickname?.toLowerCase(), f.fotoperfil]));
+    const nickToPote = new Map(playersRows.map((p: any) => [p.nick?.toLowerCase().trim(), p.pote]));
+    const nickToImage = new Map(faceitRows.map((f: any) => [f.faceit_nickname?.toLowerCase().trim(), f.fotoperfil]));
 
     return statsRows.map((stat: any) => {
-      const searchNick = stat.nick?.toLowerCase() || "";
+      const originalNick = stat.nick || "";
+      const searchNick = originalNick.toLowerCase().trim();
       
       let pote = nickToPote.get(searchNick);
       let foto = nickToImage.get(searchNick);
 
-      if (pote === undefined) {
+      if (pote === undefined || pote === null) {
         let bestSim = 0;
         for (const p of playersRows) {
-          const sim = calculateSimilarity(stat.nick, p.nick);
-          if (sim > 0.60 && sim > bestSim) {
+          const sim = calculateSimilarity(originalNick, p.nick);
+          if (sim > 0.80 && sim > bestSim) { 
             bestSim = sim;
             pote = p.pote;
           }
@@ -71,8 +73,8 @@ async function getStats(mainConn: any, jogadoresConn: any) {
       if (!foto) {
         let bestSim = 0;
         for (const f of faceitRows) {
-          const sim = calculateSimilarity(stat.nick, f.faceit_nickname);
-          if (sim > 0.85 && sim > bestSim) {
+          const sim = calculateSimilarity(originalNick, f.faceit_nickname);
+          if (sim > 0.80 && sim > bestSim) {
             bestSim = sim;
             foto = f.fotoperfil;
           }
@@ -81,12 +83,12 @@ async function getStats(mainConn: any, jogadoresConn: any) {
 
       return {
         ...stat,
-        pote: pote || 0,
+        pote: (pote !== undefined && pote !== null) ? Number(pote) : 0,
         faceit_image: foto || '/images/cs2-player.png'
       };
     });
   } catch (error) {
-    console.error("Erro no processamento de stats:", error);
+    console.error("Erro interno no getStats:", error);
     return [];
   }
 }
@@ -104,25 +106,20 @@ export default async function StatsPage() {
     mainConnection = await createMainConnection(env);
     jogadoresConnection = await createJogadoresConnection(env);
 
-    // Execução sequencial para estabilidade no Hyperdrive
     allStats = await getStats(mainConnection, jogadoresConnection);
     lastUpdate = await getLastUpdate(mainConnection);
 
   } catch (error) {
-    console.error("Erro geral na StatsPage:", error);
+    console.error("Erro na StatsPage:", error);
   } finally {
     if (mainConnection) await mainConnection.end().catch(() => {});
     if (jogadoresConnection) await jogadoresConnection.end().catch(() => {});
   }
 
-  // Renderização (mantenha igual ao seu original)
   if (allStats.length === 0) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-500 mb-4">Erro ao carregar estatísticas</h1>
-          <p className="text-gray-400">Verifique a conexão com o banco de dados.</p>
-        </div>
+        <h1 className="text-xl text-red-500">Erro: Tabela de estatísticas vazia ou erro no banco.</h1>
       </div>
     );
   }
