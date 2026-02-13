@@ -1,22 +1,48 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { getPools } from '@/lib/db'
+import { createMainConnection } from "@/lib/db";
+import type { RowDataPacket } from "mysql2";
 
-export const revalidate = 0; 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type Env = {
+  DB_PRINCIPAL: {
+    host: string;
+    user: string;
+    password: string;
+    database: string;
+    port: number;
+  };
+  DB_JOGADORES: {
+    host: string;
+    user: string;
+    password: string;
+    database: string;
+    port: number;
+  };
+};
+
+type MetadataRow = RowDataPacket & {
+  value: string;
+};
 
 export async function GET() {
-  let env = {};
   try {
-    const ctx = await getCloudflareContext();
-    env = ctx.env;
-  } catch (e) { }
-  const { mainPool: pool } = getPools(env);
+    const ctx = await getCloudflareContext({ async: true });
+    const env = ctx.env as unknown as Env;
+    const connection = await createMainConnection(env);
 
-  try {
-    const [rows] = await pool.query("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
-    const lastUpdate = (rows as any[])[0]?.value || new Date().toISOString();
-    return NextResponse.json({ lastUpdate })
-  } catch (error) {
-    return NextResponse.json({ lastUpdate: new Date().toISOString() })
+    const [rows] = await connection.query<MetadataRow[]>(
+      "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
+    );
+
+    await connection.end();
+
+    const lastUpdate = rows[0]?.value || new Date().toISOString();
+
+    return NextResponse.json({ lastUpdate });
+  } catch {
+    return NextResponse.json({ lastUpdate: new Date().toISOString() });
   }
 }

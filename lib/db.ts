@@ -1,23 +1,36 @@
-import mysql from "mysql2";
+// mysql2 v3.13.0 or later is required
+import { createConnection } from "mysql2/promise";
 
-export function createMainConnection(env: any) {
-  if (!env?.DB_PRINCIPAL?.connectionString) {
-    throw new Error("Hyperdrive binding DB_PRINCIPAL não encontrado.");
-  }
+export type HyperdriveBinding = {
+  host: string;
+  user: string;
+  password: string;
+  database: string;
+  port: number;
+};
 
-  return mysql.createConnection({
-    uri: env.DB_PRINCIPAL.connectionString,
-    decimalNumbers: true,
+export type Env = {
+  DB_PRINCIPAL: HyperdriveBinding;
+  DB_JOGADORES: HyperdriveBinding;
+};
+
+async function createHyperdriveConnection(binding: HyperdriveBinding) {
+  return createConnection({
+    host: binding.host,
+    user: binding.user,
+    password: binding.password,
+    database: binding.database,
+    port: binding.port,
+
+    // Obrigatório para Cloudflare Workers
+    disableEval: true,
   });
 }
 
-export function createJogadoresConnection(env: any) {
-  if (!env?.DB_jogadores?.connectionString) {
-    throw new Error("Hyperdrive binding DB_jogadores não encontrado.");
-  }
+export async function createMainConnection(env: Env) {
+  return createHyperdriveConnection(env.DB_PRINCIPAL);
+}
 
-  return mysql.createConnection({
-    uri: env.DB_jogadores.connectionString,
-    decimalNumbers: true,
-  });
+export async function createJogadoresConnection(env: Env) {
+  return createHyperdriveConnection(env.DB_JOGADORES);
 }

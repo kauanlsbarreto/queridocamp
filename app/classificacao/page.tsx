@@ -18,17 +18,12 @@ type TeamRow = RowDataPacket & {
 };
 
 async function getTeams(connection: any) {
-  const rows: TeamRow[] = await new Promise((resolve, reject) => {
-    connection.query(
-      "SELECT * FROM team_config ORDER BY sp DESC, df DESC",
-      (err: Error | null, results: RowDataPacket[]) => {
-        if (err) reject(err);
-        else resolve(results as TeamRow[]);
-      }
-    );
-  });
+  // Cast para TeamRow[] para evitar erro de generics no TypeScript
+  const [rows] = await connection.execute(
+    "SELECT * FROM team_config ORDER BY sp DESC, df DESC"
+  ) as [TeamRow[], any];
 
-  return rows.map((row) => ({
+  return rows.map((row: TeamRow) => ({
     id: row.id,
     name: row.team_name,
     logo: row.team_image,
@@ -40,32 +35,23 @@ async function getTeams(connection: any) {
 }
 
 async function getLastUpdate(connection: any) {
-  const rows: (RowDataPacket & { value: string })[] = await new Promise(
-    (resolve, reject) => {
-      connection.query(
-        "SELECT value FROM site_metadata WHERE key_name = 'last_update'",
-        (err: Error | null, results: RowDataPacket[]) => {
-          if (err) reject(err);
-          else resolve(results as (RowDataPacket & { value: string })[]);
-        }
-      );
-    }
-  );
+  const [rows] = await connection.execute(
+    "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
+  ) as [({ value: string })[], any];
 
   return rows[0]?.value || new Date().toISOString();
 }
 
 export default async function Classificacao() {
+  let connection: any;
   try {
     const ctx = await getCloudflareContext();
     const env = ctx.env as any;
 
-    const connection = createMainConnection(env);
+    connection = await createMainConnection(env);
 
     const teams = await getTeams(connection);
     const lastUpdate = await getLastUpdate(connection);
-
-    connection.end();
 
     return (
       <div>
@@ -85,11 +71,12 @@ export default async function Classificacao() {
     );
   } catch (error) {
     console.error("Erro ao renderizar classificação:", error);
-
     return (
       <div className="py-16 text-center text-white">
         Erro ao carregar classificação.
       </div>
     );
+  } finally {
+    if (connection) await connection.end(); // fecha a conexão
   }
 }

@@ -1,126 +1,165 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { getPools } from '@/lib/db';
-import { randomBytes } from 'crypto';
+import { createMainConnection } from "@/lib/db";
+import type { RowDataPacket, ResultSetHeader } from "mysql2";
+import { randomBytes } from "crypto";
 
-async function createAchievementsTable(pool: any) {
-  const connection = await pool.getConnection();
-  try {
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS codigos_sistema (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        codigo VARCHAR(255) NOT NULL UNIQUE,
-        tipo ENUM('campeonato', 'MVP') NOT NULL,
-        nome VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-  } finally {
-    connection.release();
-  }
+export const dynamic = "force-dynamic";
+
+type Env = {
+  DB_PRINCIPAL: {
+    host: string;
+    user: string;
+    password: string;
+    database: string;
+    port: number;
+  };
+  DB_JOGADORES: {
+    host: string;
+    user: string;
+    password: string;
+    database: string;
+    port: number;
+  };
+};
+
+type CodigoRow = RowDataPacket & {
+  id: number;
+  codigo: string;
+  tipo: "campeonato" | "MVP";
+  nome: string;
+  created_at: string;
+};
+
+async function createAchievementsTable(connection: any) {
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS codigos_sistema (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      codigo VARCHAR(255) NOT NULL UNIQUE,
+      tipo ENUM('campeonato', 'MVP') NOT NULL,
+      nome VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 }
 
 export async function POST(req: Request) {
-  let env = {};
   try {
-    const ctx = await getCloudflareContext();
-    env = ctx.env;
-  } catch (e) { }
-  const { mainPool: pool } = getPools(env);
+    const ctx = await getCloudflareContext({ async: true });
+    const env = ctx.env as unknown as Env;
+    const connection = await createMainConnection(env);
 
-  try {
     const { tipo, nome, codigo } = await req.json();
 
     if (!tipo || !nome) {
-      return NextResponse.json({ message: 'Tipo e nome são obrigatórios.' }, { status: 400 });
-    }
-
-    const codeToUse = codigo || randomBytes(8).toString('hex');
-
-    // Ensure table exists before inserting
-    await createAchievementsTable(pool);
-
-    const connection = await pool.getConnection();
-    try {
-      await connection.query(
-        'INSERT INTO codigos_sistema (codigo, tipo, nome) VALUES (?, ?, ?)',
-        [codeToUse, tipo, nome]
+      await connection.end();
+      return NextResponse.json(
+        { message: "Tipo e nome são obrigatórios." },
+        { status: 400 }
       );
-      return NextResponse.json({ codigo: codeToUse, tipo, nome });
-    } finally {
-      connection.release();
     }
-  } catch (error) {
-    console.error('Erro na API /api/admin/achievements:', error);
-    return NextResponse.json({ message: 'Erro interno do servidor' }, { status: 500 });
+
+    const codeToUse = codigo || randomBytes(8).toString("hex");
+
+    await createAchievementsTable(connection);
+
+    await connection.query<ResultSetHeader>(
+      "INSERT INTO codigos_sistema (codigo, tipo, nome) VALUES (?, ?, ?)",
+      [codeToUse, tipo, nome]
+    );
+
+    await connection.end();
+
+    return NextResponse.json({ codigo: codeToUse, tipo, nome });
+  } catch {
+    return NextResponse.json(
+      { message: "Erro interno do servidor" },
+      { status: 500 }
+    );
   }
 }
 
 export async function GET() {
-  let env = {};
   try {
-    const ctx = await getCloudflareContext();
-    env = ctx.env;
-  } catch (e) { }
-  const { mainPool: pool } = getPools(env);
+    const ctx = await getCloudflareContext({ async: true });
+    const env = ctx.env as unknown as Env;
+    const connection = await createMainConnection(env);
 
-  try {
-    const [rows] = await pool.query('SELECT * FROM codigos_sistema ORDER BY created_at DESC');
+    const [rows] = await connection.query<CodigoRow[]>(
+      "SELECT * FROM codigos_sistema ORDER BY created_at DESC"
+    );
+
+    await connection.end();
+
     return NextResponse.json(rows);
-  } catch (error) {
-    return NextResponse.json({ message: 'Erro ao buscar códigos' }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { message: "Erro ao buscar códigos" },
+      { status: 500 }
+    );
   }
 }
 
 export async function PUT(req: Request) {
-  let env = {};
   try {
-    const ctx = await getCloudflareContext();
-    env = ctx.env;
-  } catch (e) { }
-  const { mainPool: pool } = getPools(env);
+    const ctx = await getCloudflareContext({ async: true });
+    const env = ctx.env as unknown as Env;
+    const connection = await createMainConnection(env);
 
-  try {
     const { id, nome, codigo } = await req.json();
+
     if (!id || !nome || !codigo) {
-      return NextResponse.json({ message: 'Dados incompletos.' }, { status: 400 });
-    }
-    const connection = await pool.getConnection();
-    try {
-      await connection.query(
-        'UPDATE codigos_sistema SET nome = ?, codigo = ? WHERE id = ?',
-        [nome, codigo, id]
+      await connection.end();
+      return NextResponse.json(
+        { message: "Dados incompletos." },
+        { status: 400 }
       );
-      return NextResponse.json({ success: true });
-    } finally {
-      connection.release();
     }
-  } catch (error) {
-    return NextResponse.json({ message: 'Erro ao atualizar código' }, { status: 500 });
+
+    await connection.query<ResultSetHeader>(
+      "UPDATE codigos_sistema SET nome = ?, codigo = ? WHERE id = ?",
+      [nome, codigo, id]
+    );
+
+    await connection.end();
+
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json(
+      { message: "Erro ao atualizar código" },
+      { status: 500 }
+    );
   }
 }
 
 export async function DELETE(req: Request) {
-  let env = {};
   try {
-    const ctx = await getCloudflareContext();
-    env = ctx.env;
-  } catch (e) { }
-  const { mainPool: pool } = getPools(env);
+    const ctx = await getCloudflareContext({ async: true });
+    const env = ctx.env as unknown as Env;
+    const connection = await createMainConnection(env);
 
-  try {
     const { id } = await req.json();
+
     if (!id) {
-      return NextResponse.json({ message: 'ID é obrigatório.' }, { status: 400 });
+      await connection.end();
+      return NextResponse.json(
+        { message: "ID é obrigatório." },
+        { status: 400 }
+      );
     }
-    const connection = await pool.getConnection();
-    try {
-      await connection.query('DELETE FROM codigos_sistema WHERE id = ?', [id]);
-      return NextResponse.json({ success: true });
-    } finally {
-      connection.release();
-    }
-  } catch (error) {
-    return NextResponse.json({ message: 'Erro ao excluir código' }, { status: 500 });
+
+    await connection.query<ResultSetHeader>(
+      "DELETE FROM codigos_sistema WHERE id = ?",
+      [id]
+    );
+
+    await connection.end();
+
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json(
+      { message: "Erro ao excluir código" },
+      { status: 500 }
+    );
   }
 }

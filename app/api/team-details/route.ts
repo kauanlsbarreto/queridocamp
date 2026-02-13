@@ -1,32 +1,66 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { getPools } from '@/lib/db'
+import { createMainConnection } from "@/lib/db";
+import type { RowDataPacket } from "mysql2";
+
+export const dynamic = "force-dynamic";
+
+type Env = {
+  DB_PRINCIPAL: {
+    host: string;
+    user: string;
+    password: string;
+    database: string;
+    port: number;
+  };
+  DB_JOGADORES: {
+    host: string;
+    user: string;
+    password: string;
+    database: string;
+    port: number;
+  };
+};
+
+type MatchRow = RowDataPacket & {
+  id: number;
+  time1: string;
+  time2: string;
+  data?: string;
+  resultado?: string;
+};
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const teamName = searchParams.get("teamName");
-
-  let env = {};
+  let connection: any;
   try {
-    const ctx = await getCloudflareContext();
-    env = ctx.env;
-  } catch (e) { }
-  const { mainPool: pool } = getPools(env);
+    const { searchParams } = new URL(request.url);
+    const teamName = searchParams.get("teamName");
 
-  if (!teamName) {
-    return NextResponse.json({ error: "Time não especificado" }, { status: 400 });
-  }
+    if (!teamName) {
+      return NextResponse.json(
+        { error: "Time não especificado" },
+        { status: 400 }
+      );
+    }
 
-  try {
-    // Busca as partidas relacionadas ao time
-    const [matches]: any = await pool.query(
+    const ctx = await getCloudflareContext({ async: true });
+    const env = ctx.env as unknown as Env;
+
+    connection = await createMainConnection(env);
+
+    const [matches] = await connection.execute(
       "SELECT * FROM jogos WHERE time1 = ? OR time2 = ?",
       [teamName, teamName]
-    );
+    ) as [MatchRow[], any];
 
     return NextResponse.json({ matches });
   } catch (error) {
     console.error("Erro no Banco:", error);
-    return NextResponse.json({ error: "Erro ao conectar ao banco" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erro ao conectar ao banco" },
+      { status: 500 }
+    );
+  } finally {
+    if (connection) await connection.end(); 
   }
 }
