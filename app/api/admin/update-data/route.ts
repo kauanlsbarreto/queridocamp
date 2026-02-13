@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Verificar permissão de admin
-    const [rows]: any = await connection.execute(
+    const [rows]: any = await connection.query(
       "SELECT admin FROM players WHERE faceit_guid = ?",
       [faceit_guid]
     );

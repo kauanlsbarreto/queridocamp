@@ -5,63 +5,88 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, createJogadoresConnection } from '@/lib/db';
 import type { Env } from '@/lib/db';
 
-export const revalidate = 86400; // Cache de 24h
+export const revalidate = 86400;
+export const dynamic = "force-dynamic";
+
+function calculateSimilarity(str1: string, str2: string): number {
+  const s1 = (str1 || '').toLowerCase().trim();
+  const s2 = (str2 || '').toLowerCase().trim();
+  if (!s1 || !s2) return 0.0;
+  if (s1 === s2) return 1.0;
+
+  const len1 = s1.length;
+  const len2 = s2.length;
+  const maxLen = Math.max(len1, len2);
+  const matrix: number[][] = Array.from({ length: len2 + 1 }, (_, i) => [i]);
+  for (let j = 0; j <= len1; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= len2; i++) {
+    for (let j = 1; j <= len1; j++) {
+      if (s2.charAt(i - 1) === s1.charAt(j - 1)) matrix[i][j] = matrix[i - 1][j - 1];
+      else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
+    }
+  }
+  return 1.0 - matrix[len2][len1] / maxLen;
+}
 
 async function getLastUpdate(connection: any) {
   try {
-    const [rows] = await connection.query(
+    const [rows]: any = await connection.query(
       "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
-    ) as [{ value: string }[], any];
-
+    );
     return rows[0]?.value || new Date().toISOString();
   } catch (error) {
-    console.error("Erro ao buscar lastUpdate:", error);
     return new Date().toISOString();
   }
 }
 
-async function getStats(connection: any, jogadoresConnection: any) {
+async function getStats(mainConn: any, jogadoresConn: any) {
   try {
-    // Busca stats
-    const [statsRows] = await connection.query(
+    const [statsRows]: any = await mainConn.query(
       "SELECT * FROM top90_stats ORDER BY kd DESC, adr DESC, kr DESC, k DESC"
-    ) as [any[], any];
+    );
+    const [playersRows]: any = await jogadoresConn.query("SELECT nick, pote FROM jogadores");
+    const [faceitRows]: any = await jogadoresConn.query("SELECT faceit_nickname, fotoperfil FROM faceit_players");
 
-    // Busca jogadores para adicionar pote
-    const [playersRows] = await jogadoresConnection.query(
-      "SELECT nick, pote FROM jogadores"
-    ) as [any[], any];
+    const nickToPote = new Map(playersRows.map((p: any) => [p.nick?.toLowerCase(), p.pote]));
+    const nickToImage = new Map(faceitRows.map((f: any) => [f.faceit_nickname?.toLowerCase(), f.fotoperfil]));
 
-    // Busca imagens dos jogadores
-    const [faceitRows] = await jogadoresConnection.query(
-      "SELECT faceit_nickname, fotoperfil FROM faceit_players"
-    ) as [any[], any];
+    return statsRows.map((stat: any) => {
+      const searchNick = stat.nick?.toLowerCase() || "";
+      
+      let pote = nickToPote.get(searchNick);
+      let foto = nickToImage.get(searchNick);
 
-    // Mapear nick -> pote
-    const nickToPote = new Map<string, number>();
-    playersRows.forEach(p => {
-      if (p.nick) nickToPote.set(p.nick.toLowerCase(), Number(p.pote));
-    });
-
-    // Mapear nick -> fotoperfil
-    const nickToImage = new Map<string, string>();
-    faceitRows.forEach(f => {
-      if (f.faceit_nickname && f.fotoperfil) {
-        nickToImage.set(f.faceit_nickname.toLowerCase(), f.fotoperfil);
+      if (pote === undefined) {
+        let bestSim = 0;
+        for (const p of playersRows) {
+          const sim = calculateSimilarity(stat.nick, p.nick);
+          if (sim > 0.60 && sim > bestSim) {
+            bestSim = sim;
+            pote = p.pote;
+          }
+        }
       }
+
+      if (!foto) {
+        let bestSim = 0;
+        for (const f of faceitRows) {
+          const sim = calculateSimilarity(stat.nick, f.faceit_nickname);
+          if (sim > 0.85 && sim > bestSim) {
+            bestSim = sim;
+            foto = f.fotoperfil;
+          }
+        }
+      }
+
+      return {
+        ...stat,
+        pote: pote || 0,
+        faceit_image: foto || '/images/cs2-player.png'
+      };
     });
-
-    // Enriquecer stats com pote e foto
-    const enrichedStats = statsRows.map(stat => ({
-      ...stat,
-      pote: nickToPote.get(stat.nick?.toLowerCase() || "") || 0,
-      faceit_image: nickToImage.get(stat.nick?.toLowerCase() || "") || '/images/cs2-player.png'
-    }));
-
-    return enrichedStats;
-
   } catch (error) {
-    console.error("Erro ao buscar estatísticas:", error);
+    console.error("Erro no processamento de stats:", error);
     return [];
   }
 }
@@ -79,31 +104,24 @@ export default async function StatsPage() {
     mainConnection = await createMainConnection(env);
     jogadoresConnection = await createJogadoresConnection(env);
 
-    const [statsResult, lastUpdateResult] = await Promise.all([
-      getStats(mainConnection, jogadoresConnection),
-      getLastUpdate(mainConnection)
-    ]);
-
-    allStats = statsResult;
-    lastUpdate = lastUpdateResult;
+    // Execução sequencial para estabilidade no Hyperdrive
+    allStats = await getStats(mainConnection, jogadoresConnection);
+    lastUpdate = await getLastUpdate(mainConnection);
 
   } catch (error) {
     console.error("Erro geral na StatsPage:", error);
   } finally {
-    if (mainConnection) await mainConnection.end?.();
-    if (jogadoresConnection) await jogadoresConnection.end?.();
+    if (mainConnection) await mainConnection.end().catch(() => {});
+    if (jogadoresConnection) await jogadoresConnection.end().catch(() => {});
   }
 
+  // Renderização (mantenha igual ao seu original)
   if (allStats.length === 0) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <AdPropaganda
-          videoSrc="/videosad/radiante.mp4"
-          redirectUrl="https://industriaradiante.com.br/"
-        />
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-500 mb-4">Erro ao carregar estatísticas</h1>
-          <p className="text-gray-400">Não foi possível carregar as estatísticas no momento.</p>
+          <p className="text-gray-400">Verifique a conexão com o banco de dados.</p>
         </div>
       </div>
     );
@@ -111,10 +129,7 @@ export default async function StatsPage() {
 
   return (
     <div className="min-h-screen bg-black">
-      <AdPropaganda
-        videoSrc="/videosad/radiante.mp4"
-        redirectUrl="https://industriaradiante.com.br/"
-      />
+      <AdPropaganda videoSrc="/videosad/radiante.mp4" redirectUrl="https://industriaradiante.com.br/" />
       <section className="py-12 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           <UpdateTimer lastUpdate={lastUpdate} />
