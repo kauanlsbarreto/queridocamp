@@ -1,26 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { createMainConnection } from "@/lib/db";
+import { createMainConnection, type Env } from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
 
 export const dynamic = "force-dynamic";
-
-type Env = {
-  DB_PRINCIPAL: {
-    host: string;
-    user: string;
-    password: string;
-    database: string;
-    port: number;
-  };
-  DB_JOGADORES: {
-    host: string;
-    user: string;
-    password: string;
-    database: string;
-    port: number;
-  };
-};
 
 type MatchRow = RowDataPacket & {
   id: number;
@@ -34,13 +17,19 @@ export async function GET(request: Request) {
   let connection: any;
   try {
     const { searchParams } = new URL(request.url);
-    const teamName = searchParams.get("teamName");
+    let teamName = searchParams.get("teamName");
 
     if (!teamName) {
       return NextResponse.json(
         { error: "Time não especificado" },
         { status: 400 }
       );
+    }
+
+    teamName = teamName.trim();
+
+    if (teamName === "22Cao Na Chapa") {
+      teamName = "22Cao";
     }
 
     const ctx = await getCloudflareContext({ async: true });
