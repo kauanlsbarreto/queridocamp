@@ -42,50 +42,32 @@ export async function GET(req: Request) {
     const faceit_guid = searchParams.get("faceit_guid");
     const nickname = searchParams.get("nickname");
 
+    let query = "SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players";
+    let params: any[] = [];
+
     if (id) {
-      const [rows] = await connection.query<PlayerRow[]>(
-        "SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players WHERE id = ?",
-        [id]
-      );
-      await connection.end();
-      if (rows.length === 0)
-        return NextResponse.json({ message: "Player not found" }, { status: 404 });
-      return NextResponse.json(rows[0]);
+      query += " WHERE id = ?";
+      params.push(id);
+    } else if (nickname) {
+      query += " WHERE nickname = ?";
+      params.push(nickname);
+    } else if (faceit_guid) {
+      query += " WHERE faceit_guid = ?";
+      params.push(faceit_guid);
+    } else {
+      query += " ORDER BY nickname ASC";
     }
 
-    if (nickname) {
-      const [rows] = await connection.query<PlayerRow[]>(
-        "SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players WHERE nickname = ?",
-        [nickname]
-      );
-      await connection.end();
-      if (rows.length === 0)
-        return NextResponse.json({ message: "Player not found" }, { status: 404 });
-      return NextResponse.json(rows[0]);
-    }
-
-    if (faceit_guid) {
-      const [rows] = await connection.query<PlayerRow[]>(
-        "SELECT id, nickname, admin, faceit_guid, avatar, adicionados FROM players WHERE faceit_guid = ?",
-        [faceit_guid]
-      );
-      await connection.end();
-      if (rows.length === 0)
-        return NextResponse.json({ message: "Player not found" }, { status: 404 });
-      return NextResponse.json(rows[0]);
-    }
-
-    const [rows] = await connection.query<PlayerRow[]>(
-      "SELECT id, nickname, admin, faceit_guid, adicionados FROM players ORDER BY nickname ASC"
-    );
-
+    const [rows] = await connection.query<PlayerRow[]>(query, params);
     await connection.end();
-    return NextResponse.json(rows);
-  } catch {
-    return NextResponse.json(
-      { message: "Erro interno do servidor" },
-      { status: 500 }
-    );
+
+    if ((id || nickname || faceit_guid) && rows.length === 0)
+      return NextResponse.json({ message: "Player not found" }, { status: 404 });
+
+    return NextResponse.json((id || nickname || faceit_guid) ? rows[0] : rows);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ message: "Erro interno do servidor" }, { status: 500 });
   }
 }
 
@@ -105,8 +87,7 @@ export async function POST(req: Request) {
       );
     }
 
-    let query =
-      "UPDATE players SET admin = ? WHERE faceit_guid = ? OR nickname = ?";
+    let query = "UPDATE players SET admin = ? WHERE faceit_guid = ? OR nickname = ?";
     let params: any[] = [adminLevel, identifier, identifier];
 
     if (/^\d+$/.test(identifier)) {
@@ -115,20 +96,15 @@ export async function POST(req: Request) {
     }
 
     const [result] = await connection.query<ResultSetHeader>(query, params);
-
     await connection.end();
 
     if (result.affectedRows === 0)
       return NextResponse.json({ message: "Player not found." }, { status: 404 });
 
-    return NextResponse.json({
-      message: "Admin level updated successfully.",
-    });
-  } catch {
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Admin level updated successfully." });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -142,36 +118,29 @@ export async function PUT(req: Request) {
 
     if (!userId) {
       await connection.end();
-      return NextResponse.json(
-        { message: "User ID is required." },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "User ID is required." }, { status: 400 });
     }
 
     if (adminLevel !== undefined) {
-      await connection.query<ResultSetHeader>(
-        "UPDATE players SET admin = ? WHERE id = ?",
-        [adminLevel, userId]
-      );
+      await connection.query<ResultSetHeader>("UPDATE players SET admin = ? WHERE id = ?", [
+        adminLevel,
+        userId,
+      ]);
     }
 
     if (adicionados !== undefined) {
-      await connection.query<ResultSetHeader>(
-        "UPDATE players SET adicionados = ? WHERE id = ?",
-        [adicionados, userId]
-      );
+      await connection.query<ResultSetHeader>("UPDATE players SET adicionados = ? WHERE id = ?", [
+        adicionados,
+        userId,
+      ]);
     }
 
     await connection.end();
 
-    return NextResponse.json({
-      message: "Player updated successfully.",
-    });
-  } catch {
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Player updated successfully." });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -188,10 +157,10 @@ export async function PATCH(req: Request) {
 
       await connection.query("SET FOREIGN_KEY_CHECKS=0");
 
-      await connection.query<ResultSetHeader>(
-        "UPDATE players SET id = ? WHERE id = ?",
-        [newId, originalId]
-      );
+      await connection.query<ResultSetHeader>("UPDATE players SET id = ? WHERE id = ?", [
+        newId,
+        originalId,
+      ]);
 
       await connection.query<ResultSetHeader>(
         "UPDATE codigos_conquistas SET resgatado_por = ? WHERE resgatado_por = ?",
@@ -202,28 +171,22 @@ export async function PATCH(req: Request) {
 
       await connection.end();
 
-      return NextResponse.json({
-        message: "Player ID updated successfully.",
-      });
+      return NextResponse.json({ message: "Player ID updated successfully." });
     }
 
     const { userId, faceitGuid } = body;
 
     if (userId && faceitGuid) {
-      await connection.query<ResultSetHeader>(
-        "UPDATE players SET faceit_guid = ? WHERE id = ?",
-        [faceitGuid, userId]
-      );
+      await connection.query<ResultSetHeader>("UPDATE players SET faceit_guid = ? WHERE id = ?", [
+        faceitGuid,
+        userId,
+      ]);
 
       await connection.end();
-
-      return NextResponse.json({
-        message: "Faceit GUID updated successfully.",
-      });
+      return NextResponse.json({ message: "Faceit GUID updated successfully." });
     }
 
     await connection.end();
-
     return NextResponse.json(
       {
         message:
@@ -231,10 +194,8 @@ export async function PATCH(req: Request) {
       },
       { status: 400 }
     );
-  } catch {
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 // mysql2 v3.13.0 or later is required
-import { createConnection } from "mysql2/promise";
+import { createConnection, Connection } from "mysql2/promise";
 
 export type HyperdriveBinding = {
   host: string;
@@ -10,27 +10,50 @@ export type HyperdriveBinding = {
 };
 
 export type Env = {
-  DB_PRINCIPAL: HyperdriveBinding;
-  DB_JOGADORES: HyperdriveBinding;
+  DB_PRINCIPAL?: HyperdriveBinding;
+  DB_JOGADORES?: HyperdriveBinding;
 };
 
-async function createHyperdriveConnection(binding: HyperdriveBinding) {
-  return createConnection({
-    host: binding.host,
-    user: binding.user,
-    password: binding.password,
-    database: binding.database,
-    port: binding.port,
+/**
+ * Cria uma conexão MySQL usando as variáveis do binding Hyperdrive
+ * Conforme exemplo oficial do Cloudflare Hyperdrive
+ * https://developers.cloudflare.com/hyperdrive/examples/connect-to-mysql/
+ */
+export async function connectToDB(binding: HyperdriveBinding): Promise<Connection> {
+  if (!binding) {
+    throw new Error("Binding para conexão MySQL não foi definido");
+  }
 
-    // Obrigatório para Cloudflare Workers
+  const { host, user, password, database, port } = binding;
+
+  return createConnection({
+    host,
+    user,
+    password,
+    database,
+    port,
+
+    // necessária para compatibilidade com Workers/Hyperdrive
     disableEval: true,
   });
 }
 
-export async function createMainConnection(env: Env) {
-  return createHyperdriveConnection(env.DB_PRINCIPAL);
+/**
+ * Conexão para o banco principal
+ */
+export async function createMainConnection(env: Env): Promise<Connection> {
+  if (!env.DB_PRINCIPAL) {
+    throw new Error("Variável de ambiente DB_PRINCIPAL não configurada");
+  }
+  return connectToDB(env.DB_PRINCIPAL);
 }
 
-export async function createJogadoresConnection(env: Env) {
-  return createHyperdriveConnection(env.DB_JOGADORES);
+/**
+ * Conexão para o banco de jogadores
+ */
+export async function createJogadoresConnection(env: Env): Promise<Connection> {
+  if (!env.DB_JOGADORES) {
+    throw new Error("Variável de ambiente DB_JOGADORES não configurada");
+  }
+  return connectToDB(env.DB_JOGADORES);
 }

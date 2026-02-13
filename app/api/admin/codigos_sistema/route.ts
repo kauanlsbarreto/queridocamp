@@ -43,7 +43,8 @@ export async function GET() {
     await connection.end();
 
     return NextResponse.json(rows);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json(
       { message: "Erro ao buscar códigos" },
       { status: 500 }
@@ -88,7 +89,8 @@ export async function POST(req: Request) {
     await connection.end();
 
     return NextResponse.json({ success: true, codigo });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json(
       { message: "Erro ao criar código" },
       { status: 500 }
@@ -120,7 +122,8 @@ export async function PUT(req: Request) {
     await connection.end();
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json(
       { message: "Erro ao atualizar código" },
       { status: 500 }
@@ -152,7 +155,8 @@ export async function DELETE(req: Request) {
     await connection.end();
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json(
       { message: "Erro ao deletar código" },
       { status: 500 }

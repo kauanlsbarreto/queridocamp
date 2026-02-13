@@ -31,7 +31,8 @@ type CodigoRow = RowDataPacket & {
   created_at: string;
 };
 
-async function createAchievementsTable(connection: any) {
+/** Garante que a tabela exista antes de inserir */
+async function ensureAchievementsTable(connection: any) {
   await connection.query(`
     CREATE TABLE IF NOT EXISTS codigos_sistema (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
 
     const codeToUse = codigo || randomBytes(8).toString("hex");
 
-    await createAchievementsTable(connection);
+    await ensureAchievementsTable(connection);
 
     await connection.query<ResultSetHeader>(
       "INSERT INTO codigos_sistema (codigo, tipo, nome) VALUES (?, ?, ?)",
@@ -71,7 +72,8 @@ export async function POST(req: Request) {
     await connection.end();
 
     return NextResponse.json({ codigo: codeToUse, tipo, nome });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json(
       { message: "Erro interno do servidor" },
       { status: 500 }
@@ -92,7 +94,8 @@ export async function GET() {
     await connection.end();
 
     return NextResponse.json(rows);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json(
       { message: "Erro ao buscar códigos" },
       { status: 500 }
@@ -124,7 +127,8 @@ export async function PUT(req: Request) {
     await connection.end();
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json(
       { message: "Erro ao atualizar código" },
       { status: 500 }
@@ -156,7 +160,8 @@ export async function DELETE(req: Request) {
     await connection.end();
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json(
       { message: "Erro ao excluir código" },
       { status: 500 }

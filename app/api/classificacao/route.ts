@@ -55,7 +55,8 @@ export async function GET() {
     }));
 
     return NextResponse.json(teams);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json([], { status: 500 });
   }
 }
