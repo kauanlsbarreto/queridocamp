@@ -83,7 +83,7 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
 
   let mainConnection: any;
   let jogadoresConnection: any;
-  let playersData: { playersWithTeams: any[], totalPages: number } = { playersWithTeams: [], totalPages: 0 };
+  let playersData = { playersWithTeams: [], totalPages: 0 };
   let lastUpdate = new Date().toISOString();
 
   try {
@@ -94,24 +94,6 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
     jogadoresConnection = await createJogadoresConnection(env);
 
     playersData = await getPlayersData(mainConnection, jogadoresConnection, offset);
-    
-    const updatedPlayers = await Promise.all((playersData.playersWithTeams || []).map(async (player: any) => {
-      if (!player.faceit_guid || player.id === 0) return player;
-      try {
-        const res = await fetch(`https://open.faceit.com/data/v4/players/${player.faceit_guid}`, {
-          headers: { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' }
-        });
-        if (res.ok) {
-          const faceitData = await res.json();
-          return { ...player, faceit_data: faceitData };
-        }
-        return player;
-      } catch (error) {
-        return player;
-      }
-    }));
-    playersData.playersWithTeams = updatedPlayers;
-
     lastUpdate = await getLastUpdate(mainConnection);
 
   } catch (error: any) {

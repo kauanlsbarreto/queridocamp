@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import PremiumCard from "@/components/premium-card";
 import Image from "next/image";
+import Link from "next/link"; // Adicionado para navegação
 import { User, Shield, Gamepad2, MessageSquare, Search } from "lucide-react";
 
 interface Player {
@@ -32,7 +33,6 @@ const PlayerAvatar = ({ src, alt }: { src?: string; alt: string }) => {
       className="object-cover"
       onError={() => setImgSrc(placeholder)}
       unoptimized={imgSrc.startsWith('http')}
-      
     />
   );
 };
@@ -45,36 +45,24 @@ interface TeamData {
 }
 
 export default function TeamsList({ teams }: { teams: TeamData[] }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const initialSearch = searchParams.get('search') || '';
-  const [searchTerm, setSearchTerm] = useState(initialSearch);
-  const poteOrder = [4, 5, 1, 2, 3];
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      router.refresh();
-    }, 600000);
-    return () => clearInterval(interval);
-  }, [router]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const filteredTeams = useMemo(() => {
     return teams.filter(team => 
       team.team_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      team.players.some(player => player.nick.toLowerCase().includes(searchTerm.toLowerCase()))
+      team.players.some(p => p.nick.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [teams, searchTerm]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
-        </div>
-        <input
-          type="text"
-          className="block w-full pl-10 pr-3 py-3 border border-gray-800 rounded-md leading-5 bg-gray-900/60 text-gray-300 placeholder-gray-500 focus:outline-none focus:bg-gray-900 focus:border-gold focus:ring-1 focus:ring-gold sm:text-sm transition duration-150 ease-in-out"
-          placeholder="Pesquisar time ou jogador..."
+    <div className="space-y-8">
+      {/* Barra de Busca */}
+      <div className="relative max-w-md mx-auto mb-12">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+        <input 
+          type="text" 
+          placeholder="BUSCAR TIME OU JOGADOR..." 
+          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white uppercase text-xs font-black italic tracking-widest focus:ring-2 focus:ring-gold/50 outline-none transition-all"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -82,130 +70,122 @@ export default function TeamsList({ teams }: { teams: TeamData[] }) {
 
       {filteredTeams.map((team, index) => (
         <motion.div
-          key={`${team.team_name}-${index}`}
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-50px" }}
-          transition={{ duration: 0.5, delay: (index % 5) * 0.1 }}
+          key={team.team_nick}
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.1 }}
         >
-          <PremiumCard hoverEffect={true}>
-            <div className="p-6 md:p-8">
-              <div className="flex flex-col items-center gap-8">
-                
-                <div className="flex flex-col items-center justify-center min-w-[220px]">
-                  <div className="relative w-36 h-36 mb-4 rounded-full overflow-hidden border-4 border-gold/20 shadow-[0_0_20px_rgba(255,215,0,0.15)] bg-black">
-                    {team.team_image ? (
-                      <Image 
-                        src={team.team_image} 
-                        alt={team.team_name}
-                        fill
-                        className="object-contain"
-                        sizes="(max-width: 768px) 100vw, 150px"
-                        unoptimized={team.team_image.startsWith('http')}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-600">
-                        <Shield size={48} />
-                      </div>
-                    )}
-                  </div>
-                  <h3 className="text-2xl font-bold text-gold text-center uppercase tracking-wide">
-                    {team.team_name === "Só Desculpa Nunca Erramos" ? (
-                      <>
-                        Só Desculpa
-                        <br />
-                        Nunca Erramos
-                      </>
-                    ) : (
-                      team.team_name
-                    )}
-                  </h3>
-                  <p className="text-gray-400 text-sm mt-1 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-gold inline-block"></span>
-                    Capitão: {team.team_nick}
-                  </p>
-                </div>
-
-                <div className="flex-1 w-full">
-                  <h4 className="text-white font-bold mb-8 border-b border-gray-800 pb-2 flex items-center justify-center">
-                    <User className="text-gold mr-2" size={20} />
-                    Line-up
-                  </h4>
+          {/* Link para a página individual do time */}
+          <Link href={`/times/${team.team_nick.toLowerCase()}`}>
+            <PremiumCard className="group hover:scale-[1.01] transition-all cursor-pointer overflow-hidden border-white/5 hover:border-gold/30">
+              <div className="p-6 md:p-8">
+                <div className="flex flex-col lg:flex-row gap-8 items-start">
                   
-                  <div className="flex flex-wrap justify-center gap-8 md:gap-12">
-                  {[...team.players].sort((a, b) => {
-                    const indexA = poteOrder.indexOf(a.pote);
-                    const indexB = poteOrder.indexOf(b.pote);
-                    return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-                  }).map((player) => (
-                    <div 
-                      key={player.id} 
-                      className="group relative flex flex-col items-center"
-                    >
-                      <div className={`relative w-28 h-28 rounded-full overflow-hidden border-2 ${!player.faceit_url ? 'border-gray-800 opacity-20 group-hover:opacity-100' : 'border-gray-700'} bg-black shadow-lg group-hover:border-gold/50 transition-all duration-300`}>
-                        <PlayerAvatar 
-                          src={player.faceit_image} 
-                          alt={player.nick}
+                  {/* Cabeçalho do Time (Lado Esquerdo) */}
+                  <div className="w-full lg:w-1/4 flex flex-col items-center text-center space-y-4">
+                    <div className="relative w-32 h-32 md:w-40 md:h-40">
+                      <div className="absolute inset-0 bg-gold/20 blur-3xl rounded-full group-hover:bg-gold/40 transition-all" />
+                      <div className="relative w-full h-full rounded-2xl overflow-hidden border-2 border-white/10 group-hover:border-gold/50 transition-all bg-black shadow-2xl">
+                        <Image 
+                          src={team.team_image || '/images/team-placeholder.png'} 
+                          alt={team.team_name} 
+                          fill 
+                          className="object-contain p-2"
+                          unoptimized
                         />
-                        
-                        <div className="absolute inset-0 bg-black/80 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          {player.faceit_url ? (
-                            <a 
-                              href={player.faceit_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="p-2 bg-[#ff5500] rounded-full text-white hover:scale-110 transition-transform"
-                              title="Perfil Faceit"
-                            >
-                              <div className="relative w-5 h-5">
-                                <Image 
-                                  src="/images/faceit.png" 
-                                  alt="Faceit" 
-                                  fill 
-                                  className="object-contain" 
-                                />
-                              </div>
-                            </a>
-                          ) : (
-                            <a 
-                              href="https://discord.com/channels/1357681113358930010/1403748672373657650" 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="px-3 py-1 bg-[#5865F2] rounded-full text-white text-[10px] font-bold hover:scale-105 transition-transform uppercase tracking-wider shadow-lg"
-                              title="Vincular Conta"
-                            >
-                              Vincular
-                            </a>
-                          )}
-                        </div>
                       </div>
-
-                      <span className="text-white font-bold text-xl mt-3 text-center">{player.nick}</span>
-                      
-                      <span className={`text-xs font-bold px-3 py-1 rounded-full border mt-2
-                        ${player.pote === 1 ? 'bg-gold/20 text-gold border-gold/30' : 
-                          player.pote === 2 ? 'bg-gray-300/20 text-gray-300 border-gray-300/30' :
-                          'bg-gray-700/30 text-gray-400 border-gray-700'
-                        }`}
-                      >
-                        Pote {player.pote}
-                        </span>
+                    </div>
+                    <div>
+                      <h2 className="text-2xl md:text-3xl font-black italic uppercase text-white tracking-tighter group-hover:text-gold transition-colors">
+                        {team.team_name}
+                      </h2>
+                      <div className="flex items-center justify-center gap-2 mt-2">
+                        <Shield size={14} className="text-gold" />
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Organização Ativa</span>
                       </div>
-                    ))}
-                    
-                    {team.players.length === 0 && (
-                      <div className="col-span-full text-center py-4 text-gray-500 italic bg-gray-900/30 rounded border border-dashed border-gray-800">
-                        Aguardando definição dos jogadores...
+                      {/* Botão Visual apenas para feedback do usuário */}
+                      <div className="mt-4 px-4 py-2 bg-white/5 rounded-lg border border-white/10 text-[9px] font-black uppercase text-zinc-400 group-hover:bg-gold group-hover:text-black transition-all">
+                        Ver Estatísticas Completas
                       </div>
-                    )}
+                    </div>
                   </div>
-                </div>
 
+                  {/* Lista de Jogadores (Lado Direito) */}
+                  <div className="w-full lg:w-3/4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
+                      {team.players.map((player) => (
+                        <div key={player.id} className="flex flex-col items-center bg-black/40 p-4 rounded-2xl border border-white/5 group-hover:border-white/10 transition-all">
+                          <div className="relative">
+                            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white/10 mb-3">
+                              <PlayerAvatar src={player.faceit_image} alt={player.nick} />
+                            </div>
+                            
+                            {/* Overlay de Links Rápidos (Parando propagação para não entrar no link do time se clicar neles) */}
+                            <div className="absolute -top-1 -right-1 flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
+                              {player.faceit_url && (
+                                <a 
+                                  href={player.faceit_url} 
+                                  target="_blank" 
+                                  className="p-1.5 bg-[#ff5500] rounded-full text-white hover:scale-110 transition-transform shadow-lg"
+                                  title="Faceit"
+                                >
+                                  <Gamepad2 size={10} />
+                                </a>
+                              )}
+                              {player.discord_id ? (
+                                <div 
+                                  className="p-1.5 bg-[#5865F2] rounded-full text-white shadow-lg cursor-help"
+                                  title={`Discord: ${player.discord_id}`}
+                                >
+                                  <MessageSquare size={10} />
+                                </div>
+                              ) : (
+                                <a 
+                                  href="/perfil" 
+                                  className="p-1.5 bg-zinc-800 rounded-full text-zinc-400 hover:scale-110 transition-transform uppercase tracking-wider shadow-lg"
+                                  title="Vincular Conta"
+                                >
+                                  <User size={10} />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+
+                          <span className="text-white font-bold text-sm mt-1 text-center truncate w-full uppercase italic">
+                            {player.nick}
+                          </span>
+                          
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border mt-2 uppercase tracking-tighter
+                            ${player.pote === 1 ? 'bg-gold/20 text-gold border-gold/30' : 
+                              player.pote === 2 ? 'bg-zinc-100/10 text-zinc-300 border-white/10' :
+                              'bg-zinc-800/50 text-zinc-500 border-zinc-700'
+                            }`}
+                          >
+                            Pote {player.pote}
+                          </span>
+                        </div>
+                      ))}
+                      
+                      {team.players.length === 0 && (
+                        <div className="col-span-full text-center py-8 text-zinc-600 text-[10px] font-black uppercase italic tracking-widest bg-white/5 rounded-2xl border border-dashed border-white/10">
+                          Aguardando definição dos jogadores...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
               </div>
-            </div>
-          </PremiumCard>
+            </PremiumCard>
+          </Link>
         </motion.div>
       ))}
+
+      {filteredTeams.length === 0 && (
+        <div className="text-center py-20">
+          <p className="text-zinc-500 font-black italic uppercase tracking-widest">Nenhum time encontrado com esse termo.</p>
+        </div>
+      )}
     </div>
   );
 }
