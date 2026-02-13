@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
     connection = await createMainConnection(env);
 
-    const [matches] = await connection.execute(
+    const [matches] = await connection.query(
       "SELECT * FROM jogos WHERE time1 = ? OR time2 = ?",
       [teamName, teamName]
     ) as [MatchRow[], any];
