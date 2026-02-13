@@ -1,5 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { getPools } from "./db";
+import { createMainConnection, createJogadoresConnection } from "./db";
 
 function calculateSimilarity(str1: string, str2: string): number {
   const s1 = (str1 || "").toLowerCase().trim();
@@ -23,93 +23,84 @@ function calculateSimilarity(str1: string, str2: string): number {
 }
 
 export async function getStatsData() {
-  let env = {};
+  let env: any = {};
+  let mainConnection: any;
+  let jogadoresConnection: any;
+
   try {
     const ctx = await getCloudflareContext();
     env = ctx.env;
-  } catch (error) {
-    // Fallback para ambiente local ou erro ao obter contexto
-  }
 
-  const { mainPool: poolStats, jogadoresPool: poolPlayers } = getPools(env);
+    mainConnection = await createMainConnection(env);
+    jogadoresConnection = await createJogadoresConnection(env);
 
-  try {
     const [statsResult, playersResult, faceitResult] = await Promise.all([
-      poolStats.query('SELECT * FROM top90_stats'),
-      poolPlayers.query('SELECT * FROM jogadores'),
-      poolPlayers.query('SELECT * FROM faceit_players')
+      mainConnection.execute('SELECT * FROM top90_stats') as [any[], any],
+      jogadoresConnection.execute('SELECT * FROM jogadores') as [any[], any],
+      jogadoresConnection.execute('SELECT * FROM faceit_players') as [any[], any],
     ]);
 
-    const statsRows = statsResult[0] as any[];
+    const statsRows = statsResult[0];
     const playersRows = (playersResult[0] as any[]).map(p => ({ ...p, pote: Number(p.pote) }));
-    const faceitPlayers = faceitResult[0] as any[];
+    const faceitPlayers = faceitResult[0];
 
-    const faceitMap = new Map();
+    const faceitMap = new Map<string, any>();
     faceitPlayers.forEach(fp => {
-      if (fp.faceit_nickname) {
-        faceitMap.set(fp.faceit_nickname.toLowerCase().trim(), fp);
-      }
+      if (fp.faceit_nickname) faceitMap.set(fp.faceit_nickname.toLowerCase().trim(), fp);
     });
 
-    const playersMap = new Map();
+    const playersMap = new Map<string, any>();
     playersRows.forEach(p => {
-      if (p.nick) {
-        playersMap.set(p.nick.toLowerCase().trim(), p);
-      }
+      if (p.nick) playersMap.set(p.nick.toLowerCase().trim(), p);
     });
 
-    const enrichedStats = statsRows.map((stat) => {
-        const statNickLower = stat.nick.toLowerCase().trim();
-        
-        let playerInscrito = playersMap.get(statNickLower);
+    const enrichedStats = statsRows.map(stat => {
+      const statNickLower = stat.nick.toLowerCase().trim();
+      let playerInscrito = playersMap.get(statNickLower);
 
-        if (!playerInscrito) {
-          playerInscrito = playersRows.find(p => calculateSimilarity(p.nick, stat.nick) >= 0.6);
-        }
+      if (!playerInscrito) {
+        playerInscrito = playersRows.find(p => calculateSimilarity(p.nick, stat.nick) >= 0.6);
+      }
 
-        let bestMatch = faceitMap.get(statNickLower);
-        let maxSim = bestMatch ? 1.0 : 0;
+      let bestMatch = faceitMap.get(statNickLower);
+      let maxSim = bestMatch ? 1.0 : 0;
 
-        if (!bestMatch) {
-          for (const fp of faceitPlayers) {
-            const sim = calculateSimilarity(stat.nick, fp.faceit_nickname);
-            if (sim > maxSim) {
-              maxSim = sim;
-              bestMatch = fp;
-            }
-            if (sim === 1.0) break;
+      if (!bestMatch) {
+        for (const fp of faceitPlayers) {
+          if (!fp.faceit_nickname) continue;
+          const sim = calculateSimilarity(stat.nick, fp.faceit_nickname);
+          if (sim > maxSim) {
+            maxSim = sim;
+            bestMatch = fp;
           }
+          if (sim === 1.0) break;
         }
+      }
 
-        let faceitData = {
-          faceit_image: '/images/cs2-player.png',
-          faceit_url: '',
-          discord_id: ''
-        };
+      let faceitData = {
+        faceit_image: '/images/cs2-player.png',
+        faceit_url: '',
+        discord_id: ''
+      };
 
-        if (bestMatch && maxSim >= 0.6) {
-          faceitData.discord_id = bestMatch.discord_id;
-          
-          if (bestMatch.fotoperfil) {
-            faceitData.faceit_image = bestMatch.fotoperfil;
-          }
-          if (bestMatch.faceit_nickname) {
-            faceitData.faceit_url = `https://www.faceit.com/en/players/${bestMatch.faceit_nickname}`;
-          }
-        }
+      if (bestMatch && maxSim >= 0.6) {
+        faceitData.discord_id = bestMatch.discord_id;
+        if (bestMatch.fotoperfil) faceitData.faceit_image = bestMatch.fotoperfil;
+        if (bestMatch.faceit_nickname) faceitData.faceit_url = `https://www.faceit.com/en/players/${bestMatch.faceit_nickname}`;
+      }
 
-        return {
-          ...stat,
-          pote: playerInscrito ? playerInscrito.pote : null,
-          ...faceitData,
-          kd: parseFloat(stat.kd) || 0,
-          kr: parseFloat(stat.kr) || 0,
-          adr: parseFloat(stat.adr) || 0,
-          k: parseInt(stat.k) || 0,
-          d: parseInt(stat.d) || 0,
-          clt: parseInt(stat.clt) || 0
-        };
-      });
+      return {
+        ...stat,
+        pote: playerInscrito ? playerInscrito.pote : null,
+        ...faceitData,
+        kd: parseFloat(stat.kd) || 0,
+        kr: parseFloat(stat.kr) || 0,
+        adr: parseFloat(stat.adr) || 0,
+        k: parseInt(stat.k) || 0,
+        d: parseInt(stat.d) || 0,
+        clt: parseInt(stat.clt) || 0
+      };
+    });
 
     const playersWithoutStats = playersRows.filter(p =>
       !statsRows.some(s => calculateSimilarity(s.nick, p.nick) >= 0.6)
@@ -134,5 +125,8 @@ export async function getStatsData() {
   } catch (error) {
     console.error("Erro ao carregar stats:", error);
     return [];
+  } finally {
+    if (mainConnection) await mainConnection.end();
+    if (jogadoresConnection) await jogadoresConnection.end();
   }
 }

@@ -2,15 +2,18 @@ import StatsList from './stats-list';
 import UpdateTimer from '@/components/update-timer';
 import AdPropaganda from '@/components/ad-propaganda';
 import { getStatsData } from '@/lib/data-fetchers';
-import { getPools } from '@/lib/db';
+import { createMainConnection } from '@/lib/db';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 export const revalidate = 86400; 
 
-async function getLastUpdate(pool: any) {
+async function getLastUpdate(connection: any) {
   try {
-    const [rows] = await pool.query("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
-    return (rows as any[])[0]?.value || new Date().toISOString();
+    const [rows] = await connection.execute(
+      "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
+    ) as [{ value: string }[], any];
+
+    return rows[0]?.value || new Date().toISOString();
   } catch (error) {
     console.error("Erro ao buscar lastUpdate:", error);
     return new Date().toISOString();
@@ -21,23 +24,24 @@ export default async function StatsPage() {
   let allStats: any[] = [];
   let lastUpdate = new Date().toISOString();
 
-  let env = {};
+  let connection: any;
   try {
     const ctx = await getCloudflareContext();
-    env = ctx.env;
-  } catch (error) {}
-  const { mainPool: pool } = getPools(env);
+    const env = ctx.env as any;
 
-  try {
+    connection = await createMainConnection(env);
+
     const [statsResult, updateResult] = await Promise.all([
       getStatsData(),
-      getLastUpdate(pool)
+      getLastUpdate(connection)
     ]);
-    
+
     allStats = statsResult || [];
     lastUpdate = updateResult;
   } catch (error) {
     console.error("Erro geral na StatsPage (DB Connection):", error);
+  } finally {
+    if (connection) await connection.end(); // garante fechamento
   }
 
   return (

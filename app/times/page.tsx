@@ -1,6 +1,6 @@
 import TeamsList from '@/app/times/teams-list';
-import { getPools } from '@/lib/db';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { createMainConnection, createJogadoresConnection } from '@/lib/db';
 
 export const revalidate = 86400;
 
@@ -30,20 +30,20 @@ export interface TeamData {
 function calculateSimilarity(str1: string, str2: string): number {
   const s1 = (str1 || "").toLowerCase().trim();
   const s2 = (str2 || "").toLowerCase().trim();
-  
+
   if (!s1 || !s2) return 0.0;
   if (s1 === s2) return 1.0;
-  
+
   const len1 = s1.length;
   const len2 = s2.length;
   const maxLen = Math.max(len1, len2);
-  
+
   if (maxLen === 0) return 1.0;
-  
+
   const matrix: number[][] = [];
   for (let i = 0; i <= len2; i++) matrix[i] = [i];
   for (let j = 0; j <= len1; j++) matrix[0][j] = j;
-  
+
   for (let i = 1; i <= len2; i++) {
     for (let j = 1; j <= len1; j++) {
       if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
@@ -60,23 +60,23 @@ function calculateSimilarity(str1: string, str2: string): number {
   return 1.0 - distance / maxLen;
 }
 
-async function getTeamsData(pool1: any, pool2: any): Promise<TeamData[]> {
+async function getTeamsData(mainConnection: any, jogadoresConnection: any): Promise<TeamData[]> {
   try {
     const [teamsResult, playersResult, faceitResult] = await Promise.all([
-      pool1.query('SELECT * FROM team_config'),
-      pool2.query('SELECT * FROM jogadores'),
-      pool2.query('SELECT * FROM faceit_players')
+      mainConnection.execute('SELECT * FROM team_config') as [any[], any],
+      jogadoresConnection.execute('SELECT * FROM jogadores') as [any[], any],
+      jogadoresConnection.execute('SELECT * FROM faceit_players') as [any[], any],
     ]);
 
-    const teams = teamsResult[0] as any[];
-    const rows = playersResult[0] as any[];
-    const faceitPlayers = faceitResult[0] as any[];
-    
-    const players = (rows as any[]).map((p) => ({
+    const teams = teamsResult[0];
+    const playersRows = playersResult[0];
+    const faceitPlayers = faceitResult[0];
+
+    const players: Player[] = playersRows.map((p: any) => ({
       ...p,
       nick: p.nick,
-      pote: Number(p.pote), 
-    })) as Player[];
+      pote: Number(p.pote),
+    }));
 
     const faceitMap = new Map<string, any>();
     faceitPlayers.forEach(fp => {
@@ -86,11 +86,11 @@ async function getTeamsData(pool1: any, pool2: any): Promise<TeamData[]> {
     const playersMap = new Map<string, Player>();
     const playersIdMap = new Map<string, Player>();
     players.forEach(p => {
-        if (p.nick) playersMap.set(p.nick.toLowerCase().trim(), p);
-        playersIdMap.set(String(p.id), p);
+      if (p.nick) playersMap.set(p.nick.toLowerCase().trim(), p);
+      playersIdMap.set(String(p.id), p);
     });
 
-    const teamsWithPlayers: TeamData[] = teams.map((team) => {
+    const teamsWithPlayers: TeamData[] = teams.map((team: any) => {
       const getProp = (obj: any, prop: string) => {
         const key = Object.keys(obj).find(k => k.toLowerCase() === prop.toLowerCase());
         return key ? obj[key] : null;
@@ -100,7 +100,7 @@ async function getTeamsData(pool1: any, pool2: any): Promise<TeamData[]> {
       const teamNick = (rawNick || "").split(',').pop()?.trim() || "";
       const teamName = getProp(team, 'team_name') || "Time sem nome";
       const teamImage = getProp(team, 'team_image') || "";
-      
+
       let captain = playersMap.get(teamNick.toLowerCase());
       if (!captain && teamNick) captain = playersIdMap.get(teamNick);
 
@@ -118,10 +118,10 @@ async function getTeamsData(pool1: any, pool2: any): Promise<TeamData[]> {
         if (bestSimilarity >= 0.6) captain = bestCandidate;
       }
 
-      const rawTeamPlayers = captain 
-        ? players.filter(p => p.id === captain!.id || (p.captain_id && String(p.captain_id) === String(captain!.id))) 
+      const rawTeamPlayers = captain
+        ? players.filter(p => p.id === captain!.id || (p.captain_id && String(p.captain_id) === String(captain!.id)))
         : [];
-      
+
       const teamPlayers = Array.from(new Map(rawTeamPlayers.map(p => [p.id, p])).values());
 
       const enrichedPlayers = teamPlayers.map((player) => {
@@ -136,14 +136,14 @@ async function getTeamsData(pool1: any, pool2: any): Promise<TeamData[]> {
               maxSim = sim;
               bestMatch = fp;
             }
-            if (sim === 1.0) break; 
+            if (sim === 1.0) break;
           }
         }
 
-        let faceitData = { 
-          faceit_image: '/images/cs2-player.png', 
-          faceit_url: '', 
-          discord_id: '' 
+        let faceitData = {
+          faceit_image: '/images/cs2-player.png',
+          faceit_url: '',
+          discord_id: ''
         };
 
         if (bestMatch && maxSim >= 0.6) {
@@ -164,7 +164,7 @@ async function getTeamsData(pool1: any, pool2: any): Promise<TeamData[]> {
 
       return {
         team_name: teamName,
-        team_nick: teamNick, 
+        team_nick: teamNick,
         team_image: teamImage,
         players: enrichedPlayers
       };
@@ -179,28 +179,42 @@ async function getTeamsData(pool1: any, pool2: any): Promise<TeamData[]> {
 }
 
 export default async function TimesPage() {
-  let env = {};
+  let env: any = {};
+  let mainConnection: any;
+  let jogadoresConnection: any;
   try {
     const ctx = await getCloudflareContext();
     env = ctx.env;
-  } catch (e) { }
-  const { mainPool, jogadoresPool } = getPools(env);
 
-  const teams = await getTeamsData(mainPool, jogadoresPool);
+    mainConnection = await createMainConnection(env);
+    jogadoresConnection = await createJogadoresConnection(env);
 
-  return (
-    <div>
-      <section className="py-16 bg-gradient-to-b from-black to-gray-900">
-        <div className="container mx-auto px-4">
-          {teams.length > 0 ? (
-            <TeamsList teams={teams} />
-          ) : (
-            <div className="text-center text-gray-400 py-12">
-              <p>Nenhum time encontrado ou erro ao carregar dados do banco.</p>
-            </div>
-          )}
-        </div>
-      </section>
-    </div>
-  );
+    const teams = await getTeamsData(mainConnection, jogadoresConnection);
+    return (
+      <div>
+        <section className="py-16 bg-gradient-to-b from-black to-gray-900">
+          <div className="container mx-auto px-4">
+            {teams.length > 0 ? (
+              <TeamsList teams={teams} />
+            ) : (
+              <div className="text-center text-gray-400 py-12">
+                <p>Nenhum time encontrado ou erro ao carregar dados do banco.</p>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    );
+
+  } catch (error) {
+    console.error("Erro na página Times:", error);
+    return (
+      <div className="text-center text-gray-400 py-12">
+        <p>Erro ao carregar dados dos times.</p>
+      </div>
+    );
+  } finally {
+    if (mainConnection) await mainConnection.end();
+    if (jogadoresConnection) await jogadoresConnection.end();
+  }
 }
