@@ -117,7 +117,7 @@ export async function POST(req: Request) {
     const [rows] = await connection.execute(
       "SELECT admin FROM players WHERE faceit_guid = ?",
       [faceit_guid]
-    ) as [AdminRow[], any]; // Type assertion aqui
+    ) as [AdminRow[], any];
 
     if (rows.length === 0 || (rows[0].admin !== 1 && rows[0].admin !== 2)) {
       return NextResponse.json(

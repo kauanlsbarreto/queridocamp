@@ -14,7 +14,8 @@ async function getLastUpdate(connection: any) {
     ) as [{ value: string }[], any];
 
     return rows[0]?.value || new Date().toISOString();
-  } catch {
+  } catch (error) {
+    console.error("Erro ao buscar lastUpdate:", error);
     return new Date().toISOString();
   }
 }
@@ -25,8 +26,11 @@ async function getStats(connection: any) {
       "SELECT * FROM top90_stats ORDER BY kd DESC, adr DESC, kr DESC, k DESC"
     ) as [any[], any];
 
+    console.log("Stats Query Result:", rows);  // Adicionando log para depuração
+
     return rows || [];
-  } catch {
+  } catch (error) {
+    console.error("Erro ao buscar estatísticas:", error);
     return [];
   }
 }
@@ -38,7 +42,7 @@ export default async function StatsPage() {
 
   try {
     const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as Env; 
+    const env = ctx.env as Env;
     connection = await createMainConnection(env);
 
     const [statsResult, lastUpdateResult] = await Promise.all([
@@ -51,7 +55,22 @@ export default async function StatsPage() {
   } catch (error) {
     console.error("Erro geral na StatsPage (DB Connection):", error);
   } finally {
-    if (connection) await connection.end?.(); 
+    if (connection) await connection.end?.();
+  }
+
+  if (allStats.length === 0) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <AdPropaganda
+          videoSrc="/videosad/radiante.mp4"
+          redirectUrl="https://industriaradiante.com.br/"
+        />
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-500 mb-4">Erro ao carregar estatísticas</h1>
+          <p className="text-gray-400">Não foi possível carregar as estatísticas no momento.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
