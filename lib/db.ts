@@ -1,4 +1,3 @@
-// mysql2 v3.13.0 or later is required
 import { createConnection, Connection } from "mysql2/promise";
 
 export type HyperdriveBinding = {

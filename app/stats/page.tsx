@@ -3,6 +3,7 @@ import UpdateTimer from '@/components/update-timer';
 import AdPropaganda from '@/components/ad-propaganda';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
+import type { Env } from '@/lib/db' 
 
 export const revalidate = 86400;
 
@@ -37,7 +38,7 @@ export default async function StatsPage() {
 
   try {
     const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any; 
+    const env = ctx.env as Env; 
     connection = await createMainConnection(env);
 
     const [statsResult, lastUpdateResult] = await Promise.all([

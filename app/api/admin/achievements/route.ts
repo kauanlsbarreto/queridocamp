@@ -56,7 +56,7 @@ function getLocalEnv(): Env {
 
 async function getEnv(): Promise<Env> {
   const ctx = await getCloudflareContext({ async: true });
-  const env = ctx.env as unknown as Env;
+  const env = ctx.env as Env;
 
   if (!env.DB_PRINCIPAL) {
     throw new Error("DB_PRINCIPAL não configurado no Hyperdrive");
