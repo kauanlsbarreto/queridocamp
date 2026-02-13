@@ -52,7 +52,6 @@ async function getPlayersData(mainConn: any, jogadoresConn: any, offset: number)
 
   const [teamsRows]: any = await mainConn.query('SELECT * FROM team_config');
   const [jogadoresRows]: any = await jogadoresConn.query('SELECT * FROM jogadores');
-  const [faceitRows]: any = await jogadoresConn.query('SELECT faceit_nickname, skill_level FROM faceit_players');
 
   const playersWithTeams = playersRows.map((player: any) => {
     if (player.id === 0) {
@@ -60,10 +59,9 @@ async function getPlayersData(mainConn: any, jogadoresConn: any, offset: number)
       player.avatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSELngQdOTsSQXmSv9j1ltZDiGKXvSB8NJIsQ&s";
     }
 
+    // Busca jogador por similaridade para achar o time
     let jogador = jogadoresRows.find((j: any) => calculateSimilarity(player.nickname, j.nick) > 0.85);
     
-    let faceitData = faceitRows.find((f: any) => calculateSimilarity(player.nickname, f.faceit_nickname) > 0.85);
-
     let teamName = null;
     let teamLogo = null;
 
@@ -78,8 +76,7 @@ async function getPlayersData(mainConn: any, jogadoresConn: any, offset: number)
     return { 
       ...player, 
       team_name: teamName, 
-      team_logo: teamLogo,
-      level: faceitData?.skill_level || null 
+      team_logo: teamLogo
     };
   });
 
@@ -113,19 +110,8 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
     if (jogadoresConnection) await jogadoresConnection.end().catch(() => {});
   }
 
-  if (!playersData.playersWithTeams || playersData.playersWithTeams.length === 0) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center p-6 text-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gold mb-2">Erro de Conexão</h1>
-          <p className="text-zinc-500">Não foi possível carregar a lista de jogadores no momento.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-black text-white">
       <PlayersList
         initialPlayers={playersData.playersWithTeams}
         totalPages={playersData.totalPages}

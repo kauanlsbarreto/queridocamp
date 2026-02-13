@@ -16,7 +16,8 @@ interface Player {
   faceit_guid: string;
   team_name?: string;
   team_logo?: string;
-  level?: number | string;
+  faceit_level?: number;
+  is_challenger?: boolean;
 }
 
 const Pagination = ({ totalPages, currentPage }: { totalPages: number, currentPage: number }) => {
@@ -51,15 +52,37 @@ const Pagination = ({ totalPages, currentPage }: { totalPages: number, currentPa
 };
 
 export default function PlayersList({ initialPlayers, totalPages, currentPage, lastUpdate }: { initialPlayers: Player[], totalPages: number, currentPage: number, lastUpdate: string }) {
+  const [players, setPlayers] = useState<Player[]>(initialPlayers);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredPlayers, setFilteredPlayers] = useState(initialPlayers);
 
+  // Busca os níveis via API (Igual ao PerfilClient)
   useEffect(() => {
-    const filtered = initialPlayers.filter(player =>
-      player.nickname.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredPlayers(filtered);
-  }, [searchTerm, initialPlayers]);
+    const fetchLevels = async () => {
+      const updatedPlayers = await Promise.all(initialPlayers.map(async (player) => {
+        if (!player.faceit_guid || player.id === 0) return player;
+        try {
+          const res = await fetch(`https://open.faceit.com/data/v4/players/${player.faceit_guid}`, {
+            headers: { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            return { 
+              ...player, 
+              faceit_level: data.games?.cs2?.skill_level || 0,
+              is_challenger: data.games?.cs2?.skill_level === 10 && data.faceit_rank <= 1000 
+            };
+          }
+        } catch (e) { console.error(e); }
+        return player;
+      }));
+      setPlayers(updatedPlayers);
+    };
+    fetchLevels();
+  }, [initialPlayers]);
+
+  const filteredPlayers = players.filter(p =>
+    p.nickname.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -91,7 +114,6 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
                   <PremiumCard className="h-full hover:scale-[1.03] transition-all duration-300 border-white/5 group-hover:border-gold/30 shadow-2xl">
                     <div className="relative p-8 flex flex-col items-center text-center h-full">
                        
-                       {/* Foto de Perfil com Glow */}
                        <div className="relative w-28 h-28 mb-6">
                           <div className="absolute inset-0 bg-gold/10 group-hover:bg-gold/20 blur-3xl rounded-full transition-colors" />
                           <div className="relative w-full h-full rounded-full border-2 border-white/10 p-1.5 bg-black/40 group-hover:border-gold/50 transition-all">
@@ -105,29 +127,31 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
                           </div>
                        </div>
 
-                       {/* Nickname em Destaque */}
                        <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-6 group-hover:text-gold transition-colors">
                           {player.nickname}
                        </h3>
 
-                       {/* Footer do Card com Level e Time */}
                        <div className="mt-auto w-full pt-6 border-t border-white/10 flex flex-col items-center gap-4">
                           
-                          {/* Faceit Level Badge */}
-                          {player.level ? (
+                          {/* Faceit Level Badge DINÂMICO */}
+                          {(player.faceit_level || player.id === 0) ? (
                              <div className="flex flex-col items-center gap-1">
                                 <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-[0.2em]">Faceit Rank</span>
-                                <div className="bg-white/5 border border-white/10 px-3 py-1 rounded-md">
+                                <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-md">
+                                    <img 
+                                        src={player.id === 0 ? "/faceitlevel/-1.png" : (player.is_challenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${player.faceit_level}.png`)}
+                                        alt="Level"
+                                        className="w-5 h-5"
+                                    />
                                     <span className="text-xs font-black text-gold italic uppercase tracking-tighter">
-                                        Level {player.level}
+                                        Level {player.id === 0 ? '-1' : player.faceit_level}
                                     </span>
                                 </div>
                              </div>
                           ) : (
-                             <div className="h-[38px]" /> // Spacer para manter o alinhamento se não houver level
+                             <div className="h-[38px] flex items-center italic text-[10px] text-zinc-600">Carregando rank...</div>
                           )}
 
-                          {/* Nome do Time */}
                           {player.team_name ? (
                              <div className="flex items-center justify-center gap-3 text-zinc-300 bg-white/5 w-full py-2 rounded-lg border border-transparent group-hover:border-white/5 group-hover:bg-white/10 transition-all">
                                 {player.team_logo ? (

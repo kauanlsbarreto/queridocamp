@@ -9,8 +9,11 @@ export const revalidate = 86400;
 export const dynamic = "force-dynamic";
 
 function calculateSimilarity(str1: string, str2: string): number {
-  const s1 = (str1 || '').toLowerCase().trim();
-  const s2 = (str2 || '').toLowerCase().trim();
+  const normalize = (str: string) => str.replace(/[_\s]+/g, '').toLowerCase().trim();
+  
+  const s1 = normalize(str1);
+  const s2 = normalize(str2);
+  
   if (!s1 || !s2) return 0.0;
   if (s1 === s2) return 1.0;
 
@@ -18,6 +21,7 @@ function calculateSimilarity(str1: string, str2: string): number {
   const len2 = s2.length;
   const maxLen = Math.max(len1, len2);
   const matrix: number[][] = Array.from({ length: len2 + 1 }, (_, i) => [i]);
+  
   for (let j = 0; j <= len1; j++) matrix[0][j] = j;
 
   for (let i = 1; i <= len2; i++) {
@@ -28,6 +32,7 @@ function calculateSimilarity(str1: string, str2: string): number {
   }
   return 1.0 - matrix[len2][len1] / maxLen;
 }
+
 
 async function getLastUpdate(connection: any) {
   try {
