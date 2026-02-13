@@ -3,12 +3,12 @@ import UpdateTimer from '@/components/update-timer';
 import AdPropaganda from '@/components/ad-propaganda';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
+import mysql from 'mysql2'; 
 
-export const revalidate = 86400;
+export const revalidate = 86400; 
 
 async function getLastUpdate(connection: any) {
   try {
-    // ⚠️ use query() ao invés de execute() para Hyperdrive
     const [rows] = await connection.query(
       "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
     ) as [{ value: string }[], any];
@@ -20,8 +20,6 @@ async function getLastUpdate(connection: any) {
   }
 }
 
-// Se precisar buscar stats diretamente do banco:
-// exemplo de função segura Hyperdrive
 async function getStats(connection: any) {
   try {
     const [rows] = await connection.query(
@@ -41,13 +39,12 @@ export default async function StatsPage() {
   let connection: any;
 
   try {
-    // 🔹 async mode obrigatório
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as any;
 
     connection = await createMainConnection(env);
 
-    // busca tudo em paralelo
+    // Busca em paralelo
     const [statsResult, lastUpdateResult] = await Promise.all([
       getStats(connection),
       getLastUpdate(connection)

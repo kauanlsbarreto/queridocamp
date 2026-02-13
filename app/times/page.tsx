@@ -14,12 +14,6 @@ export interface Player {
   discord_id?: string;
 }
 
-export interface TeamConfig {
-  team_name: string;
-  player_nick: string;
-  team_image: string;
-}
-
 export interface TeamData {
   team_name: string;
   team_nick: string;
@@ -30,14 +24,12 @@ export interface TeamData {
 function calculateSimilarity(str1: string, str2: string): number {
   const s1 = (str1 || "").toLowerCase().trim();
   const s2 = (str2 || "").toLowerCase().trim();
-
   if (!s1 || !s2) return 0.0;
   if (s1 === s2) return 1.0;
 
   const len1 = s1.length;
   const len2 = s2.length;
   const maxLen = Math.max(len1, len2);
-
   if (maxLen === 0) return 1.0;
 
   const matrix: number[][] = [];
@@ -46,175 +38,125 @@ function calculateSimilarity(str1: string, str2: string): number {
 
   for (let i = 1; i <= len2; i++) {
     for (let j = 1; j <= len1; j++) {
-      if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
-        );
-      }
+      matrix[i][j] = s2[i-1] === s1[j-1] ? matrix[i-1][j-1] 
+        : Math.min(matrix[i-1][j-1]+1, matrix[i][j-1]+1, matrix[i-1][j]+1);
     }
   }
-  const distance = matrix[len2][len1];
-  return 1.0 - distance / maxLen;
+  return 1.0 - matrix[len2][len1] / maxLen;
 }
 
 async function getTeamsData(mainConnection: any, jogadoresConnection: any): Promise<TeamData[]> {
   try {
-    const [teamsResult, playersResult, faceitResult] = await Promise.all([
-      mainConnection.execute('SELECT * FROM team_config') as [any[], any],
-      jogadoresConnection.execute('SELECT * FROM jogadores') as [any[], any],
-      jogadoresConnection.execute('SELECT * FROM faceit_players') as [any[], any],
-    ]);
+    // ⚠️ Usar query() no Hyperdrive
+    const [teamsResult] = await mainConnection.query('SELECT * FROM team_config') as [any[], any];
+    const [playersResult] = await jogadoresConnection.query('SELECT * FROM jogadores') as [any[], any];
+    const [faceitResult] = await jogadoresConnection.query('SELECT * FROM faceit_players') as [any[], any];
 
-    const teams = teamsResult[0];
-    const playersRows = playersResult[0];
-    const faceitPlayers = faceitResult[0];
+    const playersMap = new Map<string, Player>();
+    const playersById = new Map<string, Player>();
 
-    const players: Player[] = playersRows.map((p: any) => ({
-      ...p,
-      nick: p.nick,
-      pote: Number(p.pote),
-    }));
+    playersResult.forEach(p => {
+      const player: Player = { ...p, pote: Number(p.pote) };
+      if (player.nick) playersMap.set(player.nick.toLowerCase().trim(), player);
+      playersById.set(String(player.id), player);
+    });
 
     const faceitMap = new Map<string, any>();
-    faceitPlayers.forEach(fp => {
+    faceitResult.forEach(fp => {
       if (fp.faceit_nickname) faceitMap.set(fp.faceit_nickname.toLowerCase().trim(), fp);
     });
 
-    const playersMap = new Map<string, Player>();
-    const playersIdMap = new Map<string, Player>();
-    players.forEach(p => {
-      if (p.nick) playersMap.set(p.nick.toLowerCase().trim(), p);
-      playersIdMap.set(String(p.id), p);
-    });
+    return teamsResult.map(team => {
+      const rawNick = (team.player_nick || "").split(',').pop()?.trim() || "";
+      let captain = playersMap.get(rawNick.toLowerCase()) || playersById.get(rawNick);
 
-    const teamsWithPlayers: TeamData[] = teams.map((team: any) => {
-      const getProp = (obj: any, prop: string) => {
-        const key = Object.keys(obj).find(k => k.toLowerCase() === prop.toLowerCase());
-        return key ? obj[key] : null;
-      };
-
-      const rawNick = getProp(team, 'player_nick');
-      const teamNick = (rawNick || "").split(',').pop()?.trim() || "";
-      const teamName = getProp(team, 'team_name') || "Time sem nome";
-      const teamImage = getProp(team, 'team_image') || "";
-
-      let captain = playersMap.get(teamNick.toLowerCase());
-      if (!captain && teamNick) captain = playersIdMap.get(teamNick);
-
-      if (!captain && teamNick) {
-        let bestSimilarity = 0;
-        let bestCandidate: Player | undefined;
-        for (const player of players) {
-          if (!player.nick) continue;
-          const similarity = calculateSimilarity(player.nick, teamNick);
-          if (similarity > bestSimilarity) {
-            bestSimilarity = similarity;
-            bestCandidate = player;
+      // fallback por similaridade
+      if (!captain && rawNick) {
+        let bestSim = 0;
+        for (const player of playersResult) {
+          const sim = calculateSimilarity(player.nick, rawNick);
+          if (sim > bestSim) {
+            bestSim = sim;
+            captain = player;
           }
         }
-        if (bestSimilarity >= 0.6) captain = bestCandidate;
       }
 
       const rawTeamPlayers = captain
-        ? players.filter(p => p.id === captain!.id || (p.captain_id && String(p.captain_id) === String(captain!.id)))
+        ? playersResult.filter(p => p.id === captain.id || String(p.captain_id) === String(captain.id))
         : [];
+      const uniquePlayers = Array.from(new Map(rawTeamPlayers.map(p => [p.id, p])).values());
 
-      const teamPlayers = Array.from(new Map(rawTeamPlayers.map(p => [p.id, p])).values());
-
-      const enrichedPlayers = teamPlayers.map((player) => {
+      const enrichedPlayers = uniquePlayers.map(player => {
+        let faceitData = { faceit_image: '/images/cs2-player.png', faceit_url: '', discord_id: '' };
         let bestMatch = faceitMap.get(player.nick.toLowerCase().trim());
-        let maxSim = bestMatch ? 1.0 : 0;
-
         if (!bestMatch) {
-          for (const fp of faceitPlayers) {
-            if (!fp.faceit_nickname) continue;
-            const sim = calculateSimilarity(player.nick, fp.faceit_nickname);
-            if (sim > maxSim) {
-              maxSim = sim;
+          for (const fp of faceitResult) {
+            const sim = calculateSimilarity(player.nick, fp.faceit_nickname || '');
+            if (sim >= 0.6) {
               bestMatch = fp;
+              break;
             }
-            if (sim === 1.0) break;
           }
         }
-
-        let faceitData = {
-          faceit_image: '/images/cs2-player.png',
-          faceit_url: '',
-          discord_id: ''
-        };
-
-        if (bestMatch && maxSim >= 0.6) {
+        if (bestMatch) {
           faceitData.discord_id = bestMatch.discord_id;
           if (bestMatch.fotoperfil) faceitData.faceit_image = bestMatch.fotoperfil;
           if (bestMatch.faceit_nickname) faceitData.faceit_url = `https://www.faceit.com/en/players/${bestMatch.faceit_nickname}`;
         }
-
         return { ...player, ...faceitData };
       });
 
-      const poteOrder = [4, 5, 1, 3, 2];
-      enrichedPlayers.sort((a, b) => {
-        const indexA = poteOrder.indexOf(a.pote);
-        const indexB = poteOrder.indexOf(b.pote);
-        return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-      });
+      const poteOrder = [4,5,1,3,2];
+      enrichedPlayers.sort((a,b) => (poteOrder.indexOf(a.pote)||999) - (poteOrder.indexOf(b.pote)||999));
 
       return {
-        team_name: teamName,
-        team_nick: teamNick,
-        team_image: teamImage,
+        team_name: team.team_name || "Time sem nome",
+        team_nick: rawNick,
+        team_image: team.team_image || "",
         players: enrichedPlayers
       };
     });
-
-    return teamsWithPlayers;
-
-  } catch (error) {
-    console.error("Erro ao buscar dados dos times:", error);
+  } catch (err) {
+    console.error("Erro ao buscar dados dos times:", err);
     return [];
   }
 }
 
 export default async function TimesPage() {
-  let env: any = {};
   let mainConnection: any;
   let jogadoresConnection: any;
+  let teams: TeamData[] = [];
+
   try {
-    const ctx = await getCloudflareContext();
-    env = ctx.env;
+    // 🔹 async mode obrigatório
+    const ctx = await getCloudflareContext({ async: true });
+    const env = ctx.env as any
 
     mainConnection = await createMainConnection(env);
     jogadoresConnection = await createJogadoresConnection(env);
 
-    const teams = await getTeamsData(mainConnection, jogadoresConnection);
-    return (
-      <div>
-        <section className="py-16 bg-gradient-to-b from-black to-gray-900">
-          <div className="container mx-auto px-4">
-            {teams.length > 0 ? (
-              <TeamsList teams={teams} />
-            ) : (
-              <div className="text-center text-gray-400 py-12">
-                <p>Nenhum time encontrado ou erro ao carregar dados do banco.</p>
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
-    );
-
-  } catch (error) {
-    console.error("Erro na página Times:", error);
-    return (
-      <div className="text-center text-gray-400 py-12">
-        <p>Erro ao carregar dados dos times.</p>
-      </div>
-    );
+    teams = await getTeamsData(mainConnection, jogadoresConnection);
+  } catch (err) {
+    console.error("Erro na página Times:", err);
   } finally {
     if (mainConnection) await mainConnection.end();
     if (jogadoresConnection) await jogadoresConnection.end();
   }
+
+  return (
+    <div>
+      <section className="py-16 bg-gradient-to-b from-black to-gray-900">
+        <div className="container mx-auto px-4">
+          {teams.length > 0 ? (
+            <TeamsList teams={teams} />
+          ) : (
+            <div className="text-center text-gray-400 py-12">
+              <p>Nenhum time encontrado ou erro ao carregar dados do banco.</p>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
 }
