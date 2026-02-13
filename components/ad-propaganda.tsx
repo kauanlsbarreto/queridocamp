@@ -11,7 +11,7 @@ interface PromoPlayerProps {
 
 export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayerProps) {
   const [isVisible, setIsVisible] = useState(false) // Começa falso para evitar flash de conteúdo
-  const [isMuted, setIsMuted] = useState(false)
+  const [isMuted, setIsMuted] = useState(true)
   const [volume, setVolume] = useState(0.1)
   const [canSkip, setCanSkip] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -87,6 +87,7 @@ export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayer
             className="w-full h-full object-contain"
             playsInline
             autoPlay // Tenta iniciar sozinho
+            muted={isMuted}
             onEnded={handleVideoEnd}
             disablePictureInPicture // Impede de colocar em janelinha flutuante
             controlsList="nodownload" // Impede baixar o vídeo
