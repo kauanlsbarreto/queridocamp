@@ -1,15 +1,15 @@
 import StatsList from './stats-list';
 import UpdateTimer from '@/components/update-timer';
 import AdPropaganda from '@/components/ad-propaganda';
-import { getStatsData } from '@/lib/data-fetchers';
-import { createMainConnection } from '@/lib/db';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { createMainConnection } from '@/lib/db';
 
-export const revalidate = 86400; 
+export const revalidate = 86400;
 
 async function getLastUpdate(connection: any) {
   try {
-    const [rows] = await connection.execute(
+    // ⚠️ use query() ao invés de execute() para Hyperdrive
+    const [rows] = await connection.query(
       "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
     ) as [{ value: string }[], any];
 
@@ -20,35 +20,52 @@ async function getLastUpdate(connection: any) {
   }
 }
 
+// Se precisar buscar stats diretamente do banco:
+// exemplo de função segura Hyperdrive
+async function getStats(connection: any) {
+  try {
+    const [rows] = await connection.query(
+      "SELECT * FROM stats ORDER BY kd DESC, adr DESC, kr DESC, kills DESC"
+    ) as [any[], any];
+
+    return rows || [];
+  } catch (error) {
+    console.error("Erro ao buscar stats:", error);
+    return [];
+  }
+}
+
 export default async function StatsPage() {
   let allStats: any[] = [];
   let lastUpdate = new Date().toISOString();
-
   let connection: any;
+
   try {
-    const ctx = await getCloudflareContext();
+    // 🔹 async mode obrigatório
+    const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as any;
 
     connection = await createMainConnection(env);
 
-    const [statsResult, updateResult] = await Promise.all([
-      getStatsData(),
+    // busca tudo em paralelo
+    const [statsResult, lastUpdateResult] = await Promise.all([
+      getStats(connection),
       getLastUpdate(connection)
     ]);
 
-    allStats = statsResult || [];
-    lastUpdate = updateResult;
+    allStats = statsResult;
+    lastUpdate = lastUpdateResult;
   } catch (error) {
     console.error("Erro geral na StatsPage (DB Connection):", error);
   } finally {
-    if (connection) await connection.end(); // garante fechamento
+    if (connection) await connection.end();
   }
 
   return (
     <div className="min-h-screen bg-black">
       <AdPropaganda 
-          videoSrc="/videosad/radiante.mp4" 
-          redirectUrl="https://industriaradiante.com.br/" 
+        videoSrc="/videosad/radiante.mp4" 
+        redirectUrl="https://industriaradiante.com.br/" 
       />
       <section className="py-12 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">

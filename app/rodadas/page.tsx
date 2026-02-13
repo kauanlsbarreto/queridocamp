@@ -1,33 +1,50 @@
-import mysql from 'mysql2/promise';
-import RodadasClient from "./rodadas-cliente"
+import RodadasClient from "./rodadas-cliente";
 import AdPropaganda from '@/components/ad-propaganda';
-
- const pool = mysql.createPool('mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway');
+import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { createMainConnection } from '@/lib/db';
 
 export const revalidate = 86400; // Cache de 24 horas (ISR)
 
-async function getLastUpdate() {
+async function getLastUpdate(connection: any) {
   try {
-    const [rows] = await pool.query("SELECT value FROM site_metadata WHERE key_name = 'last_update'");
-    return (rows as any[])[0]?.value || new Date().toISOString();
+    // ⚠️ use .query() para evitar COM_STMT_PREPARE
+    const [rows] = await connection.query(
+      "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
+    ) as [{ value: string }[], any];
+
+    return rows[0]?.value || new Date().toISOString();
   } catch (error) {
+    console.error("Erro ao buscar lastUpdate:", error);
     return new Date().toISOString();
   }
 }
 
 export default async function Rodadas() {
+  let connection: any;
+
   try {
-    const [rows] = await pool.query("SELECT id, team_name AS name, team_image AS logo FROM team_config ORDER BY team_name ASC")
-    const teams = rows as any[]
+    // 🔹 async mode obrigatório para Cloudflare
+    const ctx = await getCloudflareContext({ async: true });
+    const env = ctx.env as any;
 
-    const [matchRows] = await pool.query("SELECT * FROM jogos")
-    const matchesData = matchRows as any[]
+    connection = await createMainConnection(env);
 
-    const lastUpdate = await getLastUpdate();
+    // busca times
+    const [teamRows] = await connection.query(
+      "SELECT id, team_name AS name, team_image AS logo FROM team_config ORDER BY team_name ASC"
+    ) as [any[], any];
 
-    return <RodadasClient teams={teams} matchesData={matchesData} lastUpdate={lastUpdate} />
+    // busca partidas
+    const [matchRows] = await connection.query(
+      "SELECT * FROM jogos"
+    ) as [any[], any];
+
+    // busca última atualização
+    const lastUpdate = await getLastUpdate(connection);
+
+    return <RodadasClient teams={teamRows} matchesData={matchRows} lastUpdate={lastUpdate} />;
   } catch (error) {
-    console.error("Erro ao buscar dados:", error)
+    console.error("Erro ao buscar dados:", error);
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <AdPropaganda 
@@ -39,6 +56,8 @@ export default async function Rodadas() {
           <p className="text-gray-400">Não foi possível conectar ao banco de dados.</p>
         </div>
       </div>
-    )
+    );
+  } finally {
+    if (connection) await connection.end(); // garante fechamento da conexão
   }
 }
