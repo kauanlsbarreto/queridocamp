@@ -1,4 +1,5 @@
 import RodadasClient from "./rodadas-cliente";
+import SideAds from "@/components/side-ads";
 import AdPropaganda from '@/components/ad-propaganda';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
@@ -37,7 +38,12 @@ export default async function Rodadas() {
       getLastUpdate(connection)
     ]);
 
-    return <RodadasClient teams={teamRows} matchesData={matchRows} lastUpdate={lastUpdate} />;
+    return (
+      <>
+        <SideAds />
+        <RodadasClient teams={teamRows} matchesData={matchRows} lastUpdate={lastUpdate} />
+      </>
+    );
   } catch (error) {
     console.error("Erro ao buscar dados:", error);
     return (

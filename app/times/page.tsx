@@ -1,4 +1,5 @@
 import TeamsList from '@/app/times/teams-list';
+import SideAds from '@/components/side-ads';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, createJogadoresConnection } from '@/lib/db';
 import UpdateTimer from '@/components/update-timer';
@@ -158,6 +159,7 @@ export default async function TimesPage() {
 
   return (
     <div>
+      <SideAds />
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           <UpdateTimer lastUpdate={lastUpdate} />

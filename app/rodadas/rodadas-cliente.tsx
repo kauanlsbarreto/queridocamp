@@ -289,9 +289,17 @@ function RoundSection({ round, isOpen, onToggle }: { round: Round; isOpen: boole
 
 export default function RodadasClient({ teams, matchesData = [], lastUpdate }: { teams: Team[]; matchesData?: DbMatch[]; lastUpdate: string }) {
   const router = useRouter()
-  const [openRoundId, setOpenRoundId] = useState<number | null>(1)
-
   const rounds = useMemo(() => generateRoundRobinMatches(teams, matchesData), [teams, matchesData]);
+
+  const [openRoundId, setOpenRoundId] = useState<number | null>(() => {
+    const firstIncompleteRound = rounds.find((round) => {
+      const completedMatches = round.matches.filter((m) => m.map1.scoreA !== null && m.map2.scoreA !== null).length
+      return completedMatches < round.matches.length
+    })
+
+    if (firstIncompleteRound) return firstIncompleteRound.id
+    return rounds.length > 0 ? rounds[rounds.length - 1].id : 1
+  })
 
   const handleToggleRound = (id: number) => {
     setOpenRoundId((prev) => (prev === id ? null : id))

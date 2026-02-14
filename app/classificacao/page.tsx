@@ -1,4 +1,5 @@
 import AdPropaganda from "@/components/ad-propaganda";
+import SideAds from "@/components/side-ads";
 import RankingTable from "./ranking-table";
 import UpdateTimer from "@/components/update-timer";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
@@ -57,6 +58,7 @@ export default async function Classificacao() {
 
     return (
       <div>
+        <SideAds />
         <AdPropaganda
           videoSrc="/videosad/radiante.mp4"
           redirectUrl="https://industriaradiante.com.br/"

@@ -4,11 +4,13 @@ import type React from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import HeroBanner from "@/components/hero-banner"
+import SideAds from "@/components/side-ads"
 import PremiumCard from "@/components/premium-card"
 
 export default function Campeonato() {
   return (
     <div>
+      <SideAds />
       {/* Hero Section */}
       <HeroBanner title="SOBRE O CAMPEONATO" subtitle="Conheça todos os detalhes do Querido Camp" />
 

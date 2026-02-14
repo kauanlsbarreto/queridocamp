@@ -3,11 +3,13 @@
 import type React from "react"
 import HeroBanner from "@/components/hero-banner"
 import PremiumCard from "@/components/premium-card"
+import SideAds from "@/components/side-ads"
 import { motion } from "framer-motion"
 
 export default function Regras() {
   return (
     <div>
+      <SideAds />
       {/* Hero Section */}
       <HeroBanner title="REGRAS DO CAMPEONATO" subtitle="Conheça as regras oficiais do Querido Camp" />
 

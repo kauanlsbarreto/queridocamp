@@ -1,4 +1,5 @@
 import StatsList from './stats-list';
+import SideAds from '@/components/side-ads';
 import UpdateTimer from '@/components/update-timer';
 import AdPropaganda from '@/components/ad-propaganda';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
@@ -97,6 +98,7 @@ export default async function StatsPage() {
 
   return (
     <div className="min-h-screen bg-black">
+      <SideAds />
       <AdPropaganda videoSrc="/videosad/radiante.mp4" redirectUrl="https://industriaradiante.com.br/" />
       <section className="py-12 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
