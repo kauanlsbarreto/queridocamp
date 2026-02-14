@@ -108,7 +108,7 @@ export default function TeamsList({ teams }: { teams: TeamData[] }) {
                   <div className="w-full max-w-5xl">
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-8">
                       {team.players.map((player) => (
-                        <div key={player.id} className="group/player flex flex-col items-center">
+                        <div key={player.id} className={`group/player flex flex-col items-center ${!player.faceit_url ? 'opacity-40' : ''}`}>
                           <div className="relative mb-4">
                             
                             {/* Círculo do Jogador com Borda Gold e Glow */}
@@ -150,7 +150,6 @@ export default function TeamsList({ teams }: { teams: TeamData[] }) {
                           
                           <span className={`text-[10px] font-black px-3 py-0.5 rounded-full border mt-2 uppercase tracking-widest
                             ${player.pote === 1 ? 'bg-gold text-black border-gold' : 
-                              player.pote === 2 ? 'bg-zinc-200 text-black border-white' :
                               'bg-zinc-800 text-zinc-400 border-zinc-700'
                             }`}
                           >

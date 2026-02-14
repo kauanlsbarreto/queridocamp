@@ -44,21 +44,40 @@ async function getLastUpdate(connection: any) {
 
 async function getTeamsData(mainConnection: any, jogadoresConnection: any): Promise<TeamData[]> {
   try {
-    const [teamsResult] = await mainConnection.query('SELECT * FROM team_config') as [any[], any];
-    const [playersResult] = await jogadoresConnection.query('SELECT * FROM jogadores') as [any[], any];
-    const [faceitResult] = await jogadoresConnection.query('SELECT * FROM faceit_players') as [any[], any];
+    // Executa as queries em paralelo para reduzir o tempo total de resposta
+    const [
+      [teamsResult],
+      [playersResult],
+      [faceitResult]
+    ] = await Promise.all([
+      mainConnection.query('SELECT * FROM team_config') as Promise<[any[], any]>,
+      jogadoresConnection.query('SELECT * FROM jogadores') as Promise<[any[], any]>,
+      jogadoresConnection.query('SELECT * FROM faceit_players') as Promise<[any[], any]>
+    ]);
 
     const playersMap = new Map<string, Player>();
     const playersById = new Map<string, Player>();
     const normalizedPlayersMap = new Map<string, Player>();
+    const playersByCaptainId = new Map<string, Player[]>();
+    const playerNormalizedNickMap = new Map<number, string>();
 
     playersResult.forEach(p => {
       const player: Player = { ...p, pote: Number(p.pote) };
+      
+      const normalizedNick = player.nick ? normalizeText(player.nick) : '';
+      if (player.id) playerNormalizedNickMap.set(player.id, normalizedNick);
+
       if (player.nick) {
         playersMap.set(player.nick.toLowerCase().trim(), player);
-        normalizedPlayersMap.set(normalizeText(player.nick), player);
+        normalizedPlayersMap.set(normalizedNick, player);
       }
       playersById.set(String(player.id), player);
+
+      if (player.captain_id) {
+        const cId = String(player.captain_id);
+        if (!playersByCaptainId.has(cId)) playersByCaptainId.set(cId, []);
+        playersByCaptainId.get(cId)!.push(player);
+      }
     });
 
     const faceitMap = new Map<string, any>();
@@ -76,13 +95,15 @@ async function getTeamsData(mainConnection: any, jogadoresConnection: any): Prom
       const slug = team.team_nick || normalizeText(team.team_name) || rawNick;
       let captain = playersMap.get(rawNick.toLowerCase()) || playersById.get(rawNick) || normalizedPlayersMap.get(normalizedRawNick);
 
-      const rawTeamPlayers = captain
-        ? playersResult.filter(p => p.id === captain.id || String(p.captain_id) === String(captain.id))
-        : [];
+      let rawTeamPlayers: Player[] = [];
+      if (captain) {
+        const members = playersByCaptainId.get(String(captain.id)) || [];
+        rawTeamPlayers = [captain, ...members];
+      }
       const uniquePlayers = Array.from(new Map(rawTeamPlayers.map(p => [p.id, p])).values());
 
       const enrichedPlayers = uniquePlayers.map(player => {
-        const normalizedPlayerNick = normalizeText(player.nick);
+        const normalizedPlayerNick = playerNormalizedNickMap.get(player.id) || normalizeText(player.nick);
         let faceitData = { faceit_image: '/images/cs2-player.png', faceit_url: '', discord_id: '' };
         let bestMatch = faceitMap.get(player.nick.toLowerCase().trim()) || normalizedFaceitMap.get(normalizedPlayerNick);
         if (bestMatch) {
@@ -90,11 +111,15 @@ async function getTeamsData(mainConnection: any, jogadoresConnection: any): Prom
           if (bestMatch.fotoperfil) faceitData.faceit_image = bestMatch.fotoperfil;
           if (bestMatch.faceit_nickname) faceitData.faceit_url = `https://www.faceit.com/en/players/${bestMatch.faceit_nickname}`;
         }
-        return { ...player, ...faceitData };
+        return { ...player, ...faceitData, pote: Number(player.pote) };
       });
 
       const poteOrder = [4, 5, 1, 2, 3];
-      enrichedPlayers.sort((a,b) => (poteOrder.indexOf(a.pote) || 999) - (poteOrder.indexOf(b.pote) || 999));
+      enrichedPlayers.sort((a, b) => {
+        const idxA = poteOrder.indexOf(a.pote);
+        const idxB = poteOrder.indexOf(b.pote);
+        return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+      });
 
       return {
         team_name: team.team_name || "Time sem nome",

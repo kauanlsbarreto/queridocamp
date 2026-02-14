@@ -27,15 +27,15 @@ export default async function Rodadas() {
 
     connection = await createMainConnection(env);
 
-    const [teamRows] = await connection.query(
-      "SELECT id, team_name AS name, team_image AS logo FROM team_config ORDER BY team_name ASC"
-    ) as [any[], any];
-
-    const [matchRows] = await connection.query(
-      "SELECT * FROM jogos"
-    ) as [any[], any];
-
-    const lastUpdate = await getLastUpdate(connection);
+    const [
+      [teamRows],
+      [matchRows],
+      lastUpdate
+    ] = await Promise.all([
+      connection.query("SELECT id, team_name AS name, team_image AS logo FROM team_config ORDER BY team_name ASC") as Promise<[any[], any]>,
+      connection.query("SELECT * FROM jogos") as Promise<[any[], any]>,
+      getLastUpdate(connection)
+    ]);
 
     return <RodadasClient teams={teamRows} matchesData={matchRows} lastUpdate={lastUpdate} />;
   } catch (error) {

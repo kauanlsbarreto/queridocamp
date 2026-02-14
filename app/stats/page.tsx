@@ -30,12 +30,15 @@ async function getLastUpdate(connection: any) {
 
 async function getStats(mainConn: any, jogadoresConn: any) {
   try {
-    const [statsRows]: any = await mainConn.query(
-      "SELECT * FROM top90_stats ORDER BY kd DESC, adr DESC, kr DESC, k DESC"
-    );
-
-    const [playersRows]: any = await jogadoresConn.query("SELECT nick, pote FROM jogadores");
-    const [faceitRows]: any = await jogadoresConn.query("SELECT faceit_nickname, fotoperfil FROM faceit_players");
+    const [
+      [statsRows],
+      [playersRows],
+      [faceitRows]
+    ] = await Promise.all([
+      mainConn.query("SELECT * FROM top90_stats ORDER BY kd DESC, adr DESC, kr DESC, k DESC") as Promise<[any[], any]>,
+      jogadoresConn.query("SELECT nick, pote FROM jogadores") as Promise<[any[], any]>,
+      jogadoresConn.query("SELECT faceit_nickname, fotoperfil FROM faceit_players") as Promise<[any[], any]>
+    ]);
 
     const nickToPote = new Map(playersRows.map((p: any) => [normalizeText(p.nick), p.pote]));
     const nickToImage = new Map(faceitRows.map((f: any) => [normalizeText(f.faceit_nickname), f.fotoperfil]));
@@ -70,9 +73,13 @@ export default async function StatsPage() {
     mainConnection = await createMainConnection(env);
     jogadoresConnection = await createJogadoresConnection(env);
 
-    allStats = await getStats(mainConnection, jogadoresConnection);
-    lastUpdate = await getLastUpdate(mainConnection);
+    const [statsResult, updateResult] = await Promise.all([
+      getStats(mainConnection, jogadoresConnection),
+      getLastUpdate(mainConnection)
+    ]);
 
+    allStats = statsResult;
+    lastUpdate = updateResult;
   } catch (error) {
     console.error("Erro na StatsPage:", error);
   } finally {

@@ -50,8 +50,10 @@ export default async function Classificacao() {
 
     connection = await createMainConnection(env);
 
-    const teams = await getTeams(connection);
-    const lastUpdate = await getLastUpdate(connection);
+    const [teams, lastUpdate] = await Promise.all([
+      getTeams(connection),
+      getLastUpdate(connection)
+    ]);
 
     return (
       <div>

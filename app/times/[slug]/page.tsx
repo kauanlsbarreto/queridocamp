@@ -39,23 +39,37 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ slu
             // Lógica corrigida para buscar TODOS os jogadores do time baseados no capitão
             const rawNick = (team.player_nick || "").split(',').pop()?.trim() || "";
             
-            // Buscar todos os jogadores para resolver a composição do time
-            const [allJogadores]: any = await jogadoresConnection.query("SELECT * FROM jogadores");
+            // OTIMIZAÇÃO: Buscar apenas o capitão e seus jogadores diretamente
+            // 1. Tentar encontrar o capitão pelo nick
+            const [captainRows]: any = await jogadoresConnection.query(
+                "SELECT * FROM jogadores WHERE nick = ?", 
+                [rawNick]
+            );
+            const captain = captainRows[0];
             
-            // Encontrar o capitão pelo nick (case insensitive)
-            const captain = allJogadores.find((p: any) => p.nick.toLowerCase() === rawNick.toLowerCase());
-            
-            let nicks: string[] = [];
+            let teamPlayers = [];
             
             if (captain) {
-                // Filtrar jogadores que são o capitão ou têm o ID do capitão como captain_id
-                nicks = allJogadores
-                    .filter((p: any) => p.id === captain.id || String(p.captain_id) === String(captain.id))
-                    .map((p: any) => p.nick);
+                // 2. Se achou capitão, busca jogadores vinculados a ele (squad)
+                const [squadRows]: any = await jogadoresConnection.query(
+                    "SELECT * FROM jogadores WHERE id = ? OR captain_id = ?",
+                    [captain.id, captain.id]
+                );
+                teamPlayers = squadRows;
             } else {
-                // Fallback: usa a lista do team_config se não achar na tabela jogadores
-                nicks = team.player_nick ? team.player_nick.split(',').map((n: string) => n.trim()) : [];
+                // 3. Fallback: Se não achou capitão, usa a lista de nicks do config
+                const nicksFromConfig = team.player_nick ? team.player_nick.split(',').map((n: string) => n.trim()) : [];
+                if (nicksFromConfig.length > 0) {
+                     const [playersByNick]: any = await jogadoresConnection.query(
+                         "SELECT * FROM jogadores WHERE nick IN (?)",
+                         [nicksFromConfig]
+                     );
+                     teamPlayers = playersByNick;
+                }
             }
+            
+            // Extrair nicks para as próximas queries
+            const nicks = teamPlayers.map((p: any) => p.nick);
             
             // Buscar dados ricos dos jogadores (Pote, Stats, Imagem)
             let statsRows: any[] = [];
@@ -69,8 +83,8 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ slu
                     [nicks]
                 );
 
-                // Reutilizando allJogadores para pegar o pote, mas garantindo que temos os dados filtrados
-                jogadoresRows = allJogadores.filter((j: any) => nicks.includes(j.nick));
+                // Reutilizando teamPlayers para pegar o pote
+                jogadoresRows = teamPlayers;
 
                 [faceitRows] = await jogadoresConnection.query(
                     "SELECT faceit_nickname, fotoperfil, discord_id FROM faceit_players WHERE faceit_nickname IN (?)",
