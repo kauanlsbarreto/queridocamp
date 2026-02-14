@@ -103,7 +103,7 @@ export default async function StatsPage() {
           <UpdateTimer lastUpdate={lastUpdate} />
           <div className="text-center mb-8">
             <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">
-              Critérios: <span className="text-gold">K/D</span> &gt; ADR &gt; K/R &gt; Kills
+              Critérios para MVP: <span className="text-gold">K/D</span> &gt; ADR &gt; K/R &gt; Kills
             </p>
           </div>
           <StatsList allStats={allStats} />

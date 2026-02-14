@@ -57,6 +57,7 @@ export default function PlayerStatsDetails({ playerStats }: { playerStats: any }
                     const adr = Number(playerStats[`r${round}_adr`]) || 0;
                     const m1Link = playerStats[`r${round}_m1_link`];
                     const m2Link = playerStats[`r${round}_m2_link`];
+                    const matchId = playerStats[`r${round}_m1_id`];
 
                     return (
                         <motion.div
@@ -75,10 +76,19 @@ export default function PlayerStatsDetails({ playerStats }: { playerStats: any }
                                         <div><p className="text-xs text-gray-400">Kills</p><p className="font-bold text-lg text-white">{k}</p></div>
                                         <div><p className="text-xs text-gray-400">Mortes</p><p className="font-bold text-lg text-white">{d}</p></div>
                                     </div>
-                                    {(m1Link || m2Link) && (
-                                        <div className="flex justify-center gap-4 mt-4 border-t border-white/10 pt-3">
-                                            {m1Link && <a href={m1Link} target="_blank" rel="noopener noreferrer" className="text-sm text-orange-400 hover:text-orange-300 flex items-center gap-1">Partida 1 <ExternalLink size={14}/></a>}
-                                            {m2Link && <a href={m2Link} target="_blank" rel="noopener noreferrer" className="text-sm text-orange-400 hover:text-orange-300 flex items-center gap-1">Partida 2 <ExternalLink size={14}/></a>}
+                                    {(m1Link || m2Link || matchId) && (
+                                        <div className="flex flex-col items-center gap-2 mt-4 border-t border-white/10 pt-3">
+                                            {(m1Link || m2Link) && (
+                                                <div className="flex justify-center gap-4">
+                                                    {m1Link && <a href={m1Link} target="_blank" rel="noopener noreferrer" className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 uppercase font-bold tracking-wider">Mapa 1 <ExternalLink size={10}/></a>}
+                                                    {m2Link && <a href={m2Link} target="_blank" rel="noopener noreferrer" className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 uppercase font-bold tracking-wider">Mapa 2 <ExternalLink size={10}/></a>}
+                                                </div>
+                                            )}
+                                            {matchId && (
+                                                <a href={`https://www.faceit.com/en/cs2/room/${matchId}`} target="_blank" rel="noopener noreferrer" className="text-xs text-[#ff5500] hover:text-[#ff5500]/80 flex items-center gap-1 uppercase font-black tracking-widest">
+                                                    Ver Lobby Faceit <ExternalLink size={10}/>
+                                                </a>
+                                            )}
                                         </div>
                                     )}
                                 </div>

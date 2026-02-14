@@ -6,8 +6,9 @@ import PremiumCard from '@/components/premium-card';
 import { Button } from '@/components/ui/button';
 import { Trophy, Crown, Medal, Ticket } from 'lucide-react';
 import PlayerMatches from './PlayerMatches';
+import PlayerStatsDetails from './PlayerStatsDetails';
 
-export default function PerfilClient({ player, initialConquistas, upcomingMatches, teamName }: { player: any, initialConquistas: any[], upcomingMatches?: any[], teamName?: string }) {
+export default function PerfilClient({ player, initialConquistas, upcomingMatches, teamName, playerStats }: { player: any, initialConquistas: any[], upcomingMatches?: any[], teamName?: string, playerStats?: any }) {
     const [codigo, setCodigo] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
@@ -203,7 +204,11 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                         </div>
                     </div>
                     <div className="lg:col-span-2">
-                        {player.id !== 0 && (
+                        {playerStats && (
+                            <PlayerStatsDetails playerStats={playerStats} />
+                        )}
+                        
+                        {(player.id !== 0 || player.faceit_guid) && (
                             <PlayerMatches 
                                 faceitId={player?.faceit_guid} 
                                 upcomingMatches={upcomingMatches} 

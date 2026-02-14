@@ -1,232 +1,102 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserProfile as UserProfileType } from "@/components/user-profile";
-import { Pencil, Trash2, Check, X } from "lucide-react";
+import { Pencil, Trash2, Save, X, Search, User, ArrowLeft } from 'lucide-react';
+import Image from 'next/image';
+import PremiumCard from '@/components/premium-card';
+import PerfilClient from '@/app/perfil/[id]/PerfilClient';
 
-const AddCodeTab = () => {
-  const [tipo, setTipo] = useState<'campeonato' | 'MVP'>('campeonato');
+// --- Componentes das Abas Existentes ---
+
+const AddCodesTab = () => {
+  const [tipo, setTipo] = useState('campeonato');
   const [nome, setNome] = useState('');
   const [loading, setLoading] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [codes, setCodes] = useState<any[]>([]);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editCode, setEditCode] = useState("");
 
   const fetchCodes = async () => {
     try {
-      const res = await fetch('/api/admin/codigos_sistema', { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        setCodes(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch codes", error);
-    }
+      const res = await fetch('/api/admin/codigos_sistema');
+      if (res.ok) setCodes(await res.json());
+    } catch (e) { console.error(e); }
   };
 
-  useEffect(() => {
-    fetchCodes();
-  }, []);
+  useEffect(() => { fetchCodes(); }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nome) {
-      alert('Por favor, preencha o nome da conquista.');
-      return;
-    }
+    if (!nome) return alert("Preencha o nome.");
     setLoading(true);
-    setGeneratedCode(null);
-
-    const cleanName = nome
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9]/g, "")
-      .toUpperCase();
+    const prefix = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().charAt(0);
+    const code = `QCS-${Math.floor(Math.random() * 100) + 1}${prefix}`;
     
-    const randomNum = Math.floor(Math.random() * 100) + 1;
-    const initialName = cleanName.charAt(0);
-    const simpleCode = `QCS-${randomNum}${initialName}`;
-
     try {
       const res = await fetch('/api/admin/codigos_sistema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo, nome, codigo: simpleCode, code: simpleCode }),
+        body: JSON.stringify({ tipo, nome, codigo: code })
       });
-      const data = await res.json();
       if (res.ok) {
-        setGeneratedCode(data.codigo || data.code || simpleCode);
-        alert('Código gerado com sucesso!');
+        setGeneratedCode(code);
         setNome('');
         fetchCodes();
-      } else {
-        alert(data.message || 'Falha ao gerar o código.');
+        alert("Código gerado!");
       }
-    } catch (error) {
-      console.error("Failed to generate code", error);
-      alert('Erro ao conectar com o servidor.');
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { alert("Erro ao gerar."); }
+    setLoading(false);
   };
 
-  const startEditing = (code: any) => {
-    setEditingId(code.id);
-    setEditName(code.nome || code.name);
-    setEditCode(code.codigo || code.code);
-  };
-
-  const cancelEditing = () => {
-    setEditingId(null);
-    setEditName("");
-    setEditCode("");
-  };
-
-  const saveEditing = async (id: number) => {
-    try {
-      const res = await fetch('/api/admin/codigos_sistema', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, nome: editName, codigo: editCode }),
-      });
-      if (res.ok) {
-        setEditingId(null);
-        fetchCodes();
-      } else {
-        alert('Erro ao atualizar código.');
-      }
-    } catch (error) {
-      console.error("Failed to update code", error);
-    }
-  };
-
-  const deleteCode = async (id: number) => {
-    if (!confirm("Tem certeza que deseja excluir este código?")) return;
-    try {
-      const res = await fetch('/api/admin/codigos_sistema', {
+  const handleDelete = async (id: number) => {
+    if(!confirm("Excluir?")) return;
+    await fetch('/api/admin/codigos_sistema', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
-      if (res.ok) {
-        fetchCodes();
-      } else {
-        alert('Erro ao excluir código.');
-      }
-    } catch (error) {
-      console.error("Failed to delete code", error);
-    }
+        body: JSON.stringify({ id })
+    });
+    fetchCodes();
   };
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Adicionar Códigos de Conquista</CardTitle>
-      </CardHeader>
+      <CardHeader><CardTitle>Adicionar Códigos</CardTitle></CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleGenerate} className="space-y-4">
           <div>
-            <label htmlFor="nome" className="block text-sm font-medium text-gray-700">Nome da Conquista</label>
-            <input
-              type="text"
-              id="nome"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
+            <label className="block text-sm font-medium">Nome</label>
+            <input value={nome} onChange={e => setNome(e.target.value)} className="w-full border p-2 rounded" />
           </div>
           <div>
-            <label htmlFor="tipo" className="block text-sm font-medium text-gray-700">Tipo</label>
-            <select
-              id="tipo"
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value as 'campeonato' | 'MVP')}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-            >
+            <label className="block text-sm font-medium">Tipo</label>
+            <select value={tipo} onChange={e => setTipo(e.target.value)} className="w-full border p-2 rounded">
               <option value="campeonato">Campeonato</option>
               <option value="MVP">MVP</option>
             </select>
           </div>
-          <button type="submit" disabled={loading} className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+          <button disabled={loading} className="bg-indigo-600 text-white px-4 py-2 rounded w-full">
             {loading ? 'Gerando...' : 'Gerar Código'}
           </button>
         </form>
-        {generatedCode && (
-          <div className="mt-4 p-4 bg-gray-100 rounded-md">
-            <p className="text-sm font-medium text-gray-800">Código Gerado:</p>
-            <p className="text-lg font-semibold text-indigo-600">{generatedCode}</p>
-          </div>
-        )}
-
-        <div className="mt-8 border-t pt-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Códigos do Sistema</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Criado em</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {codes.map((code) => (
-                  <tr key={code.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {editingId === code.id ? (
-                        <input 
-                          value={editName} 
-                          onChange={(e) => setEditName(e.target.value)} 
-                          className="border rounded px-2 py-1 w-full"
-                        />
-                      ) : (
-                        code.nome || code.name
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{code.tipo || code.type}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
-                      {editingId === code.id ? (
-                        <input 
-                          value={editCode} 
-                          onChange={(e) => setEditCode(e.target.value)} 
-                          className="border rounded px-2 py-1 w-full font-mono"
-                        />
-                      ) : (
-                        code.codigo || code.code
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {code.created_at ? new Date(code.created_at).toLocaleDateString('pt-BR') : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
-                      {editingId === code.id ? (
-                        <>
-                          <button onClick={() => saveEditing(code.id)} className="text-green-600 hover:text-green-900" title="Salvar"><Check size={18} /></button>
-                          <button onClick={cancelEditing} className="text-red-600 hover:text-red-900" title="Cancelar"><X size={18} /></button>
-                        </>
-                      ) : (
-                        <>
-                          <button onClick={() => startEditing(code)} className="text-indigo-600 hover:text-indigo-900" title="Editar"><Pencil size={18} /></button>
-                          <button onClick={() => deleteCode(code.id)} className="text-red-600 hover:text-red-900" title="Excluir"><Trash2 size={18} /></button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {codes.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">Nenhum código encontrado.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        {generatedCode && <div className="mt-4 p-4 bg-gray-100 rounded text-center font-mono text-xl">{generatedCode}</div>}
+        
+        <div className="mt-8">
+            <h3 className="font-bold mb-2">Códigos Existentes</h3>
+            <div className="max-h-60 overflow-y-auto">
+                <table className="w-full text-sm text-left">
+                    <thead><tr className="bg-gray-100"><th>Nome</th><th>Código</th><th>Ação</th></tr></thead>
+                    <tbody>
+                        {codes.map(c => (
+                            <tr key={c.id} className="border-b">
+                                <td className="p-2">{c.nome}</td>
+                                <td className="p-2 font-mono">{c.codigo}</td>
+                                <td className="p-2"><button onClick={() => handleDelete(c.id)} className="text-red-500"><Trash2 size={16}/></button></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
       </CardContent>
     </Card>
@@ -235,464 +105,332 @@ const AddCodeTab = () => {
 
 const ManagePlayersTab = () => {
   const [players, setPlayers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    const fetchPlayers = async () => {
-      try {
-        const res = await fetch('/api/admin/players');
-        const data = await res.json();
-        setPlayers(data.map((p: any) => ({ ...p, originalId: p.id })));
-      } catch (error) {
-        console.error("Failed to fetch players", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPlayers();
+    fetch('/api/admin/players').then(r => r.json()).then(data => 
+        setPlayers(data.map((p: any) => ({...p, originalId: p.id})))
+    );
   }, []);
-
-  const handleIdChange = (originalId: number, newId: string) => {
-    setPlayers(players.map(p => p.originalId === originalId ? { ...p, id: newId } : p));
-  };
 
   const handleSave = async (originalId: number, newId: string) => {
-    if (confirm(`Tem certeza que deseja alterar o ID do jogador para ${newId}?`)) {
-      try {
-        const res = await fetch('/api/admin/players', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ originalId, newId }),
-        });
-        if (res.ok) {
-          alert('ID do jogador atualizado com sucesso!');
-          setPlayers(players.map(p => p.originalId === originalId ? { ...p, originalId: Number(newId), id: Number(newId) } : p));
-
-          const storedUser = localStorage.getItem("faceit_user");
-          if (storedUser) {
-            try {
-              const user = JSON.parse(storedUser);
-              if (user.id === originalId) {
-                user.id = Number(newId);
-                localStorage.setItem("faceit_user", JSON.stringify(user));
-              }
-            } catch (e) {
-              console.error("Failed to update local storage", e);
-            }
-          }
-        } else {
-          alert('Falha ao atualizar o ID do jogador.');
-        }
-      } catch (error) {
-        console.error("Failed to update player ID", error);
-        alert('Erro ao conectar com o servidor.');
-      }
-    }
+    if(!confirm(`Mudar ID para ${newId}?`)) return;
+    const res = await fetch('/api/admin/players', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ originalId, newId })
+    });
+    if(res.ok) alert("Atualizado!");
   };
-
-  if (loading) {
-    return <p>Carregando jogadores...</p>;
-  }
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Gerenciar IDs de Jogadores</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nickname</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Jogador</th>
-                <th scope="col" className="relative px-6 py-3">
-                  <span className="sr-only">Salvar</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {players.map((player) => (
-                <tr key={player.originalId}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{player.nickname}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <input
-                      type="text"
-                      value={player.id || ''}
-                      onChange={(e) => handleIdChange(player.originalId, e.target.value)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => handleSave(player.originalId, player.id)}
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      Salvar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-const SetAdminTab = ({ currentUser }: { currentUser: UserProfileType | null }) => {
-  const [players, setPlayers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [newIdentifier, setNewIdentifier] = useState('');
-  const [newLevel, setNewLevel] = useState(0);
-
-  const fetchPlayers = async () => {
-    try {
-      const res = await fetch('/api/admin/players');
-      const data = await res.json();
-      setPlayers(data);
-    } catch (error) {
-      console.error("Failed to fetch players", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPlayers();
-  }, []);
-
-  const handleAdminChange = async (userId: number, adminLevel: number) => {
-    if (confirm(`Tem certeza que deseja alterar o nível de admin para ${adminLevel}?`)) {
-      try {
-        const res = await fetch('/api/admin/players', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, adminLevel }),
-        });
-        if (res.ok) {
-          alert('Nível de admin atualizado com sucesso!');
-          setPlayers(players.map(p => p.id === userId ? { ...p, Admin: adminLevel } : p));
-
-          const storedUser = localStorage.getItem("faceit_user");
-          if (storedUser) {
-            try {
-              const user = JSON.parse(storedUser);
-              if (user.id === userId) {
-                user.Admin = adminLevel;
-                localStorage.setItem("faceit_user", JSON.stringify(user));
-              }
-            } catch (e) {
-              console.error("Failed to update local storage", e);
-            }
-          }
-        } else {
-          alert('Falha ao atualizar o nível de admin.');
-        }
-      } catch (error) {
-        console.error("Failed to update admin level", error);
-        alert('Erro ao conectar com o servidor.');
-      }
-    }
-  };
-
-  const handleAddAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newIdentifier || newLevel === 0) {
-      alert("Por favor, preencha o ID/GUID e selecione um nível.");
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/admin/players', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: newIdentifier, adminLevel: newLevel }),
-      });
-
-      if (res.ok) {
-        alert('Admin adicionado com sucesso!');
-        setNewIdentifier('');
-        setNewLevel(0);
-        fetchPlayers();
-      } else {
-        const err = await res.json();
-        alert(err.message || 'Falha ao adicionar admin.');
-      }
-    } catch (error) {
-      console.error("Failed to add admin", error);
-      alert('Erro ao conectar com o servidor.');
-    }
-  };
-
-  if (loading) {
-    return <p>Carregando jogadores...</p>;
-  }
-
-  const canAdd = currentUser && currentUser.Admin && currentUser.Admin <= 2;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Gerenciar Níveis de Admin</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {canAdd && (
-          <form onSubmit={handleAddAdmin} className="mb-8 p-4 bg-gray-50 rounded-md border border-gray-200 space-y-4">
-            <h3 className="text-sm font-bold text-gray-700">Adicionar Novo Admin</h3>
-            <div className="flex gap-4 items-end">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1">ID ou Faceit GUID</label>
-                <input
-                  type="text"
-                  value={newIdentifier}
-                  onChange={(e) => setNewIdentifier(e.target.value)}
-                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="Ex: 123 ou guid-..."
-                />
-              </div>
-              <div className="w-40">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Nível</label>
-                <select
-                  value={newLevel}
-                  onChange={(e) => setNewLevel(parseInt(e.target.value))}
-                  className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                >
-                  <option value={0}>Selecione...</option>
-                  {currentUser?.Admin === 1 && (
-                    <>
-                      <option value={1}>Admin</option>
-                      <option value={2}>Dev</option>
-                    </>
-                  )}
-                  <option value={3}>Avaliador</option>
-                  <option value={4}>Parceiro</option>
-                  <option value={5}>Streamer</option>
-                </select>
-              </div>
-              <button
-                type="submit"
-                className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-              >
-                Adicionar
-              </button>
+        <CardHeader><CardTitle>Gerenciar IDs</CardTitle></CardHeader>
+        <CardContent>
+            <div className="max-h-96 overflow-y-auto">
+                <table className="w-full text-sm">
+                    <thead><tr className="bg-gray-100"><th>Nick</th><th>ID</th><th>Salvar</th></tr></thead>
+                    <tbody>
+                        {players.map(p => (
+                            <tr key={p.originalId} className="border-b">
+                                <td className="p-2">{p.nickname}</td>
+                                <td className="p-2">
+                                    <input 
+                                        defaultValue={p.id} 
+                                        onBlur={(e) => p.id = e.target.value}
+                                        className="border p-1 rounded w-24" 
+                                    />
+                                </td>
+                                <td className="p-2">
+                                    <button onClick={(e) => handleSave(p.originalId, p.id)} className="text-blue-600"><Save size={16}/></button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
-          </form>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nickname</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nível de Admin</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {players.map((player) => (
-                <tr key={player.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{player.nickname}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <select
-                      value={player.Admin ?? player.admin ?? 0}
-                      onChange={(e) => handleAdminChange(player.id, parseInt(e.target.value))}
-                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                    >
-                      <option value={0}>Nenhum</option>
-                      {currentUser?.Admin === 1 && (
-                        <>
-                          <option value={1}>Admin</option>
-                          <option value={2}>Dev</option>
-                        </>
-                      )}
-                      <option value={3}>Avaliador</option>
-                      <option value={4}>Parceiro</option>
-                      <option value={5}>Streamer</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
+        </CardContent>
     </Card>
   );
 };
 
-const ManageAdicionadosTab = () => {
-  const [players, setPlayers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editValue, setEditValue] = useState("");
+const SetAdminsTab = () => {
+    const [players, setPlayers] = useState<any[]>([]);
+    const [newAdminId, setNewAdminId] = useState('');
+    const [newLevel, setNewLevel] = useState(1);
 
-  const fetchPlayers = async () => {
-    try {
-      const res = await fetch('/api/admin/players');
-      const data = await res.json();
-      setPlayers(data);
-    } catch (error) {
-      console.error("Failed to fetch players", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchP = () => fetch('/api/admin/players').then(r => r.json()).then(setPlayers);
+    useEffect(() => { fetchP(); }, []);
 
-  useEffect(() => {
-    fetchPlayers();
-  }, []);
-
-  const handleSave = async (userId: number) => {
-    try {
-      const res = await fetch('/api/admin/players', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, adicionados: editValue }),
-      });
-      if (res.ok) {
-        setPlayers(players.map(p => p.id === userId ? { ...p, adicionados: editValue } : p));
-        setEditingId(null);
-        alert('Modificação salva com sucesso!');
-      } else {
-        alert('Falha ao salvar modificação.');
-      }
-    } catch (error) {
-      console.error("Failed to update", error);
-      alert('Erro ao conectar com o servidor.');
-    }
-  };
-
-  if (loading) return <p>Carregando...</p>;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Gerenciar Modificações (Adicionados)</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nickname</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adicionados</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {players.map((player) => (
-                <tr key={player.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{player.nickname}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {editingId === player.id ? (
-                      <input
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        className="border rounded px-2 py-1 w-full"
-                        placeholder="Ex: QCS-CADEIRANTE, VIP"
-                      />
-                    ) : (
-                      player.adicionados || '-'
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {editingId === player.id ? (
-                      <div className="flex gap-2">
-                        <button onClick={() => handleSave(player.id)} className="text-green-600 hover:text-green-900"><Check size={18} /></button>
-                        <button onClick={() => setEditingId(null)} className="text-red-600 hover:text-red-900"><X size={18} /></button>
-                      </div>
-                    ) : (
-                      <button onClick={() => { setEditingId(player.id); setEditValue(player.adicionados || ''); }} className="text-indigo-600 hover:text-indigo-900"><Pencil size={18} /></button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-export default function AdminstracaoPage() {
-  const [user, setUser] = useState<UserProfileType | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const session = localStorage.getItem("faceit_user");
-      let loadedUser: UserProfileType | null = null;
-
-      if (session) {
-        try {
-          const parsedUser = JSON.parse(session);
-          if (parsedUser.faceit_guid) {
-            const res = await fetch(`/api/admin/players?faceit_guid=${parsedUser.faceit_guid}`, { cache: 'no-store' });
-            if (res.ok) {
-              const dbUser = await res.json();
-              // Atualiza o usuário com os dados reais do banco (especialmente o Admin)
-              loadedUser = { ...parsedUser, ...dbUser, Admin: dbUser.admin };
-            }
-          }
-        } catch (e) {
-          console.error("Failed to parse user session", e);
-        }
-      }
-
-      // Libera acesso se estiver em localhost
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-        if (!loadedUser || (loadedUser.Admin !== 1 && loadedUser.Admin !== 2)) {
-          loadedUser = { id: 999999, faceit_guid: 'local', nickname: '-ShaykonBio-', avatar: '', Admin: 1 };
-        }
-      }
-
-      setUser(loadedUser);
-      setLoading(false);
+    const handleAdd = async (e: React.FormEvent) => {
+        e.preventDefault();
+        await fetch('/api/admin/players', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ identifier: newAdminId, adminLevel: newLevel })
+        });
+        fetchP();
+        setNewAdminId('');
     };
 
-    checkAuth();
+    const handleChangeLevel = async (userId: number, level: number) => {
+        await fetch('/api/admin/players', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ userId, adminLevel: level })
+        });
+        fetchP();
+    };
+
+    return (
+        <Card>
+            <CardHeader><CardTitle>Definir Admins</CardTitle></CardHeader>
+            <CardContent>
+                <form onSubmit={handleAdd} className="flex gap-2 mb-6">
+                    <input value={newAdminId} onChange={e => setNewAdminId(e.target.value)} placeholder="ID ou GUID" className="border p-2 rounded flex-1" />
+                    <select value={newLevel} onChange={e => setNewLevel(Number(e.target.value))} className="border p-2 rounded">
+                        <option value={1}>Admin</option>
+                        <option value={2}>Dev</option>
+                        <option value={3}>Avaliador</option>
+                    </select>
+                    <button className="bg-green-600 text-white px-4 rounded">Add</button>
+                </form>
+                <div className="max-h-96 overflow-y-auto">
+                    <table className="w-full text-sm">
+                        <thead><tr className="bg-gray-100"><th>Nick</th><th>Nível</th></tr></thead>
+                        <tbody>
+                            {players.filter(p => p.admin > 0).map(p => (
+                                <tr key={p.id} className="border-b">
+                                    <td className="p-2">{p.nickname}</td>
+                                    <td className="p-2">
+                                        <select 
+                                            value={p.admin} 
+                                            onChange={(e) => handleChangeLevel(p.id, Number(e.target.value))}
+                                            className="border p-1 rounded"
+                                        >
+                                            <option value={0}>Remover</option>
+                                            <option value={1}>Admin</option>
+                                            <option value={2}>Dev</option>
+                                            <option value={3}>Avaliador</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
+const ModificationsTab = () => {
+    const [players, setPlayers] = useState<any[]>([]);
+    const [editing, setEditing] = useState<number | null>(null);
+    const [val, setVal] = useState('');
+
+    const fetchP = () => fetch('/api/admin/players').then(r => r.json()).then(setPlayers);
+    useEffect(() => { fetchP(); }, []);
+
+    const handleSave = async (userId: number) => {
+        await fetch('/api/admin/players', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ userId, adicionados: val })
+        });
+        setEditing(null);
+        fetchP();
+    };
+
+    return (
+        <Card>
+            <CardHeader><CardTitle>Modificações (Tags)</CardTitle></CardHeader>
+            <CardContent>
+                <div className="max-h-96 overflow-y-auto">
+                    <table className="w-full text-sm">
+                        <thead><tr className="bg-gray-100"><th>Nick</th><th>Tags</th><th>Ação</th></tr></thead>
+                        <tbody>
+                            {players.map(p => (
+                                <tr key={p.id} className="border-b">
+                                    <td className="p-2">{p.nickname}</td>
+                                    <td className="p-2">
+                                        {editing === p.id ? (
+                                            <input value={val} onChange={e => setVal(e.target.value)} className="border p-1 w-full" />
+                                        ) : (p.adicionados || '-')}
+                                    </td>
+                                    <td className="p-2">
+                                        {editing === p.id ? (
+                                            <div className="flex gap-1">
+                                                <button onClick={() => handleSave(p.id)} className="text-green-600"><Save size={16}/></button>
+                                                <button onClick={() => setEditing(null)} className="text-red-600"><X size={16}/></button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => {setEditing(p.id); setVal(p.adicionados||'')}} className="text-blue-600"><Pencil size={16}/></button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
+// --- NOVA ABA: VER PLAYER ---
+
+const ViewPlayerTab = () => {
+    const [viewMode, setViewMode] = useState<'list' | 'profile'>('list');
+    const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+    const [players, setPlayers] = useState<any[]>([]);
+    const [search, setSearch] = useState('');
+    const [profileData, setProfileData] = useState<any>(null);
+    const [loadingProfile, setLoadingProfile] = useState(false);
+
+    // Carregar lista
+    useEffect(() => {
+        if (viewMode === 'list') {
+            fetch(`/api/admin/player-profile?q=${search}`)
+                .then(r => r.json())
+                .then(setPlayers)
+                .catch(console.error);
+        }
+    }, [viewMode, search]);
+
+    // Carregar perfil
+    useEffect(() => {
+        if (selectedPlayerId) {
+            setLoadingProfile(true);
+            fetch(`/api/admin/player-profile?id=${selectedPlayerId}`)
+                .then(r => r.json())
+                .then(data => {
+                    setProfileData(data);
+                    setLoadingProfile(false);
+                })
+                .catch(() => setLoadingProfile(false));
+        }
+    }, [selectedPlayerId]);
+
+    const handleSelectPlayer = (id: string) => {
+        setSelectedPlayerId(id);
+        setViewMode('profile');
+    };
+
+    const handleBack = () => {
+        setSelectedPlayerId(null);
+        setProfileData(null);
+        setViewMode('list');
+    };
+
+    if (viewMode === 'profile') {
+        if (loadingProfile || !profileData) return <div className="text-white p-10 text-center">Carregando perfil...</div>;
+        
+        return (
+            <div className="relative min-h-screen bg-black">
+                <div className="fixed top-24 left-4 z-50">
+                    <button onClick={handleBack} className="bg-gold text-black font-bold px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gold/80 transition-colors shadow-lg">
+                        <ArrowLeft size={20} /> Voltar
+                    </button>
+                </div>
+                <PerfilClient 
+                    player={profileData.player} 
+                    initialConquistas={profileData.conquistas} 
+                    upcomingMatches={profileData.upcomingMatches} 
+                    teamName={profileData.teamName} 
+                    playerStats={profileData.playerStats}
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-black text-white pt-8 pb-12 px-4">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+                <div>
+                    <h1 className="text-2xl font-black text-gold italic uppercase tracking-tighter">Ver Player</h1>
+                    <p className="text-zinc-500 text-xs font-medium uppercase tracking-widest mt-1">Selecione um jogador</p>
+                </div>
+                <div className="relative w-full md:w-96">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                    <input
+                        type="text"
+                        placeholder="BUSCAR JOGADOR..."
+                        className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all uppercase text-sm font-bold"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {players.map((player) => (
+                    <div key={player.id} onClick={() => handleSelectPlayer(String(player.id))} className="group cursor-pointer">
+                        <PremiumCard className="h-full hover:scale-[1.03] transition-all duration-300 border-white/5 group-hover:border-gold/30 shadow-xl">
+                            <div className="p-6 flex flex-col items-center text-center h-full">
+                                <div className="relative w-20 h-20 mb-4">
+                                    <div className="absolute inset-0 bg-gold/10 group-hover:bg-gold/20 blur-2xl rounded-full transition-colors" />
+                                    <div className="relative w-full h-full rounded-full border-2 border-white/10 p-1 bg-black/40 group-hover:border-gold/50 transition-all">
+                                        <Image
+                                            src={player.avatar || "/images/cs2-player.png"}
+                                            alt={player.nickname}
+                                            fill
+                                            className="rounded-full object-cover"
+                                            unoptimized
+                                        />
+                                    </div>
+                                </div>
+                                <h3 className="text-lg font-black text-white italic uppercase tracking-tighter mb-1 group-hover:text-gold transition-colors truncate w-full">
+                                    {player.nickname}
+                                </h3>
+                                <span className="text-[10px] text-zinc-500 font-bold uppercase">ID: {player.id}</span>
+                                <div className="mt-4 w-full pt-4 border-t border-white/5">
+                                    <span className="text-xs font-bold text-gold uppercase flex items-center justify-center gap-2">
+                                        <User size={14} /> Ver Perfil
+                                    </span>
+                                </div>
+                            </div>
+                        </PremiumCard>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// --- PÁGINA PRINCIPAL ---
+
+export default function AdminPage() {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('faceit_user');
+    if (stored) {
+        const u = JSON.parse(stored);
+        if (u.Admin === 1 || u.Admin === 2) setUser(u);
+    }
+    setLoading(false);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p>Carregando...</p>
-      </div>
-    );
-  }
-
-  if (!user || (user.Admin !== 1 && user.Admin !== 2)) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p>Acesso negado. Você não tem permissão para acessar esta página.</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="flex justify-center items-center min-h-screen"><p>Carregando...</p></div>;
+  if (!user) return <div className="flex justify-center items-center min-h-screen"><p>Acesso negado.</p></div>;
 
   return (
     <div className="container mx-auto p-4 pt-24">
-      <h1 className="text-3xl font-bold mb-4">Painel de Administração</h1>
-      <Tabs defaultValue="add-code">
-        <TabsList>
+      <h1 className="text-3xl font-bold mb-4 text-white">Painel de Administração</h1>
+      <Tabs defaultValue="add-code" className="w-full">
+        <TabsList className="grid w-full grid-cols-5 bg-gray-900 text-gray-400">
           <TabsTrigger value="add-code">Adicionar Códigos</TabsTrigger>
           <TabsTrigger value="manage-players">Gerenciar Jogadores</TabsTrigger>
           <TabsTrigger value="set-admin">Definir Admins</TabsTrigger>
           <TabsTrigger value="manage-adicionados">Modificações</TabsTrigger>
+          <TabsTrigger value="view-player" className="text-gold font-bold">Ver Player</TabsTrigger>
         </TabsList>
-        <TabsContent value="add-code">
-          <AddCodeTab />
-        </TabsContent>
-        <TabsContent value="manage-players">
-          <ManagePlayersTab />
-        </TabsContent>
-        <TabsContent value="set-admin">
-          <SetAdminTab currentUser={user} />
-        </TabsContent>
-        <TabsContent value="manage-adicionados">
-          <ManageAdicionadosTab />
-        </TabsContent>
+        
+        <TabsContent value="add-code"><AddCodesTab /></TabsContent>
+        <TabsContent value="manage-players"><ManagePlayersTab /></TabsContent>
+        <TabsContent value="set-admin"><SetAdminsTab /></TabsContent>
+        <TabsContent value="manage-adicionados"><ModificationsTab /></TabsContent>
+        <TabsContent value="view-player"><ViewPlayerTab /></TabsContent>
       </Tabs>
     </div>
   );
