@@ -19,6 +19,15 @@ interface UpdateResult {
   message: string
 }
 
+const PAGES_TO_UPDATE = [
+  { name: "Classificação", path: "/classificacao" },
+  { name: "Times", path: "/times" },
+  { name: "Players", path: "/players" },
+  { name: "Stats", path: "/stats" },
+  { name: "Redondo", path: "/redondo" },
+  { name: "Rodadas", path: "/rodadas" }
+]
+
 export function UpdateDataButton() {
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
@@ -26,6 +35,8 @@ export function UpdateDataButton() {
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
   const router = useRouter()
+
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   const handleUpdate = async () => {
     setIsLoading(true)
@@ -46,33 +57,44 @@ export function UpdateDataButton() {
 
       if (!accessToken) throw new Error('Token de acesso ausente.')
 
-      const response = await fetch('/api/admin/update-data', {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ faceit_guid: userData.faceit_guid })
-      })
+      for (const page of PAGES_TO_UPDATE) {
+        try {
+          const response = await fetch('/api/admin/update-data', {
+            method: 'POST',
+            headers: { 
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+              faceit_guid: userData.faceit_guid,
+              path: page.path,
+              name: page.name
+            })
+          })
 
-      const data = await response.json()
+          const data = await response.json()
 
-      if (response.ok) {
-        if (data.results) {
-          setResults(data.results)
-        } else {
-          toast({ title: 'Sucesso!', description: 'Dados atualizados.' })
-          setIsOpen(false)
+          if (!response.ok) {
+             if (response.status === 403 || response.status === 401) {
+                throw new Error('Sessão expirada ou sem permissão.')
+             }
+             throw new Error(data.message || 'Erro ao atualizar.')
+          }
+
+          if (data.results && Array.isArray(data.results)) {
+            setResults(prev => [...prev, ...data.results])
+          }
+
+        } catch (err) {
+          setResults(prev => [...prev, { name: page.name, status: 'error', message: 'Falha na requisição.' }])
         }
-        router.refresh()
-      } else {
-        if (response.status === 403 || response.status === 401) {
-          localStorage.removeItem('faceit_user')
-          window.dispatchEvent(new Event('faceit_auth_updated'))
-          throw new Error('Sessão expirada. Por favor, faça login novamente.')
-        }
-        throw new Error(data.message || 'Erro ao atualizar.')
+
+        await delay(10000)
       }
+
+      toast({ title: 'Processo finalizado', description: 'Verifique o status das atualizações.' })
+      router.refresh()
+
     } catch (error) {
       const msg = (error as Error).message
       setError(msg)
