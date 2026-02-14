@@ -36,6 +36,11 @@ export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayer
       return
     }
 
+    // Verificação de Mobile: Se for tela pequena (celular), não exibe
+    if (window.innerWidth < 768) {
+      return
+    }
+
     // Se não terminou, o AD DEVE aparecer
     setIsVisible(true)
 
