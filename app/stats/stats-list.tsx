@@ -148,14 +148,14 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
     { label: "Sem Pote", value: "0" },
   ];
 
-  const isFilterDisabled = !isAdmin && timeLeft > 0;
+  const isSortDisabled = !isAdmin && timeLeft > 0;
 
-  const handleFilterChange = (action: () => void) => {
-    if (isFilterDisabled) return;
-    action();
+  const handleSortChange = (newSort: string) => {
+    if (isSortDisabled) return;
+    setSortBy(newSort);
     if (!isAdmin) {
-      setCooldownUntil(Date.now() + 120 * 1000);
-      setTimeLeft(120);
+      setCooldownUntil(Date.now() + 15 * 1000);
+      setTimeLeft(15);
     }
   };
 
@@ -163,27 +163,16 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
     <div className="space-y-8">
       {!filterMe && (
       <div className="flex flex-col lg:flex-row items-center justify-between gap-6 bg-white/5 p-4 rounded-xl border border-white/10 shadow-2xl">
-        <div className={`relative flex flex-wrap justify-center gap-2 ${isFilterDisabled ? 'opacity-50' : ''}`}>
-          {isFilterDisabled && (
-            <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-max px-3 py-1 bg-red-900/80 border border-red-500/50 rounded-md text-white text-xs z-10">
-              Aguarde {timeLeft}s para filtrar novamente.
-            </div>
-          )}
+        <div className="relative flex flex-wrap justify-center gap-2">
           {potes.filter(p => isAdmin || p.value !== "0").map((pote) => (
             <button
               key={pote.value}
-              onClick={() => handleFilterChange(() => setSelectedPote(pote.value))}
-              disabled={isFilterDisabled}
+              onClick={() => setSelectedPote(pote.value)}
               className={`px-3 py-2 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all ${
                 selectedPote === pote.value
                   ? "bg-gold text-black shadow-lg shadow-gold/20"
                   : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-              } ${
-                isFilterDisabled
-                  ? "cursor-not-allowed"
-                  : ""
-              }`
-            }
+              }`}
             >
               {pote.label}
             </button>
@@ -191,11 +180,16 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-          <div className={`relative min-w-[180px] w-full sm:w-auto ${isFilterDisabled ? 'opacity-50' : ''}`}>
+          <div className={`relative min-w-[180px] w-full sm:w-auto ${isSortDisabled ? 'opacity-50' : ''}`}>
+            {isSortDisabled && (
+              <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-max px-3 py-1 bg-red-900/80 border border-red-500/50 rounded-md text-white text-xs z-10">
+                Aguarde {timeLeft}s para ordenar novamente.
+              </div>
+            )}
             <select 
               value={sortBy}
-              onChange={(e) => handleFilterChange(() => setSortBy(e.target.value))}
-              disabled={isFilterDisabled}
+              onChange={(e) => handleSortChange(e.target.value)}
+              disabled={isSortDisabled}
               className="w-full bg-black border-2 border-gray-800 text-gold font-black py-3 px-5 rounded-xl appearance-none cursor-pointer focus:border-gold outline-none text-xs uppercase tracking-widest transition-colors disabled:cursor-not-allowed"
             >
               <option value="kd">🏆 K/D RATIO</option>
@@ -206,11 +200,10 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
             <ChevronDown className="absolute right-4 top-3.5 text-gold pointer-events-none" size={18} />
           </div>
 
-          <div className={`relative min-w-[220px] w-full sm:w-auto ${isFilterDisabled ? 'opacity-50' : ''}`}>
+          <div className="relative min-w-[220px] w-full sm:w-auto">
             <select 
               value={selectedRound}
-              onChange={(e) => handleFilterChange(() => setSelectedRound(e.target.value))}
-              disabled={isFilterDisabled}
+              onChange={(e) => setSelectedRound(e.target.value)}
               className="w-full bg-black border-2 border-gray-800 text-gold font-black py-3 px-5 rounded-xl appearance-none cursor-pointer focus:border-gold outline-none text-xs uppercase tracking-widest transition-colors disabled:cursor-not-allowed"
             >
               <option value="Geral">📊 ESTATÍSTICAS GERAIS</option>
