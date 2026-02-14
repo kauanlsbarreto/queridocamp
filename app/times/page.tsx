@@ -73,6 +73,7 @@ async function getTeamsData(mainConnection: any, jogadoresConnection: any): Prom
     return teamsResult.map(team => {
       const rawNick = (team.player_nick || "").split(',').pop()?.trim() || "";
       const normalizedRawNick = normalizeText(rawNick);
+      const slug = team.team_nick || normalizeText(team.team_name) || rawNick;
       let captain = playersMap.get(rawNick.toLowerCase()) || playersById.get(rawNick) || normalizedPlayersMap.get(normalizedRawNick);
 
       const rawTeamPlayers = captain
@@ -97,7 +98,7 @@ async function getTeamsData(mainConnection: any, jogadoresConnection: any): Prom
 
       return {
         team_name: team.team_name || "Time sem nome",
-        team_nick: rawNick,
+        team_nick: slug,
         team_image: team.team_image || "",
         players: enrichedPlayers
       };

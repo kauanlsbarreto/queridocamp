@@ -29,7 +29,6 @@ const PlayerAvatar = ({ src, alt }: { src?: string; alt: string }) => {
 };
 
 export default function StatsList({ allStats }: { allStats: any[] }) {
-  const [activeTab, setActiveTab] = useState<string>("Geral");
   const [selectedRound, setSelectedRound] = useState<string>("Geral");
   const searchParams = useSearchParams();
   const filterMe = searchParams.get('filter') === 'me';
@@ -50,13 +49,6 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
       }
     }
   }, []);
-
-  const tabs = useMemo(() => {
-    const t = ["Geral", "Pote 1", "Pote 2", "Pote 3", "Pote 4", "Pote 5"];
-    if (isAdmin) t.push("Sem Pote");
-    t.push("MVP");
-    return t;
-  }, [isAdmin]);
 
   const TOTAL_ROUNDS = 17;
 
@@ -102,36 +94,15 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
       return sorted.filter(p => p.nick?.toLowerCase() === myNick.toLowerCase());
     }
 
-    if (activeTab === "Geral") return sorted;
-    if (activeTab === "Sem Pote") return sorted.filter(p => !p.pote || p.pote === 0);
-    if (activeTab === "MVP") return sorted.slice(0, 1);
-    
-    const poteNum = parseInt(activeTab.split(" ")[1]);
-    return sorted.filter(p => p.pote === poteNum);
-  }, [allStats, activeTab, selectedRound, filterMe, myNick]);
+    return sorted;
+  }, [allStats, selectedRound, filterMe, myNick]);
 
   const isGeral = selectedRound === "Geral";
 
   return (
     <div className="space-y-8">
       {!filterMe && (
-      <div className="flex flex-col lg:flex-row items-center justify-between gap-6 bg-white/5 p-4 rounded-xl border border-white/10 shadow-2xl">
-        <div className="flex flex-wrap justify-center gap-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-6 py-2 rounded-lg font-black uppercase text-[11px] tracking-tighter transition-all border ${
-                activeTab === tab 
-                ? "bg-gold text-black border-gold shadow-[0_0_20px_rgba(255,215,0,0.3)] scale-105" 
-                : "bg-black/40 text-gray-500 border-gray-800 hover:border-gold/40 hover:text-gray-300"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
+      <div className="flex flex-col lg:flex-row items-center justify-end gap-6 bg-white/5 p-4 rounded-xl border border-white/10 shadow-2xl">
         <div className="relative min-w-[220px]">
           <select 
             value={selectedRound}
@@ -148,8 +119,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
       </div>
       )}
 
-      {/* Grid de Jogadores */}
-      <div className={activeTab === "MVP" ? "max-w-xl mx-auto" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <AnimatePresence mode="wait">
           {displayData.map((player, index) => {
             const k = Number(isGeral ? player.k : player[`r${selectedRound}_k`]) || 0;
@@ -163,7 +133,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
 
             return (
               <motion.div
-                key={`${activeTab}-${selectedRound}-${player.nick}`}
+                key={`${selectedRound}-${player.nick}`}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -171,8 +141,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                 transition={{ duration: 0.3, delay: (index % 20) * 0.03 }}
                 className="relative"
               >
-                {/* Ranking Badge */}
-                {activeTab !== "MVP" && !filterMe && k > 0 && (
+                {!filterMe && k > 0 && (
                   <div className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full flex items-center justify-center font-black text-xs shadow-2xl border-2 ${
                     index === 0 ? "bg-gold text-black border-yellow-200" : 
                     index === 1 ? "bg-slate-300 text-black border-white" :
@@ -198,11 +167,6 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                       </div>
 
                       <div className="flex-1">
-                        {activeTab === "MVP" && (
-                          <div className="text-gold font-black text-[9px] uppercase flex items-center gap-1 mb-1 tracking-tighter">
-                            <Trophy size={10}/> MVP {isGeral ? 'DA TEMPORADA' : `RD ${selectedRound}`}
-                          </div>
-                        )}
                         <h3 className="text-2xl font-black text-white italic uppercase truncate leading-none">{player.nick}</h3>
                         <div className="flex flex-col gap-1 mt-1">
                           <p className="text-gray-500 text-[10px] font-bold tracking-widest">POTE {player.pote}</p>
