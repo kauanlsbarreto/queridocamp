@@ -4,7 +4,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // Aumenta o tempo limite de execução se suportado
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   let connection;
@@ -32,14 +32,21 @@ export async function POST(request: Request) {
         }
     }
 
-    // Otimização: Atualizar DB (sem CREATE TABLE para economizar CPU)
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS site_metadata (
+        key_name VARCHAR(50) NOT NULL,
+        value TEXT,
+        PRIMARY KEY (key_name)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
     const now = new Date().toISOString();
     await connection.execute(
       "INSERT INTO site_metadata (key_name, value) VALUES ('last_update', ?) ON DUPLICATE KEY UPDATE value = ?",
       [now, now]
     );
 
-    // Revalidar caminhos
     const allPaths = [
       {name:"Classificação",path:"/classificacao"},
       {name:"Times",path:"/times"},
@@ -49,7 +56,6 @@ export async function POST(request: Request) {
       {name:"Rodadas",path:"/rodadas"}
     ];
 
-    // Se foi enviado um path específico, usa apenas ele. Caso contrário, usa todos.
     const pathsToUpdate = specificPath 
         ? [{ name: specificName || specificPath, path: specificPath }] 
         : allPaths;
@@ -59,6 +65,7 @@ export async function POST(request: Request) {
             revalidatePath(p.path);
             return { name: p.name, status: 'success', message: 'Dados atualizados.' };
         } catch (e) {
+            console.error(`Erro ao revalidar ${p.path}:`, e);
             return { name: p.name, status: 'error', message: 'Falha ao atualizar.' };
         }
     });

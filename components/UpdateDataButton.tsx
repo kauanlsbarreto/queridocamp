@@ -46,7 +46,6 @@ export function UpdateDataButton() {
 
       if (!accessToken) throw new Error('Token de acesso ausente.')
 
-      // Envia uma única requisição para atualizar tudo
       const response = await fetch('/api/admin/update-data', {
         method: 'POST',
         headers: { 
@@ -55,7 +54,6 @@ export function UpdateDataButton() {
         },
         body: JSON.stringify({ 
           faceit_guid: userData.faceit_guid
-          // Sem enviar 'path' e 'name', o backend entende que é para atualizar TUDO
         })
       })
 
@@ -102,7 +100,7 @@ export function UpdateDataButton() {
             {isLoading && results.length === 0 && (
                <div className="flex flex-col items-center py-8 space-y-4">
                   <Loader className="h-8 w-8 text-gold animate-spin" />
-                  <p className="text-sm text-gray-400">Sincronizando páginas...</p>
+                  <p className="text-sm text-gray-400">Sincronizando banco e páginas...</p>
                </div>
             )}
             {error && <div className="p-3 bg-red-900/20 border border-red-500/20 text-red-400 text-sm rounded-lg">{error}</div>}
