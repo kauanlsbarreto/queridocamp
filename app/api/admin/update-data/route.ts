@@ -4,6 +4,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Aumenta o tempo limite de execução se suportado
 
 export async function POST(request: Request) {
   let connection;
