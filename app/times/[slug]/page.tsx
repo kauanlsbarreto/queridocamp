@@ -114,10 +114,80 @@ async function getTeamStats(team: any) {
                 mapStats[mapName].wins++;
             }
 
-            // ... (Restante da lógica de cálculo de stats omitida para brevidade, mas deve ser copiada do client) ...
-            // Para economizar espaço na resposta, assumo que a lógica completa de cálculo (vetos, clutches, etc) 
-            // será movida para cá conforme sua solicitação de "cache global".
-            // A lógica completa está no arquivo original team-stats-client.tsx e deve ser replicada aqui.
+            // --- Lógica Avançada (Stats) ---
+            // Captura os vetos
+            if (m.voting?.map?.veto && Array.isArray(m.voting.map.veto) && m.voting.map.veto.length > 0) {
+                const firstBanIndex = isFaction1 ? 0 : 1;
+                const firstBanMap = m.voting.map.veto.length > firstBanIndex ? m.voting.map.veto[firstBanIndex] : null;
+                if (firstBanMap) {
+                    if (!vetoStats[firstBanMap]) vetoStats[firstBanMap] = 0;
+                    vetoStats[firstBanMap]++;
+                }
+            }
+
+            if (s && s.rounds && s.rounds.length > 0) {
+                const roundStats = s.rounds[0];
+                
+                // 1. Desempenho por Lado (6-6 no First Half)
+                if (roundStats.teams && roundStats.teams.length === 2) {
+                    const t1Stats = roundStats.teams[0].team_stats;
+                    const t2Stats = roundStats.teams[1].team_stats;
+                    
+                    const myTeamObj = roundStats.teams.find((t: any) => t.players.some((p: any) => teamPlayerIds.includes(p.player_id)));
+                    const enemyTeamObj = roundStats.teams.find((t: any) => !t.players.some((p: any) => teamPlayerIds.includes(p.player_id)));
+
+                    // Verifica empate 6-6 (MR12)
+                    if (t1Stats["First Half Score"] === "6" && t2Stats["First Half Score"] === "6") {
+                        if (!mapStats[mapName].halfDraws) mapStats[mapName].halfDraws = 0;
+                        mapStats[mapName].halfDraws++;
+                        
+                        const enemyName = enemyTeamObj ? (m.teams.faction1.faction_id === enemyTeamObj.team_id ? m.teams.faction1.name : m.teams.faction2.name) : "Oponente";
+                        matchStats.halfDrawsDetails.push({ map: mapName, score: "6-6", opponent: enemyName });
+                    }
+
+                    // Vitórias no First Half
+                    if (myTeamObj && enemyTeamObj) {
+                        const myHalf = Number(myTeamObj.team_stats["First Half Score"]);
+                        const enemyHalf = Number(enemyTeamObj.team_stats["First Half Score"]);
+                        if (myHalf > enemyHalf) {
+                            if (!mapStats[mapName].halfWins) mapStats[mapName].halfWins = 0;
+                            mapStats[mapName].halfWins++;
+                            
+                            const enemyName = m.teams.faction1.faction_id === enemyTeamObj.team_id ? m.teams.faction1.name : m.teams.faction2.name;
+                            matchStats.halfWinsDetails.push({ map: mapName, score: `${myHalf}-${enemyHalf}`, opponent: enemyName });
+                        }
+                    }
+                }
+
+                // 2. Clutchers e Entry Kills
+                roundStats.teams.forEach((t: any) => {
+                    const isMyTeam = t.players.some((p: any) => teamPlayerIds.includes(p.player_id));
+                    
+                    if (isMyTeam) {
+                        t.players.forEach((p: any) => {
+                            const pid = p.player_id;
+                            const stats = p.player_stats;
+                            
+                            if (!matchStats.players) matchStats.players = {};
+                            if (!matchStats.players[pid]) matchStats.players[pid] = { 
+                                nickname: p.nickname, 
+                                clutches: 0, 
+                                entryKills: 0,
+                                sniperKills: 0,
+                                matches: 0
+                            };
+
+                            matchStats.players[pid].matches++;
+
+                            const clutches = Number(stats["1v1Wins"] || 0) + Number(stats["1v2Wins"] || 0) + Number(stats["1v3Wins"] || 0) + Number(stats["1v4Wins"] || 0) + Number(stats["1v5Wins"] || 0);
+                            
+                            matchStats.players[pid].clutches += clutches;
+                            matchStats.players[pid].entryKills += Number(stats["First Kills"] || 0);
+                            matchStats.players[pid].sniperKills += Number(stats["Sniper Kills"] || 0);
+                        });
+                    }
+                });
+            }
         });
 
         return { mapStats, vetoStats, matchStats };
