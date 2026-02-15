@@ -3,14 +3,8 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import PremiumCard from '@/components/premium-card';
 import StatsList from '@/app/stats/stats-list';
-import { Trophy, Map as MapIcon, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Trophy, Map as MapIcon, TrendingUp, AlertTriangle, Crosshair, Shield, Swords, Target } from 'lucide-react';
 
-const API_KEY = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
-const HUB_IDS = [
-    "fdd5221c-408c-4148-bc63-e2940da4a490",
-    "04a14d7f-0511-451b-8208-9a6c3215ccaa"
-];
-const START_TIMESTAMP = 1769308800;
 
 const MAP_IMAGES: Record<string, string> = {
   de_mirage: "https://static.draft5.gg/news/2023/03/23112933/Bomb-A-Mirage-CS-2.jpg",
@@ -22,112 +16,23 @@ const MAP_IMAGES: Record<string, string> = {
   de_dust2: "https://static.draft5.gg/news/2023/04/04161748/dust2_ct_ramp_Cs2.jpg",
 };
 
-export default function TeamStatsClient({ team }: { team: any }) {
-    const [stats, setStats] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+export default function TeamStatsClient({ team, initialStats }: { team: any, initialStats?: any }) {
+    const [stats, setStats] = useState<any>(initialStats || null);
+    const [loading, setLoading] = useState(!initialStats);
 
     useEffect(() => {
-        const fetchTeamStats = async () => {
-            try {
-                const allHistories = await Promise.all(
-                    team.players.map(async (p: any) => {
-                        if (!p.faceit_guid) return null;
-                        const res = await fetch(`https://open.faceit.com/data/v4/players/${p.faceit_guid}/history?game=cs2&from=${START_TIMESTAMP}&limit=50`, {
-                            headers: { 'Authorization': `Bearer ${API_KEY}` }
-                        });
-                        if (!res.ok) return null;
-                        const data = await res.json();
-                        return { player_id: p.faceit_guid, items: data.items };
-                    })
-                );
-
-                const validHistories = allHistories.filter(h => h !== null);
-                const mapStats: any = {};
-                const vetoStats: any = {};
-                const matchStats = { wins: 0, losses: 0, draws: 0, total: 0 };
-                const processedMatches = new Set();
-
-                validHistories.forEach((history: any) => {
-                    history.items.forEach((match: any) => {
-                        if (HUB_IDS.includes(match.competition_id)) {
-                            if (!processedMatches.has(match.match_id)) {
-                                processedMatches.add(match.match_id);
-                            }
-                        }
-                    });
-                });
-                
-                const uniqueMatchIds = Array.from(processedMatches);
-                const matchDetailsPromises = uniqueMatchIds.map(id => 
-                    fetch(`https://open.faceit.com/data/v4/matches/${id}`, {
-                        headers: { 'Authorization': `Bearer ${API_KEY}` }
-                    }).then(r => r.json())
-                );
-                
-                const matchesDetails = await Promise.all(matchDetailsPromises);
-                
-                matchesDetails.forEach((m: any) => {
-                    if (!m || !m.voting) return;
-                    
-                    let mapName = "Unknown";
-                    if (m.voting?.map?.pick && m.voting.map.pick.length > 0) {
-                        mapName = m.voting.map.pick[0];
-                    } else if (m.maps && m.maps.length > 0) {
-                        mapName = m.maps[0];
-                    }
-                    
-                    if (!mapStats[mapName]) mapStats[mapName] = { wins: 0, matches: 0 };
-                    mapStats[mapName].matches++;
-                    
-                    const teamPlayerIds = team.players.map((p: any) => p.faceit_guid);
-                    const faction1Ids = m.teams.faction1.roster.map((p: any) => p.player_id);
-                    
-                    const isFaction1 = faction1Ids.some((id: string) => teamPlayerIds.includes(id));
-                    const winner = m.results?.winner;
-                    
-                    const score1 = Number(m.results?.score?.faction1 || 0);
-                    const score2 = Number(m.results?.score?.faction2 || 0);
-                    const myScore = isFaction1 ? score1 : score2;
-                    const enemyScore = isFaction1 ? score2 : score1;
-
-                    matchStats.total++;
-                    if (myScore > enemyScore) matchStats.wins++;
-                    else if (myScore < enemyScore) matchStats.losses++;
-                    else matchStats.draws++;
-                    
-                    if ((isFaction1 && winner === 'faction1') || (!isFaction1 && winner === 'faction2')) {
-                        mapStats[mapName].wins++;
-                    }
-
-                    // Captura os vetos seguindo a estrutura da API: voting -> map -> veto
-                    if (m.voting?.map?.veto && Array.isArray(m.voting.map.veto)) {
-                        // Assume que a Faction 1 bane no índice 0 e Faction 2 no índice 1 (padrão Faceit)
-                        const firstBanIndex = isFaction1 ? 0 : 1;
-                        const firstBanMap = m.voting.map.veto[firstBanIndex];
-                        if (firstBanMap) {
-                            if (!vetoStats[firstBanMap]) vetoStats[firstBanMap] = 0;
-                            vetoStats[firstBanMap]++;
-                        }
-                    }
-                });
-
-                setStats({ mapStats, vetoStats, matchStats });
-            } catch (e) {
-                console.error(e);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchTeamStats();
-    }, [team]);
+        if (initialStats) {
+            setStats(initialStats);
+            setLoading(false);
+        }
+    }, [initialStats]);
 
     if (loading) return <div className="text-gold text-center py-20 animate-pulse font-black italic">CARREGANDO DADOS DA FACEIT...</div>;
 
     const { mapStats, vetoStats, matchStats } = stats || { 
         mapStats: {}, 
         vetoStats: {}, 
-        matchStats: { wins: 0, losses: 0, draws: 0, total: 0 } 
+        matchStats: { wins: 0, losses: 0, draws: 0, total: 0, players: {}, halfDrawsDetails: [], halfWinsDetails: [] } 
     };
 
     const sortedMaps = Object.entries(mapStats).sort((a: any, b: any) => b[1].matches - a[1].matches);
@@ -136,6 +41,7 @@ export default function TeamStatsClient({ team }: { team: any }) {
     const sortedVetos = Object.entries(vetoStats).sort((a: any, b: any) => b[1] - a[1]);
     let mostBannedMap = sortedVetos.length > 0 ? sortedVetos[0] : null;
     let banLabel = "Mapa Mais Banido";
+    let banCount: number = mostBannedMap ? (mostBannedMap[1] as number) : 0;
 
     // Fallback: Se não houver dados de veto, usar o mapa menos jogado (ou nunca jogado)
     if (!mostBannedMap) {
@@ -145,6 +51,7 @@ export default function TeamStatsClient({ team }: { team: any }) {
         });
         mostBannedMap = [sortedByPlayed[0], 0];
         banLabel = "Menos Jogado (Provável Ban)";
+        banCount = 0;
     }
     
     const bestPlayer = team.tournamentStats?.reduce((prev: any, current: any) => {
@@ -152,6 +59,27 @@ export default function TeamStatsClient({ team }: { team: any }) {
     }, { kd: 0, nick: 'N/A' });
 
     const winRateTotal = matchStats.total > 0 ? ((matchStats.wins / matchStats.total) * 100).toFixed(0) : 0;
+
+    // Processamento dos dados avançados para exibição
+    const playerStatsArray = matchStats.players ? Object.values(matchStats.players) : [];
+    
+    // Melhor Clutcher
+    const bestClutcher: any = playerStatsArray.reduce((prev: any, current: any) => 
+        (current.clutches > prev.clutches) ? current : prev
+    , { nickname: 'N/A', clutches: 0 });
+
+    // Melhor Entry
+    const bestEntry: any = playerStatsArray.reduce((prev: any, current: any) => 
+        (current.entryKills > prev.entryKills) ? current : prev
+    , { nickname: 'N/A', entryKills: 0 });
+
+    // Melhor AWPer
+    const bestAwper: any = playerStatsArray.reduce((prev: any, current: any) => 
+        (current.sniperKills > prev.sniperKills) ? current : prev
+    , { nickname: 'N/A', sniperKills: 0 });
+
+    const totalHalfDraws = Object.values(mapStats).reduce((acc: number, curr: any) => acc + (curr.halfDraws || 0), 0);
+    const totalHalfWins = Object.values(mapStats).reduce((acc: number, curr: any) => acc + (curr.halfWins || 0), 0);
 
     return (
         <div className="container mx-auto px-4 py-12 text-white">
@@ -202,7 +130,11 @@ export default function TeamStatsClient({ team }: { team: any }) {
                         </div>
                         <h3 className="text-zinc-400 text-xs font-black uppercase tracking-widest mb-1">First Ban (Provável)</h3>
                         <p className="text-3xl font-black text-white italic uppercase">{mostBannedMap ? mostBannedMap[0].replace('de_', '') : 'N/A'}</p>
-                        <p className="text-[10px] text-zinc-500 mt-2 uppercase font-bold">{banLabel}</p>
+                        <p className="text-[10px] text-zinc-500 mt-2 uppercase font-bold">
+                            {banLabel === "Mapa Mais Banido" && matchStats.total > 0
+                                ? `${((banCount / matchStats.total) * 100).toFixed(0)}% (${banCount} jogos)`
+                                : banLabel}
+                        </p>
                     </div>
                 </PremiumCard>
 
@@ -253,21 +185,24 @@ export default function TeamStatsClient({ team }: { team: any }) {
                                         />
                                         
                                         <div className="absolute inset-0 flex flex-col justify-center px-5 z-10">
-                                            <span className="text-lg font-black text-white uppercase italic tracking-tighter mb-2 drop-shadow-lg">
-                                                {mapName.replace('de_', '')}
-                                            </span>
+                                            <div className="flex items-baseline gap-2 mb-2">
+                                                <span className="text-lg font-black text-white uppercase italic tracking-tighter drop-shadow-lg">
+                                                    {mapName.replace('de_', '')}
+                                                </span>
+                                                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">({matches})</span>
+                                            </div>
 
                                             <div className="flex justify-between items-end">
                                                 <div className="flex flex-col">
-                                                    <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Jogos / Win Rate</span>
+                                                    <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Vitórias</span>
                                                     <div className="flex items-baseline gap-2">
-                                                        <span className="text-xl font-black text-white">{matches}</span>
+                                                        <span className="text-xl font-black text-white">{wins}</span>
                                                         <span className="text-xs font-bold text-green-500">{winRate}%</span>
                                                     </div>
                                                 </div>
 
                                                 <div className="flex flex-col items-end">
-                                                    <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Derrotas / Loss Rate</span>
+                                                    <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Derrotas</span>
                                                     <div className="flex items-baseline gap-2">
                                                         <span className="text-xl font-black text-white">{losses}</span>
                                                         <span className="text-xs font-bold text-red-500">{lossRate}%</span>
@@ -297,11 +232,107 @@ export default function TeamStatsClient({ team }: { team: any }) {
                                     {Object.entries(mapStats).sort((a: any, b: any) => b[1].matches - a[1].matches)[0]?.[0] || 'N/A'}
                                 </span>
                             </div>
+
+                            <div className="border-b border-white/5 pb-4">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-zinc-500 font-bold uppercase text-sm">Mapas Mais Banidos (First Ban)</span>
+                                </div>
+                                {sortedVetos.length > 0 && (
+                                    <div className="mt-3 pl-4 space-y-2 max-h-40 overflow-y-auto pr-2">
+                                        {sortedVetos.map(([map, count]: any) => (
+                                            <div key={map} className="flex justify-between items-center text-[10px] font-bold uppercase">
+                                                <span className="text-zinc-500">{map.replace('de_', '')}</span>
+                                                <span className="text-red-500">{count} bans ({matchStats.total > 0 ? ((count / matchStats.total) * 100).toFixed(0) : 0}%)</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="flex justify-between items-center border-b border-white/5 pb-4">
                                 <span className="text-zinc-500 font-bold uppercase text-sm">Melhor Win Rate</span>
                                 <span className="text-xl font-black italic text-green-400">
                                     {Object.entries(mapStats).sort((a: any, b: any) => (b[1].wins/b[1].matches) - (a[1].wins/a[1].matches))[0]?.[0] || 'N/A'}
                                 </span>
+                            </div>
+
+                            <div className="border-b border-white/5 pb-4">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-green-500/10 rounded-lg text-green-400"><Shield size={18} /></div>
+                                        <span className="text-zinc-400 font-bold uppercase text-xs">Vitórias 1º Half</span>
+                                    </div>
+                                    <span className="text-xl font-black italic text-white">{totalHalfWins}</span>
+                                </div>
+                                {matchStats.halfWinsDetails?.length > 0 && (
+                                    <div className="mt-3 pl-11 space-y-2 max-h-40 overflow-y-auto pr-2">
+                                        {matchStats.halfWinsDetails.map((detail: any, idx: number) => (
+                                            <div key={idx} className="flex justify-between items-center text-[10px] font-bold uppercase">
+                                                <div className="flex flex-col">
+                                                    <span className="text-zinc-500">{detail.map.replace('de_', '')}</span>
+                                                    <span className="text-[9px] text-zinc-600 truncate max-w-[120px]">vs {detail.opponent}</span>
+                                                </div>
+                                                <span className="text-green-500">{detail.score}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="border-b border-white/5 pb-4">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400"><Shield size={18} /></div>
+                                        <span className="text-zinc-400 font-bold uppercase text-xs">Empates 6-6 (Half)</span>
+                                    </div>
+                                    <span className="text-xl font-black italic text-white">{totalHalfDraws}</span>
+                                </div>
+                                {matchStats.halfDrawsDetails?.length > 0 && (
+                                    <div className="mt-3 pl-11 space-y-2 max-h-40 overflow-y-auto pr-2">
+                                        {matchStats.halfDrawsDetails.map((detail: any, idx: number) => (
+                                            <div key={idx} className="flex justify-between items-center text-[10px] font-bold uppercase">
+                                                <div className="flex flex-col">
+                                                    <span className="text-zinc-500">{detail.map.replace('de_', '')}</span>
+                                                    <span className="text-[9px] text-zinc-600 truncate max-w-[120px]">vs {detail.opponent}</span>
+                                                </div>
+                                                <span className="text-blue-400">{detail.score}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400"><Swords size={18} /></div>
+                                    <div className="flex flex-col">
+                                        <span className="text-zinc-400 font-bold uppercase text-xs">Rei do Clutch</span>
+                                        <span className="text-sm text-white font-black italic">{bestClutcher.nickname}</span>
+                                    </div>
+                                </div>
+                                <span className="text-xl font-black italic text-white">{bestClutcher.clutches} <span className="text-[10px] text-zinc-500 not-italic">Vitórias</span></span>
+                            </div>
+
+                            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-red-500/10 rounded-lg text-red-400"><Crosshair size={18} /></div>
+                                    <div className="flex flex-col">
+                                        <span className="text-zinc-400 font-bold uppercase text-xs">Entry Fragger</span>
+                                        <span className="text-sm text-white font-black italic">{bestEntry.nickname}</span>
+                                    </div>
+                                </div>
+                                <span className="text-xl font-black italic text-white">{bestEntry.entryKills} <span className="text-[10px] text-zinc-500 not-italic">kills</span></span>
+                            </div>
+
+                            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-400"><Target size={18} /></div>
+                                    <div className="flex flex-col">
+                                        <span className="text-zinc-400 font-bold uppercase text-xs">AWPer</span>
+                                        <span className="text-sm text-white font-black italic">{bestAwper.nickname}</span>
+                                    </div>
+                                </div>
+                                <span className="text-xl font-black italic text-white">{bestAwper.sniperKills} <span className="text-[10px] text-zinc-500 not-italic">kills</span></span>
                             </div>
                         </div>
                     </div>

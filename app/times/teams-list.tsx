@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { motion } from "framer-motion";
 import PremiumCard from "@/components/premium-card";
 import Image from "next/image";
@@ -43,7 +43,7 @@ interface TeamData {
   players: Player[];
 }
 
-export default function TeamsList({ teams }: { teams: TeamData[] }) {
+const TeamsList = memo(function TeamsList({ teams }: { teams: TeamData[] }) {
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredTeams = useMemo(() => {
@@ -181,4 +181,6 @@ export default function TeamsList({ teams }: { teams: TeamData[] }) {
       )}
     </div>
   );
-}
+});
+
+export default TeamsList;

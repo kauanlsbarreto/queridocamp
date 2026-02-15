@@ -3,6 +3,7 @@ import SideAds from '@/components/side-ads';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, createJogadoresConnection } from '@/lib/db';
 import UpdateTimer from '@/components/update-timer';
+import { unstable_cache } from 'next/cache';
 
 export const revalidate = 86400;
 
@@ -43,7 +44,7 @@ async function getLastUpdate(connection: any) {
   }
 }
 
-async function getTeamsData(mainConnection: any, jogadoresConnection: any): Promise<TeamData[]> {
+const getTeamsData = unstable_cache(async (mainConnection: any, jogadoresConnection: any): Promise<TeamData[]> => {
   try {
     // Executa as queries em paralelo para reduzir o tempo total de resposta
     const [
@@ -133,7 +134,7 @@ async function getTeamsData(mainConnection: any, jogadoresConnection: any): Prom
     console.error("Erro ao buscar dados dos times:", err);
     return [];
   }
-}
+}, ['teams-data'], { revalidate: 86400 });
 
 export default async function TimesPage() {
   let mainConnection: any;

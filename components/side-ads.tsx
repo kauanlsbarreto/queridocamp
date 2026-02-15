@@ -36,11 +36,11 @@ export default function SideAds() {
 
   return (
     <>
-      <aside className="fixed left-8 top-1/2 -translate-y-1/2 z-30 hidden 2xl:flex flex-col gap-4 w-[300px]">
+      <aside className="fixed left-4 2xl:left-8 top-1/2 -translate-y-1/2 z-30 hidden xl:flex flex-col gap-4 w-[140px] 2xl:w-[300px]">
         <AdItem ad={ads[currentIndex]} />
       </aside>
 
-      <aside className="fixed right-8 top-1/2 -translate-y-1/2 z-30 hidden 2xl:flex flex-col gap-4 w-[300px]">
+      <aside className="fixed right-4 2xl:right-8 top-1/2 -translate-y-1/2 z-30 hidden xl:flex flex-col gap-4 w-[140px] 2xl:w-[300px]">
         <AdItem ad={ads[currentIndex]} />
       </aside>
     </>
