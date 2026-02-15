@@ -24,7 +24,6 @@ async function getTeamStats(team: any) {
     try {
         const allHistories = await Promise.all(
             team.players.map(async (p: any) => {
-                if (String(p.pote) !== '1') return null;
                 if (!p.faceit_guid) return null;
                 const res = await fetch(`https://open.faceit.com/data/v4/players/${p.faceit_guid}/history?game=cs2&from=${START_TIMESTAMP}&limit=50`, {
                     headers: { 'Authorization': `Bearer ${API_KEY}` },
@@ -54,16 +53,14 @@ async function getTeamStats(team: any) {
 
         if (team.tournamentStats) {
             team.tournamentStats.forEach((stat: any) => {
-                if (String(stat.pote) === '1') {
-                    Object.keys(stat).forEach((key) => {
-                        if (/^r\d+_m1_id$/.test(key)) {
-                            const matchId = stat[key];
-                            if (matchId && matchId !== 'NULL' && String(matchId).trim() !== '') {
-                                processedMatches.add(matchId);
-                            }
+                Object.keys(stat).forEach((key) => {
+                    if (/^r\d+_m1_id$/.test(key)) {
+                        const matchId = stat[key];
+                        if (matchId && matchId !== 'NULL' && String(matchId).trim() !== '') {
+                            processedMatches.add(matchId);
                         }
-                    });
-                }
+                    }
+                });
             });
         }
         
