@@ -227,8 +227,17 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
             const adr = Number(isGeral ? player.adr : player[`r${selectedRound}_adr`]) || 0;
             const m1Link = !isGeral ? player[`r${selectedRound}_m1_link`] : null;
             const m2Link = !isGeral ? player[`r${selectedRound}_m2_link`] : null;
-            const matchResult = !isGeral ? player[`r${selectedRound}_result`] : null;
+            
+            const rawMatchResult = !isGeral ? player[`r${selectedRound}_result`] : null;
+            const matchResult = rawMatchResult ? rawMatchResult.replace(' X', '') : null;
+            const hasWOIndicator = rawMatchResult ? rawMatchResult.includes(' X') : false;
+
             const matchId = !isGeral ? player[`r${selectedRound}_m1_id`] : null;
+            
+            const m1K = !isGeral ? player[`r${selectedRound}_m1_k`] : undefined;
+            const m2K = !isGeral ? player[`r${selectedRound}_m2_k`] : undefined;
+            const m2Id = !isGeral ? player[`r${selectedRound}_m2_id`] : undefined;
+            const isWO = !isGeral && (m1K === null || (m2Id && m2K === null) || hasWOIndicator);
 
             return (
               <motion.div
@@ -280,7 +289,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                                matchResult === '1-1' ? 'text-yellow-500' : 
                                matchResult === '0-2' ? 'text-red-500' : 'text-gray-400'
                              }`}>
-                               Resultado: {matchResult}
+                               Resultado: {matchResult} {isWO && <span className="text-red-500">W.O</span>}
                              </p>
                           )}
                         </div>
@@ -355,9 +364,9 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                       </div>
                     )}
                     
-                    {k === 0 && (
+                    {((isGeral && k === 0) || (!isGeral && isWO)) && (
                       <div className="mt-4 py-1 bg-red-500/5 rounded border border-red-500/10 text-center">
-                        <p className="text-[9px] text-red-500/40 font-black uppercase italic tracking-widest">Inativo na seleção</p>
+                        <p className="text-[9px] text-red-500/40 font-black uppercase italic tracking-widest">Inativo para MVP</p>
                       </div>
                     )}
                   </div>
