@@ -67,25 +67,16 @@ async function getTeamStats(team: any) {
         const uniqueMatchIds = Array.from(processedMatches);
         const matchDetailsPromises = uniqueMatchIds.map(id => 
             Promise.all([
-                fetch(`https://open.faceit.com/data/v4/matches/${id}`, { headers: { 'Authorization': `Bearer ${API_KEY}` }, next: { revalidate: 3600 } }).then(r => r.json()),
-                fetch(`https://open.faceit.com/data/v4/matches/${id}/stats`, { headers: { 'Authorization': `Bearer ${API_KEY}` }, next: { revalidate: 3600 } }).then(r => r.json())
+                fetch(`https://open.faceit.com/data/v4/matches/${id}`, { headers: { 'Authorization': `Bearer ${API_KEY}` }, next: { revalidate: 3600 } }).then(r => r.ok ? r.json() : null),
+                fetch(`https://open.faceit.com/data/v4/matches/${id}/stats`, { headers: { 'Authorization': `Bearer ${API_KEY}` }, next: { revalidate: 3600 } }).then(r => r.ok ? r.json() : null)
             ])
         );
         
         const matchesData = await Promise.all(matchDetailsPromises);
         
         matchesData.forEach(([m, s]: any[]) => {
-            if (!m) return;
-            
-            let mapName = "Unknown";
-            if (m.voting?.map?.pick?.length > 0) {
-                mapName = m.voting.map.pick[0];
-            } else if (m.maps && m.maps.length > 0) {
-                mapName = m.maps[0];
-            }
-            
-            if (!mapStats[mapName]) mapStats[mapName] = { wins: 0, matches: 0 };
-            mapStats[mapName].matches++;
+            // Verifica se a partida e as estatísticas existem (ignora W.O ou canceladas sem stats)
+            if (!m || !s || !s.rounds || s.rounds.length === 0) return;
             
             const teamPlayerIds = team.players.map((p: any) => p.faceit_guid);
             const teamPlayerNicks = team.players.map((p: any) => p.nickname?.toLowerCase());
@@ -95,7 +86,6 @@ async function getTeamStats(team: any) {
             
             const isFaction1 = faction1Ids.some((id: string) => teamPlayerIds.includes(id)) ||
                                faction1Nicks.some((nick: string) => teamPlayerNicks.includes(nick));
-            const winner = m.results?.winner;
             
             const score1 = Number(m.results?.score?.faction1 || 0);
             const score2 = Number(m.results?.score?.faction2 || 0);
@@ -106,10 +96,6 @@ async function getTeamStats(team: any) {
             if (myScore > enemyScore) matchStats.wins++;
             else if (myScore < enemyScore) matchStats.losses++;
             else matchStats.draws++;
-            
-            if ((isFaction1 && winner === 'faction1') || (!isFaction1 && winner === 'faction2')) {
-                mapStats[mapName].wins++;
-            }
 
             // --- Lógica Avançada (Stats) ---
             // Captura os vetos
@@ -122,69 +108,98 @@ async function getTeamStats(team: any) {
                 }
             }
 
-            if (s && s.rounds && s.rounds.length > 0) {
-                const roundStats = s.rounds[0];
-                
-                // 1. Desempenho por Lado (6-6 no First Half)
-                if (roundStats.teams && roundStats.teams.length === 2) {
-                    const t1Stats = roundStats.teams[0].team_stats;
-                    const t2Stats = roundStats.teams[1].team_stats;
-                    
-                    const myTeamObj = roundStats.teams.find((t: any) => t.players.some((p: any) => teamPlayerIds.includes(p.player_id)));
-                    const enemyTeamObj = roundStats.teams.find((t: any) => !t.players.some((p: any) => teamPlayerIds.includes(p.player_id)));
+            s.rounds.forEach((roundStats: any) => {
+                    const mapName = roundStats.round_stats?.Map || "Unknown";
+                    if (!mapStats[mapName]) mapStats[mapName] = { wins: 0, matches: 0 };
+                    mapStats[mapName].matches++;
 
-                    // Verifica empate 6-6 (MR12)
-                    if (t1Stats["First Half Score"] === "6" && t2Stats["First Half Score"] === "6") {
-                        if (!mapStats[mapName].halfDraws) mapStats[mapName].halfDraws = 0;
-                        mapStats[mapName].halfDraws++;
+                    // 1. Desempenho por Lado (6-6 no First Half) & Map Wins
+                    if (roundStats.teams && roundStats.teams.length === 2) {
+                        const t1Stats = roundStats.teams[0].team_stats;
+                        const t2Stats = roundStats.teams[1].team_stats;
                         
-                        const enemyName = enemyTeamObj ? (m.teams.faction1.faction_id === enemyTeamObj.team_id ? m.teams.faction1.name : m.teams.faction2.name) : "Oponente";
-                        matchStats.halfDrawsDetails.push({ map: mapName, score: "6-6", opponent: enemyName });
-                    }
+                        const myTeamObj = roundStats.teams.find((t: any) => t.players.some((p: any) => teamPlayerIds.includes(p.player_id)));
+                        const enemyTeamObj = roundStats.teams.find((t: any) => !t.players.some((p: any) => teamPlayerIds.includes(p.player_id)));
 
-                    // Vitórias no First Half
-                    if (myTeamObj && enemyTeamObj) {
-                        const myHalf = Number(myTeamObj.team_stats["First Half Score"]);
-                        const enemyHalf = Number(enemyTeamObj.team_stats["First Half Score"]);
-                        if (myHalf > enemyHalf) {
-                            if (!mapStats[mapName].halfWins) mapStats[mapName].halfWins = 0;
-                            mapStats[mapName].halfWins++;
+                        // Map Win Check
+                        if (myTeamObj && enemyTeamObj) {
+                            const myScore = Number(myTeamObj.team_stats["Final Score"]);
+                            const enemyScore = Number(enemyTeamObj.team_stats["Final Score"]);
+                            if (myScore > enemyScore) {
+                                mapStats[mapName].wins++;
+                            }
+                        }
+
+                        // Verifica empate 6-6 (MR12)
+                        if (t1Stats["First Half Score"] === "6" && t2Stats["First Half Score"] === "6") {
+                            if (!mapStats[mapName].halfDraws) mapStats[mapName].halfDraws = 0;
+                            mapStats[mapName].halfDraws++;
                             
-                            const enemyName = m.teams.faction1.faction_id === enemyTeamObj.team_id ? m.teams.faction1.name : m.teams.faction2.name;
-                            matchStats.halfWinsDetails.push({ map: mapName, score: `${myHalf}-${enemyHalf}`, opponent: enemyName });
+                            const enemyName = enemyTeamObj ? (m.teams.faction1.faction_id === enemyTeamObj.team_id ? m.teams.faction1.name : m.teams.faction2.name) : "Oponente";
+                            matchStats.halfDrawsDetails.push({ map: mapName, score: "6-6", opponent: enemyName });
+                        }
+
+                        // Vitórias no First Half
+                        if (myTeamObj && enemyTeamObj) {
+                            const myHalf = Number(myTeamObj.team_stats["First Half Score"]);
+                            const enemyHalf = Number(enemyTeamObj.team_stats["First Half Score"]);
+                            if (myHalf > enemyHalf) {
+                                if (!mapStats[mapName].halfWins) mapStats[mapName].halfWins = 0;
+                                mapStats[mapName].halfWins++;
+                                
+                                const enemyName = m.teams.faction1.faction_id === enemyTeamObj.team_id ? m.teams.faction1.name : m.teams.faction2.name;
+                                matchStats.halfWinsDetails.push({ map: mapName, score: `${myHalf}-${enemyHalf}`, opponent: enemyName });
+                            }
                         }
                     }
-                }
 
-                // 2. Clutchers e Entry Kills
-                roundStats.teams.forEach((t: any) => {
-                    const isMyTeam = t.players.some((p: any) => teamPlayerIds.includes(p.player_id));
-                    
-                    if (isMyTeam) {
-                        t.players.forEach((p: any) => {
-                            const pid = p.player_id;
-                            const stats = p.player_stats;
-                            
-                            if (!matchStats.players) matchStats.players = {};
-                            if (!matchStats.players[pid]) matchStats.players[pid] = { 
-                                nickname: p.nickname, 
-                                clutches: 0, 
-                                entryKills: 0,
-                                sniperKills: 0,
-                                matches: 0
-                            };
+                    // 2. Clutchers e Entry Kills
+                    roundStats.teams.forEach((t: any) => {
+                        const isMyTeam = t.players.some((p: any) => teamPlayerIds.includes(p.player_id));
+                        
+                        if (isMyTeam) {
+                            t.players.forEach((p: any) => {
+                                const pid = p.player_id;
+                                const stats = p.player_stats;
+                                
+                                if (!matchStats.players) matchStats.players = {};
+                                if (!matchStats.players[pid]) matchStats.players[pid] = { 
+                                    nickname: p.nickname, 
+                                    clutches: 0, 
+                                    entryKills: 0,
+                                    sniperKills: 0,
+                                    matches: 0,
+                                    headshots: 0,
+                                    pistolKills: 0,
+                                    utilitySuccesses: 0,
+                                    enemiesFlashed: 0,
+                                    damage: 0,
+                                    quadroKills: 0,
+                                    pentaKills: 0,
+                                    knifeKills: 0,
+                                    zeusKills: 0
+                                };
 
-                            matchStats.players[pid].matches++;
+                                matchStats.players[pid].matches++;
 
-                            const clutches = Number(stats["1v1Wins"] || 0) + Number(stats["1v2Wins"] || 0) + Number(stats["1v3Wins"] || 0) + Number(stats["1v4Wins"] || 0) + Number(stats["1v5Wins"] || 0);
-                            
-                            matchStats.players[pid].clutches += clutches;
-                            matchStats.players[pid].entryKills += Number(stats["First Kills"] || 0);
-                            matchStats.players[pid].sniperKills += Number(stats["Sniper Kills"] || 0);
-                        });
-                    }
-                });
-            }
+                                const clutches = Number(stats["1v1Wins"] || 0) + Number(stats["1v2Wins"] || 0);
+                                
+                                matchStats.players[pid].clutches += clutches;
+                                matchStats.players[pid].entryKills += Number(stats["First Kills"] || 0);
+                                matchStats.players[pid].sniperKills += Number(stats["Sniper Kills"] || 0);
+                                matchStats.players[pid].headshots += Number(stats["Headshots"] || 0);
+                                matchStats.players[pid].pistolKills += Number(stats["Pistol Kills"] || 0);
+                                matchStats.players[pid].utilitySuccesses += Number(stats["Utility Successes"] || 0);
+                                matchStats.players[pid].enemiesFlashed += Number(stats["Enemies Flashed"] || 0);
+                                matchStats.players[pid].damage += Number(stats["Damage"] || 0);
+                                matchStats.players[pid].quadroKills += Number(stats["Quadro Kills"] || 0);
+                                matchStats.players[pid].pentaKills += Number(stats["Penta Kills"] || 0);
+                                matchStats.players[pid].knifeKills += Number(stats["Knife Kills"] || 0);
+                                matchStats.players[pid].zeusKills += Number(stats["Zeus Kills"] || 0);
+                            });
+                        }
+                    });
+            });
         });
 
         return { mapStats, vetoStats, matchStats };

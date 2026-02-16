@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import PremiumCard from '@/components/premium-card';
 import StatsList from '@/app/stats/stats-list';
-import { Trophy, Map as MapIcon, TrendingUp, AlertTriangle, Crosshair, Shield, Swords, Target } from 'lucide-react';
+import { Trophy, Map as MapIcon, TrendingUp, AlertTriangle, Crosshair, Shield, Swords, Target, Skull, Zap, Bomb, Eye, Activity, Users, Flame } from 'lucide-react';
 
 
 const MAP_IMAGES: Record<string, string> = {
@@ -77,6 +77,32 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
     const bestAwper: any = playerStatsArray.reduce((prev: any, current: any) => 
         (current.sniperKills > prev.sniperKills) ? current : prev
     , { nickname: 'N/A', sniperKills: 0 });
+
+    // Novos Stats
+    const bestHeadshotter: any = playerStatsArray.reduce((prev: any, current: any) => 
+        (current.headshots > prev.headshots) ? current : prev
+    , { nickname: 'N/A', headshots: 0 });
+
+    const bestPistol: any = playerStatsArray.reduce((prev: any, current: any) => 
+        (current.pistolKills > prev.pistolKills) ? current : prev
+    , { nickname: 'N/A', pistolKills: 0 });
+
+    const bestUtility: any = playerStatsArray.reduce((prev: any, current: any) => 
+        (current.utilitySuccesses > prev.utilitySuccesses) ? current : prev
+    , { nickname: 'N/A', utilitySuccesses: 0 });
+
+    const bestFlash: any = playerStatsArray.reduce((prev: any, current: any) => 
+        (current.enemiesFlashed > prev.enemiesFlashed) ? current : prev
+    , { nickname: 'N/A', enemiesFlashed: 0 });
+
+    const bestDamage: any = playerStatsArray.reduce((prev: any, current: any) => 
+        (current.damage > prev.damage) ? current : prev
+    , { nickname: 'N/A', damage: 0 });
+
+    const totalQuadro = playerStatsArray.reduce((acc: number, curr: any) => acc + (curr.quadroKills || 0), 0);
+    const totalPenta = playerStatsArray.reduce((acc: number, curr: any) => acc + (curr.pentaKills || 0), 0);
+    const totalKnife = playerStatsArray.reduce((acc: number, curr: any) => acc + (curr.knifeKills || 0), 0);
+    const totalZeus = playerStatsArray.reduce((acc: number, curr: any) => acc + (curr.zeusKills || 0), 0);
 
     const totalHalfDraws = Object.values(mapStats).reduce((acc: number, curr: any) => acc + (curr.halfDraws || 0), 0);
     const totalHalfWins = Object.values(mapStats).reduce((acc: number, curr: any) => acc + (curr.halfWins || 0), 0);
@@ -232,23 +258,6 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
                                     {Object.entries(mapStats).sort((a: any, b: any) => b[1].matches - a[1].matches)[0]?.[0] || 'N/A'}
                                 </span>
                             </div>
-
-                            <div className="border-b border-white/5 pb-4">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-zinc-500 font-bold uppercase text-sm">Mapas Mais Banidos (First Ban)</span>
-                                </div>
-                                {sortedVetos.length > 0 && (
-                                    <div className="mt-3 pl-4 space-y-2 max-h-40 overflow-y-auto pr-2">
-                                        {sortedVetos.map(([map, count]: any) => (
-                                            <div key={map} className="flex justify-between items-center text-[10px] font-bold uppercase">
-                                                <span className="text-zinc-500">{map.replace('de_', '')}</span>
-                                                <span className="text-red-500">{count} bans ({matchStats.total > 0 ? ((count / matchStats.total) * 100).toFixed(0) : 0}%)</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
                             <div className="flex justify-between items-center border-b border-white/5 pb-4">
                                 <span className="text-zinc-500 font-bold uppercase text-sm">Melhor Win Rate</span>
                                 <span className="text-xl font-black italic text-green-400">
@@ -306,7 +315,7 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400"><Swords size={18} /></div>
                                     <div className="flex flex-col">
-                                        <span className="text-zinc-400 font-bold uppercase text-xs">Rei do Clutch</span>
+                                        <span className="text-zinc-400 font-bold uppercase text-xs">Vencedor de 1v1 e 1v2</span>
                                         <span className="text-sm text-white font-black italic">{bestClutcher.nickname}</span>
                                     </div>
                                 </div>
@@ -334,6 +343,63 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
                                 </div>
                                 <span className="text-xl font-black italic text-white">{bestAwper.sniperKills} <span className="text-[10px] text-zinc-500 not-italic">kills</span></span>
                             </div>
+
+                            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-orange-500/10 rounded-lg text-orange-400"><Skull size={18} /></div>
+                                    <div className="flex flex-col">
+                                        <span className="text-zinc-400 font-bold uppercase text-xs">Rei do HS</span>
+                                        <span className="text-sm text-white font-black italic">{bestHeadshotter.nickname}</span>
+                                    </div>
+                                </div>
+                                <span className="text-xl font-black italic text-white">{bestHeadshotter.headshots} <span className="text-[10px] text-zinc-500 not-italic">HS</span></span>
+                            </div>
+
+                            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-pink-500/10 rounded-lg text-pink-400"><Flame size={18} /></div>
+                                    <div className="flex flex-col">
+                                        <span className="text-zinc-400 font-bold uppercase text-xs">Maior Dano</span>
+                                        <span className="text-sm text-white font-black italic">{bestDamage.nickname}</span>
+                                    </div>
+                                </div>
+                                <span className="text-xl font-black italic text-white">{(bestDamage.damage / 1000).toFixed(1)}k <span className="text-[10px] text-zinc-500 not-italic">dmg</span></span>
+                            </div>
+
+                            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400"><Bomb size={18} /></div>
+                                    <div className="flex flex-col">
+                                        <span className="text-zinc-400 font-bold uppercase text-xs">Mestre das Granadas</span>
+                                        <span className="text-sm text-white font-black italic">{bestUtility.nickname}</span>
+                                    </div>
+                                </div>
+                                <span className="text-xl font-black italic text-white">{bestUtility.utilitySuccesses} <span className="text-[10px] text-zinc-500 not-italic">sucessos</span></span>
+                            </div>
+
+                            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400"><Eye size={18} /></div>
+                                    <div className="flex flex-col">
+                                        <span className="text-zinc-400 font-bold uppercase text-xs">Cega Tudo (Flash)</span>
+                                        <span className="text-sm text-white font-black italic">{bestFlash.nickname}</span>
+                                    </div>
+                                </div>
+                                <span className="text-xl font-black italic text-white">{bestFlash.enemiesFlashed} <span className="text-[10px] text-zinc-500 not-italic">cegos</span></span>
+                            </div>
+
+                            {(totalPenta > 0 || totalQuadro > 0) && (
+                                <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400"><Zap size={18} /></div>
+                                        <span className="text-zinc-400 font-bold uppercase text-xs">Multikills (Time)</span>
+                                    </div>
+                                    <div className="text-right">
+                                        {totalPenta > 0 && <div className="text-sm font-black text-white italic">{totalPenta} PENTA</div>}
+                                        {totalQuadro > 0 && <div className="text-sm font-bold text-zinc-400">{totalQuadro} ROUNDS </div>}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </PremiumCard>
