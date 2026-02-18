@@ -165,11 +165,11 @@ export default function Campeonato() {
               <TimelineItem date="14 de Fevereiro a 23 de Fevereiro" title="Pausa - Carnaval">
                 Pausa no campeonato devido ao período de carnaval.
               </TimelineItem>
-              <TimelineItem date="24 de Fevereiro a 5 de Março" title="Quartas e Semifinais (Online)">
+              <TimelineItem date="28 de Março" title="Quartas Presenciais">
                 Confrontos eliminatórios entre os 8 melhores times nas quartas de final, seguido pelas semifinais entre
                 os 4 times restantes.
               </TimelineItem>
-              <TimelineItem date="7 e 8 de Março" title="Finais Presenciais">
+              <TimelineItem date="29 de Março" title="Semis e Final Presencial">
                 Grande final presencial em LAN e cerimônia de premiação.
               </TimelineItem>
             </div>
