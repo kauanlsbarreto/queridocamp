@@ -43,7 +43,6 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
     let banLabel = "Mapa Mais Banido";
     let banCount: number = mostBannedMap ? (mostBannedMap[1] as number) : 0;
 
-    // Fallback: Se não houver dados de veto, usar o mapa menos jogado (ou nunca jogado)
     if (!mostBannedMap) {
         const allMaps = Object.keys(MAP_IMAGES);
         const sortedByPlayed = allMaps.sort((a, b) => {
@@ -60,25 +59,20 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
 
     const winRateTotal = matchStats.total > 0 ? ((matchStats.wins / matchStats.total) * 100).toFixed(0) : 0;
 
-    // Processamento dos dados avançados para exibição
     const playerStatsArray = matchStats.players ? Object.values(matchStats.players) : [];
     
-    // Melhor Clutcher
     const bestClutcher: any = playerStatsArray.reduce((prev: any, current: any) => 
         (current.clutches > prev.clutches) ? current : prev
     , { nickname: 'N/A', clutches: 0 });
 
-    // Melhor Entry
     const bestEntry: any = playerStatsArray.reduce((prev: any, current: any) => 
         (current.entryKills > prev.entryKills) ? current : prev
     , { nickname: 'N/A', entryKills: 0 });
 
-    // Melhor AWPer
     const bestAwper: any = playerStatsArray.reduce((prev: any, current: any) => 
         (current.sniperKills > prev.sniperKills) ? current : prev
     , { nickname: 'N/A', sniperKills: 0 });
 
-    // Novos Stats
     const bestHeadshotter: any = playerStatsArray.reduce((prev: any, current: any) => 
         (current.headshots > prev.headshots) ? current : prev
     , { nickname: 'N/A', headshots: 0 });

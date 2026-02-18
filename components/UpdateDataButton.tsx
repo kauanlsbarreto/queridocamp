@@ -63,7 +63,8 @@ export function UpdateDataButton() {
           if (response.status === 403 || response.status === 401) {
             throw new Error('Sessão expirada ou sem permissão.')
           }
-          throw new Error(data.message || 'Erro ao atualizar.')
+          const errorDetails = data.error ? `Detalhes: ${data.error}` : '';
+          throw new Error(`${data.message || 'Erro ao atualizar.'} ${errorDetails}`);
       }
 
       if (data.results && Array.isArray(data.results)) {

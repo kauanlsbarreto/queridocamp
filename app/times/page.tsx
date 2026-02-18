@@ -29,8 +29,8 @@ const normalizeText = (str: string | null | undefined): string => {
   return str
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove accents
-    .replace(/[^a-z0-9]/g, ''); // Remove non-alphanumeric characters
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
 };
 
 async function getLastUpdate(connection: any) {
@@ -46,7 +46,6 @@ async function getLastUpdate(connection: any) {
 
 const getTeamsData = unstable_cache(async (mainConnection: any, jogadoresConnection: any): Promise<TeamData[]> => {
   try {
-    // Executa as queries em paralelo para reduzir o tempo total de resposta
     const [
       [teamsResult],
       [playersResult],

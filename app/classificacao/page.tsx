@@ -6,7 +6,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
 
-export const revalidate = 0;
+export const revalidate = 86400;
 
 type TeamRow = RowDataPacket & {
   id: number;
@@ -19,7 +19,6 @@ type TeamRow = RowDataPacket & {
 };
 
 async function getTeams(connection: any) {
-  // ⚠️ use query() ao invés de execute() para Hyperdrive
   const [rows] = await connection.query(
     "SELECT * FROM team_config ORDER BY sp DESC, df DESC"
   ) as [TeamRow[], any];

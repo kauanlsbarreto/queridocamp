@@ -13,8 +13,8 @@ const normalizeText = (str: string | null | undefined): string => {
   return str
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove accents
-    .replace(/[^a-z0-9]/g, ''); // Remove non-alphanumeric characters
+    .replace(/[\u0300-\u036f]/g, '') 
+    .replace(/[^a-z0-9]/g, ''); 
 };
 
 

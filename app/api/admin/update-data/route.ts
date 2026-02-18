@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
 
@@ -60,22 +60,38 @@ export async function POST(request: Request) {
         ? [{ name: specificName || specificPath, path: specificPath }] 
         : allPaths;
 
-    const results = pathsToUpdate.map(p => {
+    const results: { name: string; status: 'success' | 'error'; message: string }[] = [];
+
+    for (const p of pathsToUpdate) {
         try {
             revalidatePath(p.path);
-            return { name: p.name, status: 'success', message: 'Dados atualizados.' };
+            results.push({ name: p.name, status: 'success', message: 'Página atualizada.' });
         } catch (e) {
             console.error(`Erro ao revalidar ${p.path}:`, e);
-            return { name: p.name, status: 'error', message: 'Falha ao atualizar.' };
+            results.push({ name: p.name, status: 'error', message: 'Falha ao atualizar página.' });
         }
-    });
+    }
+
+    if (!specificPath) {
+      const tagsToRevalidate = ['teams-data']; 
+      for (const tag of tagsToRevalidate) {
+        try {
+          revalidateTag(tag);
+          results.push({ name: `Cache de Dados (${tag})`, status: 'success', message: 'Cache atualizado.' });
+        } catch (e) {
+          console.error(`Erro ao revalidar a tag ${tag}:`, e);
+          results.push({ name: `Cache de Dados (${tag})`, status: 'error', message: 'Falha ao atualizar cache.' });
+        }
+      }
+    }
 
     return NextResponse.json({ success: true, results });
 
   } catch (error) {
     console.error("Erro API update-data:", error);
-    return NextResponse.json({ message: "Erro interno do servidor" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ message: "Erro interno do servidor.", error: errorMessage }, { status: 500 });
   } finally {
-    if (connection) await connection.end().catch(() => {});
+    if (connection) await connection.end().catch(console.error);
   }
 }

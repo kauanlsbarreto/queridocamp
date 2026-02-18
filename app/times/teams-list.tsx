@@ -79,7 +79,6 @@ const TeamsList = memo(function TeamsList({ teams }: { teams: TeamData[] }) {
               <div className="p-6 md:p-8">
                 <div className="flex flex-col gap-10 items-center">
                   
-                  {/* Cabeçalho do Time */}
                   <div className="w-full flex flex-col items-center text-center space-y-4">
                     <div className="relative w-32 h-32 md:w-40 md:h-40">
                       <div className="absolute inset-0 bg-gold/20 blur-3xl rounded-full group-hover:bg-gold/40 transition-all" />
@@ -104,21 +103,18 @@ const TeamsList = memo(function TeamsList({ teams }: { teams: TeamData[] }) {
                     </div>
                   </div>
 
-                  {/* Lista de Jogadores */}
                   <div className="w-full max-w-5xl">
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-8">
                       {team.players.map((player) => (
                         <div key={player.id} className={`group/player flex flex-col items-center ${!player.faceit_url ? 'opacity-40' : ''}`}>
                           <div className="relative mb-4">
                             
-                            {/* Círculo do Jogador com Borda Gold e Glow */}
                             <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-2 border-gold p-1 shadow-[0_0_15px_rgba(212,175,55,0.15)] group-hover/player:shadow-[0_0_25px_rgba(212,175,55,0.4)] transition-all duration-300">
                                 <div className="relative w-full h-full rounded-full overflow-hidden bg-zinc-900">
                                     <PlayerAvatar src={player.faceit_image} alt={player.nick} />
                                 </div>
                             </div>
                             
-                            {/* Overlay Faceit (Aparece no Meio no Hover) */}
                             {player.faceit_url && (
                               <div 
                                 className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/player:opacity-100 transition-all duration-300 z-20"
@@ -131,7 +127,6 @@ const TeamsList = memo(function TeamsList({ teams }: { teams: TeamData[] }) {
                                   className="relative w-12 h-12 bg-[#ff5500] rounded-full flex items-center justify-center text-white shadow-2xl hover:scale-110 transition-transform border-2 border-white/20 overflow-hidden"
                                   title="Ver Faceit"
                                 >
-                                  {/* Usando a sua imagem da pasta public */}
                                   <Image 
                                     src="/images/faceit.png" 
                                     alt="Faceit" 
@@ -160,7 +155,6 @@ const TeamsList = memo(function TeamsList({ teams }: { teams: TeamData[] }) {
                     </div>
                   </div>
 
-                  {/* Footer do Card */}
                   <div className="w-full border-t border-white/5 pt-6 flex justify-center">
                      <span className="text-[10px] font-black uppercase text-zinc-600 tracking-[0.3em] group-hover:text-gold transition-colors">
                         Ver estatísticas completas

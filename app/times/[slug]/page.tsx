@@ -2,7 +2,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, createJogadoresConnection } from '@/lib/db';
 import TeamStatsClient from './team-stats-client';
 
-export const revalidate = 3600; // Cache global de 1 hora
+export const revalidate = 86400;
 
 const API_KEY = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
 const HUB_IDS = [
