@@ -54,6 +54,7 @@ export async function POST(request: Request) {
     );
 
     const allPaths = [
+      {name:"Home & Geral", path: "/", type: "layout" as const},
       {name:"Classificação",path:"/classificacao"},
       {name:"Times",path:"/times"},
       {name:"Players",path:"/players"},
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
 
     for (const p of pathsToUpdate) {
         try {
-            revalidatePath(p.path);
+            revalidatePath(p.path, (p as any).type);
             results.push({ name: p.name, status: 'success', message: 'Página atualizada.' });
         } catch (e) {
             console.error(`Erro ao revalidar ${p.path}:`, e);

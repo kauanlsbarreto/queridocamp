@@ -33,8 +33,22 @@ export function UpdateDataButton() {
     setError(null)
     setIsOpen(true) 
 
+    let isAdmin = false
+
     try {
       const storedUser = localStorage.getItem('faceit_user')
+      
+      // Verifica permissão antes de prosseguir para decidir como mostrar erros futuros
+      if (storedUser) {
+        try {
+          const u = JSON.parse(storedUser)
+          const lvl = u.admin || u.Admin
+          if (lvl === 1 || lvl === 2) isAdmin = true
+        } catch (e) {
+          console.error("Erro ao verificar admin:", e)
+        }
+      }
+
       if (!storedUser) throw new Error('Sessão não encontrada. Faça login novamente.')
 
       const userData = JSON.parse(storedUser)
@@ -78,8 +92,12 @@ export function UpdateDataButton() {
 
     } catch (error) {
       const msg = (error as Error).message
-      setError(msg)
-      toast({ title: 'Erro', description: msg, variant: 'destructive' })
+      
+      // Se for Admin 1 ou 2, mostra o erro real. Caso contrário, mostra mensagem de manutenção.
+      const displayMsg = isAdmin ? msg : "Sistema em manutenção. Tente novamente mais tarde."
+
+      setError(displayMsg)
+      toast({ title: 'Erro', description: displayMsg, variant: 'destructive' })
     } finally {
       setIsLoading(false)
     }
