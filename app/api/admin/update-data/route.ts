@@ -25,7 +25,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Identificação do usuário ausente." }, { status: 401 });
         }
         
-        const [rows]: any = await connection.execute("SELECT admin FROM players WHERE faceit_guid = ?", [faceit_guid]);
+        const [rows]: any = await connection.query("SELECT admin FROM players WHERE faceit_guid = ?", [faceit_guid]);
         
         if (!rows.length || (rows[0].admin !== 1 && rows[0].admin !== 2)) {
             return NextResponse.json({ message: "Dessa vez nao pequeno gafanhoto" }, { status: 403 });
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     `);
 
     const now = new Date().toISOString();
-    await connection.execute(
+    await connection.query(
       "INSERT INTO site_metadata (key_name, value) VALUES ('last_update', ?) ON DUPLICATE KEY UPDATE value = ?",
       [now, now]
     );

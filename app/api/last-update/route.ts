@@ -4,6 +4,8 @@ import { createMainConnection } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+const deployTime = new Date().toISOString();
+
 export async function GET() {
   let connection;
   try {
@@ -17,10 +19,10 @@ export async function GET() {
     );
 
     return NextResponse.json({ 
-      lastUpdate: rows[0]?.value || new Date().toISOString() 
+      lastUpdate: rows[0]?.value || deployTime 
     });
   } catch (error) {
-    return NextResponse.json({ lastUpdate: new Date().toISOString() });
+    return NextResponse.json({ lastUpdate: deployTime });
   } finally {
     if (connection) await connection.end();
   }
