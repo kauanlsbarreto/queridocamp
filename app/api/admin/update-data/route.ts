@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     }
 
 
-    await connection.execute(`
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS site_metadata (
         key_name VARCHAR(50) NOT NULL,
         value TEXT,
