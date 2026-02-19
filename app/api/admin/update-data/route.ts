@@ -41,12 +41,7 @@ export async function POST(request: Request) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    // Gera a data no horário de Brasília
-    const now = new Date().toLocaleString("pt-BR", { 
-      timeZone: "America/Sao_Paulo",
-      dateStyle: "short",
-      timeStyle: "medium"
-    });
+    const now = new Date().toISOString();
 
     await connection.query(
       "INSERT INTO site_metadata (key_name, value) VALUES ('last_update', ?) ON DUPLICATE KEY UPDATE value = ?",
