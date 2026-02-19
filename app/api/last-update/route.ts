@@ -20,6 +20,10 @@ export async function GET() {
 
     return NextResponse.json({ 
       lastUpdate: rows[0]?.value || deployTime 
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, max-age=0, must-revalidate',
+      }
     });
   } catch (error) {
     return NextResponse.json({ lastUpdate: deployTime });

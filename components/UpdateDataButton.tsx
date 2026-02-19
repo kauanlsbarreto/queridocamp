@@ -73,6 +73,8 @@ export function UpdateDataButton() {
 
       toast({ title: 'Processo finalizado', description: 'Verifique o status das atualizações.' })
       router.refresh()
+      
+      setTimeout(() => window.location.reload(), 1000)
 
     } catch (error) {
       const msg = (error as Error).message
