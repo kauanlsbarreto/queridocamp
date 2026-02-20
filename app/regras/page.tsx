@@ -10,10 +10,8 @@ export default function Regras() {
   return (
     <div>
       <SideAds />
-      {/* Hero Section */}
       <HeroBanner title="REGRAS DO CAMPEONATO" subtitle="Conheça as regras oficiais do Querido Camp" />
 
-      {/* Rules Section */}
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto space-y-12">
@@ -96,11 +94,44 @@ export default function Regras() {
                 Desclassificação imediata e banimento de até 5 anos.
               </RuleItem>
             </RuleSection>
+
+            <RuleSection number="6" title="Disposições Administrativas">
+            <RuleItem title="Complete sob Avaliação da Mesa:">
+              Jogadores atuando como complete deverão obrigatoriamente passar por avaliação e aprovação da mesa
+              organizadora antes da partida.
+            </RuleItem>
+
+            <RuleItem title="Aviso Prévio de Complete:">
+              O aviso da utilização de complete deve ser realizado com no mínimo 3 horas de antecedência
+              ao horário oficial da partida.
+            </RuleItem>
+
+            <RuleItem title="Pagamento Obrigatório:">
+              O pagamento da inscrição deve estar devidamente confirmado antes do início da partida.
+              Equipes com pendências financeiras não poderão jogar.
+            </RuleItem>
+
+            <RuleItem title="Proibição de Agentes (Skins de Boneco):">
+              Está proibido o uso de agentes personalizados durante partidas oficiais do campeonato.
+              Todos os jogadores devem utilizar os modelos padrão do jogo.
+            </RuleItem>
+
+            <RuleItem title="Remarcação da MD2:">
+              Toda equipe tem direito a remarcar a MD2 da semana, desde que a solicitação
+              seja feita dentro do prazo oficial daquela rodada e aprovada pela organização.
+            </RuleItem>
+
+            <RuleItem title="Exemplo de Remarcação da MD2:">
+              Exemplo: A Rodada 3 está programada para acontecer entre os dias 10 e 16.
+              Caso uma equipe solicite a remarcação no dia 11, dentro do prazo da rodada,
+              ela poderá reagendar a MD2 para qualquer outro dia disponível até o dia 16,
+              mediante aprovação da organização.
+            </RuleItem>
+          </RuleSection>
           </div>
         </div>
       </section>
 
-      {/* Contact Section */}
       <section className="py-12 bg-black">
         <div className="container mx-auto px-4">
           <PremiumCard hoverEffect={false}>
