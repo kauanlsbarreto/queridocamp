@@ -202,16 +202,17 @@ const TeamRow = memo(({
                         <section className="pt-6 border-t border-white/10">
                           <h5 className="text-gold font-bold mb-4 text-xs uppercase tracking-widest flex items-center gap-2">
                             <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                            Histórico de Ajustes de Pontuação
+                            Setagem Manual by Kauan
                           </h5>
                           <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
                             <table className="w-full text-xs text-left text-gray-300">
                               <thead className="bg-black/20 text-gold text-[10px] uppercase">
                                 <tr>
-                                  <th className="p-3">Motivo</th>
+                                  
                                   <th className="p-3 text-center">V</th>
                                   <th className="p-3 text-center">D</th>
-                                  <th className="p-3 text-right">Impacto (PTS)</th>
+                                  <th className="p-3 text-right">Pontos</th>
+                                  <th className="p-3">Motivo</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-white/10">

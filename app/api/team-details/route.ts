@@ -17,7 +17,9 @@ type MatchRow = RowDataPacket & {
 
 type AdjustmentRow = RowDataPacket & {
   motivo: string;
-  pontos: number;
+  sp: number;
+  vitorias: number;
+  derrotas: number;
 };
 
 export async function GET(request: Request) {
