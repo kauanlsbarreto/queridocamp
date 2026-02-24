@@ -6,11 +6,13 @@ import type { RowDataPacket } from "mysql2";
 export const dynamic = "force-dynamic";
 
 type MatchRow = RowDataPacket & {
-  id: number;
+  match_id: number;
   time1: string;
   time2: string;
-  data?: string;
-  resultado?: string;
+  placar_mapa1_time1: number;
+  placar_mapa1_time2: number;
+  placar_mapa2_time1: number;
+  placar_mapa2_time2: number;
 };
 
 type AdjustmentRow = RowDataPacket & {
@@ -25,42 +27,39 @@ export async function GET(request: Request) {
     let teamName = searchParams.get("teamName");
 
     if (!teamName) {
-      return NextResponse.json(
-        { error: "Time não especificado" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Time não especificado" }, { status: 400 });
     }
 
     teamName = teamName.trim();
-
-    if (teamName === "22Cao Na Chapa") {
-      teamName = "22Cao";
-    }
+    const dbTeamName = teamName === "22Cao Na Chapa" ? "22Cao" : teamName;
 
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
 
     connection = await createMainConnection(env);
 
-    const [matches] = await connection.query(
-      "SELECT * FROM jogos WHERE time1 = ? OR time2 = ?",
-      [teamName, teamName]
-    ) as [MatchRow[], any];
+    const [matchesResult, adjustmentsResult] = await Promise.all([
+      connection.query(
+        "SELECT * FROM jogos WHERE time1 = ? OR time2 = ?",
+        [dbTeamName, dbTeamName]
+      ),
+      connection.query(
+        "SELECT motivo, sp FROM ajustes_manuais WHERE team_name = ?",
+        [dbTeamName]
+      )
+    ]);
 
-    // Busca os ajustes manuais
-    const [adjustments] = await connection.query(
-      "SELECT motivo, pontos FROM ajustes_manuais WHERE team_name = ?",
-      [teamName]
-    ) as [AdjustmentRow[], any];
+    const matches = matchesResult[0] as MatchRow[];
+    const adjustments = adjustmentsResult[0] as AdjustmentRow[];
 
     return NextResponse.json({ 
-      matches,
-      adjustments 
+      matches: matches || [], 
+      adjustments: adjustments || [] 
     });
   } catch (error) {
     console.error("Erro no Banco:", error);
     return NextResponse.json(
-      { error: "Erro ao conectar ao banco" },
+      { error: "Erro ao conectar ao banco", matches: [], adjustments: [] },
       { status: 500 }
     );
   } finally {

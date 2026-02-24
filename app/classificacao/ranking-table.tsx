@@ -29,7 +29,7 @@ interface Match {
 
 interface TeamDetails {
   matches: Match[];
-  adjustments: { motivo: string; pontos: number }[];
+  adjustments: { motivo: string; sp: number }[];
 }
 
 const getMatchRound = (teams: Team[], t1: string, t2: string) => {
@@ -198,8 +198,7 @@ const TeamRow = memo(({
                         </div>
                       </section>
 
-                      {/* SEÇÃO: HISTÓRICO DE AJUSTES (VISÍVEL PARA TODOS) */}
-                      {details?.adjustments && details.adjustments.length > 0 && (
+                      {isAdmin && details?.adjustments && details.adjustments.length > 0 && (
                         <section className="pt-6 border-t border-white/10">
                           <h5 className="text-gold font-bold mb-4 text-xs uppercase tracking-widest flex items-center gap-2">
                             <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
@@ -217,8 +216,8 @@ const TeamRow = memo(({
                                 {details.adjustments.map((adj, idx) => (
                                   <tr key={idx} className="hover:bg-white/5 transition-colors">
                                     <td className="p-3 italic text-gray-400">"{adj.motivo}"</td>
-                                    <td className={`p-3 text-right font-bold ${adj.pontos > 0 ? "text-green-400" : "text-red-400"}`}>
-                                      {adj.pontos > 0 ? `+${adj.pontos}` : adj.pontos}
+                                    <td className={`p-3 text-right font-bold ${adj.sp > 0 ? "text-green-400" : "text-red-400"}`}>
+                                      {adj.sp > 0 ? `+${adj.sp}` : adj.sp}
                                     </td>
                                   </tr>
                                 ))}
