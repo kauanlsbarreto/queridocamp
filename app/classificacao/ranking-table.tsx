@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, Fragment, memo, useCallback, useMemo } from "react"
+import { useState, Fragment, memo, useCallback, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import PremiumCard from "@/components/premium-card"
 import Image from "next/image"
 import Link from "next/link"
 import { Search } from "lucide-react"
 
-interface Team {
+export interface Team {
   id: number;
   name: string;
   logo: string;
@@ -29,10 +29,9 @@ interface Match {
 
 interface TeamDetails {
   matches: Match[];
-  adjustments: { motivo: string }[];
+  adjustments: { motivo: string; pontos: number }[];
 }
 
-// Lógica de sincronização de rodadas (Baseada no rodadas-cliente.tsx)
 const getMatchRound = (teams: Team[], t1: string, t2: string) => {
   const sortedTeams = [...teams].sort((a, b) => a.name.localeCompare(b.name));
   const numTeams = sortedTeams.length;
@@ -67,7 +66,8 @@ const TeamRow = memo(({
   toggleTeam, 
   details, 
   loading,
-  allTeams 
+  allTeams,
+  isAdmin
 }: { 
   team: Team; 
   index: number; 
@@ -76,6 +76,7 @@ const TeamRow = memo(({
   details: TeamDetails | null;
   loading: boolean;
   allTeams: Team[];
+  isAdmin: boolean;
 }) => {
   return (
     <Fragment>
@@ -129,66 +130,119 @@ const TeamRow = memo(({
                 className="overflow-hidden bg-black/40 backdrop-blur-sm"
               >
                 <div className="p-6 border-l-4 border-gold ml-2">
-                  <h4 className="text-gold font-bold mb-4 text-xs uppercase tracking-widest">Detalhamento de Partidas</h4>
-                  
                   {loading && !details ? (
                     <div className="text-gray-400 animate-pulse text-sm">Buscando dados...</div>
                   ) : (
-                    <div className="space-y-3">
-                      {details?.matches?.length ? (
-                        details.matches.map(m => {
-                          const roundNum = getMatchRound(allTeams, m.time1, m.time2);
-                          
-                          // Lógica de destaque: identifica qual placar pertence ao time clicado
-                          const isTime1 = m.time1 === team.name;
+                    <div className="flex flex-col gap-8">
+                      
+                      {/* SEÇÃO: DETALHAMENTO DE PARTIDAS */}
+                      <section>
+                        <h4 className="text-gold font-bold mb-4 text-xs uppercase tracking-widest flex items-center gap-2">
+                          <span className="w-2 h-2 bg-gold rounded-full"></span>
+                          Detalhamento de Partidas
+                        </h4>
+                        
+                        <div className="space-y-3">
+                          {details?.matches?.length ? (
+                            details.matches.map(m => {
+                              const roundNum = getMatchRound(allTeams, m.time1, m.time2);
+                              const isTime1 = m.time1 === team.name;
 
-                          return (
-                            <div key={m.match_id} className="flex flex-col sm:flex-row justify-between items-center bg-white/5 p-4 rounded-lg border border-white/10 gap-4 mb-2">
-                              <div className="flex items-center gap-4 flex-1">
-                                <div className="flex flex-col items-center justify-center bg-gold/20 border border-gold/40 rounded px-3 py-1 min-w-[75px]">
-                                  <span className="text-[9px] text-gold uppercase font-black leading-none">Rodada</span>
-                                  <span className="text-white font-bold text-sm">{roundNum || "?"}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <span className={isTime1 ? "text-gold font-bold" : "text-gray-400"}>{m.time1}</span>
-                                  <span className="text-gray-600 font-bold">vs</span>
-                                  <span className={!isTime1 ? "text-gold font-bold" : "text-gray-400"}>{m.time2}</span>
-                                </div>
-                              </div>
+                              let wins = 0;
+                              let losses = 0;
+                              if (isTime1) {
+                                if (m.placar_mapa1_time1 > m.placar_mapa1_time2) wins++; else losses++;
+                                if (m.placar_mapa2_time1 > m.placar_mapa2_time2) wins++; else losses++;
+                              } else {
+                                if (m.placar_mapa1_time2 > m.placar_mapa1_time1) wins++; else losses++;
+                                if (m.placar_mapa2_time2 > m.placar_mapa2_time1) wins++; else losses++;
+                              }
 
-                              <div className="flex gap-6 font-mono bg-black/30 px-4 py-2 rounded-md border border-white/5">
-                                {/* Mapa 1 */}
-                                <div className="flex flex-col items-center border-r border-white/10 pr-6">
-                                  <span className="text-[10px] text-gray-500 uppercase mb-1">Mapa 1</span>
-                                  <div className="text-lg font-bold flex items-center gap-2">
-                                    <span className={isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
-                                      {m.placar_mapa1_time1}
-                                    </span>
-                                    <span className="text-gray-700 text-sm">—</span>
-                                    <span className={!isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
-                                      {m.placar_mapa1_time2}
-                                    </span>
+                              return (
+                                <div key={m.match_id} className="flex flex-col sm:flex-row justify-between items-center bg-white/5 p-4 rounded-lg border border-white/10 gap-4 mb-2">
+                                  <div className="flex items-center gap-4 flex-1">
+                                    <div className="flex flex-col items-center justify-center bg-gold/20 border border-gold/40 rounded px-3 py-1 min-w-[75px]">
+                                      <span className="text-[9px] text-gold uppercase font-black leading-none">Rodada</span>
+                                      <span className="text-white font-bold text-sm">{roundNum || "?"}</span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <div className="flex items-center gap-2 text-sm">
+                                        <span className={isTime1 ? "text-gold font-bold" : "text-gray-400"}>{m.time1}</span>
+                                        <span className="text-gray-600 font-bold">vs</span>
+                                        <span className={!isTime1 ? "text-gold font-bold" : "text-gray-400"}>{m.time2}</span>
+                                      </div>
+                                      {isAdmin && (
+                                        <div className="flex items-center gap-3 mt-1 text-[10px]">
+                                          <span className="text-green-400 font-bold">Vitórias: {wins}</span>
+                                          <span className="text-red-400 font-bold">Derrotas: {losses}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex gap-6 font-mono bg-black/30 px-4 py-2 rounded-md border border-white/5">
+                                    <div className="flex flex-col items-center border-r border-white/10 pr-6">
+                                      <span className="text-[10px] text-gray-500 uppercase mb-1">Mapa 1</span>
+                                      <div className="text-lg font-bold flex items-center gap-2">
+                                        <span className={isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
+                                          {m.placar_mapa1_time1}
+                                        </span>
+                                        <span className="text-gray-700 text-sm">—</span>
+                                        <span className={!isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
+                                          {m.placar_mapa1_time2}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-col items-center pl-2">
+                                      <span className="text-[10px] text-gray-500 uppercase mb-1">Mapa 2</span>
+                                      <div className="text-lg font-bold flex items-center gap-2">
+                                        <span className={isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
+                                          {m.placar_mapa2_time1}
+                                        </span>
+                                        <span className="text-gray-700 text-sm">—</span>
+                                        <span className={!isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
+                                          {m.placar_mapa2_time2}
+                                        </span>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
-                                
-                                {/* Mapa 2 */}
-                                <div className="flex flex-col items-center pl-2">
-                                  <span className="text-[10px] text-gray-500 uppercase mb-1">Mapa 2</span>
-                                  <div className="text-lg font-bold flex items-center gap-2">
-                                    <span className={isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
-                                      {m.placar_mapa2_time1}
-                                    </span>
-                                    <span className="text-gray-700 text-sm">—</span>
-                                    <span className={!isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
-                                      {m.placar_mapa2_time2}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })
-                      ) : !loading && <p className="text-gray-500 text-xs italic">Nenhum jogo registrado.</p>}
+                              )
+                            })
+                          ) : !loading && <p className="text-gray-500 text-xs italic">Nenhum jogo registrado.</p>}
+                        </div>
+                      </section>
+
+                      {/* SEÇÃO: RELATÓRIO DE AJUSTES MANUAIS (ABAIXO DOS JOGOS) */}
+                      {isAdmin && details?.adjustments && details.adjustments.length > 0 && (
+                        <section className="pt-6 border-t border-white/10">
+                          <h5 className="text-gold font-bold mb-4 text-xs uppercase tracking-widest flex items-center gap-2">
+                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                            Relatório de Ajustes Manuais
+                          </h5>
+                          <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
+                            <table className="w-full text-xs text-left text-gray-300">
+                              <thead className="bg-black/20 text-gold text-[10px] uppercase">
+                                <tr>
+                                  <th className="p-3">Motivo</th>
+                                  <th className="p-3 text-right">Pontos</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/10">
+                                {details.adjustments.map((adj, idx) => (
+                                  <tr key={idx} className="hover:bg-white/5 transition-colors">
+                                    <td className="p-3 italic text-gray-400">"{adj.motivo}"</td>
+                                    <td className={`p-3 text-right font-bold ${adj.pontos > 0 ? "text-green-400" : "text-red-400"}`}>
+                                      {adj.pontos > 0 ? `+${adj.pontos}` : adj.pontos}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </section>
+                      )}
                     </div>
                   )}
                 </div>
@@ -207,6 +261,21 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null)
   const [detailsCache, setDetailsCache] = useState<Record<string, TeamDetails>>({})
   const [loading, setLoading] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('faceit_user')
+    if (storedUser) {
+      try {
+        const u = JSON.parse(storedUser)
+        // Correção de tipo: garante que lvl seja número para evitar erro de Admin logado
+        const lvl = Number(u.admin || u.Admin)
+        if (lvl === 1 || lvl === 2) setIsAdmin(true)
+      } catch (e) {
+        console.error("Erro ao verificar admin:", e)
+      }
+    }
+  }, [])
 
   const correctedTeams = useMemo(() => (teams || []).map(team => {
     if (team.name === "22Cao") {
@@ -273,6 +342,7 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
                 details={detailsCache[team.name] || null}
                 loading={loading && expandedTeam === team.name}
                 allTeams={correctedTeams}
+                isAdmin={isAdmin}
               />
             ))}
           </tbody>
