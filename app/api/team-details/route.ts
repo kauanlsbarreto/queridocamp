@@ -46,7 +46,7 @@ export async function GET(request: Request) {
         [dbTeamName, dbTeamName]
       ),
       connection.query(
-        "SELECT motivo, sp FROM ajustes_manuais WHERE team_name = ?",
+        "SELECT motivo, sp, vitorias, derrotas FROM ajustes_manuais WHERE team_name = ?",
         [dbTeamName]
       )
     ]);

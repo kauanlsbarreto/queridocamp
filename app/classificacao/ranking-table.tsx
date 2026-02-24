@@ -208,7 +208,6 @@ const TeamRow = memo(({
                             <table className="w-full text-xs text-left text-gray-300">
                               <thead className="bg-black/20 text-gold text-[10px] uppercase">
                                 <tr>
-                                  
                                   <th className="p-3 text-center">V</th>
                                   <th className="p-3 text-center">D</th>
                                   <th className="p-3 text-right">Pontos</th>
@@ -218,7 +217,6 @@ const TeamRow = memo(({
                               <tbody className="divide-y divide-white/10">
                                 {details.adjustments.map((adj, idx) => (
                                   <tr key={idx} className="hover:bg-white/5 transition-colors">
-                                    <td className="p-3 italic text-gray-400">"{adj.motivo}"</td>
                                     <td className="p-3 text-center text-green-400 font-bold">
                                       {adj.vitorias !== undefined && adj.vitorias !== null ? (adj.vitorias > 0 ? `+${adj.vitorias}` : adj.vitorias) : "-"}
                                     </td>
@@ -228,6 +226,7 @@ const TeamRow = memo(({
                                     <td className={`p-3 text-right font-bold ${adj.sp > 0 ? "text-green-400" : "text-red-400"}`}>
                                       {adj.sp > 0 ? `+${adj.sp}` : adj.sp}
                                     </td>
+                                    <td className="p-3 italic text-gray-400">"{adj.motivo}"</td>
                                   </tr>
                                 ))}
                               </tbody>
