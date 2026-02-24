@@ -95,6 +95,21 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
       if (k_a === 0 && k_b > 0) return 1;
       if (k_a > 0 && k_b === 0) return -1;
       
+      const poteA = Number(a.pote);
+      const poteB = Number(b.pote);
+      let penaltyA = poteA === 0;
+      let penaltyB = poteB === 0;
+
+      if (isGeral) {
+        const roundsA = getPlayedRounds(a);
+        const roundsB = getPlayedRounds(b);
+        if (roundsA <= 4) penaltyA = true;
+        if (roundsB <= 4) penaltyB = true;
+      }
+
+      if (penaltyA && !penaltyB) return 1;
+      if (!penaltyA && penaltyB) return -1;
+
       const kd_a = parseFloat(a[kdKey]) || 0;
       const kd_b = parseFloat(b[kdKey]) || 0;
       const adr_a = parseFloat(a[adrKey]) || 0;

@@ -13,8 +13,8 @@ const normalizeText = (str: string | null | undefined): string => {
   return str
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') 
-    .replace(/[^a-z0-9]/g, ''); 
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
 };
 
 
@@ -36,7 +36,7 @@ async function getStats(mainConn: any, jogadoresConn: any) {
       [playersRows],
       [faceitRows]
     ] = await Promise.all([
-      mainConn.query("SELECT * FROM top90_stats ORDER BY kd DESC, adr DESC, kr DESC, k DESC") as Promise<[any[], any]>,
+      mainConn.query("SELECT * FROM top90_stats") as Promise<[any[], any]>,
       jogadoresConn.query("SELECT nick, pote FROM jogadores") as Promise<[any[], any]>,
       jogadoresConn.query("SELECT faceit_nickname, fotoperfil FROM faceit_players") as Promise<[any[], any]>
     ]);
@@ -44,17 +44,46 @@ async function getStats(mainConn: any, jogadoresConn: any) {
     const nickToPote = new Map(playersRows.map((p: any) => [normalizeText(p.nick), p.pote]));
     const nickToImage = new Map(faceitRows.map((f: any) => [normalizeText(f.faceit_nickname), f.fotoperfil]));
 
-    return statsRows.map((stat: any) => {
-      const normalizedNick = normalizeText(stat.nick);
-      const pote = nickToPote.get(normalizedNick);
-      const foto = nickToImage.get(normalizedNick);
+    const consolidatedStats = new Map();
 
-      return {
-        ...stat,
-        pote: (pote !== undefined && pote !== null) ? Number(pote) : 0,
-        faceit_image: foto || '/images/cs2-player.png'
-      };
+    statsRows.forEach((stat: any) => {
+      const normalizedNick = normalizeText(stat.nick);
+      
+      if (!consolidatedStats.has(normalizedNick)) {
+        const pote = nickToPote.get(normalizedNick);
+        const foto = nickToImage.get(normalizedNick);
+        
+        consolidatedStats.set(normalizedNick, {
+          ...stat,
+          pote: (pote !== undefined && pote !== null) ? Number(pote) : 0,
+          faceit_image: foto || '/images/cs2-player.png'
+        });
+      } else {
+        const existing = consolidatedStats.get(normalizedNick);
+        Object.keys(stat).forEach(key => {
+          if (key.startsWith('r') && stat[key] !== null && existing[key] === null) {
+            existing[key] = stat[key];
+          }
+        });
+      }
     });
+
+    return Array.from(consolidatedStats.values()).sort((a, b) => {
+        const poteA = Number(a.pote);
+        const poteB = Number(b.pote);
+        
+        const roundsA = Array.from({ length: 17 }, (_, i) => i + 1).filter(r => Number(a[`r${r}_k`] || 0) > 0).length;
+        const roundsB = Array.from({ length: 17 }, (_, i) => i + 1).filter(r => Number(b[`r${r}_k`] || 0) > 0).length;
+
+        const penaltyA = poteA === 0 || roundsA <= 4;
+        const penaltyB = poteB === 0 || roundsB <= 4;
+
+        if (penaltyA && !penaltyB) return 1;
+        if (!penaltyA && penaltyB) return -1;
+
+        return (b.kd || 0) - (a.kd || 0) || (b.adr || 0) - (a.adr || 0);
+    });
+
   } catch (error) {
     console.error("Erro interno no getStats:", error);
     return [];
