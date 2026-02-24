@@ -219,10 +219,10 @@ const TeamRow = memo(({
                                   <tr key={idx} className="hover:bg-white/5 transition-colors">
                                     <td className="p-3 italic text-gray-400">"{adj.motivo}"</td>
                                     <td className="p-3 text-center text-green-400 font-bold">
-                                      {adj.vitorias ? `+${adj.vitorias}` : "-"}
+                                      {adj.vitorias !== undefined && adj.vitorias !== null ? (adj.vitorias > 0 ? `+${adj.vitorias}` : adj.vitorias) : "-"}
                                     </td>
                                     <td className="p-3 text-center text-red-400 font-bold">
-                                      {adj.derrotas ? `+${adj.derrotas}` : "-"}
+                                      {adj.derrotas !== undefined && adj.derrotas !== null ? (adj.derrotas > 0 ? `+${adj.derrotas}` : adj.derrotas) : "-"}
                                     </td>
                                     <td className={`p-3 text-right font-bold ${adj.sp > 0 ? "text-green-400" : "text-red-400"}`}>
                                       {adj.sp > 0 ? `+${adj.sp}` : adj.sp}
