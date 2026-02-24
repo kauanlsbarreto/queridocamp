@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react"
 import { ExternalLink, Volume2, VolumeX, SkipForward } from "lucide-react"
 
-// Renomeado para evitar filtros de AdBlock
 interface PromoPlayerProps {
   videoSrc: string
   redirectUrl: string
@@ -17,7 +16,6 @@ export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayer
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
-    // 1. Verificação de Admin (Mantida)
     const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
     const storedUser = localStorage.getItem("faceit_user")
     
@@ -28,23 +26,18 @@ export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayer
       } catch (e) {}
     }
 
-    // 2. Lógica de Persistência Corrigida
-    // Verificamos se o usuário já completou o vídeo nesta sessão
     const hasFinished = sessionStorage.getItem("promo_completed")
     if (hasFinished === "true") {
       setIsVisible(false)
       return
     }
 
-    // Verificação de Mobile: Se for tela pequena (celular), não exibe
     if (window.innerWidth < 768) {
       return
     }
 
-    // Se não terminou, o AD DEVE aparecer
     setIsVisible(true)
 
-    // Anti-Pause: Se o usuário trocar de aba, o vídeo pausa (e o tempo de skip para)
     const handleVisibilityChange = () => {
       if (document.hidden) {
         videoRef.current?.pause()
@@ -55,7 +48,6 @@ export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayer
 
     document.addEventListener("visibilitychange", handleVisibilityChange)
 
-    // Timer de Skip (10 segundos)
     const skipTimer = setTimeout(() => {
       setCanSkip(true)
     }, 10000)
@@ -67,19 +59,14 @@ export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayer
   }, [])
 
   const handleVideoEnd = () => {
-    // Marcamos como concluído na sessão para não irritar o usuário em cada clique, 
-    // mas forçamos a ver pelo menos uma vez por abertura de navegador.
     sessionStorage.setItem("promo_completed", "true")
     setIsVisible(false)
   }
 
-  // Anti-Burlar: Se tentarem deletar o componente via CSS ou JS, 
-  // você poderia adicionar um intervalo que checa se a div ainda existe (opcional)
 
   if (!isVisible) return null
 
   return (
-    // Mudança de classes para nomes genéricos (evitar "gold", "ad", "propaganda")
     <div className="fixed inset-0 z-[99999] bg-[#050505] flex flex-col items-center justify-center p-4 backdrop-blur-sm">
       <div className="max-w-5xl w-full relative flex flex-col items-center">
         <div 
@@ -91,11 +78,11 @@ export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayer
             src={videoSrc}
             className="w-full h-full object-contain"
             playsInline
-            autoPlay // Tenta iniciar sozinho
+            autoPlay 
             muted={isMuted}
             onEnded={handleVideoEnd}
-            disablePictureInPicture // Impede de colocar em janelinha flutuante
-            controlsList="nodownload" // Impede baixar o vídeo
+            disablePictureInPicture 
+            controlsList="nodownload" 
           />
           
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -104,7 +91,6 @@ export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayer
             </div>
           </div>
 
-          {/* Controles de Volume */}
           <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-black/60 p-2 rounded-full" onClick={(e) => e.stopPropagation()}>
             <input
               type="range"
@@ -128,7 +114,6 @@ export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayer
             </button>
           </div>
 
-          {/* Botão Pular - Só aparece após 10s */}
           {canSkip && (
             <button
               onClick={(e) => {

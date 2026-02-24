@@ -142,59 +142,89 @@ const TeamRow = memo(({
                         </h4>
                         
                         <div className="space-y-3">
-                          {details?.matches?.length ? (
-                            details.matches.map(m => {
-                              const roundNum = getMatchRound(allTeams, m.time1, m.time2);
-                              const isTime1 = m.time1 === team.name;
+                          {(() => {
+                            const matches = details?.matches ? [...details.matches] : [];
+                            if (team.name === "Boxx") {
+                              matches.push({
+                                match_id: 999999,
+                                time1: "Boxx",
+                                time2: "Componentes EXE",
+                                placar_mapa1_time1: 13,
+                                placar_mapa1_time2: 4,
+                                placar_mapa2_time1: 0,
+                                placar_mapa2_time2: 0
+                              });
+                            }
 
-                              let wins = 0;
-                              let losses = 0;
-                              if (isTime1) {
-                                if (m.placar_mapa1_time1 > m.placar_mapa1_time2) wins++; else losses++;
-                                if (m.placar_mapa2_time1 > m.placar_mapa2_time2) wins++; else losses++;
-                              } else {
-                                if (m.placar_mapa1_time2 > m.placar_mapa1_time1) wins++; else losses++;
-                                if (m.placar_mapa2_time2 > m.placar_mapa2_time1) wins++; else losses++;
-                              }
+                            if (matches.length > 0) {
+                              return matches.map(m => {
+                                let roundNum = getMatchRound(allTeams, m.time1, m.time2);
+                                if (m.match_id === 999999) roundNum = 7;
+                                
+                                const isTime1 = m.time1 === team.name;
 
-                              return (
-                                <div key={m.match_id} className="flex flex-col sm:flex-row justify-between items-center bg-white/5 p-4 rounded-lg border border-white/10 gap-4 mb-2">
-                                  <div className="flex items-center gap-4 flex-1">
-                                    <div className="flex flex-col items-center justify-center bg-gold/20 border border-gold/40 rounded px-3 py-1 min-w-[75px]">
-                                      <span className="text-[9px] text-gold uppercase font-black leading-none">Rodada</span>
-                                      <span className="text-white font-bold text-sm">{roundNum || "?"}</span>
+                                let wins = 0;
+                                let losses = 0;
+                                if (isTime1) {
+                                  if (m.placar_mapa1_time1 > m.placar_mapa1_time2) wins++; else losses++;
+                                  if (m.placar_mapa2_time1 > m.placar_mapa2_time2) wins++; else losses++;
+                                } else {
+                                  if (m.placar_mapa1_time2 > m.placar_mapa1_time1) wins++; else losses++;
+                                  if (m.placar_mapa2_time2 > m.placar_mapa2_time1) wins++; else losses++;
+                                }
+
+                                const isWOMap1 = m.placar_mapa1_time1 === 0 && m.placar_mapa1_time2 === 0;
+                                const isWOMap2 = m.placar_mapa2_time1 === 0 && m.placar_mapa2_time2 === 0;
+
+                                return (
+                                  <div key={m.match_id} className="flex flex-col sm:flex-row justify-between items-center bg-white/5 p-4 rounded-lg border border-white/10 gap-4 mb-2">
+                                    <div className="flex items-center gap-4 flex-1">
+                                      <div className="flex flex-col items-center justify-center bg-gold/20 border border-gold/40 rounded px-3 py-1 min-w-[75px]">
+                                        <span className="text-[9px] text-gold uppercase font-black leading-none">Rodada</span>
+                                        <span className="text-white font-bold text-sm">{roundNum || "?"}</span>
+                                      </div>
+                                      <div className="flex flex-col">
+                                        <div className="flex items-center gap-2 text-sm">
+                                          <span className={isTime1 ? "text-gold font-bold" : "text-gray-400"}>{m.time1}</span>
+                                          <span className="text-gray-600 font-bold">vs</span>
+                                          <span className={!isTime1 ? "text-gold font-bold" : "text-gray-400"}>{m.time2}</span>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div className="flex flex-col">
-                                      <div className="flex items-center gap-2 text-sm">
-                                        <span className={isTime1 ? "text-gold font-bold" : "text-gray-400"}>{m.time1}</span>
-                                        <span className="text-gray-600 font-bold">vs</span>
-                                        <span className={!isTime1 ? "text-gold font-bold" : "text-gray-400"}>{m.time2}</span>
+
+                                    <div className="flex gap-6 font-mono bg-black/30 px-4 py-2 rounded-md border border-white/5">
+                                      <div className="flex flex-col items-center border-r border-white/10 pr-6">
+                                        <span className="text-[10px] text-gray-500 uppercase mb-1">Mapa 1</span>
+                                        {isWOMap1 ? (
+                                          <div className="text-lg font-bold text-red-400">W.O</div>
+                                        ) : (
+                                          <div className="text-lg font-bold flex items-center gap-2">
+                                            <span className={isTime1 ? (m.placar_mapa1_time1 > m.placar_mapa1_time2 ? "text-green-400" : "text-red-400") : "text-gray-400"}>{m.placar_mapa1_time1}</span>
+                                            <span className="text-gray-700 text-sm">—</span>
+                                            <span className={!isTime1 ? (m.placar_mapa1_time2 > m.placar_mapa1_time1 ? "text-green-400" : "text-red-400") : "text-gray-400"}>{m.placar_mapa1_time2}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="flex flex-col items-center pl-2">
+                                        <span className="text-[10px] text-gray-500 uppercase mb-1">Mapa 2</span>
+                                        {isWOMap2 ? (
+                                          <div className="text-lg font-bold text-red-400">W.O</div>
+                                        ) : (
+                                          <div className="text-lg font-bold flex items-center gap-2">
+                                            <span className={isTime1 ? (m.placar_mapa2_time1 > m.placar_mapa2_time2 ? "text-green-400" : "text-red-400") : "text-gray-400"}>{m.placar_mapa2_time1}</span>
+                                            <span className="text-gray-700 text-sm">—</span>
+                                            <span className={!isTime1 ? (m.placar_mapa2_time2 > m.placar_mapa2_time1 ? "text-green-400" : "text-red-400") : "text-gray-400"}>{m.placar_mapa2_time2}</span>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
-
-                                  <div className="flex gap-6 font-mono bg-black/30 px-4 py-2 rounded-md border border-white/5">
-                                    <div className="flex flex-col items-center border-r border-white/10 pr-6">
-                                      <span className="text-[10px] text-gray-500 uppercase mb-1">Mapa 1</span>
-                                      <div className="text-lg font-bold flex items-center gap-2">
-                                        <span className={isTime1 ? "text-gold" : "text-gray-400"}>{m.placar_mapa1_time1}</span>
-                                        <span className="text-gray-700 text-sm">—</span>
-                                        <span className={!isTime1 ? "text-gold" : "text-gray-400"}>{m.placar_mapa1_time2}</span>
-                                      </div>
-                                    </div>
-                                    <div className="flex flex-col items-center pl-2">
-                                      <span className="text-[10px] text-gray-500 uppercase mb-1">Mapa 2</span>
-                                      <div className="text-lg font-bold flex items-center gap-2">
-                                        <span className={isTime1 ? "text-gold" : "text-gray-400"}>{m.placar_mapa2_time1}</span>
-                                        <span className="text-gray-700 text-sm">—</span>
-                                        <span className={!isTime1 ? "text-gold" : "text-gray-400"}>{m.placar_mapa2_time2}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })
-                          ) : !loading && <p className="text-gray-500 text-xs italic">Nenhum jogo registrado.</p>}
+                                )
+                              })
+                            } else {
+                              return !loading && <p className="text-gray-500 text-xs italic">Nenhum jogo registrado.</p>
+                            }
+                          })()}
                         </div>
                       </section>
 
@@ -269,6 +299,7 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
 
   const correctedTeams = useMemo(() => (teams || []).map(team => {
     if (team.name === "22Cao") return { ...team, name: "22Cao Na Chapa" };
+    if (team.name === "team_mulekera") return { ...team, name: "Boxx" };
     return team;
   }), [teams]);
 

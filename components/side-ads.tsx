@@ -12,7 +12,7 @@ const ads = [
   },
   {
     id: 2,
-    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTHOcil8lrrsAzR02hJ5eaNW22E1oeYG_rJWQ&s", 
+    image: "https://i.ibb.co/bjHPJgCb/MARCA-RADIANTE-FINAL.png", 
     link: "https://industriaradiante.com.br/",
     alt: "Radiante"
   },

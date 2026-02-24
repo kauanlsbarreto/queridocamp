@@ -25,7 +25,6 @@ interface Match {
   stream?: string
 }
 
-// Dados de exemplo - em produção, estes viriam de uma API
 const sampleMatches: Match[] = [
   {
     id: "match-1",
@@ -43,7 +42,7 @@ const sampleMatches: Match[] = [
       score: 5,
     },
     map: "Inferno",
-    startTime: new Date(Date.now() - 30 * 60 * 1000), // 30 minutos atrás
+    startTime: new Date(Date.now() - 30 * 60 * 1000), 
     tournament: "Querido Camp 2025 - Fase de Grupos",
     stream: "https://www.twitch.tv/queridocamp",
   },
@@ -63,7 +62,7 @@ const sampleMatches: Match[] = [
       score: 10,
     },
     map: "Mirage",
-    startTime: new Date(Date.now() - 45 * 60 * 1000), // 45 minutos atrás
+    startTime: new Date(Date.now() - 45 * 60 * 1000), 
     tournament: "Querido Camp 2025 - Fase de Grupos",
     stream: "https://www.twitch.tv/queridocamp",
   },
@@ -74,16 +73,9 @@ export default function LiveMatches() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Simulando uma chamada de API
     const fetchLiveMatches = async () => {
       setLoading(true)
       try {
-        // Em produção, aqui seria uma chamada real à API
-        // const response = await fetch('/api/matches/live');
-        // const data = await response.json();
-        // setLiveMatches(data);
-
-        // Usando dados de exemplo por enquanto
         setTimeout(() => {
           setLiveMatches(sampleMatches)
           setLoading(false)
@@ -134,9 +126,7 @@ export default function LiveMatches() {
   )
 }
 
-// Modificar a função MatchCard para remover o efeito de hover
 function MatchCard({ match, delay = 0 }: { match: Match; delay?: number }) {
-  // Formatar o tempo de jogo
   const getMatchDuration = () => {
     const now = new Date()
     const diffMs = now.getTime() - match.startTime.getTime()
