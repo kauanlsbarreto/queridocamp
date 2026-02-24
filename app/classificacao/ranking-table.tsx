@@ -135,7 +135,6 @@ const TeamRow = memo(({
                   ) : (
                     <div className="flex flex-col gap-8">
                       
-                      {/* SEÇÃO: DETALHAMENTO DE PARTIDAS */}
                       <section>
                         <h4 className="text-gold font-bold mb-4 text-xs uppercase tracking-widest flex items-center gap-2">
                           <span className="w-2 h-2 bg-gold rounded-full"></span>
@@ -171,12 +170,6 @@ const TeamRow = memo(({
                                         <span className="text-gray-600 font-bold">vs</span>
                                         <span className={!isTime1 ? "text-gold font-bold" : "text-gray-400"}>{m.time2}</span>
                                       </div>
-                                      {isAdmin && (
-                                        <div className="flex items-center gap-3 mt-1 text-[10px]">
-                                          <span className="text-green-400 font-bold">Vitórias: {wins}</span>
-                                          <span className="text-red-400 font-bold">Derrotas: {losses}</span>
-                                        </div>
-                                      )}
                                     </div>
                                   </div>
 
@@ -184,26 +177,17 @@ const TeamRow = memo(({
                                     <div className="flex flex-col items-center border-r border-white/10 pr-6">
                                       <span className="text-[10px] text-gray-500 uppercase mb-1">Mapa 1</span>
                                       <div className="text-lg font-bold flex items-center gap-2">
-                                        <span className={isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
-                                          {m.placar_mapa1_time1}
-                                        </span>
+                                        <span className={isTime1 ? "text-gold" : "text-gray-400"}>{m.placar_mapa1_time1}</span>
                                         <span className="text-gray-700 text-sm">—</span>
-                                        <span className={!isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
-                                          {m.placar_mapa1_time2}
-                                        </span>
+                                        <span className={!isTime1 ? "text-gold" : "text-gray-400"}>{m.placar_mapa1_time2}</span>
                                       </div>
                                     </div>
-                                    
                                     <div className="flex flex-col items-center pl-2">
                                       <span className="text-[10px] text-gray-500 uppercase mb-1">Mapa 2</span>
                                       <div className="text-lg font-bold flex items-center gap-2">
-                                        <span className={isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
-                                          {m.placar_mapa2_time1}
-                                        </span>
+                                        <span className={isTime1 ? "text-gold" : "text-gray-400"}>{m.placar_mapa2_time1}</span>
                                         <span className="text-gray-700 text-sm">—</span>
-                                        <span className={!isTime1 ? "text-gold drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" : "text-gray-400"}>
-                                          {m.placar_mapa2_time2}
-                                        </span>
+                                        <span className={!isTime1 ? "text-gold" : "text-gray-400"}>{m.placar_mapa2_time2}</span>
                                       </div>
                                     </div>
                                   </div>
@@ -214,19 +198,19 @@ const TeamRow = memo(({
                         </div>
                       </section>
 
-                      {/* SEÇÃO: RELATÓRIO DE AJUSTES MANUAIS (ABAIXO DOS JOGOS) */}
-                      {isAdmin && details?.adjustments && details.adjustments.length > 0 && (
+                      {/* SEÇÃO: HISTÓRICO DE AJUSTES (VISÍVEL PARA TODOS) */}
+                      {details?.adjustments && details.adjustments.length > 0 && (
                         <section className="pt-6 border-t border-white/10">
                           <h5 className="text-gold font-bold mb-4 text-xs uppercase tracking-widest flex items-center gap-2">
-                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                            Relatório de Ajustes Manuais
+                            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                            Histórico de Ajustes de Pontuação
                           </h5>
                           <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
                             <table className="w-full text-xs text-left text-gray-300">
                               <thead className="bg-black/20 text-gold text-[10px] uppercase">
                                 <tr>
                                   <th className="p-3">Motivo</th>
-                                  <th className="p-3 text-right">Pontos</th>
+                                  <th className="p-3 text-right">Impacto (PTS)</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-white/10">
@@ -268,7 +252,6 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
     if (storedUser) {
       try {
         const u = JSON.parse(storedUser)
-        // Correção de tipo: garante que lvl seja número para evitar erro de Admin logado
         const lvl = Number(u.admin || u.Admin)
         if (lvl === 1 || lvl === 2) setIsAdmin(true)
       } catch (e) {
@@ -278,9 +261,7 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
   }, [])
 
   const correctedTeams = useMemo(() => (teams || []).map(team => {
-    if (team.name === "22Cao") {
-      return { ...team, name: "22Cao Na Chapa" };
-    }
+    if (team.name === "22Cao") return { ...team, name: "22Cao Na Chapa" };
     return team;
   }), [teams]);
 
@@ -299,12 +280,13 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
         if (!res.ok) throw new Error("Erro na API")
         const data = await res.json()
         
-        const validatedData = {
-          matches: data.matches || [],
-          adjustments: data.adjustments || []
-        }
-
-        setDetailsCache(prev => ({ ...prev, [teamName]: validatedData }))
+        setDetailsCache(prev => ({ 
+          ...prev, 
+          [teamName]: {
+            matches: data.matches || [],
+            adjustments: data.adjustments || []
+          } 
+        }))
       } catch (error) {
         console.error("Erro ao carregar detalhes:", error)
       } finally {
@@ -324,11 +306,11 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
             <tr className="border-b-2 border-gold/30">
               <th className="text-left py-4 px-2 text-gold font-bold">#</th>
               <th className="text-left py-4 px-2 text-gold font-bold">Time</th>
-              <th title="Rodadas" className="text-center py-4 px-2 text-gold font-bold cursor-help">R</th>
-              <th title="Quantidade de mapas ganhos" className="text-center py-4 px-2 text-gold font-bold cursor-help">V</th>
-              <th title="Quantidade de mapas perdidos" className="text-center py-4 px-2 text-gold font-bold cursor-help">D</th>
-              <th title="Pontos" className="text-center py-4 px-2 text-gold font-bold cursor-help">PTS</th>
-              <th title="Saldo de Rounds" className="text-center py-4 px-2 text-gold font-bold cursor-help">Rounds</th>
+              <th className="text-center py-4 px-2 text-gold font-bold">R</th>
+              <th className="text-center py-4 px-2 text-gold font-bold">V</th>
+              <th className="text-center py-4 px-2 text-gold font-bold">D</th>
+              <th className="text-center py-4 px-2 text-gold font-bold">PTS</th>
+              <th className="text-center py-4 px-2 text-gold font-bold">Rounds</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">

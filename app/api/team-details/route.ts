@@ -13,6 +13,11 @@ type MatchRow = RowDataPacket & {
   resultado?: string;
 };
 
+type AdjustmentRow = RowDataPacket & {
+  motivo: string;
+  pontos: number;
+};
+
 export async function GET(request: Request) {
   let connection: any;
   try {
@@ -42,7 +47,16 @@ export async function GET(request: Request) {
       [teamName, teamName]
     ) as [MatchRow[], any];
 
-    return NextResponse.json({ matches });
+    // Busca os ajustes manuais
+    const [adjustments] = await connection.query(
+      "SELECT motivo, pontos FROM ajustes_manuais WHERE team_name = ?",
+      [teamName]
+    ) as [AdjustmentRow[], any];
+
+    return NextResponse.json({ 
+      matches,
+      adjustments 
+    });
   } catch (error) {
     console.error("Erro no Banco:", error);
     return NextResponse.json(
