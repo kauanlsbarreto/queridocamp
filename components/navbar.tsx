@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, ChevronDown } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import FaceitLogin from './FaceitLogin'
@@ -92,10 +92,10 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
       style={{ transform: 'translateZ(0)' }}
     >
       <div className="w-full px-6 md:px-12">
-        <div className="flex items-center justify-between">
+        <div className="relative flex items-center justify-between">
           
           {/* Logo */}
-          <div className="flex-none">
+          <div className="flex-none relative z-10">
             <Link href="/" className="flex items-center group">
               <div className="relative w-12 h-12 sm:w-16 sm:h-16 group-hover:scale-110 transition-transform duration-300">
                 <Image
@@ -109,24 +109,31 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
             </Link>
           </div>
 
-          {/* Links Desktop */}
-          <div className="flex-1 hidden lg:flex justify-center">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden lg:flex justify-center">
             <div className="flex space-x-1 items-center glass-gold rounded-2xl px-6 py-2">
               <NavLink href="/">Home</NavLink>
               <NavLink href="/galeria">Galeria</NavLink>
               <NavLink href="/regras">Regras</NavLink>
               <NavLink href="/campeonato">Campeonato</NavLink>
-              <NavLink href="/times">Times</NavLink>
-              <NavLink href="/stats">Estatísticas</NavLink>
-              <NavLink href="/classificacao">Classificação</NavLink>
-              <NavLink href="/rodadas">Rodadas</NavLink>
-              <NavLink href="/redondo">Redondo</NavLink>
-              <NavLink href="/players">Jogadores</NavLink>
-              <NavLink href="/premiacao">Premiação</NavLink>
+              
+              <div className="relative group">
+                <button className="flex items-center gap-1 text-gold font-bold px-4 py-2 rounded-xl border border-gold/50 hover:bg-gold/10 transition-all whitespace-nowrap text-sm xl:text-base">
+                  Querido Draft <ChevronDown size={14} />
+                </button>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#060D15]/95 backdrop-blur-xl border border-gold/20 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top flex flex-col p-1">
+                  <DropdownLink href="/times">Times</DropdownLink>
+                  <DropdownLink href="/stats">Estatísticas</DropdownLink>
+                  <DropdownLink href="/classificacao">Classificação</DropdownLink>
+                  <DropdownLink href="/rodadas">Rodadas</DropdownLink>
+                  <DropdownLink href="/redondo">Redondo</DropdownLink>
+                  <DropdownLink href="/players">Jogadores</DropdownLink>
+                  <DropdownLink href="/premiacao">Premiação</DropdownLink>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex-none flex items-center gap-6 md:gap-8">
+          <div className="flex-none flex items-center gap-6 md:gap-8 relative z-10">
             <div className="hidden md:flex items-center gap-6 md:gap-8">
               {(currentUser?.Admin === 1 || currentUser?.Admin === 2) && <UpdateDataButton />}
               <Notifications />
@@ -157,13 +164,19 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
             <NavLink href="/galeria">Galeria</NavLink>
             <NavLink href="/regras">Regras</NavLink>
             <NavLink href="/campeonato">Campeonato</NavLink>
-            <NavLink href="/times">Times</NavLink>
-            <NavLink href="/stats">Estatísticas</NavLink>
-            <NavLink href="/classificacao">Classificação</NavLink>
-            <NavLink href="/rodadas">Rodadas</NavLink>
-            <NavLink href="/players">Jogadores</NavLink>
-            <NavLink href="/redondo">Redondo</NavLink>
-            <NavLink href="/premiacao">Premiação</NavLink>
+            
+            <div className="my-2 border-t border-white/10 pt-4 pb-2 bg-white/5 rounded-xl px-2">
+              <p className="px-2 text-xs font-bold text-gold uppercase tracking-widest mb-2 text-center">Querido Draft</p>
+              <div className="grid grid-cols-2 gap-2">
+                <MobileGridLink href="/times">Times</MobileGridLink>
+                <MobileGridLink href="/stats">Estatísticas</MobileGridLink>
+                <MobileGridLink href="/classificacao">Classificação</MobileGridLink>
+                <MobileGridLink href="/rodadas">Rodadas</MobileGridLink>
+                <MobileGridLink href="/redondo">Redondo</MobileGridLink>
+                <MobileGridLink href="/players">Jogadores</MobileGridLink>
+                <MobileGridLink href="/premiacao">Premiação</MobileGridLink>
+              </div>
+            </div>
 
             <div className="flex items-center justify-center gap-6 pt-4 border-t border-white/10">
               {(currentUser?.Admin === 1 || currentUser?.Admin === 2) && <UpdateDataButton />}
@@ -179,6 +192,18 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
 
 const NavLink = ({ href, children }: any) => (
   <Link href={href} className="text-white/80 hover:text-gold px-3 py-2 rounded-xl transition-colors whitespace-nowrap text-sm xl:text-base">
+    {children}
+  </Link>
+)
+
+const DropdownLink = ({ href, children }: any) => (
+  <Link href={href} className="block text-white/80 hover:text-gold hover:bg-white/5 px-4 py-2 rounded-lg transition-colors text-sm text-center">
+    {children}
+  </Link>
+)
+
+const MobileGridLink = ({ href, children }: any) => (
+  <Link href={href} className="flex items-center justify-center bg-black/40 text-white/80 hover:text-gold hover:bg-black/60 px-2 py-3 rounded-lg transition-colors text-xs font-medium border border-white/5">
     {children}
   </Link>
 )

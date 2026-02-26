@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import PremiumCard from '@/components/premium-card';
 import StatsList from '@/app/stats/stats-list';
-import { Trophy, Map as MapIcon, TrendingUp, AlertTriangle, Crosshair, Shield, Swords, Target, Skull, Zap, Bomb, Eye, Activity, Users, Flame } from 'lucide-react';
+import { Trophy, Map as MapIcon, TrendingUp, AlertTriangle, Crosshair, Shield, Swords, Target, Skull, Zap, Bomb, Eye, Activity, Users, Flame, ExternalLink } from 'lucide-react';
 
 
 const MAP_IMAGES: Record<string, string> = {
@@ -32,7 +32,7 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
     const { mapStats, vetoStats, matchStats } = stats || { 
         mapStats: {}, 
         vetoStats: {}, 
-        matchStats: { wins: 0, losses: 0, draws: 0, total: 0, players: {}, halfDrawsDetails: [], halfWinsDetails: [] } 
+        matchStats: { wins: 0, losses: 0, draws: 0, total: 0, players: {}, halfDrawsDetails: [], halfWinsDetails: [], matchesList: [] } 
     };
 
     const sortedMaps = Object.entries(mapStats).sort((a: any, b: any) => b[1].matches - a[1].matches);
@@ -181,7 +181,7 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
                 )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <PremiumCard>
                     <div className="p-6">
                         <h2 className="text-xl font-black italic uppercase text-gold mb-6 border-b border-gold/20 pb-2">Win Rate por Mapa</h2>
@@ -393,6 +393,44 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
                                         {totalQuadro > 0 && <div className="text-sm font-bold text-zinc-400">{totalQuadro} ROUNDS </div>}
                                     </div>
                                 </div>
+                            )}
+                        </div>
+                    </div>
+                </PremiumCard>
+
+                <PremiumCard>
+                    <div className="p-6">
+                        <h2 className="text-xl font-black italic uppercase text-gold mb-6 border-b border-gold/20 pb-2">Histórico de Partidas</h2>
+                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                            {matchStats.matchesList?.map((match: any) => (
+                                <a 
+                                    key={match.id}
+                                    href={match.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 hover:bg-white/10 hover:border-gold/30 transition-all group"
+                                >
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+                                            {new Date(match.timestamp * 1000).toLocaleDateString('pt-BR')}
+                                        </span>
+                                        <span className="text-xs font-bold text-white group-hover:text-gold transition-colors uppercase">
+                                            {match.label}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-sm font-black ${
+                                            match.result === 'W' ? 'text-green-500' : 
+                                            match.result === 'L' ? 'text-red-500' : 'text-yellow-500'
+                                        }`}>
+                                            {match.score}
+                                        </span>
+                                        <ExternalLink size={14} className="text-zinc-600 group-hover:text-white" />
+                                    </div>
+                                </a>
+                            ))}
+                            {(!matchStats.matchesList || matchStats.matchesList.length === 0) && (
+                                <p className="text-zinc-500 text-xs italic text-center py-4">Nenhuma partida registrada.</p>
                             )}
                         </div>
                     </div>

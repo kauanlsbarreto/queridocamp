@@ -38,7 +38,7 @@ async function getTeamStats(team: any) {
         const validHistories = allHistories.filter(h => h !== null);
         const mapStats: any = {};
         const vetoStats: Record<string, number> = {};
-        const matchStats: any = { wins: 0, losses: 0, draws: 0, total: 0, players: {}, halfDrawsDetails: [], halfWinsDetails: [] };
+        const matchStats: any = { wins: 0, losses: 0, draws: 0, total: 0, players: {}, halfDrawsDetails: [], halfWinsDetails: [], matchesList: [] };
         const processedMatches = new Set();
 
         validHistories.forEach((history: any) => {
@@ -97,8 +97,18 @@ async function getTeamStats(team: any) {
             else if (myScore < enemyScore) matchStats.losses++;
             else matchStats.draws++;
 
-            // --- Lógica Avançada (Stats) ---
-            // Captura os vetos
+            const myTeamName = isFaction1 ? m.teams.faction1.name : m.teams.faction2.name;
+            const enemyTeamName = isFaction1 ? m.teams.faction2.name : m.teams.faction1.name;
+
+            matchStats.matchesList.push({
+                id: m.match_id,
+                label: `${myTeamName} x ${enemyTeamName}`,
+                url: `https://www.faceit.com/en/cs2/room/${m.match_id}`,
+                score: `${myScore}-${enemyScore}`,
+                result: myScore > enemyScore ? 'W' : (myScore < enemyScore ? 'L' : 'D'),
+                timestamp: m.started_at
+            });
+
             if (m.voting?.map?.veto && Array.isArray(m.voting.map.veto) && m.voting.map.veto.length > 0) {
                 const firstBanIndex = isFaction1 ? 0 : 1;
                 const firstBanMap = m.voting.map.veto.length > firstBanIndex ? m.voting.map.veto[firstBanIndex] : null;
@@ -113,7 +123,6 @@ async function getTeamStats(team: any) {
                     if (!mapStats[mapName]) mapStats[mapName] = { wins: 0, matches: 0 };
                     mapStats[mapName].matches++;
 
-                    // 1. Desempenho por Lado (6-6 no First Half) & Map Wins
                     if (roundStats.teams && roundStats.teams.length === 2) {
                         const t1Stats = roundStats.teams[0].team_stats;
                         const t2Stats = roundStats.teams[1].team_stats;
@@ -130,7 +139,6 @@ async function getTeamStats(team: any) {
                             }
                         }
 
-                        // Verifica empate 6-6 (MR12)
                         if (t1Stats["First Half Score"] === "6" && t2Stats["First Half Score"] === "6") {
                             if (!mapStats[mapName].halfDraws) mapStats[mapName].halfDraws = 0;
                             mapStats[mapName].halfDraws++;
@@ -139,7 +147,6 @@ async function getTeamStats(team: any) {
                             matchStats.halfDrawsDetails.push({ map: mapName, score: "6-6", opponent: enemyName });
                         }
 
-                        // Vitórias no First Half
                         if (myTeamObj && enemyTeamObj) {
                             const myHalf = Number(myTeamObj.team_stats["First Half Score"]);
                             const enemyHalf = Number(enemyTeamObj.team_stats["First Half Score"]);
@@ -202,6 +209,8 @@ async function getTeamStats(team: any) {
             });
         });
 
+        matchStats.matchesList.sort((a: any, b: any) => b.timestamp - a.timestamp);
+
         return { mapStats, vetoStats, matchStats };
     } catch (e) {
         console.error(e);
@@ -223,7 +232,6 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ slu
         
         const decodedSlug = decodeURIComponent(slug);
 
-        // 1. Buscar todos os times para encontrar o correto via slug gerado
         const [allTeams]: any = await mainConnection.query("SELECT * FROM team_config");
         
         const team = allTeams.find((t: any) => {
@@ -233,54 +241,66 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ slu
         });
 
         if (team) {
-            // Lógica corrigida para buscar TODOS os jogadores do time baseados no capitão
             const rawNick = (team.player_nick || "").split(',').pop()?.trim() || "";
             
-            // OTIMIZAÇÃO: Buscar apenas o capitão e seus jogadores diretamente
-            // 1. Tentar encontrar o capitão pelo nick
-            const [captainRows]: any = await jogadoresConnection.query(
-                "SELECT * FROM jogadores WHERE nick = ?", 
-                [rawNick]
-            );
-            const captain = captainRows[0];
+            let captain = null;
+
+            if (/^\d+$/.test(rawNick)) {
+                const [rows]: any = await jogadoresConnection.query("SELECT * FROM jogadores WHERE id = ?", [rawNick]);
+                captain = rows[0];
+            }
+
+            if (!captain) {
+                const [rows]: any = await jogadoresConnection.query(
+                    "SELECT * FROM jogadores WHERE LOWER(TRIM(nick)) = ?",
+                    [rawNick.toLowerCase()]
+                );
+                captain = rows[0];
+            }
+
+            if (!captain) {
+                const [allJogadores]: any = await jogadoresConnection.query("SELECT id, nick FROM jogadores");
+                const targetNormalized = normalizeText(rawNick);
+                const foundPlayer = allJogadores.find((p: any) => normalizeText(p.nick) === targetNormalized);
+                
+                if (foundPlayer) {
+                    const [rows]: any = await jogadoresConnection.query("SELECT * FROM jogadores WHERE id = ?", [foundPlayer.id]);
+                    captain = rows[0];
+                }
+            }
             
             let teamPlayers = [];
             
             if (captain) {
-                // 2. Se achou capitão, busca jogadores vinculados a ele (squad)
                 const [squadRows]: any = await jogadoresConnection.query(
                     "SELECT * FROM jogadores WHERE id = ? OR captain_id = ?",
                     [captain.id, captain.id]
                 );
                 teamPlayers = squadRows;
             } else {
-                // 3. Fallback: Se não achou capitão, usa a lista de nicks do config
                 const nicksFromConfig = team.player_nick ? team.player_nick.split(',').map((n: string) => n.trim()) : [];
                 if (nicksFromConfig.length > 0) {
                      const [playersByNick]: any = await jogadoresConnection.query(
-                         "SELECT * FROM jogadores WHERE nick IN (?)",
-                         [nicksFromConfig]
+                         "SELECT * FROM jogadores WHERE nick IN (?) OR id IN (?)",
+                         [nicksFromConfig, nicksFromConfig]
                      );
                      teamPlayers = playersByNick;
                 }
             }
             
-            // Extrair nicks para as próximas queries
-            const nicks = teamPlayers.map((p: any) => p.nick);
+            const nicks = teamPlayers.map((p: any) => p.nick ? p.nick.trim() : "");
             
-            // Buscar dados ricos dos jogadores (Pote, Stats, Imagem)
             let statsRows: any[] = [];
             let jogadoresRows: any[] = [];
             let faceitRows: any[] = [];
             let playerGuids: any[] = [];
 
             if (nicks.length > 0) {
-                [statsRows] = await mainConnection.query(
-                    "SELECT * FROM top90_stats WHERE nick IN (?)",
-                    [nicks]
-                );
+                // Busca todas as estatísticas e filtra via JS para garantir normalização
+                const [allStatsRows]: any = await mainConnection.query("SELECT * FROM top90_stats");
+                const normalizedNicks = new Set(nicks.map((n: string) => normalizeText(n)));
+                statsRows = allStatsRows.filter((s: any) => normalizedNicks.has(normalizeText(s.nick)));
 
-                // Reutilizando teamPlayers para pegar o pote
                 jogadoresRows = teamPlayers;
 
                 [faceitRows] = await jogadoresConnection.query(
@@ -288,7 +308,6 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ slu
                     [nicks]
                 );
 
-                // Buscar GUIDs para a API da Faceit (Client Side)
                 [playerGuids] = await mainConnection.query(
                     "SELECT nickname, faceit_guid FROM players WHERE nickname IN (?)",
                     [nicks]
@@ -300,12 +319,12 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ slu
                 image: team.team_image,
                 players: playerGuids.map((pg: any) => ({
                     ...pg,
-                    pote: jogadoresRows.find((j: any) => j.nick === pg.nickname)?.pote || 0
+                    pote: jogadoresRows.find((j: any) => normalizeText(j.nick) === normalizeText(pg.nickname))?.pote || 0
                 })),
                 tournamentStats: statsRows.map((stat: any) => ({
                     ...stat,
-                    pote: jogadoresRows.find((j: any) => j.nick === stat.nick)?.pote || 0,
-                    faceit_image: faceitRows.find((f: any) => f.faceit_nickname === stat.nick)?.fotoperfil || '/images/cs2-player.png'
+                    pote: jogadoresRows.find((j: any) => normalizeText(j.nick) === normalizeText(stat.nick))?.pote || 0,
+                    faceit_image: faceitRows.find((f: any) => normalizeText(f.faceit_nickname) === normalizeText(stat.nick))?.fotoperfil || '/images/cs2-player.png'
                 }))
             };
 

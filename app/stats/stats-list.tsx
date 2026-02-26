@@ -46,7 +46,6 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
           try {
             const user = JSON.parse(saved);
             setMyNick(user.nickname || user.nick);
-            // A propriedade pode ser 'admin' ou 'Admin'
             if (user.admin === 1 || user.admin === 2 || user.Admin === 1 || user.Admin === 2) {
               setIsAdmin(true);
             }
@@ -133,7 +132,6 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
           break;
       }
 
-      // Critérios de desempate (MVP)
       if (kd_b !== kd_a) return kd_b - kd_a;
       if (adr_b !== adr_a) return adr_b - adr_a;
       if (kr_b !== kr_a) return kr_b - kr_a;
@@ -160,7 +158,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
     { label: "Pote 3", value: "3" },
     { label: "Pote 4", value: "4" },
     { label: "Pote 5", value: "5" },
-    { label: "Sem Pote", value: "0" },
+    { label: "Completes", value: "0" },
   ];
 
   const isSortDisabled = !isAdmin && timeLeft > 0;
@@ -179,7 +177,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
       {!filterMe && (
       <div className="flex flex-col lg:flex-row items-center justify-between gap-6 bg-white/5 p-4 rounded-xl border border-white/10 shadow-2xl">
         <div className="relative flex flex-wrap justify-center gap-2">
-          {potes.filter(p => isAdmin || p.value !== "0").map((pote) => (
+          {potes.map((pote) => (
             <button
               key={pote.value}
               onClick={() => setSelectedPote(pote.value)}
