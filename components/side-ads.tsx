@@ -12,13 +12,13 @@ const ads = [
   },
   {
     id: 2,
-    image: "https://i.ibb.co/bjHPJgCb/MARCA-RADIANTE-FINAL.png", 
+    image: "https://i.ibb.co/bjHPJgCb/MARCA-RADIANTE-FINAL.png",
     link: "https://industriaradiante.com.br/",
     alt: "Radiante"
   },
   {
     id: 3,
-    image: "https://i.postimg.cc/HsW9dZ2b/BOXX-LOGO.png", 
+    image: "https://i.postimg.cc/HsW9dZ2b/BOXX-LOGO.png",
     link: "https://www.instagram.com/boxxaju/",
     alt: "Boxx"
   }
@@ -26,21 +26,42 @@ const ads = [
 
 export default function SideAds() {
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [zoomScale, setZoomScale] = useState(1)
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % ads.length)
     }, 5000)
+
     return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    const handleZoom = () => {
+      const zoom = window.devicePixelRatio
+      const normalized = 1 / zoom
+      setZoomScale(normalized)
+    }
+
+    handleZoom()
+    window.addEventListener("resize", handleZoom)
+
+    return () => window.removeEventListener("resize", handleZoom)
   }, [])
 
   return (
     <>
-      <aside className="fixed left-4 2xl:left-8 top-1/2 -translate-y-1/2 z-30 hidden xl:flex flex-col gap-4 w-[140px] 2xl:w-[300px]">
+      <aside
+        style={{ transform: `translateY(-50%) scale(${zoomScale})` }}
+        className="fixed left-4 2xl:left-8 top-1/2 z-30 hidden xl:flex flex-col gap-4 w-[140px] 2xl:w-[300px] origin-center"
+      >
         <AdItem ad={ads[currentIndex]} />
       </aside>
 
-      <aside className="fixed right-4 2xl:right-8 top-1/2 -translate-y-1/2 z-30 hidden xl:flex flex-col gap-4 w-[140px] 2xl:w-[300px]">
+      <aside
+        style={{ transform: `translateY(-50%) scale(${zoomScale})` }}
+        className="fixed right-4 2xl:right-8 top-1/2 z-30 hidden xl:flex flex-col gap-4 w-[140px] 2xl:w-[300px] origin-center"
+      >
         <AdItem ad={ads[currentIndex]} />
       </aside>
     </>

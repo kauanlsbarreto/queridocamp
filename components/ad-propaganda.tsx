@@ -16,6 +16,9 @@ export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayer
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
+    // Garante que o estado do anúncio é resetado a cada navegação
+    if (typeof window !== 'undefined') (window as any).adWasShown = false
+
     const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
     const storedUser = localStorage.getItem("faceit_user")
     
@@ -37,6 +40,8 @@ export default function PromotionalPlayer({ videoSrc, redirectUrl }: PromoPlayer
     }
 
     setIsVisible(true)
+    // Define uma flag global para indicar que o anúncio foi exibido
+    if (typeof window !== 'undefined') (window as any).adWasShown = true
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
