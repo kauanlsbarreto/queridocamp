@@ -56,7 +56,7 @@ export default function AnalyticsTracker() {
       const ip = await getIpAddress();
       const loadTime = getLoadTime();
       
-      const dataSource = 'Não aplicável (cliente)';
+      const dataSource = 'Cache';
 
       const adSeen = (window as any).adWasShown ? 'Sim' : 'Não';
 
@@ -68,15 +68,15 @@ export default function AnalyticsTracker() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             embeds: [{
-              title: 'Nova Visita na Página',
+              title: 'Acesso no Site',
               color: 0xDAA520, 
               fields: [
                 { name: 'Página Acessada', value: `\`${data.page}\``, inline: true },
                 { name: 'Usuário', value: data.user, inline: true },
-                { name: 'IP do Usuário', value: data.ip, inline: true },
-                { name: 'Tempo para Carregar', value: data.loadTime, inline: true },
-                { name: 'Fonte dos Dados (Cache/DB)', value: data.dataSource, inline: true },
-                { name: 'Viu o Anúncio?', value: data.adSeen, inline: true },
+                { name: 'IP', value: data.ip, inline: true },
+                { name: 'Tempo', value: data.loadTime, inline: true },
+                { name: 'Fonte de Dados', value: data.dataSource, inline: true },
+                { name: 'AD', value: data.adSeen, inline: true },
               ],
               timestamp: new Date().toISOString(),
             }],
