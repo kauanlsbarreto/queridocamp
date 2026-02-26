@@ -99,7 +99,6 @@ const getTeamsData = unstable_cache(async (mainConnection: any, jogadoresConnect
 
       let rawTeamPlayers: Player[] = [];
       if (captain) {
-        // Se houver mais de um nick, o último é o capitão e deve ser Pote 1
         if (playerNicks.length > 1) {
           captain = { ...captain, pote: 1 };
         }

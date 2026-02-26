@@ -6,6 +6,7 @@ import PremiumCard from "@/components/premium-card";
 import Image from "next/image";
 import Link from "next/link";
 import { Shield, Search } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 interface Player {
   id: number;
@@ -44,7 +45,8 @@ interface TeamData {
 }
 
 const TeamsList = memo(function TeamsList({ teams }: { teams: TeamData[] }) {
-  const [searchTerm, setSearchTerm] = useState("");
+  const searchParams = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
 
   const filteredTeams = useMemo(() => {
     return teams.filter(team => 

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import PremiumCard from "@/components/premium-card";
 import { Trophy, ChevronDown, ExternalLink } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 
 const PlayerAvatar = ({ src, alt }: { src?: string; alt: string }) => {
@@ -23,21 +23,35 @@ const PlayerAvatar = ({ src, alt }: { src?: string; alt: string }) => {
       fill
       className="object-cover"
       onError={() => setImgSrc(placeholder)}
-      unoptimized={!!imgSrc?.startsWith("http")}
+      unoptimized={imgSrc?.startsWith("http")}
     />
   );
 };
 
 export default function StatsList({ allStats }: { allStats: any[] }) {
-  const [selectedRound, setSelectedRound] = useState<string>("Geral");
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [selectedRound, setSelectedRound] = useState<string>(searchParams.get('rodada') || "Geral");
+  const [selectedPote, setSelectedPote] = useState<string>(searchParams.get('pote') || "All");
+  const [sortBy, setSortBy] = useState<string>(searchParams.get('ordem') || "kd");
+
   const filterMe = searchParams.get('filter') === 'me';
   const [myNick, setMyNick] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [selectedPote, setSelectedPote] = useState<string>("All");
-  const [sortBy, setSortBy] = useState<string>("kd");
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (selectedRound !== "Geral") params.set('rodada', selectedRound); else params.delete('rodada');
+    if (selectedPote !== "All") params.set('pote', selectedPote); else params.delete('pote');
+    if (sortBy !== "kd") params.set('ordem', sortBy); else params.delete('ordem');
+
+    const newQuery = params.toString();
+    router.replace(`${pathname}${newQuery ? `?${newQuery}` : ''}`, { scroll: false });
+  }, [selectedRound, selectedPote, sortBy, pathname, router, searchParams]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -175,7 +189,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
   return (
     <div className="space-y-8">
       {!filterMe && (
-      <div className="flex flex-col lg:flex-row items-center justify-between gap-6 bg-white/5 p-4 rounded-xl border border-white/10 shadow-2xl">
+      <div className="flex flex-col xl:flex-row items-center justify-between gap-6 bg-white/5 p-4 rounded-xl border border-white/10 shadow-2xl">
         <div className="relative flex flex-wrap justify-center gap-2">
           {potes.map((pote) => (
             <button
@@ -192,7 +206,7 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
           ))}
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
           <div className={`relative min-w-[180px] w-full sm:w-auto ${isSortDisabled ? 'opacity-50' : ''}`}>
             {isSortDisabled && (
               <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-max px-3 py-1 bg-red-900/80 border border-red-500/50 rounded-md text-white text-xs z-10">
