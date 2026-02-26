@@ -91,13 +91,18 @@ const getTeamsData = unstable_cache(async (mainConnection: any, jogadoresConnect
     });
 
     return teamsResult.map(team => {
-      const rawNick = (team.player_nick || "").split(',').pop()?.trim() || "";
+      const playerNicks = (team.player_nick || "").split(',').map((n: string) => n.trim());
+      const rawNick = playerNicks[playerNicks.length - 1] || "";
       const normalizedRawNick = normalizeText(rawNick);
       const slug = team.team_nick || normalizeText(team.team_name) || rawNick;
       let captain = playersMap.get(rawNick.toLowerCase()) || playersById.get(rawNick) || normalizedPlayersMap.get(normalizedRawNick);
 
       let rawTeamPlayers: Player[] = [];
       if (captain) {
+        // Se houver mais de um nick, o último é o capitão e deve ser Pote 1
+        if (playerNicks.length > 1) {
+          captain = { ...captain, pote: 1 };
+        }
         const members = playersByCaptainId.get(String(captain.id)) || [];
         rawTeamPlayers = [captain, ...members];
       }
