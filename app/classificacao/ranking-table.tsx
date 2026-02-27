@@ -144,22 +144,10 @@ const TeamRow = memo(({
                         <div className="space-y-3">
                           {(() => {
                             const matches = details?.matches ? [...details.matches] : [];
-                            if (team.name === "Boxx") {
-                              matches.push({
-                                match_id: 999999,
-                                time1: "Boxx",
-                                time2: "Componentes EXE",
-                                placar_mapa1_time1: 13,
-                                placar_mapa1_time2: 4,
-                                placar_mapa2_time1: 0,
-                                placar_mapa2_time2: 0
-                              });
-                            }
 
                             if (matches.length > 0) {
                               return matches.map(m => {
-                                let roundNum = getMatchRound(allTeams, m.time1, m.time2);
-                                if (m.match_id === 999999) roundNum = 7;
+                                const roundNum = getMatchRound(allTeams, m.time1, m.time2);
                                 
                                 const isTime1 = m.time1 === team.name;
 
