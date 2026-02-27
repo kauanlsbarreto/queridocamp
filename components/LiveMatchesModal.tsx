@@ -60,7 +60,7 @@ const HUB_IDS = [
 export default function LiveMatchesModal() {
     const [internalOpen, setInternalOpen] = useState(false);
     const [matches, setMatches] = useState<MatchDetails[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     
     const [isYoutubeLive] = useState(true);
     const [isTwitch1Live] = useState(true);
@@ -106,28 +106,51 @@ export default function LiveMatchesModal() {
                 }));
 
                 setMatches(matchesWithStats);
+                window.dispatchEvent(new CustomEvent('liveMatchesUpdated', { detail: { matches: matchesWithStats, loading: false } }));
                 return matchesWithStats;
             } else {
                 setMatches([]);
+                window.dispatchEvent(new CustomEvent('liveMatchesUpdated', { detail: { matches: [], loading: false } }));
                 return [];
             }
         } catch (e) {
             console.error("Erro ao sincronizar com as hubs:", e);
             setMatches([]);
+            window.dispatchEvent(new CustomEvent('liveMatchesUpdated', { detail: { matches: [], loading: false } }));
             return [];
         } finally {
             setLoading(false);
         }
     }, []);
 
+    useEffect(() => {
+        const handleOpen = () => {
+            fetchFaceitMatches();
+            setInternalOpen(true);
+        };
+        window.addEventListener('openLiveMatchesModal', handleOpen);
+
+        const handleRequest = () => {
+            window.dispatchEvent(new CustomEvent('liveMatchesUpdated', { detail: { matches, loading } }));
+        };
+        window.addEventListener('requestLiveMatches', handleRequest);
+
+        return () => {
+            window.removeEventListener('openLiveMatchesModal', handleOpen);
+            window.removeEventListener('requestLiveMatches', handleRequest);
+        };
+    }, [fetchFaceitMatches, matches, loading]);
+
     // Lógica para abrir AUTOMATICAMENTE apenas se houver partidas
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
         const hasSeen = sessionStorage.getItem("QC_liveModalSeen");
-        if (hasSeen) return;
+        if (hasSeen) {
+            fetchFaceitMatches();
+            return;
+        }
 
-        // Busca partidas e só abre o modal se o array não estiver vazio
         fetchFaceitMatches().then(data => {
             if (data && data.length > 0) {
                 setInternalOpen(true);
@@ -136,22 +159,20 @@ export default function LiveMatchesModal() {
         });
     }, [fetchFaceitMatches]);
 
-    const show = internalOpen;
-
     const handleClose = () => {
         setInternalOpen(false);
     };
 
     // Atualização em tempo real enquanto o modal estiver aberto
     useEffect(() => {
-        if (!show) return;
+        if (!internalOpen) return;
         
         const interval = setInterval(fetchFaceitMatches, 45000);
         return () => clearInterval(interval);
-    }, [show, fetchFaceitMatches]);
+    }, [internalOpen, fetchFaceitMatches]);
 
     return (
-        <Dialog open={show} onOpenChange={(open) => !open && handleClose()}>
+        <Dialog open={internalOpen} onOpenChange={(open) => !open && handleClose()}>
             <DialogContent className="bg-gray-900 border-gold/20 text-white max-w-lg overflow-hidden">
                 <DialogHeader className="flex flex-row justify-between items-start border-b border-white/5 pb-4">
                     <div className="flex flex-col">

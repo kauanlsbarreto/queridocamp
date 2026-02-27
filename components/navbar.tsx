@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Menu, X, ChevronDown } from 'lucide-react'
+import { Menu, X, ChevronDown, Radio } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import FaceitLogin from './FaceitLogin'
+import { Button } from './ui/button'
 import { Notifications } from './notifications'
 import { UserProfile } from './user-profile'
 import { UpdateDataButton } from './UpdateDataButton'
@@ -18,6 +19,8 @@ interface NavbarProps {
 const Navbar = ({ user, onAuthChange }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [liveMatches, setLiveMatches] = useState<any[]>([])
+  const [liveMatchesLoading, setLiveMatchesLoading] = useState(true)
   
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(user)
 
@@ -74,10 +77,33 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  useEffect(() => {
+    const handleMatchesUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent
+      setLiveMatches(customEvent.detail.matches || [])
+      setLiveMatchesLoading(customEvent.detail.loading)
+    }
+    window.addEventListener('liveMatchesUpdated', handleMatchesUpdate)
+
+    // Request initial data
+    window.dispatchEvent(new CustomEvent('requestLiveMatches'))
+
+    return () => window.removeEventListener('liveMatchesUpdated', handleMatchesUpdate)
+  }, [])
+
   const handleLocalAuthChange = () => {
     syncUserFromStorage()
     onAuthChange()
   }
+
+  const openLiveMatchesModal = () => {
+    window.dispatchEvent(new CustomEvent('openLiveMatchesModal'))
+  }
+
+  const hasLiveMatches = liveMatches.length > 0
+  const isAdmin = currentUser?.Admin && currentUser.Admin >= 1 && currentUser.Admin <= 5
+
+  const showLiveMatchesButton = !liveMatchesLoading && (hasLiveMatches || isAdmin)
 
   return (
     <motion.nav
@@ -135,6 +161,14 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
 
           <div className="flex-none flex items-center gap-6 md:gap-8 relative z-10">
             <div className="hidden md:flex items-center gap-6 md:gap-8">
+              {showLiveMatchesButton && (
+                <Button onClick={openLiveMatchesModal} variant="outline" size="icon" className={`border-red-500 text-red-500 hover:bg-red-500 hover:text-white relative ${hasLiveMatches ? 'animate-pulse' : ''}`}>
+                  <Radio className="h-5 w-5" />
+                  {hasLiveMatches && (
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
+                  )}
+                </Button>
+              )}
               {(currentUser?.Admin === 1 || currentUser?.Admin === 2) && <UpdateDataButton />}
               <Notifications />
               <div className="pl-2">
@@ -179,6 +213,14 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
             </div>
 
             <div className="flex items-center justify-center gap-6 pt-4 border-t border-white/10">
+              {showLiveMatchesButton && (
+                <Button onClick={openLiveMatchesModal} variant="outline" size="icon" className={`border-red-500 text-red-500 hover:bg-red-500 hover:text-white relative ${hasLiveMatches ? 'animate-pulse' : ''}`}>
+                  <Radio className="h-5 w-5" />
+                  {hasLiveMatches && (
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
+                  )}
+                </Button>
+              )}
               {(currentUser?.Admin === 1 || currentUser?.Admin === 2) && <UpdateDataButton />}
               <Notifications />
               <FaceitLogin user={currentUser} onAuthChange={handleLocalAuthChange} />
