@@ -42,6 +42,21 @@ async function getLastUpdate(connection: any) {
   return rows[0]?.value || new Date().toISOString();
 }
 
+async function getMatches(connection: any) {
+  const [rows] = await connection.query("SELECT * FROM jogos");
+  return rows;
+}
+
+async function getPlayers(connection: any) {
+  try {
+    const [rows] = await connection.query("SELECT * FROM jogadores");
+    return rows;
+  } catch (e) {
+    console.error("Erro ao buscar jogadores:", e);
+    return [];
+  }
+}
+
 export default async function Classificacao() {
   let connection: any;
   try {
@@ -50,9 +65,11 @@ export default async function Classificacao() {
 
     connection = await createMainConnection(env);
 
-    const [teams, lastUpdate] = await Promise.all([
+    const [teams, lastUpdate, matches, players] = await Promise.all([
       getTeams(connection),
-      getLastUpdate(connection)
+      getLastUpdate(connection),
+      getMatches(connection),
+      getPlayers(connection)
     ]);
 
     return (
@@ -66,7 +83,7 @@ export default async function Classificacao() {
           <div className="container mx-auto px-4">
             <div className="max-w-6xl mx-auto">
               <UpdateTimer lastUpdate={lastUpdate} />
-              <RankingTable teams={teams} />
+              <RankingTable teams={teams} matches={matches} players={players} />
             </div>
           </div>
         </section>

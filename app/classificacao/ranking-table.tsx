@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import PremiumCard from "@/components/premium-card"
 import Image from "next/image"
 import Link from "next/link"
-import { Search } from "lucide-react"
+import { Search, Calculator, X, Trophy, AlertTriangle, Target, TrendingUp, TrendingDown } from "lucide-react"
 
 export interface Team {
   id: number;
@@ -30,6 +30,13 @@ interface Match {
 interface TeamDetails {
   matches: Match[];
   adjustments: { motivo: string; sp: number; vitorias?: number; derrotas?: number }[];
+}
+
+interface Player {
+  id: number;
+  nick: string;
+  time?: string;
+  time_id?: number;
 }
 
 const getMatchRound = (teams: Team[], t1: string, t2: string) => {
@@ -59,6 +66,126 @@ const getMatchRound = (teams: Team[], t1: string, t2: string) => {
   return null;
 };
 
+const ScenarioModal = ({ 
+  isOpen, 
+  onClose, 
+  team, 
+  matches, 
+  allTeams 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  team: Team; 
+  matches: any[]; 
+  allTeams: Team[];
+}) => {
+  if (!isOpen) return null;
+
+  const remainingMatches = matches.filter(m => {
+    const isTeamMatch = m.time1 === team.name || m.time2 === team.name;
+    const isPlayed = (m.placar_mapa1_time1 !== null && m.placar_mapa1_time1 !== undefined) || 
+                     (m.placar_mapa1_time2 !== null && m.placar_mapa1_time2 !== undefined);
+    return isTeamMatch && !isPlayed;
+  });
+
+  const opponents = remainingMatches.map(m => m.time1 === team.name ? m.time2 : m.time1);
+  const mapsRemaining = remainingMatches.length * 2;
+  const maxPointsToAdd = mapsRemaining * 3;
+  
+  const currentPoints = team.points;
+  const maxPossiblePoints = currentPoints + maxPointsToAdd;
+  const minPossiblePoints = currentPoints; // Losing all
+
+  const sortedTeams = [...allTeams].sort((a, b) => b.points - a.points);
+  const current8thPlace = sortedTeams[7];
+  const current8thPoints = current8thPlace ? current8thPlace.points : 0;
+  
+  let status = "Na briga";
+  let statusColor = "text-yellow-400";
+  
+  if (maxPossiblePoints < current8thPoints) {
+    status = "Matematicamente fora do Top 8 (considerando corte atual)";
+    statusColor = "text-red-500";
+  } else if (minPossiblePoints > (sortedTeams[8]?.points || 0) + (16 * 3)) { 
+    status = "Classificação muito provável";
+    statusColor = "text-green-400";
+  } else if (currentPoints >= current8thPoints) {
+    status = "Atualmente no Top 8";
+    statusColor = "text-green-400";
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-[#1a1a1a] border border-gold/30 rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="bg-gradient-to-r from-black to-gold/10 p-6 border-b border-white/10 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="relative w-12 h-12">
+              <Image src={team.logo || "/placeholder.svg"} alt={team.name} fill className="object-contain" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white">Cenários: <span className="text-gold">{team.name}</span></h3>
+              <p className="text-xs text-gray-400 uppercase tracking-widest">Análise de Classificação</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white"><X /></button>
+        </div>
+
+        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+          <div className={`p-4 rounded-lg border border-white/10 bg-white/5 flex items-center gap-4 ${statusColor}`}>
+            <Target size={24} />
+            <div>
+              <h4 className="font-bold text-sm uppercase">Status Atual</h4>
+              <p className="text-lg font-black">{status}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-lg">
+              <h4 className="text-green-400 font-bold flex items-center gap-2 mb-2"><TrendingUp size={18}/> Melhor Cenário</h4>
+              <p className="text-gray-300 text-sm mb-2">Vencendo os <strong>{remainingMatches.length}</strong> jogos restantes ({mapsRemaining} mapas):</p>
+              <p className="text-3xl font-black text-white">{maxPossiblePoints} <span className="text-xs font-normal text-gray-400">pontos</span></p>
+            </div>
+
+            <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg">
+              <h4 className="text-red-400 font-bold flex items-center gap-2 mb-2"><TrendingDown size={18}/> Pior Cenário</h4>
+              <p className="text-gray-300 text-sm mb-2">Perdendo todos os jogos restantes:</p>
+              <p className="text-3xl font-black text-white">{minPossiblePoints} <span className="text-xs font-normal text-gray-400">pontos</span></p>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-gold font-bold text-sm uppercase mb-3 flex items-center gap-2"><AlertTriangle size={16}/> Adversários Restantes</h4>
+            {opponents.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {opponents.map((opp, idx) => (
+                  <span key={idx} className="bg-white/10 text-white px-3 py-1 rounded text-sm border border-white/5">{opp}</span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 italic">Nenhum jogo restante na fase de grupos.</p>
+            )}
+          </div>
+
+          <div className="bg-blue-500/5 border border-blue-500/20 p-4 rounded-lg">
+            <h4 className="text-blue-400 font-bold text-sm uppercase mb-2 flex items-center gap-2"><Trophy size={16}/> Contexto Top 8</h4>
+            <p className="text-gray-300 text-sm">
+              Atualmente, o 8º colocado tem <strong>{current8thPoints} pontos</strong>. 
+              {maxPossiblePoints >= current8thPoints 
+                ? " Você tem chances matemáticas de alcançar ou superar essa pontuação." 
+                : " Sua pontuação máxima não alcança o corte atual."}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 const TeamRow = memo(({ 
   team, 
   index, 
@@ -67,7 +194,8 @@ const TeamRow = memo(({
   details, 
   loading,
   allTeams,
-  isAdmin
+  isAdmin,
+  onOpenScenario
 }: { 
   team: Team; 
   index: number; 
@@ -77,6 +205,7 @@ const TeamRow = memo(({
   loading: boolean;
   allTeams: Team[];
   isAdmin: boolean;
+  onOpenScenario: (team: Team) => void;
 }) => {
   return (
     <Fragment>
@@ -107,6 +236,16 @@ const TeamRow = memo(({
             >
               <Search size={16} />
             </Link>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenScenario(team);
+              }}
+              className="text-gold hover:text-white transition-colors p-1"
+              title="Simular Cenários"
+            >
+              <Calculator size={16} />
+            </button>
           </div>
         </td>
         <td className="py-4 px-2 text-center text-white font-semibold">{(team.wins + team.losses) / 2}</td>
@@ -266,11 +405,13 @@ const TeamRow = memo(({
 
 TeamRow.displayName = "TeamRow"
 
-export default function RankingTable({ teams }: { teams: Team[] }) {
+export default function RankingTable({ teams, matches = [], players = [] }: { teams: Team[], matches?: any[], players?: any[] }) {
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null)
   const [detailsCache, setDetailsCache] = useState<Record<string, TeamDetails>>({})
   const [loading, setLoading] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [selectedTeamForModal, setSelectedTeamForModal] = useState<Team | null>(null)
 
   useEffect(() => {
     const storedUser = localStorage.getItem('faceit_user')
@@ -321,6 +462,37 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
     }
   }, [expandedTeam, detailsCache]);
 
+  const handleOpenScenario = useCallback((team: Team) => {
+    const storedUser = localStorage.getItem('faceit_user');
+    
+    if (!storedUser) {
+      alert("Você precisa estar logado na Faceit para ver os cenários.");
+      return;
+    }
+
+    let user;
+    try {
+      user = JSON.parse(storedUser);
+    } catch (e) {
+      return;
+    }
+
+    const lvl = Number(user.admin || user.Admin);
+    const isUserAdmin = lvl === 1 || lvl === 2;
+
+    const userInTeam = players.some(p => 
+      p.nick === user.nickname && 
+      (p.time === team.name || p.time_id === team.id || p.time === team.name.replace("22Cao Na Chapa", "22Cao").replace("Boxx", "team_mulekera"))
+    );
+
+    if (isUserAdmin || userInTeam) {
+      setSelectedTeamForModal(team);
+      setModalOpen(true);
+    } else {
+      alert("Você só pode ver do seu próprio time.");
+    }
+  }, [players]);
+
   return (
     <PremiumCard hoverEffect={true}>
       <div className="p-4 md:p-8 overflow-x-auto">
@@ -351,11 +523,22 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
                 loading={loading && expandedTeam === team.name}
                 allTeams={correctedTeams}
                 isAdmin={isAdmin}
+                onOpenScenario={handleOpenScenario}
               />
             ))}
           </tbody>
         </table>
       </div>
+
+      {selectedTeamForModal && (
+        <ScenarioModal 
+          isOpen={modalOpen} 
+          onClose={() => setModalOpen(false)} 
+          team={selectedTeamForModal} 
+          matches={matches}
+          allTeams={correctedTeams}
+        />
+      )}
     </PremiumCard>
   )
 }
