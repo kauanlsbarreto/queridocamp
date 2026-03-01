@@ -81,6 +81,7 @@ const ScenarioModal = ({
 }) => {
   if (!isOpen) return null;
 
+
   const remainingMatches = matches.filter(m => {
     const isTeamMatch = m.time1 === team.name || m.time2 === team.name;
     const isPlayed = (m.placar_mapa1_time1 !== null && m.placar_mapa1_time1 !== undefined) || 
@@ -94,7 +95,7 @@ const ScenarioModal = ({
   
   const currentPoints = team.points;
   const maxPossiblePoints = currentPoints + maxPointsToAdd;
-  const minPossiblePoints = currentPoints; // Losing all
+  const minPossiblePoints = currentPoints; 
 
   const sortedTeams = [...allTeams].sort((a, b) => b.points - a.points);
   const current8thPlace = sortedTeams[7];
@@ -104,12 +105,13 @@ const ScenarioModal = ({
   let statusColor = "text-yellow-400";
   
   if (maxPossiblePoints < current8thPoints) {
-    status = "Matematicamente fora do Top 8 (considerando corte atual)";
+    status = "Fora do Top 8";
     statusColor = "text-red-500";
   } else if (minPossiblePoints > (sortedTeams[8]?.points || 0) + (16 * 3)) { 
+
     status = "Classificação muito provável";
     statusColor = "text-green-400";
-  } else if (currentPoints >= current8thPoints) {
+  } else if (current8thPoints) {
     status = "Atualmente no Top 8";
     statusColor = "text-green-400";
   }
@@ -479,7 +481,6 @@ export default function RankingTable({ teams, matches = [], players = [] }: { te
 
     const lvl = Number(user.admin || user.Admin);
     const isUserAdmin = lvl === 1 || lvl === 2;
-
     const userInTeam = players.some(p => 
       p.nick === user.nickname && 
       (p.time === team.name || p.time_id === team.id || p.time === team.name.replace("22Cao Na Chapa", "22Cao").replace("Boxx", "team_mulekera"))
@@ -489,7 +490,7 @@ export default function RankingTable({ teams, matches = [], players = [] }: { te
       setSelectedTeamForModal(team);
       setModalOpen(true);
     } else {
-      alert("Você só pode ver do seu próprio time.");
+      alert("Você só pode ver os cenários do seu próprio time.");
     }
   }, [players]);
 
