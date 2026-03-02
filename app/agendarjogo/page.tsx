@@ -84,17 +84,28 @@ const AdminJogosPage = () => {
 
   const handleSaveChanges = async (match: ScheduledMatch) => {
     console.log('Salvando partida:', match);
-    const isNew = match.id.startsWith('new-');
-    const url = isNew ? '/api/scheduled-matches' : `/api/scheduled-matches/${match.id}`;
-    const method = isNew ? 'POST' : 'PUT';
+    try {
+      const isNew = match.id.startsWith('new-');
+      const url = isNew ? '/api/scheduled-matches' : `/api/scheduled-matches/${match.id}`;
+      const method = isNew ? 'POST' : 'PUT';
 
-    await fetch(url, {
-      method: method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(match),
-    });
-    await fetchMatches(); // Re-fetch to get the latest data
-    alert(`Partida ${match.team1_name} vs ${match.team2_name} salva!`);
+      const response = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(match),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Não foi possível ler a resposta do erro do servidor.' }));
+        throw new Error(`Falha ao salvar a partida: ${response.status} ${response.statusText}. Detalhes: ${errorData.message}`);
+      }
+
+      await fetchMatches(); // Re-fetch to get the latest data
+      alert(`Partida entre ${match.team1_name} e ${match.team2_name} foi salva com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao salvar a partida:', error);
+      alert(String(error));
+    }
   };
 
   const handleAddNewMatch = () => {
@@ -113,8 +124,20 @@ const AdminJogosPage = () => {
   const handleDeleteMatch = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta partida?')) {
       console.log('Excluindo partida:', id);
-      await fetch(`/api/scheduled-matches/${id}`, { method: 'DELETE' });
-      await fetchMatches(); // Re-fetch to update the list
+      try {
+        const response = await fetch(`/api/scheduled-matches/${id}`, { method: 'DELETE' });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Não foi possível ler a resposta do erro do servidor.' }));
+          throw new Error(`Falha ao excluir a partida: ${response.status} ${response.statusText}. Detalhes: ${errorData.message}`);
+        }
+        
+        alert('Partida excluída com sucesso!');
+        await fetchMatches(); // Re-fetch to update the list
+      } catch (error) {
+        console.error('Erro ao excluir a partida:', error);
+        alert(String(error));
+      }
     }
   };
 
