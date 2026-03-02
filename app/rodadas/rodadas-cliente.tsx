@@ -231,7 +231,6 @@ function MatchCard({ match }: { match: Match }) {
           </div>
         </div>
 
-        {/* Link para Faceit (se houver ID) */}
         {match.faceitId && (
           <div className="w-full md:w-auto flex justify-center md:justify-end pt-2 md:pt-0 md:pl-4 md:border-l border-white/10">
             <a 

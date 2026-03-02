@@ -50,6 +50,14 @@ interface MatchDetails {
     maps?: string[];
 }
 
+interface ScheduledMatch {
+    id: string;
+    team1: { name: string; avatar: string };
+    team2: { name: string; avatar: string };
+    scheduled_time: string; // ISO string
+    live_platform?: 'youtube' | 'twitch1' | 'twitch2';
+}
+
 const API_KEY_FACEIT = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
 
 const HUB_IDS = [
@@ -60,11 +68,32 @@ const HUB_IDS = [
 export default function LiveMatchesModal() {
     const [internalOpen, setInternalOpen] = useState(false);
     const [matches, setMatches] = useState<MatchDetails[]>([]);
+    const [scheduledMatches, setScheduledMatches] = useState<ScheduledMatch[]>([]);
     const [loading, setLoading] = useState(true);
     
     const [isYoutubeLive] = useState(true);
     const [isTwitch1Live] = useState(true);
     const [isTwitch2Live] = useState(true);
+
+    const fetchScheduledMatches = useCallback(async () => {
+        try {
+            const res = await fetch('/api/scheduled-matches');
+            if (!res.ok) throw new Error('Failed to fetch scheduled matches');
+            const data = await res.json();
+
+            const formattedMatches = data.map((match: any) => ({
+                id: match.id.toString(),
+                team1: { name: match.team1_name, avatar: match.team1_avatar },
+                team2: { name: match.team2_name, avatar: match.team2_avatar },
+                scheduled_time: match.scheduled_time,
+                live_platform: match.live_platform,
+            }));
+            setScheduledMatches(formattedMatches);
+        } catch (error) {
+            console.error("Error fetching scheduled matches:", error);
+            setScheduledMatches([]);
+        }
+    }, []);
 
     const fetchFaceitMatches = useCallback(async () => {
         setLoading(true);
@@ -126,6 +155,7 @@ export default function LiveMatchesModal() {
     useEffect(() => {
         const handleOpen = () => {
             fetchFaceitMatches();
+            fetchScheduledMatches();
             setInternalOpen(true);
         };
         window.addEventListener('openLiveMatchesModal', handleOpen);
@@ -139,37 +169,40 @@ export default function LiveMatchesModal() {
             window.removeEventListener('openLiveMatchesModal', handleOpen);
             window.removeEventListener('requestLiveMatches', handleRequest);
         };
-    }, [fetchFaceitMatches, matches, loading]);
+    }, [fetchFaceitMatches, fetchScheduledMatches, matches, loading]);
 
-    // Lógica para abrir AUTOMATICAMENTE apenas se houver partidas
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
         const hasSeen = sessionStorage.getItem("QC_liveModalSeen");
         if (hasSeen) {
             fetchFaceitMatches();
+            fetchScheduledMatches();
             return;
         }
 
         fetchFaceitMatches().then(data => {
+            fetchScheduledMatches();
             if (data && data.length > 0) {
                 setInternalOpen(true);
                 sessionStorage.setItem("QC_liveModalSeen", "true");
             }
         });
-    }, [fetchFaceitMatches]);
+    }, [fetchFaceitMatches, fetchScheduledMatches]);
 
     const handleClose = () => {
         setInternalOpen(false);
     };
 
-    // Atualização em tempo real enquanto o modal estiver aberto
     useEffect(() => {
         if (!internalOpen) return;
         
-        const interval = setInterval(fetchFaceitMatches, 45000);
+        const interval = setInterval(() => {
+            fetchFaceitMatches();
+            fetchScheduledMatches();
+        }, 45000);
         return () => clearInterval(interval);
-    }, [internalOpen, fetchFaceitMatches]);
+    }, [internalOpen, fetchFaceitMatches, fetchScheduledMatches]);
 
     return (
         <Dialog open={internalOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -200,16 +233,63 @@ export default function LiveMatchesModal() {
                 </DialogHeader>
 
                 <div className="mt-4 space-y-3 max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
-                    {loading && matches.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-10 gap-3">
-                            <Loader className="animate-spin text-gold" size={32} />
-                        </div>
-                    ) : matches.length === 0 ? (
-                        <div className="text-center py-10">
-                            <p className="text-gray-500 italic text-sm">Nenhuma partida em andamento no momento.</p>
-                        </div>
-                    ) : (
-                        matches.map((match) => (
+                    {scheduledMatches.length > 0 && (
+                        <>
+                            <h3 className="text-lg font-bold text-gold uppercase tracking-tighter my-4 border-b border-gold/20 pb-2">
+                                Jogos de Hoje
+                            </h3>
+                            {scheduledMatches.map((match) => (
+                                <div key={match.id} className="relative bg-white/5 p-4 rounded-lg border border-white/10 flex flex-col gap-3">
+                                    <div className="flex justify-between items-center gap-2">
+                                        {/* Time 1 */}
+                                        <div className="flex flex-col items-center w-1/3 gap-2">
+                                            <div className="w-12 h-12 relative rounded-full overflow-hidden border-2 border-white/10 bg-black/20">
+                                                <Image 
+                                                    src={match.team1.avatar || "https://cdn.faceit.com/static/stats/avatar/default_user_blue.png"} 
+                                                    alt={match.team1.name} fill className="object-cover" 
+                                                />
+                                            </div>
+                                            <span className="text-[11px] font-black text-center line-clamp-1 uppercase">{match.team1.name}</span>
+                                        </div>
+
+                                        <div className="flex flex-col items-center justify-center w-1/3">
+                                            <div className="bg-black/80 px-4 py-1.5 rounded border border-white/20 mb-2 flex flex-col items-center min-w-[90px]">
+                                                <span className="text-xl font-black text-white tabular-nums leading-none">
+                                                    {new Date(match.scheduled_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                            
+                                            {match.live_platform && STREAMS_CONFIG[match.live_platform] && (
+                                                <a href={STREAMS_CONFIG[match.live_platform].url} target="_blank" rel="noopener noreferrer" className="mt-1 flex items-center gap-1.5 bg-red-600/80 hover:bg-red-600 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded">
+                                                    <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                                                    Assistir
+                                                </a>
+                                            )}
+                                        </div>
+
+                                        {/* Time 2 */}
+                                        <div className="flex flex-col items-center w-1/3 gap-2">
+                                            <div className="w-12 h-12 relative rounded-full overflow-hidden border-2 border-white/10 bg-black/20">
+                                                <Image 
+                                                    src={match.team2.avatar || "https://cdn.faceit.com/static/stats/avatar/default_user_blue.png"} 
+                                                    alt={match.team2.name} fill className="object-cover" 
+                                                />
+                                            </div>
+                                            <span className="text-[11px] font-black text-center line-clamp-1 uppercase">{match.team2.name}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </>
+                    )}
+
+                    {/* PARTIDAS AO VIVO */}
+                    {matches.length > 0 && (
+                        <>
+                        <h3 className="text-lg font-bold text-gold uppercase tracking-tighter my-4 border-b border-gold/20 pb-2">
+                            Partidas Ao Vivo
+                        </h3>
+                        {matches.map((match) => (
                             <div key={match.match_id} className="relative bg-white/5 p-4 rounded-lg border border-white/10 flex flex-col gap-3 hover:bg-white/10 transition-all">
                                 <div className="flex justify-between items-center gap-2">
                                     {/* Time 1 */}
@@ -309,7 +389,21 @@ export default function LiveMatchesModal() {
                                     <span className={`flex h-2 w-2 rounded-full ${match.status === 'READY' ? 'bg-blue-500' : 'bg-red-600 animate-pulse'}`}></span>
                                 </div>
                             </div>
-                        ))
+                        ))}
+                        </>
+                    )}
+
+                    {/* ESTADOS DE CARREGAMENTO E VAZIO */}
+                    {loading && matches.length === 0 && scheduledMatches.length === 0 && (
+                        <div className="flex flex-col items-center justify-center p-10 gap-3">
+                            <Loader className="animate-spin text-gold" size={32} />
+                        </div>
+                    )}
+
+                    {!loading && matches.length === 0 && scheduledMatches.length === 0 && (
+                        <div className="text-center py-10">
+                            <p className="text-gray-500 italic text-sm">Nenhuma partida em andamento ou agendada para hoje.</p>
+                        </div>
                     )}
                 </div>
             </DialogContent>

@@ -90,6 +90,12 @@ export const UserProfile = ({
         <DropdownMenuLabel className="text-gray-400 font-normal">Minha Conta</DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-white/10" />
         
+        {(userAdminLevel >= 1 && userAdminLevel <= 5) && (
+          <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
+            <Link href="/agendarjogo" className="w-full">Adicionar Jogo</Link>
+          </DropdownMenuItem>
+        )}
+
         {(userAdminLevel === 1 || userAdminLevel === 2) && (
           <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
             <Link href="/adminstracao" className="w-full">Painel Admin</Link>
