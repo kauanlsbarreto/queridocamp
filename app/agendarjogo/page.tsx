@@ -58,7 +58,7 @@ const AdminJogosPage = () => {
   useEffect(() => {
     fetchMatches();
     fetchAllTeams();
-  }, [fetchMatches]);
+  }, [fetchMatches, fetchAllTeams]);
 
   const handleUpdateMatch = (id: string, field: keyof ScheduledMatch, value: any) => {
     setMatches(prev =>
@@ -131,91 +131,98 @@ const AdminJogosPage = () => {
         <p>Carregando jogos...</p>
       ) : (
         <div className="space-y-6">
-          {matches.map(match => (
-            <div key={match.id} className="bg-gray-900 border border-white/10 rounded-lg p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <Label>Time 1</Label>
-                  <Select onValueChange={(teamNick) => handleTeamSelect(match.id, 1, teamNick)} value={allTeams.find(t => t.team_name === match.team1_name)?.team_nick}>
-                      <SelectTrigger className="bg-white/5 border-white/10">
-                          <SelectValue placeholder="Selecione o Time 1" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-white/20 text-white">
-                          {allTeams.map(team => (
-                              <SelectItem key={`t1-${team.team_nick}`} value={team.team_nick}>{team.team_name}</SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
-                  <img src={match.team1_avatar || '/images/team-placeholder.png'} alt="Avatar Time 1" className="w-16 h-16 rounded-full mx-auto mt-2 border-2 border-white/10"/>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Time 2</Label>
-                  <Select onValueChange={(teamNick) => handleTeamSelect(match.id, 2, teamNick)} value={allTeams.find(t => t.team_name === match.team2_name)?.team_nick}>
-                      <SelectTrigger className="bg-white/5 border-white/10">
-                          <SelectValue placeholder="Selecione o Time 2" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-white/20 text-white">
-                          {allTeams.map(team => (
-                              <SelectItem key={`t2-${team.team_nick}`} value={team.team_nick}>{team.team_name}</SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
-                  <img src={match.team2_avatar || '/images/team-placeholder.png'} alt="Avatar Time 2" className="w-16 h-16 rounded-full mx-auto mt-2 border-2 border-white/10"/>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor={`time-${match.id}`}>Data e Hora</Label>
-                  <Input
-                    id={`time-${match.id}`}
-                    type="datetime-local"
-                    value={match.scheduled_time}
-                    onChange={e => handleUpdateMatch(match.id, 'scheduled_time', e.target.value)}
-                    className="bg-white/5 border-white/10"
-                  />
-                </div>
-              </div>
-
-              <div className="border-t border-white/10 my-4"></div>
-
-              <div className="flex items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <Label htmlFor={`live-switch-${match.id}`} className="flex items-center gap-2 cursor-pointer">
-                    <Switch
-                      id={`live-switch-${match.id}`}
-                      checked={match.live_enabled}
-                      onCheckedChange={checked => handleUpdateMatch(match.id, 'live_enabled', checked)}
-                    />
-                    Habilitar Transmissão
-                  </Label>
-                  {match.live_enabled && (
-                    <Select
-                      value={match.live_platform}
-                      onValueChange={(value: StreamPlatform) => handleUpdateMatch(match.id, 'live_platform', value)}
-                    >
-                      <SelectTrigger className="w-[180px] bg-white/5 border-white/10">
-                        <SelectValue placeholder="Plataforma" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-white/20 text-white">
-                        <SelectItem value="twitch1">TV Querido Camp</SelectItem>
-                        <SelectItem value="twitch2">Querido Camp</SelectItem>
-                        <SelectItem value="youtube">Youtube</SelectItem>
-                      </SelectContent>
+          {matches.length > 0 ? (
+            matches.map(match => (
+              <div key={match.id} className="bg-gray-900 border border-white/10 rounded-lg p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <Label>Time 1</Label>
+                    <Select onValueChange={(teamNick) => handleTeamSelect(match.id, 1, teamNick)} value={allTeams.find(t => t.team_name === match.team1_name)?.team_nick}>
+                        <SelectTrigger className="bg-white/5 border-white/10">
+                            <SelectValue placeholder="Selecione o Time 1" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-white/20 text-white">
+                            {allTeams.map(team => (
+                                <SelectItem key={`t1-${team.team_nick}`} value={team.team_nick}>{team.team_name}</SelectItem>
+                            ))}
+                        </SelectContent>
                     </Select>
-                  )}
+                    <img src={match.team1_avatar || '/images/team-placeholder.png'} alt="Avatar Time 1" className="w-16 h-16 rounded-full mx-auto mt-2 border-2 border-white/10"/>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Time 2</Label>
+                    <Select onValueChange={(teamNick) => handleTeamSelect(match.id, 2, teamNick)} value={allTeams.find(t => t.team_name === match.team2_name)?.team_nick}>
+                        <SelectTrigger className="bg-white/5 border-white/10">
+                            <SelectValue placeholder="Selecione o Time 2" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-white/20 text-white">
+                            {allTeams.map(team => (
+                                <SelectItem key={`t2-${team.team_nick}`} value={team.team_nick}>{team.team_name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <img src={match.team2_avatar || '/images/team-placeholder.png'} alt="Avatar Time 2" className="w-16 h-16 rounded-full mx-auto mt-2 border-2 border-white/10"/>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`time-${match.id}`}>Data e Hora</Label>
+                    <Input
+                      id={`time-${match.id}`}
+                      type="datetime-local"
+                      value={match.scheduled_time}
+                      onChange={e => handleUpdateMatch(match.id, 'scheduled_time', e.target.value)}
+                      className="bg-white/5 border-white/10"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <Button variant="destructive" size="sm" onClick={() => !match.id.startsWith('new-') && handleDeleteMatch(match.id)}>
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" onClick={() => handleSaveChanges(match)} className="bg-blue-600 hover:bg-blue-700">
-                        <Save className="mr-2 h-4 w-4" /> Salvar
-                    </Button>
+                <div className="border-t border-white/10 my-4"></div>
+
+                <div className="flex items-center justify-between gap-6">
+                  <div className="flex items-center gap-4">
+                    <Label htmlFor={`live-switch-${match.id}`} className="flex items-center gap-2 cursor-pointer">
+                      <Switch
+                        id={`live-switch-${match.id}`}
+                        checked={match.live_enabled}
+                        onCheckedChange={checked => handleUpdateMatch(match.id, 'live_enabled', checked)}
+                      />
+                      Habilitar Transmissão
+                    </Label>
+                    {match.live_enabled && (
+                      <Select
+                        value={match.live_platform}
+                        onValueChange={(value: StreamPlatform) => handleUpdateMatch(match.id, 'live_platform', value)}
+                      >
+                        <SelectTrigger className="w-[180px] bg-white/5 border-white/10">
+                          <SelectValue placeholder="Plataforma" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-white/20 text-white">
+                          <SelectItem value="twitch1">TV Querido Camp</SelectItem>
+                          <SelectItem value="twitch2">Querido Camp</SelectItem>
+                          <SelectItem value="youtube">Youtube</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                      <Button variant="destructive" size="sm" onClick={() => !match.id.startsWith('new-') && handleDeleteMatch(match.id)}>
+                          <Trash2 className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" onClick={() => handleSaveChanges(match)} className="bg-blue-600 hover:bg-blue-700">
+                          <Save className="mr-2 h-4 w-4" /> Salvar
+                      </Button>
+                  </div>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="text-center py-20 bg-gray-900/50 rounded-lg border border-dashed border-white/10">
+              <p className="text-gray-400">Nenhum jogo agendado encontrado.</p>
+              <p className="text-sm text-gray-500 mt-2">Clique em "Adicionar Jogo" para criar o primeiro.</p>
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>
