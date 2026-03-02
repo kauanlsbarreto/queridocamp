@@ -25,6 +25,9 @@ export async function POST(request: Request) {
         const match = await request.json();
         const { team1_name, team1_avatar, team2_name, team2_avatar, scheduled_time, live_enabled, live_platform } = match;
 
+        // Converte a string de datetime-local (YYYY-MM-DDTHH:mm) para o formato DATETIME do MySQL (YYYY-MM-DD HH:MI:SS)
+        const mysqlScheduledTime = scheduled_time.replace('T', ' ');
+
         const ctx = getCloudflareContext();
         connection = await createMainConnection(ctx.env as unknown as Env);
 
@@ -33,7 +36,7 @@ export async function POST(request: Request) {
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
 
-        const [result] = await connection.execute(query, [team1_name, team1_avatar, team2_name, team2_avatar, scheduled_time, live_enabled, live_platform]);
+        const [result] = await connection.execute(query, [team1_name, team1_avatar, team2_name, team2_avatar, mysqlScheduledTime, live_enabled, live_platform || null]);
         
         const insertId = (result as any).insertId;
 
