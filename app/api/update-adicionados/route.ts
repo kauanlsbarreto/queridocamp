@@ -23,7 +23,7 @@ export async function PUT(request: Request) {
     }
 
     // Query usando prepared statements padrão
-    await db.execute('UPDATE players SET adicionados = ? WHERE id = ?', [adicionados, userId]);
+    await db.query('UPDATE players SET adicionados = ? WHERE id = ?', [adicionados, userId]);
 
     return NextResponse.json({ message: 'Success' });
   } catch (error) {

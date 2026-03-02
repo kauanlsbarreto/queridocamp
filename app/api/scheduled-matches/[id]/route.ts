@@ -25,7 +25,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
             WHERE id = ?
         `;
 
-        await connection.execute(query, [team1_name, team1_avatar, team2_name, team2_avatar, mysqlScheduledTime, live_enabled, live_platform || null, id]);
+        await connection.query(query, [team1_name, team1_avatar, team2_name, team2_avatar, mysqlScheduledTime, live_enabled, live_platform || null, id]);
 
         return NextResponse.json({ message: 'Match updated', id, ...match });
     } catch (error) {
@@ -45,7 +45,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
         const ctx = getCloudflareContext();
         connection = await createMainConnection(ctx.env as unknown as Env);
 
-        const [result] = await connection.execute('DELETE FROM scheduled_matches WHERE id = ?', [id]);
+        const [result] = await connection.query('DELETE FROM scheduled_matches WHERE id = ?', [id]);
 
         const affectedRows = (result as any).affectedRows;
         if (affectedRows === 0) {
