@@ -96,8 +96,9 @@ const AdminJogosPage = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Não foi possível ler a resposta do erro do servidor.' }));
-        throw new Error(`Falha ao salvar a partida: ${response.status} ${response.statusText}. Detalhes: ${errorData.message}`);
+        const errorData = await response.json().catch(() => ({ message: 'Não foi possível ler a resposta do servidor.' }));
+        const detail = errorData.error || errorData.message;
+        throw new Error(`Falha ao salvar a partida: ${response.statusText} (${response.status}).\nDetalhes: ${detail}`);
       }
 
       await fetchMatches(); // Re-fetch to get the latest data
@@ -128,8 +129,9 @@ const AdminJogosPage = () => {
         const response = await fetch(`/api/scheduled-matches/${id}`, { method: 'DELETE' });
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: 'Não foi possível ler a resposta do erro do servidor.' }));
-          throw new Error(`Falha ao excluir a partida: ${response.status} ${response.statusText}. Detalhes: ${errorData.message}`);
+          const errorData = await response.json().catch(() => ({ message: 'Não foi possível ler a resposta do servidor.' }));
+          const detail = errorData.error || errorData.message;
+          throw new Error(`Falha ao excluir a partida: ${response.statusText} (${response.status}).\nDetalhes: ${detail}`);
         }
         
         alert('Partida excluída com sucesso!');

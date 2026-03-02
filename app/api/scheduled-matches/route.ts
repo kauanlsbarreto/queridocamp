@@ -26,7 +26,7 @@ export async function POST(request: Request) {
         const { team1_name, team1_avatar, team2_name, team2_avatar, scheduled_time, live_enabled, live_platform } = match;
 
         // Converte a string de datetime-local (YYYY-MM-DDTHH:mm) para o formato DATETIME do MySQL (YYYY-MM-DD HH:MI:SS)
-        const mysqlScheduledTime = scheduled_time.replace('T', ' ');
+        const mysqlScheduledTime = scheduled_time.replace('T', ' ') + ':00';
 
         const ctx = getCloudflareContext();
         connection = await createMainConnection(ctx.env as unknown as Env);
@@ -42,8 +42,9 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ message: 'Match created', id: insertId, ...match }, { status: 201 });
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
         console.error('Error creating scheduled match:', error);
-        return NextResponse.json({ message: 'Error creating match' }, { status: 500 });
+        return NextResponse.json({ message: 'Error creating match', error: errorMessage }, { status: 500 });
     } finally {
         if (connection) await connection.end();
     }
