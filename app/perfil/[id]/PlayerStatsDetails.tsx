@@ -58,6 +58,8 @@ export default function PlayerStatsDetails({ playerStats }: { playerStats: any }
                     const m1Link = playerStats[`r${round}_m1_link`];
                     const m2Link = playerStats[`r${round}_m2_link`];
                     const matchId = playerStats[`r${round}_m1_id`];
+                    const opponent = playerStats[`r${round}_opponent`];
+
 
                     return (
                         <motion.div
@@ -69,7 +71,10 @@ export default function PlayerStatsDetails({ playerStats }: { playerStats: any }
                         >
                             <PremiumCard>
                                 <div className="p-4">
-                                    <h5 className="font-bold text-lg text-gold">Rodada {round}</h5>
+                                    <h5 className="font-bold text-lg text-gold">
+                                        Rodada {round}
+                                        {opponent ? ` - ${opponent}` : ""}
+                                    </h5>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2 text-center">
                                         <div><p className="text-xs text-gray-400">K/D</p><p className="font-bold text-lg text-white">{kd.toFixed(2)}</p></div>
                                         <div><p className="text-xs text-gray-400">ADR</p><p className="font-bold text-lg text-white">{adr.toFixed(1)}</p></div>

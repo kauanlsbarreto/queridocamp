@@ -86,7 +86,6 @@ const MatchCard = ({ match, playerId }: { match: any, playerId: string }) => {
             const borderColor = isWin ? "border-green-500/50" : "border-red-500/50";
             const bgColor = isWin ? "bg-green-500/5" : "bg-red-500/5";
             
-            // Parse score "13 / 10"
             const scoreParts = mapData.score.split(" / ");
             const score1 = scoreParts[0] || "0";
             const score2 = scoreParts[1] || "0";
@@ -279,7 +278,6 @@ export default function PlayerMatches({ faceitId, upcomingMatches, teamName }: {
         </div>
       )}
 
-      {/* Área de Próximas Partidas (integrada no final) */}
       <PlayerUpcomingMatches matches={upcomingMatches || []} teamName={teamName} />
     </div>
   )

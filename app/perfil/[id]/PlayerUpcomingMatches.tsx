@@ -21,7 +21,6 @@ export default function PlayerUpcomingMatches({ matches, teamName }: { matches: 
                         
                         return (
                             <div key={i} className="bg-zinc-900/50 border border-white/10 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 hover:border-gold/30 transition-colors relative overflow-hidden">
-                                {/* Indicador de Status (opcional, baseado na data) */}
                                 <div className="absolute top-0 left-0 w-1 h-full bg-gold/20"></div>
 
                                 <div className="flex items-center gap-4 flex-1 justify-center md:justify-start w-full z-10">

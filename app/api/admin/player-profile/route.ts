@@ -4,6 +4,41 @@ import { createMainConnection, createJogadoresConnection } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+const apiKey = '7b080715-fe0b-461d-a1f1-62cfd0c47e63';
+
+async function getOpponentFromMatch(matchId: string, playerTeamName: string) {
+  try {
+    const res = await fetch(`https://open.faceit.com/data/v4/matches/${matchId}`, {
+      headers: { Authorization: `Bearer ${apiKey}` }
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+
+    const faction1 = data.teams?.faction1;
+    const faction2 = data.teams?.faction2;
+
+    const team1Name = faction1?.name;
+    const team2Name = faction2?.name;
+
+    if (!team1Name || !team2Name) return null;
+
+    if (team1Name.toLowerCase() === playerTeamName.toLowerCase()) {
+      return team2Name;
+    }
+
+    if (team2Name.toLowerCase() === playerTeamName.toLowerCase()) {
+      return team1Name;
+    }
+
+    return null;
+  } catch (e) {
+    console.error("Erro ao buscar adversário:", e);
+    return null;
+  }
+}
+
 function calculateSimilarity(str1: string, str2: string): number {
   const s1 = (str1 || "").toLowerCase().trim();
   const s2 = (str2 || "").toLowerCase().trim();
@@ -108,7 +143,7 @@ export async function GET(request: Request) {
             const f = fRows[0] || {};
             
             updatedPlayer = {
-                id: 0, // ID 0 indica perfil simulado/não registrado para o frontend
+                id: 0, 
                 nickname: j.nick,
                 avatar: f.fotoperfil || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSELngQdOTsSQXmSv9j1ltZDiGKXvSB8NJIsQ&s",
                 faceit_guid: f.faceit_guid,
@@ -126,7 +161,6 @@ export async function GET(request: Request) {
         updatedPlayer.faceit_level_image = '/faceitlevel/cadeirante.png';
     }
 
-    // Buscar conquistas (apenas se for usuário real)
     let conquistas = [];
     if (updatedPlayer.id !== 0) {
         try {
@@ -144,7 +178,6 @@ export async function GET(request: Request) {
         }
     }
 
-    // Buscar times e partidas
     const [teamsResult]: any = await mainConnection.query('SELECT * FROM team_config ORDER BY team_name ASC');
     const [jogadoresResult]: any = await jogadoresConnection.query('SELECT * FROM jogadores');
     const [playedMatchesResult]: any = await mainConnection.query('SELECT time1, time2 FROM jogos');
@@ -206,7 +239,6 @@ export async function GET(request: Request) {
         }
     }
 
-    // Buscar stats
     let playerStats = null;
     try {
         const [statsRows]: any = await mainConnection.query('SELECT * FROM top90_stats WHERE nick = ?', [updatedPlayer.nickname]);
@@ -215,6 +247,17 @@ export async function GET(request: Request) {
         }
     } catch (e) {
         console.error("Erro ao buscar stats:", e);
+    }
+    if (playerStats && playerTeamName) {
+    for (let round = 1; round <= 17; round++) {
+        const matchId = playerStats[`r${round}_m1_id`];
+        if (matchId) {
+        const opponent = await getOpponentFromMatch(matchId, playerTeamName);
+        if (opponent) {
+            playerStats[`r${round}_opponent`] = opponent;
+        }
+        }
+    }
     }
 
     return NextResponse.json({ player: updatedPlayer, conquistas, upcomingMatches, teamName: playerTeamName, playerStats });
