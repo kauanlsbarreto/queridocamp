@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, Env } from '@/lib/db';
+import mysql from 'mysql2';
 
 interface RouteParams {
     params: { id: string };
@@ -25,7 +26,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
             WHERE id = ?
         `;
 
-        await connection.query(query, [team1_name, team1_avatar, team2_name, team2_avatar, mysqlScheduledTime, live_enabled, live_platform || null, id]);
+        const formattedQuery = mysql.format(query, [team1_name, team1_avatar, team2_name, team2_avatar, mysqlScheduledTime, live_enabled, live_platform || null, id]);
+        await connection.query(formattedQuery);
 
         return NextResponse.json({ message: 'Match updated', id, ...match });
     } catch (error) {
@@ -45,7 +47,9 @@ export async function DELETE(request: Request, { params }: RouteParams) {
         const ctx = getCloudflareContext();
         connection = await createMainConnection(ctx.env as unknown as Env);
 
-        const [result] = await connection.query('DELETE FROM scheduled_matches WHERE id = ?', [id]);
+        const query = 'DELETE FROM scheduled_matches WHERE id = ?';
+        const formattedQuery = mysql.format(query, [id]);
+        const [result] = await connection.query(formattedQuery);
 
         const affectedRows = (result as any).affectedRows;
         if (affectedRows === 0) {

@@ -6,7 +6,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
 
-export const revalidate = 86400;
+export const revalidate = 86400; 
 
 type TeamRow = RowDataPacket & {
   id: number;

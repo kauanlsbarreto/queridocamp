@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, Env } from '@/lib/db';
+import mysql from 'mysql2';
 
 // GET all scheduled matches
 export async function GET() {
@@ -36,7 +37,8 @@ export async function POST(request: Request) {
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
 
-        const [result] = await connection.execute(query, [team1_name, team1_avatar, team2_name, team2_avatar, mysqlScheduledTime, live_enabled, live_platform || null]);
+        const formattedQuery = mysql.format(query, [team1_name, team1_avatar, team2_name, team2_avatar, mysqlScheduledTime, live_enabled, live_platform || null]);
+        const [result] = await connection.query(formattedQuery);
         
         const insertId = (result as any).insertId;
 
