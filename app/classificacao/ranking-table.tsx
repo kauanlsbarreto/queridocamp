@@ -329,14 +329,17 @@ export default function RankingTable({ teams, lastUpdate, initialMaintenance }: 
     const newState = !isMaintenance
     setIsMaintenance(newState)
     try {
-      await fetch('/api/maintenance', {
+      const response = await fetch('/api/maintenance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newState })
       })
+      if (!response.ok) {
+        throw new Error('A resposta do servidor não foi OK');
+      }
     } catch (error) {
       console.error("Erro ao atualizar manutenção:", error)
-      setIsMaintenance(!newState)
+      setIsMaintenance(!newState) 
     }
   }
 
