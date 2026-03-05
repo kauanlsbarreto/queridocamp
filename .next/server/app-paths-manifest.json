@@ -1,7 +1,0 @@
-{
-  "/classificacao/page": "app/classificacao/page.js",
-  "/players/page": "app/players/page.js",
-  "/perfil/[id]/page": "app/perfil/[id]/page.js",
-  "/times/page": "app/times/page.js",
-  "/times/[slug]/page": "app/times/[slug]/page.js"
-}
