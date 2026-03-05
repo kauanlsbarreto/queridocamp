@@ -5,8 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import PremiumCard from "@/components/premium-card"
 import Image from "next/image"
 import Link from "next/link"
-import { Search, Lock, Unlock } from "lucide-react"
-import UpdateTimer from "@/components/update-timer"
+import { Search } from "lucide-react"
 
 export interface Team {
   id: number;
@@ -267,13 +266,11 @@ const TeamRow = memo(({
 
 TeamRow.displayName = "TeamRow"
 
-export default function RankingTable({ teams, lastUpdate, initialMaintenance }: { teams: Team[], lastUpdate: string, initialMaintenance: boolean }) {
+export default function RankingTable({ teams: initialTeams }: { teams: Team[] }) {
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null)
   const [detailsCache, setDetailsCache] = useState<Record<string, TeamDetails>>({})
   const [loading, setLoading] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [isChecking, setIsChecking] = useState(true)
-  const [isMaintenance, setIsMaintenance] = useState(initialMaintenance)
 
   useEffect(() => {
     const storedUser = localStorage.getItem('faceit_user')
@@ -286,14 +283,20 @@ export default function RankingTable({ teams, lastUpdate, initialMaintenance }: 
         console.error("Erro ao verificar admin:", e)
       }
     }
-    setIsChecking(false)
   }, [])
 
-  const correctedTeams = useMemo(() => (teams || []).map(team => {
+  const correctedTeams = useMemo(() => (initialTeams || []).map(team => {
     if (team.name === "22Cao") return { ...team, name: "22Cao Na Chapa" };
     if (team.name === "team_mulekera") return { ...team, name: "Boxx" };
     return team;
-  }), [teams]);
+  }), [initialTeams]);
+
+  const { activeTeams, withdrawnTeams } = useMemo(() => {
+    const withdrawnTeamNames = ["NeshaStore", "Alfajor Soluções"];
+    const active = correctedTeams.filter(team => !withdrawnTeamNames.includes(team.name));
+    const withdrawn = correctedTeams.filter(team => withdrawnTeamNames.includes(team.name));
+    return { activeTeams: active, withdrawnTeams: withdrawn };
+  }, [correctedTeams]);
 
   const toggleTeam = useCallback(async (teamName: string) => {
     if (expandedTeam === teamName) {
@@ -325,93 +328,12 @@ export default function RankingTable({ teams, lastUpdate, initialMaintenance }: 
     }
   }, [expandedTeam, detailsCache]);
 
-  const toggleMaintenance = async () => {
-    const newState = !isMaintenance
-    setIsMaintenance(newState)
-    try {
-      const response = await fetch('/api/maintenance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newState })
-      })
-      if (!response.ok) {
-        throw new Error('A resposta do servidor não foi OK');
-      }
-    } catch (error) {
-      console.error("Erro ao atualizar manutenção:", error)
-      setIsMaintenance(!newState) 
-    }
-  }
-
-  if (isChecking) {
-    return (
-      <div className="flex justify-center items-center py-20">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gold"></div>
-      </div>
-    )
-  }
-
-  if (isMaintenance && !isAdmin) {
-    return (
-      <div className="max-w-2xl mx-auto py-10">
-        <PremiumCard>
-          <div className="p-12 text-center">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="mb-6 flex justify-center">
-                <div className="w-20 h-20 bg-gold/20 rounded-full flex items-center justify-center border-2 border-gold">
-                  <span className="text-4xl">🚧</span>
-                </div>
-              </div>
-              <h2 className="text-3xl font-bold text-gold mb-4">Classificação em Manutenção</h2>
-              <p className="text-gray-300 text-lg mb-8">
-                Estamos atualizando a tabela de classificação para garantir a precisão dos dados.
-                <br />
-                Por favor, retorne em alguns instantes.
-              </p>
-            </motion.div>
-          </div>
-        </PremiumCard>
-      </div>
-    )
-  }
-
   return (
     <>
-      <UpdateTimer lastUpdate={lastUpdate} />
-      
-      {isAdmin && (
-        <div className="mb-6 flex justify-end">
-          <button
-            onClick={toggleMaintenance}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md font-bold transition-colors ${
-              isMaintenance 
-                ? "bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30" 
-                : "bg-green-500/20 text-green-400 border border-green-500/50 hover:bg-green-500/30"
-            }`}
-          >
-            {isMaintenance ? (
-              <>
-                <Lock size={16} />
-                Manutenção ATIVA (Visível apenas para Admins)
-              </>
-            ) : (
-              <>
-                <Unlock size={16} />
-                Manutenção DESATIVADA (Público)
-              </>
-            )}
-          </button>
-        </div>
-      )}
-
       <PremiumCard hoverEffect={true}>
         <div className="p-4 md:p-8 overflow-x-auto">
           <div className="mb-6 pb-6 border-b border-white/10 text-center text-xs text-gray-400">
-             R = Rodadas | V = Vitórias em Mapas | D = Derrotas em Mapas | PTS = Pontos | Rounds = Saldo de rounds
+            R = Rodadas | V = Vitórias em Mapas | D = Derrotas em Mapas | PTS = Pontos | Rounds = Saldo de rounds
           </div>
           <table className="w-full min-w-[600px] border-collapse">
             <thead>
@@ -426,7 +348,7 @@ export default function RankingTable({ teams, lastUpdate, initialMaintenance }: 
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {correctedTeams.map((team, index) => (
+              {activeTeams.map((team, index) => (
                 <TeamRow
                   key={team.id || index}
                   team={team}
@@ -443,6 +365,46 @@ export default function RankingTable({ teams, lastUpdate, initialMaintenance }: 
           </table>
         </div>
       </PremiumCard>
+
+      {withdrawnTeams.length > 0 && (
+        <div className="mt-12">
+          <motion.h3
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="text-xl font-bold text-center text-red-400 mb-4"
+          >
+            Times Desistentes
+          </motion.h3>
+          <PremiumCard>
+            <div className="p-4 md:p-8">
+              <table className="w-full border-collapse">
+                <tbody>
+                  {withdrawnTeams.map((team) => (
+                    <tr key={team.id} className="border-b border-white/10 last:border-b-0">
+                      <td className="py-3 px-2">
+                        <div className="flex items-center gap-3">
+                          <div className="relative w-8 h-8 flex-shrink-0">
+                            <Image
+                              src={team.logo || "/placeholder.svg"}
+                              alt={team.name}
+                              fill
+                              sizes="32px"
+                              className="object-contain rounded-lg opacity-50"
+                            />
+                          </div>
+                          <span className="text-gray-500 font-medium line-through">{team.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-2 text-right text-gray-500 italic">Desistiu do campeonato</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </PremiumCard>
+        </div>
+      )}
     </>
   )
 }
