@@ -266,7 +266,7 @@ const TeamRow = memo(({
 
 TeamRow.displayName = "TeamRow"
 
-export default function RankingTable({ teams }: { teams: Team[] }) {
+export default function RankingTable({ teams: initialTeams }: { teams: Team[] }) {
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null)
   const [detailsCache, setDetailsCache] = useState<Record<string, TeamDetails>>({})
   const [loading, setLoading] = useState(false)
@@ -285,11 +285,18 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
     }
   }, [])
 
-  const correctedTeams = useMemo(() => (teams || []).map(team => {
+  const correctedTeams = useMemo(() => (initialTeams || []).map(team => {
     if (team.name === "22Cao") return { ...team, name: "22Cao Na Chapa" };
     if (team.name === "team_mulekera") return { ...team, name: "Boxx" };
     return team;
-  }), [teams]);
+  }), [initialTeams]);
+
+  const { activeTeams, withdrawnTeams } = useMemo(() => {
+    const withdrawnTeamNames = ["NeshaStore", "Alfajor Soluções"];
+    const active = correctedTeams.filter(team => !withdrawnTeamNames.includes(team.name));
+    const withdrawn = correctedTeams.filter(team => withdrawnTeamNames.includes(team.name));
+    return { activeTeams: active, withdrawnTeams: withdrawn };
+  }, [correctedTeams]);
 
   const toggleTeam = useCallback(async (teamName: string) => {
     if (expandedTeam === teamName) {
@@ -322,40 +329,82 @@ export default function RankingTable({ teams }: { teams: Team[] }) {
   }, [expandedTeam, detailsCache]);
 
   return (
-    <PremiumCard hoverEffect={true}>
-      <div className="p-4 md:p-8 overflow-x-auto">
-        <div className="mb-6 pb-6 border-b border-white/10 text-center text-xs text-gray-400">
-           R = Rodadas | V = Vitórias em Mapas | D = Derrotas em Mapas | PTS = Pontos | Rounds = Saldo de rounds
+    <>
+      <PremiumCard hoverEffect={true}>
+        <div className="p-4 md:p-8 overflow-x-auto">
+          <div className="mb-6 pb-6 border-b border-white/10 text-center text-xs text-gray-400">
+            R = Rodadas | V = Vitórias em Mapas | D = Derrotas em Mapas | PTS = Pontos | Rounds = Saldo de rounds
+          </div>
+          <table className="w-full min-w-[600px] border-collapse">
+            <thead>
+              <tr className="border-b-2 border-gold/30">
+                <th className="text-left py-4 px-2 text-gold font-bold">#</th>
+                <th className="text-left py-4 px-2 text-gold font-bold">Time</th>
+                <th className="text-center py-4 px-2 text-gold font-bold">R</th>
+                <th className="text-center py-4 px-2 text-gold font-bold">V</th>
+                <th className="text-center py-4 px-2 text-gold font-bold">D</th>
+                <th className="text-center py-4 px-2 text-gold font-bold">PTS</th>
+                <th className="text-center py-4 px-2 text-gold font-bold">Rounds</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {activeTeams.map((team, index) => (
+                <TeamRow
+                  key={team.id || index}
+                  team={team}
+                  index={index}
+                  isExpanded={expandedTeam === team.name}
+                  toggleTeam={toggleTeam}
+                  details={detailsCache[team.name] || null}
+                  loading={loading && expandedTeam === team.name}
+                  allTeams={correctedTeams}
+                  isAdmin={isAdmin}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
-        <table className="w-full min-w-[600px] border-collapse">
-          <thead>
-            <tr className="border-b-2 border-gold/30">
-              <th className="text-left py-4 px-2 text-gold font-bold">#</th>
-              <th className="text-left py-4 px-2 text-gold font-bold">Time</th>
-              <th className="text-center py-4 px-2 text-gold font-bold">R</th>
-              <th className="text-center py-4 px-2 text-gold font-bold">V</th>
-              <th className="text-center py-4 px-2 text-gold font-bold">D</th>
-              <th className="text-center py-4 px-2 text-gold font-bold">PTS</th>
-              <th className="text-center py-4 px-2 text-gold font-bold">Rounds</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {correctedTeams.map((team, index) => (
-              <TeamRow
-                key={team.id || index}
-                team={team}
-                index={index}
-                isExpanded={expandedTeam === team.name}
-                toggleTeam={toggleTeam}
-                details={detailsCache[team.name] || null}
-                loading={loading && expandedTeam === team.name}
-                allTeams={correctedTeams}
-                isAdmin={isAdmin}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </PremiumCard>
+      </PremiumCard>
+
+      {withdrawnTeams.length > 0 && (
+        <div className="mt-12">
+          <motion.h3
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="text-xl font-bold text-center text-red-400 mb-4"
+          >
+            Times Desistentes
+          </motion.h3>
+          <PremiumCard>
+            <div className="p-4 md:p-8">
+              <table className="w-full border-collapse">
+                <tbody>
+                  {withdrawnTeams.map((team) => (
+                    <tr key={team.id} className="border-b border-white/10 last:border-b-0">
+                      <td className="py-3 px-2">
+                        <div className="flex items-center gap-3">
+                          <div className="relative w-8 h-8 flex-shrink-0">
+                            <Image
+                              src={team.logo || "/placeholder.svg"}
+                              alt={team.name}
+                              fill
+                              sizes="32px"
+                              className="object-contain rounded-lg opacity-50"
+                            />
+                          </div>
+                          <span className="text-gray-500 font-medium line-through">{team.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-2 text-right text-gray-500 italic">Desistiu do campeonato</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </PremiumCard>
+        </div>
+      )}
+    </>
   )
 }
