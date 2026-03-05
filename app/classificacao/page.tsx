@@ -1,12 +1,11 @@
 import AdPropaganda from "@/components/ad-propaganda";
 import SideAds from "@/components/side-ads";
 import RankingTable from "./ranking-table";
-import UpdateTimer from "@/components/update-timer";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
 
-export const revalidate = 86400; 
+export const revalidate = 0; 
 
 type TeamRow = RowDataPacket & {
   id: number;
@@ -42,6 +41,14 @@ async function getLastUpdate(connection: any) {
   return rows[0]?.value || new Date().toISOString();
 }
 
+async function getMaintenanceStatus(connection: any) {
+  const [rows] = await connection.query(
+    "SELECT value FROM site_metadata WHERE key_name = 'ranking_maintenance'"
+  ) as [({ value: string })[], any];
+
+  return rows[0]?.value === 'true';
+}
+
 export default async function Classificacao() {
   let connection: any;
   try {
@@ -50,9 +57,10 @@ export default async function Classificacao() {
 
     connection = await createMainConnection(env);
 
-    const [teams, lastUpdate] = await Promise.all([
+    const [teams, lastUpdate, maintenanceStatus] = await Promise.all([
       getTeams(connection),
-      getLastUpdate(connection)
+      getLastUpdate(connection),
+      getMaintenanceStatus(connection)
     ]);
 
     return (
@@ -65,8 +73,7 @@ export default async function Classificacao() {
         <section className="py-16 bg-gradient-to-b from-black to-gray-900">
           <div className="container mx-auto px-4">
             <div className="max-w-6xl mx-auto">
-              <UpdateTimer lastUpdate={lastUpdate} />
-              <RankingTable teams={teams} />
+              <RankingTable teams={teams} lastUpdate={lastUpdate} initialMaintenance={maintenanceStatus} />
             </div>
           </div>
         </section>
