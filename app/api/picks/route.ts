@@ -58,10 +58,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Nickname required" }, { status: 400 });
 
     if (action === "load") {
-      const [rows] = await connection.query(
-        "SELECT * FROM escolhas WHERE nickname = ?",
-        [nickname]
-      );
+      let rows: RowDataPacket[] = [];
+
+      if (faceit_guid) {
+        [rows] = await connection.query("SELECT * FROM escolhas WHERE faceit_guid = ?", [faceit_guid]);
+      }
+
+      if ((!rows || rows.length === 0) && nickname) {
+        [rows] = await connection.query("SELECT * FROM escolhas WHERE nickname = ?", [nickname]);
+      }
       return NextResponse.json((rows as RowDataPacket[])[0] || {});
     }
 
@@ -87,8 +92,12 @@ export async function POST(request: Request) {
       );
 
       const phaseName = phase === 'slot' ? 'Quartas de Final' : phase === 'semi' ? 'Semi-Finais' : 'Grande Final';
-      const teamName = team ? team.team_name : "Removido";
-      const logMsg = `📝 **Atualização de Pick**\n👤 **Usuário:** ${nickname}\n🏆 **Time:** ${teamName}\n📍 **Etapa:** ${phaseName} (Slot ${idx + 1})`;
+      let logMsg = "";
+      if (team) {
+        logMsg = `✅ **Pick Adicionado/Atualizado**\n👤 **Usuário:** ${nickname}\n🏆 **Time:** ${team.team_name}\n📍 **Etapa:** ${phaseName} (Slot ${idx + 1})`;
+      } else {
+        logMsg = `🗑️ **Pick Removido**\n👤 **Usuário:** ${nickname}\n📍 **Etapa:** ${phaseName} (Slot ${idx + 1})`;
+      }
       
       if (ctx && (ctx as any).waitUntil) {
         (ctx as any).waitUntil(sendDiscordLog(logMsg));

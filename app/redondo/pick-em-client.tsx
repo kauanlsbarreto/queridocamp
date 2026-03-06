@@ -105,10 +105,12 @@ export default function PickEmClient({
     }
     setLoadingPicks(true)
     try {
+      const guid = (user && user.nickname === nickname) ? user.faceit_guid : undefined;
+
       const res = await fetch('/api/picks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'load', nickname })
+        body: JSON.stringify({ action: 'load', nickname, faceit_guid: guid })
       })
       const data = await res.json()
       if (data) {
@@ -120,7 +122,7 @@ export default function PickEmClient({
     } finally {
       setLoadingPicks(false)
     }
-  }, [picksCache, processPicksData]);
+  }, [picksCache, processPicksData, user]);
 
   useEffect(() => {
     if (viewingNickname) loadUserPicks(viewingNickname)
