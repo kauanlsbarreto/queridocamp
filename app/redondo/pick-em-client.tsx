@@ -44,11 +44,11 @@ export default function PickEmClient({
   const [locks, setLocks] = useState({ slot: false, semi: false, final: false })
   const [statsTab, setStatsTab] = useState<'top' | 'unused'>('top')
 
-  // Permissões baseadas no Guid e Level
   const userLevel = user?.Admin ?? user?.admin ?? 0;
   const isAdminView = userLevel >= 1 && userLevel <= 5; // 1 a 5 podem ver outros
   const isHighAdmin = userLevel >= 1 && userLevel <= 2; // 1 e 2 podem bloquear
   const isViewingOther = !!(viewingNickname && user && viewingNickname !== user.nickname);
+  const isAuthorized = user ? usersWithPicks.includes(user.nickname) : false;
 
   const processPicksData = useCallback((data: any) => {
     if (!data) return;
@@ -127,7 +127,7 @@ export default function PickEmClient({
   }, [viewingNickname, loadUserPicks])
 
   const savePickToDb = async (phase: string, slotIndex: number, team: TeamPick | null) => {
-    if (!user || isViewingOther) return
+    if (!user || isViewingOther || !isAuthorized) return
     await fetch('/api/picks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -143,7 +143,7 @@ export default function PickEmClient({
   }
 
   const confirmPhase = async (phase: string) => {
-    if (!user || isViewingOther) return;
+    if (!user || isViewingOther || !isAuthorized) return;
     if (!confirm(`Deseja confirmar suas escolhas para ${phase}? Isso não poderá ser desfeito.`)) return;
     
     await fetch('/api/picks', {
@@ -201,7 +201,6 @@ export default function PickEmClient({
       
       if (res.ok) {
         alert("Ação realizada com sucesso!");
-        // Invalida o cache para recarregar os dados atualizados
         setPicksCache(prev => { const n = {...prev}; delete n[targetNickname]; return n; });
         loadUserPicks(targetNickname, true);
       } else {
@@ -212,19 +211,17 @@ export default function PickEmClient({
   }
 
   const onDragEnd = (result: any) => {
-    if (!user || isViewingOther) return;
+    if (!user || isViewingOther || !isAuthorized) return;
     const { source, destination } = result;
     if (!destination) return;
 
     const sourceId = source.droppableId;
     const destId = destination.droppableId;
 
-    // Bloqueios de Trava
     if (destId.startsWith("slot-") && locks.slot) return;
     if (destId.startsWith("semi-") && locks.semi) return;
     if (destId.startsWith("final-") && locks.final) return;
 
-    // Regras de Cascata
     if (destId.startsWith("semi-") && !sourceId.startsWith("slot-")) {
       alert("Para a SEMI, você deve arrastar times que escolheu nas QUARTAS!");
       return;
@@ -234,7 +231,6 @@ export default function PickEmClient({
       return;
     }
 
-    // Lógica de Movimentação Quartas
     if (sourceId === "pool" && destId.startsWith("slot-")) {
       const idx = parseInt(destId.replace("slot-", ""));
       const team = availableTeams[source.index];
@@ -245,7 +241,6 @@ export default function PickEmClient({
       setQualifiedTeams(newQ); setAvailableTeams(newA);
       savePickToDb('slot', idx, team);
     } 
-    // Lógica de Movimentação Semis
     else if (sourceId.startsWith("slot-") && destId.startsWith("semi-")) {
       const sIdx = parseInt(sourceId.replace("slot-", ""));
       const dIdx = parseInt(destId.replace("semi-", ""));
@@ -254,7 +249,6 @@ export default function PickEmClient({
       setSemiTeams(newS);
       savePickToDb('semi', dIdx, team);
     }
-    // Lógica de Movimentação Final
     else if (sourceId.startsWith("semi-") && destId.startsWith("final-")) {
       const sIdx = parseInt(sourceId.replace("semi-", ""));
       const dIdx = parseInt(destId.replace("final-", ""));
@@ -283,6 +277,13 @@ export default function PickEmClient({
         </div>
       ) : (
         <div className="flex flex-col gap-6">
+          {!isAuthorized && (
+            <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-2xl flex items-center gap-3 text-red-400 font-bold text-sm">
+              <AlertCircle size={20} />
+              Sua conta não possui permissão para participar deste Pick'Em. Entre em contato com a administração.
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-4 bg-zinc-900/80 p-6 rounded-3xl border border-white/10 backdrop-blur-md">
             <div className="flex items-center gap-4">
               <div className="relative group">
@@ -369,11 +370,11 @@ export default function PickEmClient({
                   <h3 className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2">
                     <AlertCircle size={14}/> Lista de Equipes
                   </h3>
-                  <Droppable droppableId="pool" isDropDisabled={isViewingOther}>
+                  <Droppable droppableId="pool" isDropDisabled={isViewingOther || !isAuthorized}>
                     {(provided) => (
                       <div {...provided.droppableProps} ref={provided.innerRef} className="grid grid-cols-2 gap-3">
                         {availableTeams.map((team, index) => (
-                          <Draggable key={team.id} draggableId={team.id} index={index} isDragDisabled={locks.slot || isViewingOther}>
+                          <Draggable key={team.id} draggableId={team.id} index={index} isDragDisabled={locks.slot || isViewingOther || !isAuthorized}>
                             {(p, s) => (
                               <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
                                 className={`aspect-square rounded-2xl border-2 border-zinc-800 bg-black/40 p-3 flex items-center justify-center hover:border-amber-500/50 transition-all ${s.isDragging ? "scale-110 shadow-2xl border-amber-500 z-50" : ""}`}>
@@ -389,9 +390,7 @@ export default function PickEmClient({
                 </div>
               </div>
 
-              {/* Grid Principal das Fases */}
               <div className={`${isAdminView ? "lg:col-span-6" : "lg:col-span-9"} space-y-12`}>
-                {/* Renderização Dinâmica das Fases */}
                 {[
                   { title: "Quartas de Final", data: qualifiedTeams, key: 'slot', cols: 4 },
                   { title: "Semi-Finais", data: semiTeams, key: 'semi', cols: 4 },
@@ -400,7 +399,7 @@ export default function PickEmClient({
                   const isLocked = locks[phase.key as keyof typeof locks];
                   const nextPhaseKey = phase.key === 'slot' ? 'semi' : (phase.key === 'semi' ? 'final' : null);
                   const isNextLocked = nextPhaseKey ? locks[nextPhaseKey as keyof typeof locks] : true;
-                  const dragDisabled = (isLocked && (!nextPhaseKey || isNextLocked)) || isViewingOther;
+                  const dragDisabled = (isLocked && (!nextPhaseKey || isNextLocked)) || isViewingOther || !isAuthorized;
 
                   return (
                   <div key={phase.key} className="relative">
@@ -409,7 +408,7 @@ export default function PickEmClient({
                         {locks[phase.key as keyof typeof locks] ? <Lock className="text-red-500" /> : <Unlock className="text-amber-500" />}
                         {phase.title}
                       </h2>
-                      {!locks[phase.key as keyof typeof locks] && !isViewingOther && (
+                      {!locks[phase.key as keyof typeof locks] && !isViewingOther && isAuthorized && (
                         <button 
                           onClick={() => confirmPhase(phase.key)}
                           className="bg-amber-500 text-black px-6 py-2 rounded-full font-black text-xs uppercase hover:bg-white transition-all shadow-lg shadow-amber-500/20"
@@ -421,7 +420,7 @@ export default function PickEmClient({
 
                     <div className={`grid grid-cols-2 md:grid-cols-${phase.cols} gap-4`}>
                       {phase.data.map((team, index) => (
-                        <Droppable key={index} droppableId={`${phase.key}-${index}`} isDropDisabled={locks[phase.key as keyof typeof locks] || isViewingOther}>
+                        <Droppable key={index} droppableId={`${phase.key}-${index}`} isDropDisabled={locks[phase.key as keyof typeof locks] || isViewingOther || !isAuthorized}>
                           {(provided, snapshot) => (
                             <div ref={provided.innerRef} {...provided.droppableProps}
                               className={`h-40 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center transition-all
@@ -449,7 +448,6 @@ export default function PickEmClient({
                 )})}
               </div>
 
-              {/* Stats Sidebar */}
               {isAdminView && (
               <div className="lg:col-span-3 space-y-4">
                 <div className="bg-zinc-900/50 p-6 rounded-3xl border border-white/5 h-full">

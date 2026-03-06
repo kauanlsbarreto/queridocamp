@@ -4,9 +4,8 @@ import UpdateTimer from '@/components/update-timer';
 import { createMainConnection, Env, HyperdriveBinding } from '@/lib/db';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
-export const revalidate = 86400; // Cache de 24h (ISR)
+export const revalidate = 86400; 
 
-// --------------------------- Helpers do DB ---------------------------
 
 async function ensureTableExists(connection: any) {
   try {
@@ -115,10 +114,8 @@ export default async function RedondoPage() {
   let connection: any;
 
   try {
-    // Obter o contexto do Cloudflare
     const ctx = await getCloudflareContext({ async: true });
 
-    // Cast seguro para o tipo Env, evita erro de TS
     const env = ctx.env as unknown as Env;
 
     if (!env.DB_PRINCIPAL) {

@@ -16,11 +16,24 @@ type Env = {
   };
 };
 
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1479446789785391169/qO16KnL2gnUVy_EETLKYsizfCSoRofG7m42YPT-_u5DmEHp5XOzaLKcNS7Sa_9ztzX5g";
+
+async function sendDiscordLog(message: string) {
+  try {
+    await fetch(DISCORD_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: message }),
+    });
+  } catch (error) {
+    console.error("Erro ao enviar log para o Discord:", error);
+  }
+}
+
 export async function POST(request: Request) {
   let connection: any;
 
   try {
-    // ⚡ ctx.env como Env
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
 
@@ -44,7 +57,6 @@ export async function POST(request: Request) {
     if (!nickname)
       return NextResponse.json({ error: "Nickname required" }, { status: 400 });
 
-    // Carregar dados do usuário
     if (action === "load") {
       const [rows] = await connection.query(
         "SELECT * FROM escolhas WHERE nickname = ?",
@@ -53,7 +65,6 @@ export async function POST(request: Request) {
       return NextResponse.json((rows as RowDataPacket[])[0] || {});
     }
 
-    // Salvar escolha
     if (action === "save") {
       const lockCol = phase === "slot" ? "locked" : `${phase}_locked`;
       const [rows] = await connection.query(
@@ -75,22 +86,36 @@ export async function POST(request: Request) {
         [nickname, faceit_guid || null, teamJson, teamJson, faceit_guid || null] as any
       );
 
+      const phaseName = phase === 'slot' ? 'Quartas de Final' : phase === 'semi' ? 'Semi-Finais' : 'Grande Final';
+      const teamName = team ? team.team_name : "Removido";
+      const logMsg = `📝 **Atualização de Pick**\n👤 **Usuário:** ${nickname}\n🏆 **Time:** ${teamName}\n📍 **Etapa:** ${phaseName} (Slot ${idx + 1})`;
+      
+      if (ctx && (ctx as any).waitUntil) {
+        (ctx as any).waitUntil(sendDiscordLog(logMsg));
+      } else {
+        await sendDiscordLog(logMsg);
+      }
+
       revalidatePath("/redondo");
       return NextResponse.json({ success: true });
     }
 
-    // Bloquear fase
     if (action === "lock") {
       const lockCol = phase === "slot" ? "locked" : `${phase}_locked`;
       await connection.query(
         `UPDATE escolhas SET ${lockCol} = 1 WHERE nickname = ?`,
         [nickname] as any
       );
+
+      const phaseName = phase === 'slot' ? 'Quartas de Final' : phase === 'semi' ? 'Semi-Finais' : 'Grande Final';
+      const logMsg = `🔒 **Fase Confirmada**\n👤 **Usuário:** ${nickname}\n📍 **Etapa:** ${phaseName}`;
+      if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
+      else await sendDiscordLog(logMsg);
+
       revalidatePath("/redondo");
       return NextResponse.json({ success: true });
     }
 
-    // Admin: toggle global
     if (action === "admin_toggle_global") {
       const level = typeof adminLevel === "string" ? parseInt(adminLevel) : adminLevel;
       if (!level || level > 2)
@@ -101,11 +126,17 @@ export async function POST(request: Request) {
         `UPDATE escolhas SET ${lockCol} = ?`,
         [targetStatus] as any
       );
+
+      const phaseName = phase === 'slot' ? 'Quartas de Final' : phase === 'semi' ? 'Semi-Finais' : 'Grande Final';
+      const statusText = targetStatus ? "BLOQUEADO 🔒" : "DESBLOQUEADO 🔓";
+      const logMsg = `🛡️ **Admin: Alteração Global**\n👤 **Admin:** ${nickname}\n📍 **Etapa:** ${phaseName}\n**Status:** ${statusText}`;
+      if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
+      else await sendDiscordLog(logMsg);
+
       revalidatePath("/redondo");
       return NextResponse.json({ success: true });
     }
 
-    // Admin: gerenciar usuário
     if (action === "admin_manage_user") {
       const level = typeof adminLevel === "string" ? parseInt(adminLevel) : adminLevel;
       if (!level || level > 2)
@@ -135,6 +166,12 @@ export async function POST(request: Request) {
             [targetNickname] as any
           );
       }
+
+      const phaseName = targetPhase === 'slot' ? 'Quartas de Final' : targetPhase === 'semi' ? 'Semi-Finais' : 'Grande Final';
+      const actionText = type === "unlock" ? "Destravou fase" : "Limpou e Destravou fase";
+      const logMsg = `🛡️ **Admin: Gerenciar Usuário**\n👤 **Admin:** ${nickname}\n🎯 **Alvo:** ${targetNickname}\n⚙️ **Ação:** ${actionText}\n📍 **Etapa:** ${phaseName}`;
+      if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
+      else await sendDiscordLog(logMsg);
 
       revalidatePath("/redondo");
       return NextResponse.json({ success: true });
