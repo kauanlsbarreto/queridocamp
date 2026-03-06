@@ -190,6 +190,7 @@ export default function PickEmClient({
     try {
       const res = await fetch('/api/picks', {
         method: 'POST',
+        cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           action: 'admin_manage_user', 
@@ -204,7 +205,7 @@ export default function PickEmClient({
       if (res.ok) {
         alert("Ação realizada com sucesso!");
         setPicksCache(prev => { const n = {...prev}; delete n[targetNickname]; return n; });
-        loadUserPicks(targetNickname, true);
+        await loadUserPicks(targetNickname, true);
       } else {
         const data = await res.json();
         alert(`Erro: ${data.error || "Falha na operação"}`);

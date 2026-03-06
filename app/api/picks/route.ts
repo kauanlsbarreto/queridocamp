@@ -94,9 +94,9 @@ export async function POST(request: Request) {
       const phaseName = phase === 'slot' ? 'Quartas de Final' : phase === 'semi' ? 'Semi-Finais' : 'Grande Final';
       let logMsg = "";
       if (team) {
-        logMsg = `✅ **Pick Adicionado/Atualizado**\n👤 **Usuário:** ${nickname}\n🏆 **Time:** ${team.team_name}\n📍 **Etapa:** ${phaseName} (Slot ${idx + 1})`;
+        logMsg = ` **Pick Adicionado/Atualizado**\n **Usuário:** ${nickname}\n **Time:** ${team.team_name}\n **Etapa:** ${phaseName} (Slot ${idx + 1})`;
       } else {
-        logMsg = `🗑️ **Pick Removido**\n👤 **Usuário:** ${nickname}\n📍 **Etapa:** ${phaseName} (Slot ${idx + 1})`;
+        logMsg = ` **Pick Removido**\n **Usuário:** ${nickname}\n **Etapa:** ${phaseName} (Slot ${idx + 1})`;
       }
       
       if (ctx && (ctx as any).waitUntil) {
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
       );
 
       const phaseName = phase === 'slot' ? 'Quartas de Final' : phase === 'semi' ? 'Semi-Finais' : 'Grande Final';
-      const logMsg = `🔒 **Fase Confirmada**\n👤 **Usuário:** ${nickname}\n📍 **Etapa:** ${phaseName}`;
+      const logMsg = ` **Fase Confirmada**\n **Usuário:** ${nickname}\n **Etapa:** ${phaseName}`;
       if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
       else await sendDiscordLog(logMsg);
 
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
 
       const phaseName = phase === 'slot' ? 'Quartas de Final' : phase === 'semi' ? 'Semi-Finais' : 'Grande Final';
       const statusText = targetStatus ? "BLOQUEADO 🔒" : "DESBLOQUEADO 🔓";
-      const logMsg = `🛡️ **Admin: Alteração Global**\n👤 **Admin:** ${nickname}\n📍 **Etapa:** ${phaseName}\n**Status:** ${statusText}`;
+      const logMsg = ` **Admin: Alteração Global**\n **Admin:** ${nickname}\n **Etapa:** ${phaseName}\n**Status:** ${statusText}`;
       if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
       else await sendDiscordLog(logMsg);
 
@@ -153,20 +153,23 @@ export async function POST(request: Request) {
       if (!targetNickname)
         return NextResponse.json({ error: "Nickname alvo não informado" }, { status: 400 });
 
+      const phaseToUse = targetPhase || phase;
+      if (!phaseToUse) return NextResponse.json({ error: "Fase não informada" }, { status: 400 });
+
       if (type === "unlock") {
-        const lockCol = targetPhase === "slot" ? "locked" : `${targetPhase}_locked`;
+        const lockCol = phaseToUse === "slot" ? "locked" : `${phaseToUse}_locked`;
         await connection.query(
           `UPDATE escolhas SET ${lockCol} = 0 WHERE nickname = ?`,
           [targetNickname] as any
         );
       } else if (type === "clear") {
         let updateQuery = "";
-        if (targetPhase === "slot")
+        if (phaseToUse === "slot")
           updateQuery =
             "slot_1=NULL, slot_2=NULL, slot_3=NULL, slot_4=NULL, slot_5=NULL, slot_6=NULL, slot_7=NULL, slot_8=NULL, locked=0";
-        else if (targetPhase === "semi")
+        else if (phaseToUse === "semi")
           updateQuery = "semi_1=NULL, semi_2=NULL, semi_3=NULL, semi_4=NULL, semi_locked=0";
-        else if (targetPhase === "final")
+        else if (phaseToUse === "final")
           updateQuery = "final_1=NULL, final_2=NULL, final_locked=0";
 
         if (updateQuery)
@@ -176,9 +179,9 @@ export async function POST(request: Request) {
           );
       }
 
-      const phaseName = targetPhase === 'slot' ? 'Quartas de Final' : targetPhase === 'semi' ? 'Semi-Finais' : 'Grande Final';
+      const phaseName = phaseToUse === 'slot' ? 'Quartas de Final' : phaseToUse === 'semi' ? 'Semi-Finais' : 'Grande Final';
       const actionText = type === "unlock" ? "Destravou fase" : "Limpou e Destravou fase";
-      const logMsg = `🛡️ **Admin: Gerenciar Usuário**\n👤 **Admin:** ${nickname}\n🎯 **Alvo:** ${targetNickname}\n⚙️ **Ação:** ${actionText}\n📍 **Etapa:** ${phaseName}`;
+      const logMsg = ` **Admin: Gerenciar Usuário**\n **Admin:** ${nickname}\n **Alvo:** ${targetNickname}\n **Ação:** ${actionText}\n **Etapa:** ${phaseName}`;
       if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
       else await sendDiscordLog(logMsg);
 
