@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import PremiumCard from "@/components/premium-card"
 import Image from "next/image"
 import Link from "next/link"
-import { Search } from "lucide-react"
+import { Search, ArrowUp, ArrowDown, Minus } from "lucide-react"
 
 export interface Team {
   id: number;
@@ -67,7 +67,10 @@ const TeamRow = memo(({
   details, 
   loading,
   allTeams,
-  isAdmin
+  isAdmin,
+  extraWins,
+  onAddWin,
+  simulatedRank
 }: { 
   team: Team; 
   index: number; 
@@ -77,7 +80,13 @@ const TeamRow = memo(({
   loading: boolean;
   allTeams: Team[];
   isAdmin: boolean;
+  extraWins: number;
+  onAddWin: (name: string) => void;
+  simulatedRank?: number;
 }) => {
+  const displayWins = team.wins + extraWins;
+  const displayPoints = team.points + (extraWins * 3);
+
   return (
     <Fragment>
       <motion.tr
@@ -109,13 +118,30 @@ const TeamRow = memo(({
             </Link>
           </div>
         </td>
-        <td className="py-4 px-2 text-center text-white font-semibold">{(team.wins + team.losses) / 2}</td>
-        <td className="py-4 px-2 text-center text-green-400 font-semibold">{team.wins}</td>
+        <td className="py-4 px-2 text-center text-white font-semibold">{(displayWins + team.losses) / 2}</td>
+        <td className="py-4 px-2 text-center text-green-400 font-semibold">
+          {displayWins}
+          {extraWins > 0 && <span className="text-[10px] text-green-500 ml-1">+{extraWins}</span>}
+        </td>
         <td className="py-4 px-2 text-center text-red-400 font-semibold">{team.losses}</td>
-        <td className="py-4 px-2 text-center text-gold font-bold text-lg">{team.points}</td>
+        <td className="py-4 px-2 text-center text-gold font-bold text-lg">
+          {displayPoints}
+          {extraWins > 0 && <span className="text-[10px] text-gold/70 ml-1">+{extraWins * 3}</span>}
+        </td>
         <td className={`py-4 px-2 text-center font-semibold ${team.rounds.startsWith("+") ? "text-green-400" : "text-red-400"}`}>
           {team.rounds}
         </td>
+        {isAdmin && (
+          <td className="py-4 px-2 text-center sticky right-0 bg-[#060D15] z-10 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => onAddWin(team.name)}
+              className="bg-green-500/20 hover:bg-green-500/40 text-green-500 rounded px-2 py-1 text-xs font-bold transition-colors border border-green-500/30"
+              title="Adicionar Vitória (+3 pts)"
+            >
+              +1
+            </button>
+          </td>
+        )}
       </motion.tr>
 
       <AnimatePresence>
@@ -271,6 +297,14 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
   const [detailsCache, setDetailsCache] = useState<Record<string, TeamDetails>>({})
   const [loading, setLoading] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [extraWins, setExtraWins] = useState<Record<string, number>>({})
+
+  const handleAddWin = useCallback((teamName: string) => {
+    setExtraWins(prev => ({
+      ...prev,
+      [teamName]: (prev[teamName] || 0) + 1
+    }))
+  }, [])
 
   useEffect(() => {
     const storedUser = localStorage.getItem('faceit_user')
@@ -297,6 +331,27 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
     const withdrawn = correctedTeams.filter(team => withdrawnTeamNames.includes(team.name));
     return { activeTeams: active, withdrawnTeams: withdrawn };
   }, [correctedTeams]);
+
+  const simulatedRankMap = useMemo(() => {
+    const simulated = activeTeams.map(team => {
+      const extra = extraWins[team.name] || 0;
+      return {
+        name: team.name,
+        points: team.points + (extra * 3),
+        rounds: parseInt(team.rounds, 10)
+      };
+    });
+
+    simulated.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.rounds !== a.rounds) return b.rounds - a.rounds;
+      return a.name.localeCompare(b.name);
+    });
+
+    const map = new Map<string, number>();
+    simulated.forEach((t, i) => map.set(t.name, i));
+    return map;
+  }, [activeTeams, extraWins]);
 
   const toggleTeam = useCallback(async (teamName: string) => {
     if (expandedTeam === teamName) {
@@ -345,6 +400,7 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
                 <th className="text-center py-4 px-2 text-gold font-bold">D</th>
                 <th className="text-center py-4 px-2 text-gold font-bold">PTS</th>
                 <th className="text-center py-4 px-2 text-gold font-bold">Rounds</th>
+                {isAdmin && <th className="text-center py-4 px-2 text-gold font-bold sticky right-0 bg-[#060D15] z-10 shadow-[-10px_0_20px_-5px_rgba(0,0,0,0.5)]">Simular</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -359,6 +415,9 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
                   loading={loading && expandedTeam === team.name}
                   allTeams={correctedTeams}
                   isAdmin={isAdmin}
+                  extraWins={extraWins[team.name] || 0}
+                  onAddWin={handleAddWin}
+                  simulatedRank={simulatedRankMap.get(team.name)}
                 />
               ))}
             </tbody>

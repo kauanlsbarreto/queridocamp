@@ -63,6 +63,8 @@ const generateRoundRobinMatches = (teams: Team[], matchesData: DbMatch[]) => {
   const fixedTeam = teamIds[0]
   const rotatingTeams = teamIds.slice(1)
 
+  const excludedTeams = ["Alfajor Soluções", "NeshaStore"]
+
   for (let round = 0; round < numRounds; round++) {
     const matches: Match[] = []
     const currentRotation = [...rotatingTeams]
@@ -85,6 +87,10 @@ const generateRoundRobinMatches = (teams: Team[], matchesData: DbMatch[]) => {
       const teamB = teams.find((t) => t.id === teamBId)
 
       if (teamA && teamB) {
+        if (excludedTeams.includes(teamA.name) || excludedTeams.includes(teamB.name)) {
+          continue
+        }
+
         const dbMatch = matchesData.find(
           (m) =>
             (m.time1 === teamA.name && m.time2 === teamB.name) || (m.time1 === teamB.name && m.time2 === teamA.name),

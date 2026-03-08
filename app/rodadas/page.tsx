@@ -38,10 +38,15 @@ export default async function Rodadas() {
       getLastUpdate(connection)
     ]);
 
+    const excludedTeams = ["Alfajor Soluções", "NeshaStore"];
+    const filteredMatches = matchRows.filter((m: any) => 
+      !excludedTeams.includes(m.time1) && !excludedTeams.includes(m.time2)
+    );
+
     return (
       <>
         <SideAds />
-        <RodadasClient teams={teamRows} matchesData={matchRows} lastUpdate={lastUpdate} />
+        <RodadasClient teams={teamRows} matchesData={filteredMatches} lastUpdate={lastUpdate} />
       </>
     );
   } catch (error) {
