@@ -33,26 +33,52 @@ export async function GET(request: Request) {
     }
 
     teamName = teamName.trim();
-    const dbTeamName = teamName === "22Cao Na Chapa" ? "22Cao" : teamName;
+    
+    let dbNames = [teamName];
+    if (teamName === "22Cao Na Chapa") {
+      dbNames = ["22Cao", "22Cao Na Chapa"];
+    } else if (teamName === "Uns&Outros") {
+      dbNames = ["Uns&Outros", "Uns & Outros"];
+    } else if (teamName === "Boxx") {
+      dbNames = ["Boxx", "team_mulekera"];
+    }
 
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
 
     connection = await createMainConnection(env);
 
+    const placeholders = dbNames.map(() => "?").join(",");
+    const queryMatches = `SELECT * FROM jogos WHERE time1 IN (${placeholders}) OR time2 IN (${placeholders})`;
+    const queryAdjustments = `SELECT motivo, sp, vitorias, derrotas FROM ajustes_manuais WHERE team_name IN (${placeholders})`;
+    
+    const paramsMatches = [...dbNames, ...dbNames];
+    const paramsAdjustments = [...dbNames];
+
     const [matchesResult, adjustmentsResult] = await Promise.all([
-      connection.query(
-        "SELECT * FROM jogos WHERE time1 = ? OR time2 = ?",
-        [dbTeamName, dbTeamName]
-      ),
-      connection.query(
-        "SELECT motivo, sp, vitorias, derrotas FROM ajustes_manuais WHERE team_name = ?",
-        [dbTeamName]
-      )
+      connection.query(queryMatches, paramsMatches),
+      connection.query(queryAdjustments, paramsAdjustments)
     ]);
 
-    const matches = matchesResult[0] as MatchRow[];
+    let matches = matchesResult[0] as MatchRow[];
     const adjustments = adjustmentsResult[0] as AdjustmentRow[];
+
+    if (matches && matches.length > 0) {
+      matches = matches.map(m => {
+        let t1 = m.time1;
+        let t2 = m.time2;
+
+        if (t1 === "22Cao") t1 = "22Cao Na Chapa";
+        if (t1 === "Uns & Outros") t1 = "Uns&Outros";
+        if (t1 === "team_mulekera") t1 = "Boxx";
+
+        if (t2 === "22Cao") t2 = "22Cao Na Chapa";
+        if (t2 === "Uns & Outros") t2 = "Uns&Outros";
+        if (t2 === "team_mulekera") t2 = "Boxx";
+
+        return { ...m, time1: t1, time2: t2 };
+      });
+    }
 
     return NextResponse.json({ 
       matches: matches || [], 
