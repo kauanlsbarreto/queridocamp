@@ -81,7 +81,10 @@ export default function LiveMatchesModal() {
             if (!res.ok) throw new Error('Failed to fetch scheduled matches');
             const data = await res.json();
 
-            const formattedMatches = data.map((match: any) => ({
+            const now = new Date();
+            const formattedMatches = data
+                .filter((match: any) => new Date(match.scheduled_time) > now)
+                .map((match: any) => ({
                 id: match.id.toString(),
                 team1: { name: match.team1_name, avatar: match.team1_avatar },
                 team2: { name: match.team2_name, avatar: match.team2_avatar },

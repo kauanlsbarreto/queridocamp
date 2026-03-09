@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -31,13 +32,44 @@ const AdminJogosPage = () => {
   const [matches, setMatches] = useState<ScheduledMatch[]>([]);
   const [allTeams, setAllTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const router = useRouter();
 
+  useEffect(() => {
+    const storedUser = localStorage.getItem('faceit_user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        const adminLevel = user.Admin ?? user.admin ?? 0;
+        // Níveis 1 a 5 podem agendar jogos, como em user-profile.tsx
+        if (adminLevel >= 1 && adminLevel <= 5) {
+          setIsAuthorized(true);
+        } else {
+          router.push('/');
+        }
+      } catch (e) {
+        console.error("Falha ao verificar autorização:", e);
+        router.push('/');
+      }
+    } else {
+      router.push('/');
+    }
+  }, [router]);
   const fetchMatches = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await fetch('/api/scheduled-matches');
       const data = await response.json();
-      setMatches(data.map((m: any) => ({...m, id: m.id.toString(), scheduled_time: new Date(m.scheduled_time).toISOString().substring(0, 16) })));
+      
+      const now = new Date();
+      const activeMatches = data.filter((m: any) => new Date(m.scheduled_time) > now);
+
+      setMatches(activeMatches.map((m: any) => {
+        const date = new Date(m.scheduled_time);
+        const offset = date.getTimezoneOffset();
+        const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+        return {...m, id: m.id.toString(), scheduled_time: localDate.toISOString().substring(0, 16) };
+      }));
     } catch (error) {
       console.error("Failed to fetch matches:", error);
     } finally {
@@ -48,17 +80,32 @@ const AdminJogosPage = () => {
   const fetchAllTeams = useCallback(async () => {
     try {
       const response = await fetch('/api/teams');
+      if (!response.ok) {
+        console.error(`Falha ao buscar times: ${response.status} ${response.statusText}`);
+        setAllTeams([]); // Garante que allTeams seja um array em caso de falha
+        return;
+      }
       const data = await response.json();
-      setAllTeams(data);
+      if (Array.isArray(data)) {
+        // Ordena os times em ordem alfabética pelo nome do time
+        const sortedTeams = data.sort((a, b) => a.team_name.localeCompare(b.team_name));
+        setAllTeams(sortedTeams);
+      } else {
+        console.error("Os dados recebidos de /api/teams não são um array:", data);
+        setAllTeams([]); // Garante que allTeams seja um array
+      }
     } catch (error) {
       console.error("Failed to fetch teams:", error);
+      setAllTeams([]); // Garante que allTeams seja um array em caso de erro de rede
     }
   }, []);
 
   useEffect(() => {
-    fetchMatches();
-    fetchAllTeams();
-  }, [fetchMatches, fetchAllTeams]);
+    if (isAuthorized) {
+      fetchMatches();
+      fetchAllTeams();
+    }
+  }, [isAuthorized, fetchMatches, fetchAllTeams]);
 
   const handleUpdateMatch = (id: string, field: keyof ScheduledMatch, value: any) => {
     setMatches(prev =>
@@ -142,6 +189,14 @@ const AdminJogosPage = () => {
       }
     }
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="container mx-auto px-4 py-10 text-white text-center">
+        <p>Verificando permissões...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-10 text-white">
@@ -236,7 +291,7 @@ const AdminJogosPage = () => {
                           <Trash2 className="h-4 w-4" />
                       </Button>
                       <Button size="sm" onClick={() => handleSaveChanges(match)} className="bg-blue-600 hover:bg-blue-700">
-                          <Save className="mr-2 h-4 w-4" /> Salvar
+                          <Save className="mr-2 h-4 w-4" /> {match.id.startsWith('new-') ? 'Salvar' : 'Editar'}
                       </Button>
                   </div>
                 </div>

@@ -47,6 +47,11 @@ export const UserProfile = ({
   const [userAdminLevel, setUserAdminLevel] = useState(0);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      setUserAdminLevel(Admin || admin || 0);
+      return;
+    }
+
     if (faceit_guid) {
       fetch(`/api/admin/players?faceit_guid=${faceit_guid}`)
         .then((res) => res.json())
