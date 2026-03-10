@@ -60,6 +60,10 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                 const user = JSON.parse(storedUser);
                 if (String(user.id) === String(player.id)) {
                     setIsOwnProfile(true);
+                    if (user.faceit_guid === player.faceit_guid && user.nickname !== player.nickname) {
+                        const updatedUser = { ...user, nickname: player.nickname };
+                        localStorage.setItem("faceit_user", JSON.stringify(updatedUser));
+                    }
                 }
             } catch (e) {
                 console.error("Failed to parse user session", e);

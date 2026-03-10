@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, Fragment, memo, useCallback, useMemo, useEffect } from "react"
+import { useState, Fragment, memo, useCallback, useMemo, useEffect, MouseEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import PremiumCard from "@/components/premium-card"
 import Image from "next/image"
 import Link from "next/link"
-import { Search, ArrowUp, ArrowDown, Minus } from "lucide-react"
+import { Search, ArrowUp, ArrowDown, Minus, ClipboardCopy } from "lucide-react"
 
 export interface Team {
   id: number;
@@ -70,7 +70,8 @@ const TeamRow = memo(({
   isAdmin,
   extraWins,
   onAddWin,
-  simulatedRank
+  simulatedRank,
+  fetchTeamDetailsForCopy
 }: { 
   team: Team; 
   index: number; 
@@ -83,10 +84,46 @@ const TeamRow = memo(({
   extraWins: number;
   onAddWin: (name: string) => void;
   simulatedRank?: number;
+  fetchTeamDetailsForCopy: (name: string) => Promise<TeamDetails | null>;
 }) => {
+  const [copying, setCopying] = useState(false);
   const displayWins = team.wins + extraWins;
   const displayPoints = team.points + (extraWins * 3);
 
+  const handleCopyRounds = async (e: MouseEvent) => {
+    e.stopPropagation();
+    setCopying(true);
+
+    let teamDetails = details;
+    if (!teamDetails) {
+        teamDetails = await fetchTeamDetailsForCopy(team.name);
+    }
+
+    if (teamDetails && teamDetails.matches) {
+        const roundsMap = teamDetails.matches.reduce((acc, match, index) => {
+            const roundNum = getMatchRound(allTeams, match.time1, match.time2);
+            acc[index + 1] = roundNum !== null ? roundNum : '?';
+            return acc;
+        }, {} as Record<number, number | string>);
+
+        const roundsString = Object.entries(roundsMap)
+            .map(([game, round]) => `${game}: ${round}`)
+            .join(', ');
+
+        const copyString = `'${team.name}': { ${roundsString} },`;
+
+        try {
+            await navigator.clipboard.writeText(copyString);
+            alert('Dados copiados para a área de transferência!');
+        } catch (err) {
+            console.error('Falha ao copiar texto: ', err);
+            alert('Falha ao copiar. Verifique as permissões do navegador.');
+        }
+    } else {
+        alert('Não foi possível obter os detalhes das partidas.');
+    }
+    setCopying(false);
+  };
   return (
     <Fragment>
       <motion.tr
@@ -116,6 +153,16 @@ const TeamRow = memo(({
             >
               <Search size={16} />
             </Link>
+            {isAdmin && (
+              <button
+                onClick={handleCopyRounds}
+                className="text-gray-500 hover:text-gold transition-colors disabled:opacity-50 disabled:cursor-wait"
+                title="Copiar ordem de rodadas"
+                disabled={copying}
+              >
+                <ClipboardCopy size={16} />
+              </button>
+            )}
           </div>
         </td>
         <td className="py-4 px-2 text-center text-white font-semibold">{(displayWins + team.losses) / 2}</td>
@@ -319,6 +366,27 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
     }
   }, [])
 
+  const fetchTeamDetailsForCopy = useCallback(async (teamName: string): Promise<TeamDetails | null> => {
+    if (detailsCache[teamName]) {
+        return detailsCache[teamName];
+    }
+
+    try {
+        const res = await fetch(`/api/team-details?teamName=${encodeURIComponent(teamName)}`);
+        if (!res.ok) throw new Error("Erro na API");
+        const data = await res.json();
+        const newDetails = {
+            matches: data.matches || [],
+            adjustments: data.adjustments || []
+        };
+        setDetailsCache(prev => ({ ...prev, [teamName]: newDetails }));
+        return newDetails;
+    } catch (error) {
+        console.error("Erro ao carregar detalhes para cópia:", error);
+        return null;
+    }
+  }, [detailsCache]);
+
   const correctedTeams = useMemo(() => (initialTeams || []).map(team => {
     if (team.name === "22Cao") return { ...team, name: "22Cao Na Chapa" };
     if (team.name === "team_mulekera") return { ...team, name: "Boxx" };
@@ -418,6 +486,7 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
                   extraWins={extraWins[team.name] || 0}
                   onAddWin={handleAddWin}
                   simulatedRank={simulatedRankMap.get(team.name)}
+                  fetchTeamDetailsForCopy={fetchTeamDetailsForCopy}
                 />
               ))}
             </tbody>

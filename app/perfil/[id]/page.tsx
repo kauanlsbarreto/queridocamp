@@ -43,18 +43,20 @@ async function getPlayerData(id: string, mainConn: any) {
 }
 
 async function getConquistas(playerId: string, mainConn: any) {
+  if (playerId === '0') {
+    const [rows] = await mainConn.query(
+      'SELECT id, codigo, tipo, nome, usado FROM codigos_sistema ORDER BY id DESC'
+    ) as [any[], any];
+    return rows;
+  }
   try {
     const [rows] = await mainConn.query(
-      'SELECT codigo, tipo, nome FROM codigos_conquistas WHERE resgatado_por = ? ORDER BY id DESC',
+      'SELECT id, codigo, tipo, nome, resgatado_por, resgatado_em, created_at FROM codigos_conquistas WHERE resgatado_por = ? ORDER BY id DESC',
       [playerId]
     ) as [any[], any];
     return rows;
   } catch (e) {
-    const [rows] = await mainConn.query(
-      'SELECT codigo, tipo, nome FROM codigos_conquistas WHERE player_id = ? ORDER BY id DESC',
-      [playerId]
-    ).catch(() => [[]]);
-    return rows;
+    return [];
   }
 }
 
@@ -73,16 +75,18 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     const player = await getPlayerData(id, mainConnection);
     if (!player) notFound();
 
-    const [conquistas, teamsResult, jogadoresResult, playedMatchesResult] = await Promise.all([
+    const [conquistas, teamsResult, jogadoresResult, playedMatchesResult, statsResult] = await Promise.all([
       getConquistas(player.id, mainConnection),
       mainConnection.query('SELECT * FROM team_config ORDER BY team_name ASC'),
       jogadoresConnection.query('SELECT * FROM jogadores'),
-      mainConnection.query('SELECT time1, time2 FROM jogos')
+      mainConnection.query('SELECT time1, time2 FROM jogos'),
+      mainConnection.query('SELECT * FROM top90_stats WHERE nick = ?', [player.nickname])
     ]);
 
     const teamsConfig = teamsResult[0] as any[];
     const jogadores = jogadoresResult[0] as any[];
     const playedMatches = playedMatchesResult[0] as any[];
+    const playerStats = statsResult[0]?.[0] || null;
 
     let playerTeamName = "";
     let upcomingMatches: any[] = [];
@@ -161,6 +165,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           initialConquistas={conquistas} 
           upcomingMatches={upcomingMatches} 
           teamName={playerTeamName} 
+          playerStats={playerStats}
         />
       </div>
     );

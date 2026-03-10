@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pencil, Trash2, Save, X, Search, User, ArrowLeft } from 'lucide-react';
@@ -8,7 +8,7 @@ import Image from 'next/image';
 import PremiumCard from '@/components/premium-card';
 import PerfilClient from '@/app/perfil/[id]/PerfilClient';
 
-// --- Componentes das Abas Existentes ---
+// --- COMPONENTES DE ABA ---
 
 const AddCodesTab = () => {
   const [tipo, setTipo] = useState('campeonato');
@@ -42,7 +42,7 @@ const AddCodesTab = () => {
       if (res.ok) {
         setGeneratedCode(code);
         setNome('');
-        fetchCodes();
+        await fetchCodes();
         alert("Código gerado!");
       }
     } catch (e) { alert("Erro ao gerar."); }
@@ -50,48 +50,74 @@ const AddCodesTab = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if(!confirm("Excluir?")) return;
-    await fetch('/api/admin/codigos_sistema', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
-    });
-    fetchCodes();
+    if(!confirm("Deseja realmente excluir este código?")) return;
+    try {
+        const res = await fetch('/api/admin/codigos_sistema', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        if (res.ok) {
+            await fetchCodes();
+        } else {
+            alert("Erro ao excluir do servidor.");
+        }
+    } catch (e) {
+        console.error("Erro na deleção:", e);
+    }
   };
 
   return (
-    <Card>
+    <Card className="bg-zinc-900 border-zinc-800 text-white">
       <CardHeader><CardTitle>Adicionar Códigos</CardTitle></CardHeader>
       <CardContent>
         <form onSubmit={handleGenerate} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium">Nome</label>
-            <input value={nome} onChange={e => setNome(e.target.value)} className="w-full border p-2 rounded" />
+            <label className="block text-sm font-medium mb-1">Nome</label>
+            <input 
+                value={nome} 
+                onChange={e => setNome(e.target.value)} 
+                className="w-full border border-zinc-700 bg-zinc-800 p-2 rounded text-white focus:ring-1 focus:ring-gold outline-none" 
+            />
           </div>
           <div>
-            <label className="block text-sm font-medium">Tipo</label>
-            <select value={tipo} onChange={e => setTipo(e.target.value)} className="w-full border p-2 rounded">
+            <label className="block text-sm font-medium mb-1">Tipo</label>
+            <select 
+                value={tipo} 
+                onChange={e => setTipo(e.target.value)} 
+                className="w-full border border-zinc-700 bg-zinc-800 p-2 rounded text-white focus:ring-1 focus:ring-gold outline-none"
+            >
               <option value="campeonato">Campeonato</option>
               <option value="MVP">MVP</option>
             </select>
           </div>
-          <button disabled={loading} className="bg-indigo-600 text-white px-4 py-2 rounded w-full">
+          <button disabled={loading} className="bg-indigo-600 text-white px-4 py-2 rounded w-full hover:bg-indigo-700 transition-colors font-bold">
             {loading ? 'Gerando...' : 'Gerar Código'}
           </button>
         </form>
-        {generatedCode && <div className="mt-4 p-4 bg-gray-100 rounded text-center font-mono text-xl">{generatedCode}</div>}
+        {generatedCode && <div className="mt-4 p-4 bg-zinc-800 border border-gold/30 rounded text-center font-mono text-xl text-gold">{generatedCode}</div>}
         
         <div className="mt-8">
-            <h3 className="font-bold mb-2">Códigos Existentes</h3>
-            <div className="max-h-60 overflow-y-auto">
+            <h3 className="font-bold mb-2 uppercase text-zinc-400 text-xs tracking-widest">Códigos Existentes</h3>
+            <div className="max-h-60 overflow-y-auto border border-zinc-800 rounded">
                 <table className="w-full text-sm text-left">
-                    <thead><tr className="bg-gray-100"><th>Nome</th><th>Código</th><th>Ação</th></tr></thead>
+                    <thead className="sticky top-0 bg-zinc-950 text-zinc-500 uppercase text-[10px] font-bold">
+                        <tr>
+                            <th className="p-3">Nome</th>
+                            <th className="p-3">Código</th>
+                            <th className="p-3 text-center">Ação</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {codes.map(c => (
-                            <tr key={c.id} className="border-b">
-                                <td className="p-2">{c.nome}</td>
-                                <td className="p-2 font-mono">{c.codigo}</td>
-                                <td className="p-2"><button onClick={() => handleDelete(c.id)} className="text-red-500"><Trash2 size={16}/></button></td>
+                            <tr key={c.id} className="border-b border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800/50 transition-colors">
+                                <td className="p-3 font-bold text-white">{c.nome}</td>
+                                <td className="p-3 font-mono text-zinc-300">{c.codigo}</td>
+                                <td className="p-3 text-center">
+                                    <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-400 transition-colors">
+                                        <Trash2 size={18}/>
+                                    </button>
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -105,10 +131,16 @@ const AddCodesTab = () => {
 
 const ManagePlayersTab = () => {
   const [players, setPlayers] = useState<any[]>([]);
+  
   useEffect(() => {
-    fetch('/api/admin/players').then(r => r.json()).then(data => 
-        setPlayers(data.map((p: any) => ({...p, originalId: p.id})))
-    );
+    fetch('/api/admin/players')
+        .then(r => r.json())
+        .then(data => {
+            const sorted = data.sort((a: any, b: any) => 
+                (a.nickname || "").localeCompare(b.nickname || "")
+            );
+            setPlayers(sorted.map((p: any) => ({...p, originalId: p.id})));
+        });
   }, []);
 
   const handleSave = async (originalId: number, newId: string) => {
@@ -122,25 +154,33 @@ const ManagePlayersTab = () => {
   };
 
   return (
-    <Card>
+    <Card className="bg-zinc-900 border-zinc-800 text-white">
         <CardHeader><CardTitle>Gerenciar IDs</CardTitle></CardHeader>
         <CardContent>
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-[500px] overflow-y-auto border border-zinc-800 rounded">
                 <table className="w-full text-sm">
-                    <thead><tr className="bg-gray-100"><th>Nick</th><th>ID</th><th>Salvar</th></tr></thead>
+                    <thead className="sticky top-0 bg-zinc-950 shadow-md">
+                        <tr className="uppercase text-[10px] font-bold text-zinc-500">
+                            <th className="p-3 text-left">Nick do Jogador</th>
+                            <th className="p-3 text-left text-gold">ID / Identificador</th>
+                            <th className="p-3 text-center">Ações</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {players.map(p => (
-                            <tr key={p.originalId} className="border-b">
-                                <td className="p-2">{p.nickname}</td>
-                                <td className="p-2">
+                            <tr key={p.originalId} className="border-b border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800/50">
+                                <td className="p-3 font-medium text-white">{p.nickname}</td>
+                                <td className="p-3">
                                     <input 
                                         defaultValue={p.id} 
                                         onBlur={(e) => p.id = e.target.value}
-                                        className="border p-1 rounded w-24" 
+                                        className="bg-zinc-800 border border-zinc-700 p-1.5 rounded w-full max-w-[200px] text-white focus:border-gold outline-none" 
                                     />
                                 </td>
-                                <td className="p-2">
-                                    <button onClick={(e) => handleSave(p.originalId, p.id)} className="text-blue-600"><Save size={16}/></button>
+                                <td className="p-3 text-center">
+                                    <button onClick={() => handleSave(p.originalId, p.id)} className="text-blue-400 hover:text-blue-300 p-2">
+                                        <Save size={18}/>
+                                    </button>
                                 </td>
                             </tr>
                         ))}
@@ -181,35 +221,49 @@ const SetAdminsTab = () => {
     };
 
     return (
-        <Card>
-            <CardHeader><CardTitle>Definir Admins</CardTitle></CardHeader>
+        <Card className="bg-zinc-900 border-zinc-800 text-white">
+            <CardHeader><CardTitle>Definir Cargos da Equipe</CardTitle></CardHeader>
             <CardContent>
-                <form onSubmit={handleAdd} className="flex gap-2 mb-6">
-                    <input value={newAdminId} onChange={e => setNewAdminId(e.target.value)} placeholder="ID ou GUID" className="border p-2 rounded flex-1" />
-                    <select value={newLevel} onChange={e => setNewLevel(Number(e.target.value))} className="border p-2 rounded">
+                <form onSubmit={handleAdd} className="flex flex-wrap gap-2 mb-6 p-4 bg-zinc-950 rounded-lg border border-zinc-800">
+                    <input 
+                        value={newAdminId} 
+                        onChange={e => setNewAdminId(e.target.value)} 
+                        placeholder="ID ou GUID" 
+                        className="bg-zinc-800 border border-zinc-700 p-2 rounded flex-1 text-white outline-none focus:border-gold" 
+                    />
+                    <select value={newLevel} onChange={e => setNewLevel(Number(e.target.value))} className="bg-zinc-800 border border-zinc-700 p-2 rounded text-white outline-none">
                         <option value={1}>Admin</option>
-                        <option value={2}>Dev</option>
-                        <option value={3}>Avaliador</option>
+                        <option value={2}>Desenvolvedor</option>
+                        <option value={3}>Mesa Avaliadora</option>
+                        <option value={4}>Parceiro</option>
+                        <option value={5}>Streamer</option>
                     </select>
-                    <button className="bg-green-600 text-white px-4 rounded">Add</button>
+                    <button className="bg-green-600 text-white px-6 py-2 rounded font-bold hover:bg-green-700 transition-all">Adicionar</button>
                 </form>
-                <div className="max-h-96 overflow-y-auto">
+                <div className="max-h-96 overflow-y-auto border border-zinc-800 rounded">
                     <table className="w-full text-sm">
-                        <thead><tr className="bg-gray-100"><th>Nick</th><th>Nível</th></tr></thead>
+                        <thead className="sticky top-0 bg-zinc-950 text-zinc-500 uppercase text-[10px] font-bold">
+                            <tr>
+                                <th className="p-3 text-left">Nick</th>
+                                <th className="p-3 text-left">Nível de Acesso</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             {players.filter(p => p.admin > 0).map(p => (
-                                <tr key={p.id} className="border-b">
-                                    <td className="p-2">{p.nickname}</td>
-                                    <td className="p-2">
+                                <tr key={p.id} className="border-b border-zinc-800 bg-zinc-900/50">
+                                    <td className="p-3 font-bold text-gold italic">{p.nickname}</td>
+                                    <td className="p-3">
                                         <select 
                                             value={p.admin} 
                                             onChange={(e) => handleChangeLevel(p.id, Number(e.target.value))}
-                                            className="border p-1 rounded"
+                                            className="bg-zinc-800 border border-zinc-700 p-1.5 rounded w-full max-w-[200px] text-gold font-bold outline-none focus:border-gold"
                                         >
-                                            <option value={0}>Remover</option>
+                                            <option value={0} className="text-red-500">Remover Acesso</option>
                                             <option value={1}>Admin</option>
-                                            <option value={2}>Dev</option>
-                                            <option value={3}>Avaliador</option>
+                                            <option value={2}>Desenvolvedor</option>
+                                            <option value={3}>Mesa Avaliadora</option>
+                                            <option value={4}>Parceiro</option>
+                                            <option value={5}>Streamer</option>
                                         </select>
                                     </td>
                                 </tr>
@@ -226,6 +280,7 @@ const ModificationsTab = () => {
     const [players, setPlayers] = useState<any[]>([]);
     const [editing, setEditing] = useState<number | null>(null);
     const [val, setVal] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
 
     const fetchP = () => fetch('/api/admin/players').then(r => r.json()).then(setPlayers);
     useEffect(() => { fetchP(); }, []);
@@ -240,34 +295,77 @@ const ModificationsTab = () => {
         fetchP();
     };
 
+    const filteredPlayers = useMemo(() => {
+        return players.filter(p => {
+            const hasTags = p.adicionados && p.adicionados.trim() !== '';
+            const matchesSearch = searchTerm && p.nickname.toLowerCase().includes(searchTerm.toLowerCase());
+            return searchTerm ? matchesSearch : hasTags;
+        });
+    }, [players, searchTerm]);
+
     return (
-        <Card>
-            <CardHeader><CardTitle>Modificações (Tags)</CardTitle></CardHeader>
+        <Card className="bg-zinc-900 border-zinc-800 text-white">
+            <CardHeader>
+                <CardTitle>Gerenciar Tags</CardTitle>
+                <CardDescription className="text-zinc-500">Exibindo jogadores com modificações ativas.</CardDescription>
+            </CardHeader>
             <CardContent>
-                <div className="max-h-96 overflow-y-auto">
+                <div className="relative mb-6">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                    <input 
+                        type="text" 
+                        placeholder="Buscar novo jogador para aplicar tags..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white outline-none focus:border-gold"
+                    />
+                </div>
+
+                <div className="max-h-96 overflow-y-auto border border-zinc-800 rounded text-black">
                     <table className="w-full text-sm">
-                        <thead><tr className="bg-gray-100"><th>Nick</th><th>Tags</th><th>Ação</th></tr></thead>
-                        <tbody>
-                            {players.map(p => (
-                                <tr key={p.id} className="border-b">
-                                    <td className="p-2">{p.nickname}</td>
-                                    <td className="p-2">
+                        <thead className="sticky top-0 bg-zinc-950 text-zinc-500 uppercase text-[10px] font-bold">
+                            <tr>
+                                <th className="p-3 text-left">Nick</th>
+                                <th className="p-3 text-left">Tags</th>
+                                <th className="p-3 text-center">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-zinc-900 text-white">
+                            {filteredPlayers.length > 0 ? filteredPlayers.map(p => (
+                                <tr key={p.id} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors">
+                                    <td className="p-3 font-medium">{p.nickname}</td>
+                                    <td className="p-3">
                                         {editing === p.id ? (
-                                            <input value={val} onChange={e => setVal(e.target.value)} className="border p-1 w-full" />
-                                        ) : (p.adicionados || '-')}
+                                            <input 
+                                                value={val} 
+                                                onChange={e => setVal(e.target.value)} 
+                                                className="bg-zinc-800 border border-zinc-700 p-1 w-full rounded text-white"
+                                                autoFocus 
+                                            />
+                                        ) : (
+                                            <span className={p.adicionados ? "text-gold font-bold" : "text-zinc-600"}>
+                                                {p.adicionados || 'Nenhuma tag'}
+                                            </span>
+                                        )}
                                     </td>
-                                    <td className="p-2">
+                                    <td className="p-3 text-center">
                                         {editing === p.id ? (
-                                            <div className="flex gap-1">
-                                                <button onClick={() => handleSave(p.id)} className="text-green-600"><Save size={16}/></button>
-                                                <button onClick={() => setEditing(null)} className="text-red-600"><X size={16}/></button>
+                                            <div className="flex gap-2 justify-center">
+                                                <button onClick={() => handleSave(p.id)} className="text-green-500 hover:scale-110"><Save size={18}/></button>
+                                                <button onClick={() => setEditing(null)} className="text-red-500 hover:scale-110"><X size={18}/></button>
                                             </div>
                                         ) : (
-                                            <button onClick={() => {setEditing(p.id); setVal(p.adicionados||'')}} className="text-blue-600"><Pencil size={16}/></button>
+                                            <button onClick={() => {setEditing(p.id); setVal(p.adicionados||'')}} className="text-blue-400 hover:scale-110">
+                                                <Pencil size={18}/>
+                                            </button>
                                         )}
                                     </td>
                                 </tr>
-                            ))}
+                            )) : (
+                                <tr>
+                                    <td colSpan={3} className="p-10 text-center text-zinc-600 italic">Nenhum registro encontrado.</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -276,7 +374,6 @@ const ModificationsTab = () => {
     );
 };
 
-// --- NOVA ABA: VER PLAYER ---
 
 const ViewPlayerTab = () => {
     const [viewMode, setViewMode] = useState<'list' | 'profile'>('list');
@@ -286,7 +383,6 @@ const ViewPlayerTab = () => {
     const [profileData, setProfileData] = useState<any>(null);
     const [loadingProfile, setLoadingProfile] = useState(false);
 
-    // Carregar lista
     useEffect(() => {
         if (viewMode === 'list') {
             fetch(`/api/admin/player-profile?q=${search}`)
@@ -296,7 +392,6 @@ const ViewPlayerTab = () => {
         }
     }, [viewMode, search]);
 
-    // Carregar perfil
     useEffect(() => {
         if (selectedPlayerId) {
             setLoadingProfile(true);
@@ -406,31 +501,33 @@ export default function AdminPage() {
     const stored = localStorage.getItem('faceit_user');
     if (stored) {
         const u = JSON.parse(stored);
-        if (u.Admin === 1 || u.Admin === 2) setUser(u);
+        if (u.Admin >= 1) setUser(u);
     }
     setLoading(false);
   }, []);
 
-  if (loading) return <div className="flex justify-center items-center min-h-screen"><p>Carregando...</p></div>;
-  if (!user) return <div className="flex justify-center items-center min-h-screen"><p>Acesso negado.</p></div>;
+  if (loading) return <div className="flex justify-center items-center min-h-screen bg-black text-white"><p>Carregando...</p></div>;
+  if (!user) return <div className="flex justify-center items-center min-h-screen bg-black text-white"><p>Acesso negado.</p></div>;
 
   return (
-    <div className="container mx-auto p-4 pt-24">
-      <h1 className="text-3xl font-bold mb-4 text-white">Painel de Administração</h1>
+    <div className="container mx-auto p-4 pt-24 min-h-screen bg-black">
+      <h1 className="text-3xl font-bold mb-6 text-white uppercase italic tracking-tighter">Painel de Administração</h1>
       <Tabs defaultValue="add-code" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 bg-gray-900 text-gray-400">
-          <TabsTrigger value="add-code">Adicionar Códigos</TabsTrigger>
-          <TabsTrigger value="manage-players">Gerenciar Jogadores</TabsTrigger>
-          <TabsTrigger value="set-admin">Definir Admins</TabsTrigger>
-          <TabsTrigger value="manage-adicionados">Modificações</TabsTrigger>
-          <TabsTrigger value="view-player" className="text-gold font-bold">Ver Player</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5 bg-zinc-900 text-zinc-400 border border-zinc-800">
+          <TabsTrigger value="add-code" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white uppercase text-[10px] font-black">Códigos</TabsTrigger>
+          <TabsTrigger value="manage-players" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white uppercase text-[10px] font-black">IDs</TabsTrigger>
+          <TabsTrigger value="set-admin" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white uppercase text-[10px] font-black">Equipe</TabsTrigger>
+          <TabsTrigger value="manage-adicionados" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white uppercase text-[10px] font-black">Tags</TabsTrigger>
+          <TabsTrigger value="view-player" className="text-gold font-bold data-[state=active]:bg-gold data-[state=active]:text-black uppercase text-[10px] font-black">Ver Player</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="add-code"><AddCodesTab /></TabsContent>
-        <TabsContent value="manage-players"><ManagePlayersTab /></TabsContent>
-        <TabsContent value="set-admin"><SetAdminsTab /></TabsContent>
-        <TabsContent value="manage-adicionados"><ModificationsTab /></TabsContent>
-        <TabsContent value="view-player"><ViewPlayerTab /></TabsContent>
+        <div className="mt-6">
+            <TabsContent value="add-code"><AddCodesTab /></TabsContent>
+            <TabsContent value="manage-players"><ManagePlayersTab /></TabsContent>
+            <TabsContent value="set-admin"><SetAdminsTab /></TabsContent>
+            <TabsContent value="manage-adicionados"><ModificationsTab /></TabsContent>
+            <TabsContent value="view-player"><ViewPlayerTab /></TabsContent>
+        </div>
       </Tabs>
     </div>
   );

@@ -23,7 +23,6 @@ export default function Callback() {
 
     const run = async () => {
       try {
-        // 1️⃣ troca o code pelo access_token
         const tokenRes = await fetch('/api/auth/faceit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
