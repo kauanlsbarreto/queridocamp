@@ -35,7 +35,22 @@ function guessPageFromStack(): string {
     const line = stack[i];
     const m = line.match(/\((.*?):\d+:\d+\)/);
     if (m && !m[1].includes("lib\\db.ts")) {
-      return m[1];
+      const filePath = m[1];
+      // try to convert a file path under `app/` to its corresponding route
+      const appIndex = filePath.indexOf("app\\");
+      if (appIndex !== -1) {
+        let rel = filePath.slice(appIndex + 4); // after 'app\'
+        // normalize separators
+        rel = rel.replace(/\\/g, "/");
+        // remove filename indicators
+        rel = rel.replace(/\/page\.[tj]sx?$/, "");
+        rel = rel.replace(/\/layout\.[tj]sx?$/, "");
+        rel = rel.replace(/\/route\.[tj]sx?$/, "");
+        if (rel === "") rel = "/";
+        if (!rel.startsWith("/")) rel = "/" + rel;
+        return rel;
+      }
+      return filePath;
     }
   }
   return "<unknown>";
