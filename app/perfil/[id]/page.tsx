@@ -80,6 +80,14 @@ async function getConquistas(playerId: string | number, mainConn: any) {
       'SELECT id, codigo, tipo, nome, resgatado_por, resgatado_em, created_at FROM codigos_conquistas WHERE resgatado_por = ? ORDER BY id DESC',
       [playerId]
     ) as [any[], any];
+    if (rows.length === 0) {
+      // some databases still use the old "player_id" column – try again
+      const [altRows] = await mainConn.query(
+        'SELECT id, codigo, tipo, nome, resgatado_por, resgatado_em, created_at FROM codigos_conquistas WHERE player_id = ? ORDER BY id DESC',
+        [playerId]
+      ) as [any[], any];
+      return altRows;
+    }
     return rows;
   } catch (e) {
     return [];
