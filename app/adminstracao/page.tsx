@@ -432,6 +432,7 @@ const ViewPlayerTab = () => {
                     upcomingMatches={profileData.upcomingMatches} 
                     teamName={profileData.teamName} 
                     playerStatsList={profileData.playerStatsList}
+                    adminView={true}
                 />
             </div>
         );

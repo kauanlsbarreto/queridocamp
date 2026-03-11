@@ -49,15 +49,34 @@ function calculateSimilarity(str1: string, str2: string): number {
 
 async function getPlayerData(id: string, mainConn: any) {
   const [rows] = await mainConn.query('SELECT * FROM players WHERE id = ?', [id]) as [any[], any];
-  const player = rows[0];
+  let player = rows[0];
 
   if (!player && id !== '0') return null;
 
-  const updatedPlayer = player || { id: '0' };
+  let updatedPlayer = player || { id: '0' };
   if (id === '0') {
     updatedPlayer.nickname = "Level -Todos -1";
     updatedPlayer.avatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSELngQdOTsSQXmSv9j1ltZDiGKXvSB8NJIsQ&s";
     updatedPlayer.faceit_level_image = '/faceitlevel/-1.png';
+  }
+
+  // if we have a Faceit GUID, try to pull the latest avatar and persist it
+  if (updatedPlayer.faceit_guid) {
+    try {
+      const faceitRes = await fetch(
+        `https://open.faceit.com/data/v4/players/${updatedPlayer.faceit_guid}`,
+        { headers: { Authorization: `Bearer ${faceitApiKey}` } }
+      );
+      if (faceitRes.ok) {
+        const faceitData = await faceitRes.json();
+        if (faceitData.avatar && faceitData.avatar !== updatedPlayer.avatar) {
+          await mainConn.query('UPDATE players SET avatar = ? WHERE id = ?', [faceitData.avatar, id]);
+          updatedPlayer.avatar = faceitData.avatar;
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar avatar Faceit:', e);
+    }
   }
 
   if (updatedPlayer.adicionados?.includes('QCS-CADEIRANTE')) {
@@ -248,6 +267,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           upcomingMatches={upcomingMatches} 
           teamName={playerTeamName} 
           playerStatsList={playerStatsList}
+          adminView={false}
         />
       </div>
     );
