@@ -123,6 +123,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     const env = ctx.env as Env;
 
     mainConnection = await createMainConnection(env);
+    (mainConnection as any).setPage(`/perfil/${id}`);
     jogadoresConnection = await createJogadoresConnection(env);
 
     const player = await getPlayerData(id, mainConnection);

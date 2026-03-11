@@ -101,6 +101,7 @@ export default async function StatsPage() {
     const env = ctx.env as Env;
 
     mainConnection = await createMainConnection(env);
+    (mainConnection as any).setPage('/stats');
     jogadoresConnection = await createJogadoresConnection(env);
 
     const [statsResult, updateResult] = await Promise.all([

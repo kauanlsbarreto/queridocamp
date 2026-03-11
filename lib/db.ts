@@ -53,6 +53,9 @@ function guessPageFromStack(): string {
 }
 
 function wrapConnection(conn: Connection, dbLabel: string): Connection {
+  // allow consumers to override the detected page
+  let pageOverride: string | undefined;
+
   const handler: ProxyHandler<any> = {
     get(target, prop, receiver) {
       if (prop === "execute" || prop === "query") {
@@ -64,7 +67,7 @@ function wrapConnection(conn: Connection, dbLabel: string): Connection {
             return await target[prop](...args);
           } finally {
             const duration = Date.now() - start;
-            const page = guessPageFromStack();
+            const page = pageOverride ?? guessPageFromStack();
             const isPrincipal = dbLabel === "DB_PRINCIPAL";
             const embed: any = {
               embeds: [
@@ -95,7 +98,13 @@ function wrapConnection(conn: Connection, dbLabel: string): Connection {
       return Reflect.get(target, prop, receiver);
     },
   };
-  return new Proxy(conn, handler);
+
+  const proxy = new Proxy(conn, handler);
+  // expose setter for page override
+  (proxy as any).setPage = (p: string) => {
+    pageOverride = p;
+  };
+  return proxy;
 }
 
 export async function connectToDB(

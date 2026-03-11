@@ -91,6 +91,8 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
     const env = ctx.env as Env;
 
     mainConnection = await createMainConnection(env);
+    // explicitly mark which route is performing DB work
+    (mainConnection as any).setPage('/players');
     jogadoresConnection = await createJogadoresConnection(env);
 
     playersData = await getPlayersData(mainConnection, jogadoresConnection, offset);
