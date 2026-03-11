@@ -77,7 +77,9 @@ export async function GET() {
     );
     await connection.end();
 
-    const timestamp = rows.length ? rows[0].created_at : null;
+    const timestamp = rows.length
+      ? new Date(rows[0].created_at as string).getTime()
+      : null;
     return NextResponse.json({ timestamp });
   } catch (err) {
     console.error("/api/admin/logout-all GET error", err);

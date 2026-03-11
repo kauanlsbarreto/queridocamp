@@ -19,13 +19,14 @@ const FaceitLogin = ({ user, onAuthChange }: FaceitLoginProps) => {
       const newUser = event.data.user
 
       localStorage.setItem('faceit_user', JSON.stringify(newUser))
-      
-        window.dispatchEvent(new Event('faceit_auth_updated'))
-      
-      onAuthChange()
-
-      // store login timestamp (used by logout-all feature)
+      // store login timestamp (used by logout-all feature) **before** notifying
+      // the rest of the app. otherwise an effect watching `user` may run with
+      // a zero timestamp and force a logout if a previous "logout-all"
+      // exists.
       localStorage.setItem('faceit_user_login_time', Date.now().toString())
+
+      window.dispatchEvent(new Event('faceit_auth_updated'))
+      onAuthChange()
 
       window.location.reload()
     }
@@ -77,10 +78,14 @@ const FaceitLogin = ({ user, onAuthChange }: FaceitLoginProps) => {
     const checkLogoutAll = async () => {
       try {
         const lastLogin = Number(localStorage.getItem('faceit_user_login_time') || '0')
+        // if we don't yet have a stored login time, skip the check – this avoids
+        // immediately logging out a freshly logged‑in user when the effect
+        // runs before the timestamp was written.
+        if (lastLogin === 0) return
         const res = await fetch('/api/admin/logout-all')
         if (res.ok) {
           const data = await res.json()
-          const ts = data.timestamp ? new Date(data.timestamp).getTime() : 0
+          const ts = typeof data.timestamp === 'number' ? data.timestamp : 0
           if (ts > lastLogin) {
             handleLogout()
           }
