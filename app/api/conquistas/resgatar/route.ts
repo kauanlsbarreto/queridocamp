@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
     const { codigo, playerId } = await req.json();
 
-    if (!codigo || !playerId) {
+    if (!codigo || playerId === undefined || playerId === null) {
       await connection.end();
       return NextResponse.json(
         { message: "Código e ID do jogador são obrigatórios" },
@@ -73,9 +73,24 @@ export async function POST(req: Request) {
         );
       }
 
+      if (playerId === 0 || playerId === '0') {
+        await connection.end();
+        return NextResponse.json(
+          { message: "ID inválido para resgate" },
+          { status: 400 }
+        );
+      }
+
+      // insert with explicit timestamp columns so resgatado_em and created_at are recorded
       await connection.query<ResultSetHeader>(
-        "INSERT INTO codigos_conquistas (resgatado_por, codigo, tipo, nome) VALUES (?, ?, ?, ?)",
+        "INSERT INTO codigos_conquistas (resgatado_por, codigo, tipo, nome, resgatado_em, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())",
         [playerId, conquista.codigo, conquista.tipo, conquista.nome]
+      );
+
+      // mark the code as used globally
+      await connection.query(
+        "UPDATE codigos_sistema SET usado = 1 WHERE codigo = ?",
+        [codigo]
       );
     } catch (err: any) {
       if (err?.code === "ER_BAD_FIELD_ERROR") {
@@ -92,9 +107,22 @@ export async function POST(req: Request) {
           );
         }
 
+        if (playerId === 0 || playerId === '0') {
+          await connection.end();
+          return NextResponse.json(
+            { message: "ID inválido para resgate" },
+            { status: 400 }
+          );
+        }
+
         await connection.query<ResultSetHeader>(
-          "INSERT INTO codigos_conquistas (player_id, codigo, tipo, nome) VALUES (?, ?, ?, ?)",
+          "INSERT INTO codigos_conquistas (player_id, codigo, tipo, nome, resgatado_em, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())",
           [playerId, conquista.codigo, conquista.tipo, conquista.nome]
+        );
+
+        await connection.query(
+          "UPDATE codigos_sistema SET usado = 1 WHERE codigo = ?",
+          [codigo]
         );
       } else {
         await connection.end();

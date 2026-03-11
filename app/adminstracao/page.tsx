@@ -431,7 +431,7 @@ const ViewPlayerTab = () => {
                     initialConquistas={profileData.conquistas} 
                     upcomingMatches={profileData.upcomingMatches} 
                     teamName={profileData.teamName} 
-                    playerStats={profileData.playerStats}
+                    playerStatsList={profileData.playerStatsList}
                 />
             </div>
         );

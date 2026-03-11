@@ -8,7 +8,7 @@ import { Trophy, Crown, Medal, Ticket } from 'lucide-react';
 import PlayerMatches from './PlayerMatches';
 import PlayerStatsDetails from './PlayerStatsDetails';
 
-export default function PerfilClient({ player, initialConquistas, upcomingMatches, teamName, playerStats }: { player: any, initialConquistas: any[], upcomingMatches?: any[], teamName?: string, playerStats?: any }) {
+export default function PerfilClient({ player, initialConquistas, upcomingMatches, teamName, playerStatsList }: { player: any, initialConquistas: any[], upcomingMatches?: any[], teamName?: string, playerStatsList?: any[] }) {
     const [codigo, setCodigo] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
@@ -208,8 +208,8 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                         </div>
                     </div>
                     <div className="lg:col-span-2">
-                        {playerStats && (
-                            <PlayerStatsDetails playerStats={playerStats} />
+                        {playerStatsList && playerStatsList.length > 0 && (
+                            <PlayerStatsDetails playerStatsList={playerStatsList} />
                         )}
                         
                         {(player.id !== 0 || player.faceit_guid) && (

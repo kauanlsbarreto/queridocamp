@@ -239,28 +239,54 @@ export async function GET(request: Request) {
         }
     }
 
-    let playerStats = null;
+let playerStatsList: any[] = [];
+    const STATS_CUTOFF = new Date('2026-01-01T00:00:00Z');
     try {
-        const [statsRows]: any = await mainConnection.query('SELECT * FROM top90_stats WHERE nick = ?', [updatedPlayer.nickname]);
-        if (statsRows.length > 0) {
-             playerStats = statsRows[0];
+        if (updatedPlayer.faceit_guid) {
+            try {
+                const [statsRows]: any = await mainConnection.query(
+                    'SELECT * FROM top90_stats WHERE nick = ? OR faceit_guid = ?',
+                    [updatedPlayer.nickname, updatedPlayer.faceit_guid]
+                );
+                playerStatsList = statsRows || [];
+            } catch (err) {
+                // column may not exist, ignore and continue
+            }
         }
+        if (playerStatsList.length === 0) {
+            const [statsRows]: any = await mainConnection.query('SELECT * FROM top90_stats WHERE nick = ?', [updatedPlayer.nickname]);
+            playerStatsList = statsRows || [];
+        }
+        // apply cutoff
+        playerStatsList = playerStatsList.filter((r: any) => {
+            if (r.created_at) {
+                const d = new Date(r.created_at);
+                return d >= STATS_CUTOFF;
+            }
+            if (r.date) {
+                const d = new Date(r.date);
+                return d >= STATS_CUTOFF;
+            }
+            return true;
+        });
     } catch (e) {
         console.error("Erro ao buscar stats:", e);
     }
-    if (playerStats && playerTeamName) {
-    for (let round = 1; round <= 17; round++) {
-        const matchId = playerStats[`r${round}_m1_id`];
-        if (matchId) {
-        const opponent = await getOpponentFromMatch(matchId, playerTeamName);
-        if (opponent) {
-            playerStats[`r${round}_opponent`] = opponent;
+    if (playerStatsList.length > 0 && playerTeamName) {
+      for (const ps of playerStatsList) {
+        for (let round = 1; round <= 17; round++) {
+          const matchId = ps[`r${round}_m1_id`];
+          if (matchId) {
+            const opponent = await getOpponentFromMatch(matchId, playerTeamName);
+            if (opponent) {
+              ps[`r${round}_opponent`] = opponent;
+            }
+          }
         }
-        }
+      }
     }
-    }
-
-    return NextResponse.json({ player: updatedPlayer, conquistas, upcomingMatches, teamName: playerTeamName, playerStats });
+    
+    return NextResponse.json({ player: updatedPlayer, conquistas, upcomingMatches, teamName: playerTeamName, playerStatsList });
 
   } catch (error) {
     console.error("Erro API player-profile:", error);

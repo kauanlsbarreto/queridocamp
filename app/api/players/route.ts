@@ -88,6 +88,50 @@ export async function POST(req: Request) {
       }
     }
 
+    // log this successful login into logs_logins table and also send the
+    // webhook so that every authentication attempt (even those which ignore
+    // the client) will be reported.
+    try {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS logs_logins (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          nickname VARCHAR(100) NOT NULL,
+          faceit_guid VARCHAR(100) NOT NULL,
+          horario DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          ip VARCHAR(45) NOT NULL,
+          success TINYINT NOT NULL DEFAULT 0,
+          error_message TEXT NULL
+        )
+      `);
+
+      const ip =
+        (req.headers.get("x-forwarded-for") || "")
+          .split(",")[0]
+          .trim();
+      await connection.query(
+        "INSERT INTO logs_logins (nickname, faceit_guid, ip, success) VALUES (?, ?, ?, 1)",
+        [nickname, guid, ip]
+      );
+
+      // also notify discord
+      const webhookUrl =
+        "https://discord.com/api/webhooks/1481113334760734886/vG1Hfh5hB6Tix0yDiRmkqvuJ0Wx91s6MhUrGw5BdRjF9QtXzWAVWyQK79diiUi1Mv9YE";
+      const contentLines = [
+        `**Login attempt**`,
+        `Nickname: ${nickname}`,
+        `GUID: ${guid}`,
+        `IP: ${ip}`,
+        `Success: true`,
+      ];
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: contentLines.join("\n") }),
+      });
+    } catch (e) {
+      console.error("failed to write login log in /api/players", e);
+    }
+
     await connection.end();
 
     return NextResponse.json(user);

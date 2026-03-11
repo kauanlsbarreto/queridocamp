@@ -3,6 +3,31 @@ import PerfilClient from './PerfilClient';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, createJogadoresConnection, type Env } from '@/lib/db';
 
+const faceitApiKey = '7b080715-fe0b-461d-a1f1-62cfd0c47e63';
+
+async function getOpponentFromMatch(matchId: string, playerTeamName: string) {
+  try {
+    const res = await fetch(`https://open.faceit.com/data/v4/matches/${matchId}`, {
+      headers: { Authorization: `Bearer ${faceitApiKey}` }
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const faction1 = data.teams?.faction1;
+    const faction2 = data.teams?.faction2;
+    const team1Name = faction1?.name;
+    const team2Name = faction2?.name;
+    if (!team1Name || !team2Name) return null;
+    if (team1Name.toLowerCase() === playerTeamName.toLowerCase()) return team2Name;
+    if (team2Name.toLowerCase() === playerTeamName.toLowerCase()) return team1Name;
+    return null;
+  } catch (e) {
+    console.error("Erro ao buscar adversário:", e);
+    return null;
+  }
+}
+
 function calculateSimilarity(str1: string, str2: string): number {
   const s1 = (str1 || "").toLowerCase().trim();
   const s2 = (str2 || "").toLowerCase().trim();
@@ -42,8 +67,9 @@ async function getPlayerData(id: string, mainConn: any) {
   return updatedPlayer;
 }
 
-async function getConquistas(playerId: string, mainConn: any) {
-  if (playerId === '0') {
+async function getConquistas(playerId: string | number, mainConn: any) {
+  // make sure we catch both numeric 0 and string '0'
+  if (String(playerId) === '0') {
     const [rows] = await mainConn.query(
       'SELECT id, codigo, tipo, nome, usado FROM codigos_sistema ORDER BY id DESC'
     ) as [any[], any];
@@ -75,18 +101,51 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     const player = await getPlayerData(id, mainConnection);
     if (!player) notFound();
 
-    const [conquistas, teamsResult, jogadoresResult, playedMatchesResult, statsResult] = await Promise.all([
+    // build a promise for stats retrieval that prefers faceit_guid when available
+    const statsPromise = (async () => {
+      if (player.faceit_guid) {
+        try {
+          const [rows]: any = await mainConnection.query(
+            'SELECT * FROM top90_stats WHERE nick = ? OR faceit_guid = ?',
+            [player.nickname, player.faceit_guid]
+          );
+          return rows;
+        } catch (err) {
+          // possible missing column; fall back to nick-only lookup
+        }
+      }
+      const [rows]: any = await mainConnection.query(
+        'SELECT * FROM top90_stats WHERE nick = ?',
+        [player.nickname]
+      );
+      return rows;
+    })();
+
+    const [conquistas, teamsResult, jogadoresResult, playedMatchesResult, playerStatsRows] = await Promise.all([
       getConquistas(player.id, mainConnection),
       mainConnection.query('SELECT * FROM team_config ORDER BY team_name ASC'),
       jogadoresConnection.query('SELECT * FROM jogadores'),
       mainConnection.query('SELECT time1, time2 FROM jogos'),
-      mainConnection.query('SELECT * FROM top90_stats WHERE nick = ?', [player.nickname])
+      statsPromise
     ]);
 
     const teamsConfig = teamsResult[0] as any[];
     const jogadores = jogadoresResult[0] as any[];
     const playedMatches = playedMatchesResult[0] as any[];
-    const playerStats = statsResult[0]?.[0] || null;
+    const STATS_CUTOFF = new Date('2026-01-01T00:00:00Z');
+    let playerStatsList = playerStatsRows || [];
+    // drop any rows older than the cutoff if they have a created_at/date field
+    playerStatsList = playerStatsList.filter((r: any) => {
+      if (r.created_at) {
+        const d = new Date(r.created_at);
+        return d >= STATS_CUTOFF;
+      }
+      if (r.date) { // alternate name
+        const d = new Date(r.date);
+        return d >= STATS_CUTOFF;
+      }
+      return true;
+    });
 
     let playerTeamName = "";
     let upcomingMatches: any[] = [];
@@ -158,6 +217,21 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       }
     }
 
+    // fill opponent names for each stats entry if team is known
+    if (playerStatsList.length > 0 && playerTeamName) {
+      for (const ps of playerStatsList) {
+        for (let round = 1; round <= 17; round++) {
+          const matchId = ps[`r${round}_m1_id`];
+          if (matchId) {
+            const opponent = await getOpponentFromMatch(matchId, playerTeamName);
+            if (opponent) {
+              ps[`r${round}_opponent`] = opponent;
+            }
+          }
+        }
+      }
+    }
+
     return (
       <div className="min-h-screen bg-black">
         <PerfilClient 
@@ -165,7 +239,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           initialConquistas={conquistas} 
           upcomingMatches={upcomingMatches} 
           teamName={playerTeamName} 
-          playerStats={playerStats}
+          playerStatsList={playerStatsList}
         />
       </div>
     );

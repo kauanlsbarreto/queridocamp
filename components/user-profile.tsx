@@ -11,11 +11,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useToast } from '@/components/hooks/use-toast'
 
-/**
- * Definição do tipo para o Perfil do Usuário.
- * O campo 'id' deve representar a Primary Key da sua tabela 'players'.
- */
+
 export type UserProfile = {
   id: number
   faceit_guid: string  
@@ -42,8 +40,8 @@ export const UserProfile = ({
   faceit_guid,
   onLogout,
 }: UserProfileProps) => {
-  const profileId = id ?? ID;
-  // Inicia com 0 para não confiar no localStorage/props. Só atualiza após confirmação do banco.
+  const { toast } = useToast();
+  const profileId = (id === 0 && ID) ? ID : (id ?? ID);
   const [userAdminLevel, setUserAdminLevel] = useState(0);
 
   useEffect(() => {
@@ -98,6 +96,44 @@ export const UserProfile = ({
         {(userAdminLevel >= 1 && userAdminLevel <= 5) && (
           <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
             <Link href="/agendarjogo" className="w-full">Adicionar Jogo</Link>
+          </DropdownMenuItem>
+        )}
+
+        {/* only first‑level admins get the "logout everyone" action */}
+        {userAdminLevel === 1 && (
+          <DropdownMenuItem
+            onClick={async () => {
+              if (
+                !confirm(
+                  "Tem certeza? isto forçará todos os usuários a se deslogarem."
+                )
+              ) {
+                return
+              }
+              try {
+                const res = await fetch("/api/admin/logout-all", { method: "POST" })
+                if (res.ok) {
+                  toast({
+                    title: "Deslogar todos",
+                    description: "Solicitação enviada com sucesso.",
+                  })
+                } else {
+                  toast({
+                    title: "Deslogar todos",
+                    description: "Falha ao enviar a solicitação.",
+                  })
+                }
+              } catch (e) {
+                console.error(e)
+                toast({
+                  title: "Deslogar todos",
+                  description: "Erro de rede ao enviar a solicitação.",
+                })
+              }
+            }}
+            className="focus:bg-white/5 cursor-pointer text-yellow-400"
+          >
+            Deslogar todos
           </DropdownMenuItem>
         )}
 

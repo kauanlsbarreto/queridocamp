@@ -20,9 +20,12 @@ const FaceitLogin = ({ user, onAuthChange }: FaceitLoginProps) => {
 
       localStorage.setItem('faceit_user', JSON.stringify(newUser))
       
-      window.dispatchEvent(new Event('faceit_auth_updated'))
+        window.dispatchEvent(new Event('faceit_auth_updated'))
       
       onAuthChange()
+
+      // store login timestamp (used by logout-all feature)
+      localStorage.setItem('faceit_user_login_time', Date.now().toString())
 
       window.location.reload()
     }
@@ -40,7 +43,7 @@ const FaceitLogin = ({ user, onAuthChange }: FaceitLoginProps) => {
     const codeChallenge = await (async () => {
       const data = new TextEncoder().encode(codeVerifier)
       const digest = await crypto.subtle.digest('SHA-256', data)
-      return btoa(String.fromCharCode(...new Uint8Array(digest)))
+      return btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(digest))))
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=+$/, '')
@@ -60,9 +63,35 @@ const FaceitLogin = ({ user, onAuthChange }: FaceitLoginProps) => {
   const handleLogout = () => {
     localStorage.removeItem('faceit_user')
     localStorage.removeItem('faceit_code_verifier')
+    localStorage.removeItem('faceit_user_login_time')
     window.dispatchEvent(new Event('faceit_auth_updated'))
     onAuthChange()
   }
+
+  // whenever the component mounts or the user prop changes we should
+  // check if an administrator has triggered a "logout all" event. the
+  // server exposes the last logout-all timestamp and we compare it against
+  // the last time this particular client logged in. if the server value is
+  // newer we immediately clear the session and reload.
+  useEffect(() => {
+    const checkLogoutAll = async () => {
+      try {
+        const lastLogin = Number(localStorage.getItem('faceit_user_login_time') || '0')
+        const res = await fetch('/api/admin/logout-all')
+        if (res.ok) {
+          const data = await res.json()
+          const ts = data.timestamp ? new Date(data.timestamp).getTime() : 0
+          if (ts > lastLogin) {
+            handleLogout()
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check logout-all status', err)
+      }
+    }
+
+    checkLogoutAll()
+  }, [user])
 
   return (
     <div className="flex items-center">

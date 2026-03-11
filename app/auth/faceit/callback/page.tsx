@@ -51,6 +51,7 @@ export default function Callback() {
           steam_id_64: profile.steam_id_64,
         }
 
+
         // 4️⃣ envia para o backend para pegar ID e Admin
         const dbRes = await fetch('/api/players', {
           method: 'POST',
@@ -84,8 +85,24 @@ export default function Callback() {
         } else {
           router.push('/')
         }
+
       } catch (err) {
         console.error(err)
+        // send failure log
+        try {
+          await fetch('/api/logins', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              nickname: null,
+              faceit_guid: null,
+              success: false,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          })
+        } catch (e) {
+          console.error('Failed to send failure log', e)
+        }
         router.push('/')
       }
     }

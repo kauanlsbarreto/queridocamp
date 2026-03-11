@@ -194,7 +194,7 @@ export default function PlayerMatches({ faceitId, upcomingMatches, teamName }: {
       
       try {
         // Busca histórico a partir da data especificada
-        const res = await fetch(`https://open.faceit.com/data/v4/players/${faceitId}/history?game=cs2&from=${START_DATE}&limit=20`, {
+        const res = await fetch(`https://open.faceit.com/data/v4/players/${faceitId}/history?game=cs2&from=${START_DATE}&limit=200`, {
           headers: { 'Authorization': `Bearer ${API_KEY}` }
         })
         
@@ -267,16 +267,18 @@ export default function PlayerMatches({ faceitId, upcomingMatches, teamName }: {
         </span>
       </div>
       
-      {displayedMatches.length > 0 ? (
-        displayedMatches.map((match) => (
-        <MatchCard key={match.match_id} match={match} playerId={faceitId} />
-        ))
-      ) : (
-        <div className="text-center py-12 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/20">
-          <Calendar className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-          <p className="text-zinc-500">Nenhuma partida encontrada nesta categoria.</p>
-        </div>
-      )}
+      <div className="max-h-[600px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-zinc-800">
+        {displayedMatches.length > 0 ? (
+          displayedMatches.map((match) => (
+            <MatchCard key={match.match_id} match={match} playerId={faceitId} />
+          ))
+        ) : (
+          <div className="text-center py-12 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/20">
+            <Calendar className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
+            <p className="text-zinc-500">Nenhuma partida encontrada nesta categoria.</p>
+          </div>
+        )}
+      </div>
 
       <PlayerUpcomingMatches matches={upcomingMatches || []} teamName={teamName} />
     </div>
