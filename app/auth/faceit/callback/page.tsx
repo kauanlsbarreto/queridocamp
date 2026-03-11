@@ -81,7 +81,12 @@ export default function Callback() {
         // log success before leaving the page or closing the popup; ensures
         // the request isn't aborted by navigation.
         try {
-          await fetch('/api/logins', {
+          console.log('sending login-log', {
+            nickname: fullUser.nickname,
+            faceit_guid: fullUser.faceit_guid,
+          });
+          const logUrl = window.location.origin + '/api/logins';
+          const logRes = await fetch(logUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -89,9 +94,15 @@ export default function Callback() {
               faceit_guid: fullUser.faceit_guid,
               success: true,
             }),
-          })
+          });
+          if (!logRes.ok) {
+            console.error('login-log endpoint returned', await logRes.text());
+          } else {
+            const info = await logRes.json();
+            console.log('login-log response', info);
+          }
         } catch (e) {
-          console.error('Failed to send success log', e)
+          console.error('Failed to send success log', e);
         }
 
         // 7️⃣ fecha popup ou redireciona
@@ -105,7 +116,7 @@ export default function Callback() {
         console.error(err)
         // send failure log
         try {
-          await fetch('/api/logins', {
+          await fetch(window.location.origin + '/api/logins', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

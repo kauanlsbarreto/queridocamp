@@ -32,6 +32,7 @@ interface LoginLogBody {
 export async function POST(req: Request) {
   try {
     const body: LoginLogBody = await req.json();
+    console.log("/api/logins received", body);
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
     const connection = await createMainConnection(env);
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
         body.error || null,
       ]
     );
+    console.log("/api/logins inserted row for", body.faceit_guid || body.nickname);
 
     await connection.end();
 
@@ -78,13 +80,18 @@ export async function POST(req: Request) {
     contentLines.push(`Success: ${body.success}`);
     if (!body.success && body.error) contentLines.push(`Error: ${body.error}`);
 
-    await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: contentLines.join("\n") }),
-    });
+    try {
+      const res = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: contentLines.join("\n") }),
+      });
+      console.log("/api/logins webhook status", res.status);
+    } catch (e) {
+      console.error("/api/logins webhook error", e);
+    }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, received: body });
   } catch (err) {
     console.error("/api/logins error", err);
     return NextResponse.json({ error: "internal" }, { status: 500 });
