@@ -6,6 +6,9 @@ import { createMainConnection } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+// key reused in various client pages; keep in sync if changed
+const faceitApiKey = '7b080715-fe0b-461d-a1f1-62cfd0c47e63';
+
 export async function POST(request: Request) {
   let connection;
   try {
@@ -49,12 +52,10 @@ export async function POST(request: Request) {
     );
 
     const allPaths = [
-      {name:"Home & Geral", path: "/", type: "layout" as const},
       {name:"Classificação",path:"/classificacao"},
       {name:"Times",path:"/times"},
       {name:"Players",path:"/players"},
       {name:"Stats",path:"/stats"},
-      {name:"Redondo",path:"/redondo"},
       {name:"Rodadas",path:"/rodadas"}
     ];
 
@@ -66,7 +67,8 @@ export async function POST(request: Request) {
 
     for (const p of pathsToUpdate) {
         try {
-            revalidatePath(p.path, (p as any).type);
+            const type = (p as any).type as "layout" | "page" | undefined;
+            revalidatePath(p.path, type);
             results.push({ name: p.name, status: 'success', message: 'Página atualizada.' });
         } catch (e) {
             console.error(`Erro ao revalidar ${p.path}:`, e);
@@ -74,17 +76,38 @@ export async function POST(request: Request) {
         }
     }
 
-    if (!specificPath) {
-      const tagsToRevalidate = ['teams-data']; 
-      for (const tag of tagsToRevalidate) {
+
+    try {
+      // wipe out all existing avatars before refetching
+      await connection.query('UPDATE players SET avatar = ""');
+
+      const [allPlayers]: any = await connection.query(
+        "SELECT id, faceit_guid FROM players WHERE faceit_guid IS NOT NULL"
+      );
+      for (const row of allPlayers) {
+        if (!row.faceit_guid) continue;
         try {
-          revalidateTag(tag);
-          results.push({ name: `Cache de Dados (${tag})`, status: 'success', message: 'Cache atualizado.' });
+          const faceitRes = await fetch(
+            `https://open.faceit.com/data/v4/players/${row.faceit_guid}`,
+            { headers: { Authorization: `Bearer ${faceitApiKey}` } }
+          );
+          if (faceitRes.ok) {
+            const faceitData = await faceitRes.json();
+            if (faceitData.avatar) {
+              await connection.query(
+                'UPDATE players SET avatar = ? WHERE id = ?',
+                [faceitData.avatar, row.id]
+              );
+            }
+          }
         } catch (e) {
-          console.error(`Erro ao revalidar a tag ${tag}:`, e);
-          results.push({ name: `Cache de Dados (${tag})`, status: 'error', message: 'Falha ao atualizar cache.' });
+          console.error('Erro ao atualizar avatar em lote:', e);
         }
       }
+      results.push({ name: 'Atualizar avatares', status: 'success', message: 'Repopulação concluída.' });
+    } catch (e) {
+      console.error('Falha ao processar avatares:', e);
+      results.push({ name: 'Atualizar avatares', status: 'error', message: 'Falha ao consultar jogadores.' });
     }
 
     return NextResponse.json({ success: true, results });
