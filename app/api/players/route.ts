@@ -90,6 +90,7 @@ export async function POST(req: Request) {
 
     // log successful login here as a fallback in case the client log fails
     try {
+      // make sure table has required columns (old deployments may lack them)
       await connection.query(`
         CREATE TABLE IF NOT EXISTS logs_logins (
           id INT AUTO_INCREMENT PRIMARY KEY,
@@ -101,6 +102,18 @@ export async function POST(req: Request) {
           error_message TEXT NULL
         )
       `);
+      // attempt to add missing columns without failing if they exist
+      try {
+        await connection.query(
+          "ALTER TABLE logs_logins ADD COLUMN success TINYINT NOT NULL DEFAULT 0"
+        );
+      } catch {}
+      try {
+        await connection.query(
+          "ALTER TABLE logs_logins ADD COLUMN error_message TEXT NULL"
+        );
+      } catch {}
+
       const ip =
         (req.headers.get("x-forwarded-for") || "")
           .split(",")[0]
