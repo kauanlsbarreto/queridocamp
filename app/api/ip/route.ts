@@ -1,8 +1,11 @@
-import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
+import { NextResponse, type NextRequest } from 'next/server';
 
-export async function GET() {
-  const headersList = headers();
-  const ip = headersList.get('cf-connecting-ip') || headersList.get('x-forwarded-for') || headersList.get('x-real-ip') || 'IP não encontrado';
+export async function GET(req: NextRequest) {
+  const h = req.headers;
+  const ip =
+    h.get('cf-connecting-ip') ||
+    h.get('x-forwarded-for') ||
+    h.get('x-real-ip') ||
+    'IP não encontrado';
   return NextResponse.json({ ip });
 }
