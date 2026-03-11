@@ -78,32 +78,6 @@ export default function Callback() {
         localStorage.setItem('faceit_user', JSON.stringify(fullUser))
         localStorage.removeItem('faceit_code_verifier')
 
-        // log success before leaving the page or closing the popup; ensures
-        // the request isn't aborted by navigation.
-        try {
-          console.log('sending login-log', {
-            nickname: fullUser.nickname,
-            faceit_guid: fullUser.faceit_guid,
-          });
-          const logUrl = window.location.origin + '/api/logins';
-          const logRes = await fetch(logUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              nickname: fullUser.nickname,
-              faceit_guid: fullUser.faceit_guid,
-              success: true,
-            }),
-          });
-          if (!logRes.ok) {
-            console.error('login-log endpoint returned', await logRes.text());
-          } else {
-            const info = await logRes.json();
-            console.log('login-log response', info);
-          }
-        } catch (e) {
-          console.error('Failed to send success log', e);
-        }
 
         // 7️⃣ fecha popup ou redireciona
         if (window.opener) {
