@@ -258,7 +258,7 @@ export default function LiveMatchesModal() {
                                         <div className="flex flex-col items-center justify-center w-1/3">
                                             <div className="bg-black/80 px-4 py-1.5 rounded border border-white/20 mb-2 flex flex-col items-center min-w-[90px]">
                                                 <span className="text-xl font-black text-white tabular-nums leading-none">
-                                                    {new Date(match.scheduled_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                    {String(match.scheduled_time).replace('T', ' ').substring(11, 16)}
                                                 </span>
                                             </div>
                                             

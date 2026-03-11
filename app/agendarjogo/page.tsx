@@ -41,7 +41,6 @@ const AdminJogosPage = () => {
       try {
         const user = JSON.parse(storedUser);
         const adminLevel = user.Admin ?? user.admin ?? 0;
-        // Níveis 1 a 5 podem agendar jogos, como em user-profile.tsx
         if (adminLevel >= 1 && adminLevel <= 5) {
           setIsAuthorized(true);
         } else {
@@ -65,10 +64,11 @@ const AdminJogosPage = () => {
       const activeMatches = data.filter((m: any) => new Date(m.scheduled_time) > now);
 
       setMatches(activeMatches.map((m: any) => {
-        const date = new Date(m.scheduled_time);
-        const offset = date.getTimezoneOffset();
-        const localDate = new Date(date.getTime() - (offset * 60 * 1000));
-        return {...m, id: m.id.toString(), scheduled_time: localDate.toISOString().substring(0, 16) };
+        const raw = typeof m.scheduled_time === 'string'
+          ? m.scheduled_time
+          : (m.scheduled_time as Date).toISOString();
+        const normalised = raw.replace(' ', 'T').substring(0, 16);
+        return {...m, id: m.id.toString(), scheduled_time: normalised };
       }));
     } catch (error) {
       console.error("Failed to fetch matches:", error);
@@ -82,21 +82,20 @@ const AdminJogosPage = () => {
       const response = await fetch('/api/teams');
       if (!response.ok) {
         console.error(`Falha ao buscar times: ${response.status} ${response.statusText}`);
-        setAllTeams([]); // Garante que allTeams seja um array em caso de falha
+        setAllTeams([]);
         return;
       }
       const data = await response.json();
       if (Array.isArray(data)) {
-        // Ordena os times em ordem alfabética pelo nome do time
         const sortedTeams = data.sort((a, b) => a.team_name.localeCompare(b.team_name));
         setAllTeams(sortedTeams);
       } else {
         console.error("Os dados recebidos de /api/teams não são um array:", data);
-        setAllTeams([]); // Garante que allTeams seja um array
+        setAllTeams([]);
       }
     } catch (error) {
       console.error("Failed to fetch teams:", error);
-      setAllTeams([]); // Garante que allTeams seja um array em caso de erro de rede
+      setAllTeams([]); 
     }
   }, []);
 
@@ -148,7 +147,7 @@ const AdminJogosPage = () => {
         throw new Error(`Falha ao salvar a partida: ${response.statusText} (${response.status}).\nDetalhes: ${detail}`);
       }
 
-      await fetchMatches(); // Re-fetch to get the latest data
+      await fetchMatches(); 
       alert(`Partida entre ${match.team1_name} e ${match.team2_name} foi salva com sucesso!`);
     } catch (error) {
       console.error('Erro ao salvar a partida:', error);
@@ -182,7 +181,7 @@ const AdminJogosPage = () => {
         }
         
         alert('Partida excluída com sucesso!');
-        await fetchMatches(); // Re-fetch to update the list
+        await fetchMatches(); 
       } catch (error) {
         console.error('Erro ao excluir a partida:', error);
         alert(String(error));
@@ -246,7 +245,7 @@ const AdminJogosPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor={`time-${match.id}`}>Data e Hora</Label>
+                    <Label htmlFor={`time-${match.id}`}>Data e Hora <span className="text-xs text-gray-400 font-normal">(Horário de Brasília)</span></Label>
                     <Input
                       id={`time-${match.id}`}
                       type="datetime-local"
@@ -254,6 +253,17 @@ const AdminJogosPage = () => {
                       onChange={e => handleUpdateMatch(match.id, 'scheduled_time', e.target.value)}
                       className="bg-white/5 border-white/10"
                     />
+                    {match.scheduled_time && (
+                      <p className="text-xs text-gold/80 font-mono mt-1">
+                        {(() => {
+                          const [datePart, timePart] = match.scheduled_time.split('T');
+                          if (!datePart || !timePart) return '';
+                          const [year, month, day] = datePart.split('-');
+                          const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+                          return `${day} de ${monthNames[Number(month)-1]} de ${year} às ${timePart} (BRT)`;
+                        })()}
+                      </p>
+                    )}
                   </div>
                 </div>
 
