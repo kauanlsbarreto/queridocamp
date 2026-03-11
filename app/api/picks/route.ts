@@ -16,7 +16,7 @@ type Env = {
   };
 };
 
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1479446789785391169/qO16KnL2gnUVy_EETLKYsizfCSoRofG7m42YPT-_u5DmEHp5XOzaLKcNS7Sa_9ztzX5g";
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1481321464547377224/dlWkywyCkGRbOrTZRMDLa2SDiYV1FeEXHy8c2xbbW67H8XIGkm8bsw9ac-ZI_gNUfTO5";
 
 async function sendDiscordLog(message: string) {
   try {

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
-const WEBHOOK_URL = 'https://discord.com/api/webhooks/1476592651058024549/UinYyaSfAtSkFNC-zrIuQpY1iuWnIXGSjdwziSXYswUE4iG0HPTAybrq_F5qBbYMUSHH';
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1481322006463905988/P2MJlcw-dvxcAE4-FIwKlE6f6GdPhM-9E4j5pbWctQ0609judBG3dhcxC5fV3urbfioW';
 
 interface AnalyticsData {
   page: string;
