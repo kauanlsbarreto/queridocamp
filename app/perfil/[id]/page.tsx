@@ -60,7 +60,6 @@ async function getPlayerData(id: string, mainConn: any) {
     updatedPlayer.faceit_level_image = '/faceitlevel/-1.png';
   }
 
-  // if we have a Faceit GUID, try to pull the latest avatar and persist it
   if (updatedPlayer.faceit_guid) {
     try {
       const faceitRes = await fetch(
@@ -83,34 +82,85 @@ async function getPlayerData(id: string, mainConn: any) {
     updatedPlayer.faceit_level_image = '/faceitlevel/cadeirante.png';
   }
 
+  if (!updatedPlayer.nickname || String(updatedPlayer.nickname).trim() === '') {
+    updatedPlayer.nickname = updatedPlayer.apelido || 'Jogador';
+  }
+
   return updatedPlayer;
 }
 
-async function getConquistas(playerId: string | number, mainConn: any) {
-  // make sure we catch both numeric 0 and string '0'
+function parseAdicionadosCodes(raw: any): string[] {
+  if (!raw || typeof raw !== 'string') return [];
+  return raw
+    .split(/[,;|\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+async function getConquistas(player: any, mainConn: any) {
+  const playerId = player?.id;
   if (String(playerId) === '0') {
     const [rows] = await mainConn.query(
       'SELECT id, codigo, tipo, nome, usado FROM codigos_sistema ORDER BY id DESC'
     ) as [any[], any];
     return rows;
   }
+
+  // 1) Adicionados — independent of codigos_conquistas
+  let adicionadosRows: any[] = [];
+  try {
+    const adicionadosCodes = parseAdicionadosCodes(player?.adicionados);
+    if (adicionadosCodes.length > 0) {
+      const placeholders = adicionadosCodes.map(() => '?').join(',');
+      const [rowsAdicionados] = await mainConn.query(
+        `SELECT codigo, imagem, label FROM adicionados WHERE codigo IN (${placeholders})`,
+        adicionadosCodes
+      ) as [any[], any];
+
+      const byCode = new Map<string, any>(
+        rowsAdicionados.map((row: any) => [String(row.codigo).trim(), row])
+      );
+
+      adicionadosRows = adicionadosCodes
+        .map((code) => byCode.get(code))
+        .filter(Boolean)
+        .map((row: any) => ({
+          id: `adicionado-${row.codigo}`,
+          codigo: row.codigo,
+          tipo: 'ADICIONADO',
+          nome: row.label || row.codigo,
+          imagem: row.imagem
+        }));
+    }
+  } catch (e) {
+    // adicionados table unavailable — silently ignore
+  }
+
+  // 2) Redeemed achievement codes — independent of adicionados
+  let baseRows: any[] = [];
   try {
     const [rows] = await mainConn.query(
       'SELECT id, codigo, tipo, nome, resgatado_por, resgatado_em, created_at FROM codigos_conquistas WHERE resgatado_por = ? ORDER BY id DESC',
       [playerId]
     ) as [any[], any];
     if (rows.length === 0) {
-      // some databases still use the old "player_id" column – try again
-      const [altRows] = await mainConn.query(
-        'SELECT id, codigo, tipo, nome, resgatado_por, resgatado_em, created_at FROM codigos_conquistas WHERE player_id = ? ORDER BY id DESC',
-        [playerId]
-      ) as [any[], any];
-      return altRows;
+      try {
+        const [altRows] = await mainConn.query(
+          'SELECT id, codigo, tipo, nome, resgatado_por, resgatado_em, created_at FROM codigos_conquistas WHERE player_id = ? ORDER BY id DESC',
+          [playerId]
+        ) as [any[], any];
+        baseRows = altRows;
+      } catch {
+        // player_id column may not exist — ignore
+      }
+    } else {
+      baseRows = rows;
     }
-    return rows;
   } catch (e) {
-    return [];
+    // codigos_conquistas unavailable — silently ignore
   }
+
+  return [...adicionadosRows, ...baseRows];
 }
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
@@ -129,7 +179,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     const player = await getPlayerData(id, mainConnection);
     if (!player) notFound();
 
-    // build a promise for stats retrieval that prefers faceit_guid when available
     const statsPromise = (async () => {
       if (player.faceit_guid) {
         try {
@@ -150,7 +199,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     })();
 
     const [conquistas, teamsResult, jogadoresResult, playedMatchesResult, playerStatsRows] = await Promise.all([
-      getConquistas(player.id, mainConnection),
+      getConquistas(player, mainConnection),
       mainConnection.query('SELECT * FROM team_config ORDER BY team_name ASC'),
       jogadoresConnection.query('SELECT * FROM jogadores'),
       mainConnection.query('SELECT time1, time2 FROM jogos'),
@@ -162,7 +211,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     const playedMatches = playedMatchesResult[0] as any[];
     const STATS_CUTOFF = new Date('2026-01-01T00:00:00Z');
     let playerStatsList = playerStatsRows || [];
-    // drop any rows older than the cutoff if they have a created_at/date field
     playerStatsList = playerStatsList.filter((r: any) => {
       if (r.created_at) {
         const d = new Date(r.created_at);
@@ -245,7 +293,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       }
     }
 
-    // fill opponent names for each stats entry if team is known
     if (playerStatsList.length > 0 && playerTeamName) {
       for (const ps of playerStatsList) {
         for (let round = 1; round <= 17; round++) {

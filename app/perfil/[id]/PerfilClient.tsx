@@ -6,7 +6,25 @@ import PremiumCard from '@/components/premium-card';
 import { Button } from '@/components/ui/button';
 import { Trophy, Crown, Medal, Ticket } from 'lucide-react';
 import PlayerMatches from './PlayerMatches';
-import PlayerStatsDetails from './PlayerStatsDetails';
+
+const SPECIAL_ROLES: Record<string, { emoji: string; bannerLabel: string; bannerGradient: string; bannerText: string; avatarBorder: string; avatarGlow: string }> = {
+  '0124bfce-db9e-4d4f-b3f4-b66084a8a484': {
+    emoji: '👑',
+    bannerLabel: 'FUNDADOR & DONO',
+    bannerGradient: 'from-yellow-400 to-amber-500',
+    bannerText: 'text-black',
+    avatarBorder: 'border-yellow-400',
+    avatarGlow: 'shadow-[0_0_40px_rgba(251,191,36,0.5)]',
+  },
+  'fcb1b15c-f3d4-47d1-bd27-b478b7ada9ee': {
+    emoji: '',
+    bannerLabel: 'ADMINISTRADOR',
+    bannerGradient: 'from-purple-500 to-violet-600',
+    bannerText: 'text-white',
+    avatarBorder: 'border-purple-500',
+    avatarGlow: 'shadow-[0_0_40px_rgba(168,85,247,0.5)]',
+  },
+};
 
 export default function PerfilClient({ player, initialConquistas, upcomingMatches, teamName, playerStatsList, adminView = false }: { player: any, initialConquistas: any[], upcomingMatches?: any[], teamName?: string, playerStatsList?: any[], adminView?: boolean }) {
     const [codigo, setCodigo] = useState('');
@@ -16,6 +34,34 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
     const [faceitLevel, setFaceitLevel] = useState<number | null>(player.id === 0 ? -1 : null);
     const [isChallenger, setIsChallenger] = useState(false);
     const [isOwnProfile, setIsOwnProfile] = useState(false);
+
+    const role = SPECIAL_ROLES[player?.faceit_guid || ''] || null;
+    const hasFaceitLink = Boolean(player?.faceit_guid && player?.nickname);
+
+    const handleFaceitLink = async () => {
+        localStorage.setItem('faceit_link_player_id', String(player?.id || ''));
+        const clientId = '6f737cca-6960-4f17-9493-4ff66340dd9b';
+        const redirectUri = 'https://queridocamp.com.br/auth/faceit/callback';
+        const codeVerifier = crypto.randomUUID();
+        localStorage.setItem('faceit_code_verifier', codeVerifier);
+
+        const data = new TextEncoder().encode(codeVerifier);
+        const digest = await crypto.subtle.digest('SHA-256', data);
+        const codeChallenge = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(digest)) as any))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+
+        const url = new URL('https://accounts.faceit.com/accounts/dialog/oauth');
+        url.searchParams.set('response_type', 'code');
+        url.searchParams.set('client_id', clientId);
+        url.searchParams.set('redirect_uri', redirectUri);
+        url.searchParams.set('code_challenge', codeChallenge);
+        url.searchParams.set('code_challenge_method', 'S256');
+        url.searchParams.set('scope', 'openid email profile');
+
+        window.open(url.toString(), 'FaceitLogin', 'width=600,height=700');
+    };
 
     useEffect(() => {
         const fetchLevel = async () => {
@@ -54,7 +100,7 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
         };
         fetchLevel();
 
-        const storedUser = localStorage.getItem("faceit_user");
+        const storedUser = localStorage.getItem("manual_user") || localStorage.getItem("faceit_user");
         if (storedUser) {
             try {
                 const user = JSON.parse(storedUser);
@@ -104,18 +150,30 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                         <div className="sticky top-24">
                             <PremiumCard>
                                 <div className="p-8 flex flex-col items-center text-center">
-                                    <div className="relative w-40 h-40 rounded-full overflow-hidden border-4 border-gold mb-6">
-                                        <Image 
-                                            src={player?.avatar || '/images/cs2-player.png'} 
-                                            alt={player?.nickname || "Player"} 
-                                            fill 
-                                            className="object-cover" 
-                                            unoptimized 
-                                        />
+                                    <div className="relative mb-6">
+                                        {role && (
+                                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 z-10 text-4xl leading-none pointer-events-none select-none">
+                                                {role.emoji}
+                                            </div>
+                                        )}
+                                        <div className={`relative w-40 h-40 rounded-full overflow-hidden border-4 ${role ? role.avatarBorder : 'border-gold'} ${role ? role.avatarGlow : ''}`}>
+                                            <Image 
+                                                src={player?.avatar || '/images/cs2-player.png'} 
+                                                alt={player?.nickname || "Player"} 
+                                                fill 
+                                                className="object-cover" 
+                                                unoptimized 
+                                            />
+                                        </div>
                                     </div>
                                     <h1 className="text-3xl font-black text-white uppercase italic tracking-wider mb-2">
                                         {player?.nickname}
                                     </h1>
+                                    {role && (
+                                        <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-3 bg-gradient-to-r ${role.bannerGradient} ${role.bannerText}`}>
+                                            {role.emoji} {role.bannerLabel}
+                                        </div>
+                                    )}
                                     
                                     {(faceitLevel || player.id === 0 || player.faceit_level_image) && (
                                         <div className="mb-4 flex flex-col items-center justify-center" title={`Faceit Level ${faceitLevel ?? 0}`}>
@@ -133,11 +191,17 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                                         Querido ID: {player?.id}
                                     </p>
                                     
-                                    {player.id !== 0 && (
+                                    {player.id !== 0 && hasFaceitLink && (
                                         <Button asChild className="w-full bg-[#ff5500] hover:bg-[#e04b00] text-white font-bold py-6 rounded-xl mb-4">
                                             <a href={`https://www.faceit.com/pt/players/${player?.nickname}`} target="_blank">
                                                 Perfil Faceit
                                             </a>
+                                        </Button>
+                                    )}
+
+                                    {player.id !== 0 && !hasFaceitLink && isOwnProfile && (
+                                        <Button onClick={handleFaceitLink} className="w-full bg-[#ff5500] hover:bg-[#e04b00] text-white font-bold py-6 rounded-xl mb-4">
+                                            Vincular Faceit
                                         </Button>
                                     )}
 
@@ -183,17 +247,31 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                                         <div className="space-y-3">
                                             {conquistas.length > 0 ? (
                                                 conquistas.map((conq, i) => {
-                                                    const isVice = conq.nome.toUpperCase().startsWith('VICE');
+                                                    const nome = String(conq.nome || conq.label || conq.codigo || 'Conquista');
+                                                    const isVice = nome.toUpperCase().startsWith('VICE');
+                                                    const hasImage = Boolean(conq.imagem);
                                                     return (
                                                         <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4 hover:border-gold/40 transition-all">
-                                                            <div className={isVice ? "text-blue-400" : "text-gold"}>
-                                                                {conq.tipo === 'MVP' ? <Medal size={28} /> : <Crown size={28} />}
-                                                            </div>
+                                                            {hasImage ? (
+                                                                <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/10 shrink-0">
+                                                                    <Image
+                                                                        src={conq.imagem}
+                                                                        alt={nome}
+                                                                        fill
+                                                                        className="object-cover"
+                                                                        unoptimized
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <div className={isVice ? "text-blue-400" : "text-gold"}>
+                                                                    {conq.tipo === 'MVP' ? <Medal size={28} /> : <Crown size={28} />}
+                                                                </div>
+                                                            )}
                                                             <div className="text-left">
                                                                 <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${isVice ? "text-blue-400 bg-blue-400/10" : "text-gold bg-gold/10"}`}>
-                                                                    {conq.tipo}
+                                                                    {conq.tipo || 'CONQUISTA'}
                                                                 </span>
-                                                                <p className="text-white font-bold text-sm uppercase mt-1">{conq.nome}</p>
+                                                                <p className="text-white font-bold text-sm uppercase mt-1">{nome}</p>
                                                             </div>
                                                         </div>
                                                     );
@@ -208,11 +286,7 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                         </div>
                     </div>
                     <div className="lg:col-span-2">
-                        {adminView && playerStatsList && playerStatsList.length > 0 && (
-                            <PlayerStatsDetails playerStatsList={playerStatsList} />
-                        )}
-                        
-                        {adminView && (player.id !== 0 || player.faceit_guid) && (
+                        {(player.id !== 0 || player.faceit_guid) && (
                             <PlayerMatches 
                                 faceitId={player?.faceit_guid} 
                                 upcomingMatches={upcomingMatches} 

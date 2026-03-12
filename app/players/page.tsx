@@ -1,20 +1,20 @@
 import PlayersList from './players-list';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { createMainConnection, createJogadoresConnection } from '@/lib/db';
+import { createMainConnection } from '@/lib/db';
 import type { Env } from '@/lib/db';
 
-export const revalidate = 86400; 
+export const dynamic = 'force-dynamic';
 
 const ITEMS_PER_PAGE = 20;
+const SPECIAL_ROLE_GUIDS = [
+  '0124bfce-db9e-4d4f-b3f4-b66084a8a484',
+  'fcb1b15c-f3d4-47d1-bd27-b478b7ada9ee',
+];
 
-const normalizeText = (str: string | null | undefined): string => {
-  if (!str) return '';
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') 
-    .replace(/[^a-z0-9]/g, '');
-};
+function parseAdicionadosCodes(raw: any): string[] {
+  if (!raw || typeof raw !== 'string') return [];
+  return raw.split(/[,;|\n]/).map((s: string) => s.trim()).filter(Boolean);
+}
 
 async function getLastUpdate(connection: any) {
   try {
@@ -27,62 +27,118 @@ async function getLastUpdate(connection: any) {
   }
 }
 
-async function getPlayersData(mainConn: any, jogadoresConn: any, offset: number) {
-  const [totalResult]: any = await mainConn.query('SELECT COUNT(*) as count FROM players');
-  const totalPlayers = totalResult[0].count;
+async function getPlayersData(mainConn: any, offset: number, search: string) {
+  const searchPattern = search ? `%${search}%` : null;
+  const displayNameExpr = "COALESCE(NULLIF(nickname, ''), apelido)";
+  const specialOrderClause = `CASE
+      WHEN faceit_guid = '${SPECIAL_ROLE_GUIDS[0]}' THEN 0
+      WHEN faceit_guid = '${SPECIAL_ROLE_GUIDS[1]}' THEN 1
+      ELSE 2
+    END`;
+
+  const [[countResult], [conquistaCounts], [adicionadosDetails], [codigosSistemaRows]] = await Promise.all([
+    mainConn.query(
+      searchPattern
+        ? `SELECT COUNT(*) as count FROM players WHERE ${displayNameExpr} LIKE ?`
+        : 'SELECT COUNT(*) as count FROM players',
+      searchPattern ? [searchPattern] : []
+    ),
+    mainConn.query(
+      'SELECT resgatado_por, tipo, nome FROM codigos_conquistas'
+    ),
+    mainConn.query('SELECT codigo, imagem, label FROM adicionados'),
+    mainConn.query('SELECT tipo, nome FROM codigos_sistema ORDER BY id DESC'),
+  ]) as any;
+
+  const totalPlayers = countResult[0].count;
   const totalPages = Math.ceil(totalPlayers / ITEMS_PER_PAGE);
 
   const [playersRows]: any = await mainConn.query(
-    'SELECT id, nickname, avatar, faceit_guid, adicionados FROM players ORDER BY nickname ASC LIMIT ? OFFSET ?',
-    [ITEMS_PER_PAGE, offset]
+    searchPattern
+      ? `SELECT id, ${displayNameExpr} AS nickname, avatar, faceit_guid, adicionados FROM players WHERE ${displayNameExpr} LIKE ? ORDER BY ${specialOrderClause}, ${displayNameExpr} ASC LIMIT ? OFFSET ?`
+      : `SELECT id, ${displayNameExpr} AS nickname, avatar, faceit_guid, adicionados FROM players ORDER BY ${specialOrderClause}, ${displayNameExpr} ASC LIMIT ? OFFSET ?`,
+    searchPattern ? [searchPattern, ITEMS_PER_PAGE, offset] : [ITEMS_PER_PAGE, offset]
   );
 
-  const [teamsRows]: any = await mainConn.query('SELECT * FROM team_config');
-  const [jogadoresRows]: any = await jogadoresConn.query('SELECT * FROM jogadores');
-  const normalizedJogadoresMap = new Map<string, any>(jogadoresRows.map((j: any) => [normalizeText(j.nick), j]));
+  const adicionadosMap = new Map<string, any>(
+    adicionadosDetails.map((a: any) => [String(a.codigo).trim(), a])
+  );
+
+  const conquistasByPlayer = new Map<string, { tipo: string; count: number }[]>();
+  for (const row of conquistaCounts) {
+    const pid = String(row.resgatado_por);
+    // Mirror the same logic PerfilClient uses: nome starting with VICE → vice
+    const nome = String(row.nome || '').toUpperCase();
+    const rawTipo = String(row.tipo || '').toUpperCase();
+    let displayTipo: string;
+    if (nome.startsWith('VICE') || rawTipo === 'VICE') {
+      displayTipo = 'VICE CAMPEÃO';
+    } else if (['CAMPEAO', 'CAMPEÃO', 'CAMPEONATO', 'CAMPEÃO'].includes(rawTipo) || (!nome.startsWith('VICE') && rawTipo.includes('CAMP'))) {
+      displayTipo = 'CAMPEÃO';
+    } else {
+      displayTipo = rawTipo || 'CONQUISTA';
+    }
+    if (!conquistasByPlayer.has(pid)) conquistasByPlayer.set(pid, []);
+    const existing = conquistasByPlayer.get(pid)!.find(e => e.tipo === displayTipo);
+    if (existing) existing.count++;
+    else conquistasByPlayer.get(pid)!.push({ tipo: displayTipo, count: 1 });
+  }
 
   const playersWithTeams = playersRows.map((player: any) => {
-    if (player.id === 0) {
-      player.nickname = "-1";
-      player.avatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSELngQdOTsSQXmSv9j1ltZDiGKXvSB8NJIsQ&s";
-    }
-    
-    let teamName = null;
-    let teamLogo = null;
+    const isIdZero = String(player.id) === '0';
 
-    const normalizedPlayerNick = normalizeText(player.nickname);
-    const jogador = normalizedJogadoresMap.get(normalizedPlayerNick);
-
-    if (jogador) {
-      const captainId = jogador.captain_id || jogador.id;
-      const captain = jogadoresRows.find((j: any) => String(j.id) === String(captainId));
-
-      if (captain) {
-        const team = teamsRows.find((t: any) => (t.player_nick || '').split(',').map((n:string) => n.trim()).includes(captain.nick));
-        if (team) {
-          teamName = team.team_name;
-          teamLogo = team.team_image;
+    if (isIdZero) {
+      const specialAchievements = new Map<string, number>();
+      for (const row of codigosSistemaRows as any[]) {
+        const nome = String(row.nome || '').toUpperCase();
+        const rawTipo = String(row.tipo || '').toUpperCase();
+        let displayTipo: string;
+        if (nome.startsWith('VICE') || rawTipo === 'VICE') {
+          displayTipo = 'VICE CAMPEÃO';
+        } else if (['CAMPEAO', 'CAMPEÃO', 'CAMPEONATO'].includes(rawTipo) || (!nome.startsWith('VICE') && rawTipo.includes('CAMP'))) {
+          displayTipo = 'CAMPEÃO';
+        } else {
+          displayTipo = rawTipo || 'CONQUISTA';
         }
+        specialAchievements.set(displayTipo, (specialAchievements.get(displayTipo) || 0) + 1);
       }
+
+      return {
+        id: player.id,
+        nickname: player.nickname,
+        avatar: player.avatar,
+        faceit_guid: player.faceit_guid,
+        achievements: Array.from(specialAchievements.entries()).map(([tipo, count]) => ({ tipo, count })),
+        playerAdicionados: [],
+      };
     }
 
-    return { 
-      ...player, 
-      team_name: teamName, 
-      team_logo: teamLogo
+    const codes = parseAdicionadosCodes(player.adicionados);
+    const playerAdicionados = codes
+      .map((code: string) => adicionadosMap.get(code))
+      .filter(Boolean)
+      .map((a: any) => ({ codigo: a.codigo, label: a.label || a.codigo, imagem: a.imagem }));
+
+    return {
+      id: player.id,
+      nickname: player.nickname,
+      avatar: player.avatar,
+      faceit_guid: player.faceit_guid,
+      achievements: conquistasByPlayer.get(String(player.id)) || [],
+      playerAdicionados,
     };
   });
 
   return { playersWithTeams, totalPages };
 }
 
-export default async function PlayersPage(props: { searchParams: Promise<{ page?: string }> }) {
+export default async function PlayersPage(props: { searchParams: Promise<{ page?: string; search?: string }> }) {
   const searchParams = await props.searchParams;
-  const currentPage = Number(searchParams?.page) || 1;
+  const search = (searchParams?.search || '').trim();
+  const currentPage = search ? 1 : (Number(searchParams?.page) || 1);
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
   let mainConnection: any;
-  let jogadoresConnection: any;
   let playersData = { playersWithTeams: [], totalPages: 0 };
   let lastUpdate = new Date().toISOString();
 
@@ -91,18 +147,15 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
     const env = ctx.env as Env;
 
     mainConnection = await createMainConnection(env);
-    // explicitly mark which route is performing DB work
     (mainConnection as any).setPage('/players');
-    jogadoresConnection = await createJogadoresConnection(env);
 
-    playersData = await getPlayersData(mainConnection, jogadoresConnection, offset);
+    playersData = await getPlayersData(mainConnection, offset, search);
     lastUpdate = await getLastUpdate(mainConnection);
 
   } catch (error: any) {
     console.error("Erro ao carregar dados:", error.message);
   } finally {
     if (mainConnection) await mainConnection.end().catch(() => {});
-    if (jogadoresConnection) await jogadoresConnection.end().catch(() => {});
   }
 
   return (
@@ -112,6 +165,7 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
         totalPages={playersData.totalPages}
         currentPage={currentPage}
         lastUpdate={lastUpdate}
+        search={search}
       />
     </div>
   );
