@@ -83,7 +83,7 @@ export const UserProfile = ({
           <Avatar className="h-9 w-9 border border-white/10">
             <AvatarImage src={avatar} alt={nickname} />
             <AvatarFallback className="bg-[#FF5500] text-white">
-              {nickname.slice(0, 2).toUpperCase()}
+              {(nickname ? nickname.slice(0, 2) : '??').toUpperCase()}
             </AvatarFallback>
           </Avatar>
         </div>
@@ -92,6 +92,12 @@ export const UserProfile = ({
       <DropdownMenuContent align="end" className="w-56 bg-[#121212] border-white/10 text-white">
         <DropdownMenuLabel className="text-gray-400 font-normal">Minha Conta</DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-white/10" />
+        
+        {(userAdminLevel === 1 || userAdminLevel === 2 || userAdminLevel === 5) && (
+          <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
+            <Link href="/overlay/placar" className="w-full">🎥 Overlay Placar</Link>
+          </DropdownMenuItem>
+        )}
         
         {(userAdminLevel >= 1 && userAdminLevel <= 5) && (
           <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
@@ -159,7 +165,14 @@ export const UserProfile = ({
         <DropdownMenuSeparator className="bg-white/10" />
         
         <DropdownMenuItem 
-          onClick={onLogout} 
+          onClick={() => {
+            localStorage.removeItem('manual_user');
+            localStorage.removeItem('manual_user_login_time');
+            localStorage.removeItem('faceit_user');
+            localStorage.removeItem('faceit_user_login_time');
+            window.dispatchEvent(new Event('faceit_auth_updated'));
+            onLogout();
+          }}
           className="text-red-500 focus:bg-red-500/10 focus:text-red-500 cursor-pointer"
         >
           Sair

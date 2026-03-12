@@ -28,15 +28,20 @@ const SPECIAL_ROLES: Record<string, { emoji: string; bannerLabel: string; banner
 
 export default function PerfilClient({ player, initialConquistas, upcomingMatches, teamName, playerStatsList, adminView = false }: { player: any, initialConquistas: any[], upcomingMatches?: any[], teamName?: string, playerStatsList?: any[], adminView?: boolean }) {
     const [codigo, setCodigo] = useState('');
+    const [adicionadosInput, setAdicionadosInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [savingAdicionados, setSavingAdicionados] = useState(false);
     const [status, setStatus] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
+    const [adminStatus, setAdminStatus] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
     const [conquistas, setConquistas] = useState(initialConquistas);
     const [faceitLevel, setFaceitLevel] = useState<number | null>(player.id === 0 ? -1 : null);
     const [isChallenger, setIsChallenger] = useState(false);
     const [isOwnProfile, setIsOwnProfile] = useState(false);
+    const [userAdminLevel, setUserAdminLevel] = useState(0);
 
     const role = SPECIAL_ROLES[player?.faceit_guid || ''] || null;
     const hasFaceitLink = Boolean(player?.faceit_guid && player?.nickname);
+    const canManageThisProfile = isOwnProfile || (!isOwnProfile && userAdminLevel === 1);
 
     const handleFaceitLink = async () => {
         localStorage.setItem('faceit_link_player_id', String(player?.id || ''));
@@ -100,6 +105,8 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
         };
         fetchLevel();
 
+        setAdicionadosInput(String(player?.adicionados || ''));
+
         const storedUser = localStorage.getItem("manual_user") || localStorage.getItem("faceit_user");
         if (storedUser) {
             try {
@@ -110,6 +117,24 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                         const updatedUser = { ...user, nickname: player.nickname };
                         localStorage.setItem("faceit_user", JSON.stringify(updatedUser));
                     }
+                }
+
+                const localAdminLevel = Number(user.Admin || user.admin || 0);
+                if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+                    setUserAdminLevel(localAdminLevel);
+                } else if (user.faceit_guid) {
+                    fetch(`/api/admin/players?faceit_guid=${user.faceit_guid}`)
+                        .then((res) => res.json())
+                        .then((data) => {
+                            if (data && typeof data.admin === 'number') {
+                                setUserAdminLevel(data.admin);
+                            } else {
+                                setUserAdminLevel(localAdminLevel);
+                            }
+                        })
+                        .catch(() => setUserAdminLevel(localAdminLevel));
+                } else {
+                    setUserAdminLevel(localAdminLevel);
                 }
             } catch (e) {
                 console.error("Failed to parse user session", e);
@@ -139,6 +164,36 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
             setStatus({ msg: 'Erro na conexão', type: 'error' });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleUpdateAdicionados = async () => {
+        if (!canManageThisProfile) return;
+
+        setSavingAdicionados(true);
+        setAdminStatus(null);
+
+        try {
+            const res = await fetch('/api/admin/players/update-adicionados', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: player.id,
+                    adicionados: adicionadosInput.trim(),
+                }),
+            });
+
+            if (res.ok) {
+                setAdminStatus({ msg: 'Adicionados atualizados com sucesso!', type: 'success' });
+            } else {
+                const data = await res.json().catch(() => null);
+                setAdminStatus({ msg: data?.message || 'Falha ao atualizar adicionados', type: 'error' });
+            }
+        } catch (e) {
+            console.error('Erro ao atualizar adicionados', e);
+            setAdminStatus({ msg: 'Erro na conexao', type: 'error' });
+        } finally {
+            setSavingAdicionados(false);
         }
     };
 
@@ -205,10 +260,10 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                                         </Button>
                                     )}
 
-                                    {isOwnProfile && (
+                                    {canManageThisProfile && (
                                     <div className="w-full pt-4 border-t border-white/10 mt-2">
                                         <label className="text-[10px] text-zinc-400 uppercase font-black tracking-widest mb-3 block">
-                                            Resgatar:
+                                            {isOwnProfile ? 'Resgatar:' : 'Resgatar no perfil:'}
                                         </label>
                                         <div className="flex flex-col gap-2">
                                             <input 
@@ -224,7 +279,7 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                                                 className="bg-gold hover:bg-gold/80 text-black font-black uppercase text-xs py-5 rounded-lg flex gap-2"
                                             >
                                                 <Ticket size={16} />
-                                                {loading ? 'Validando...' : 'Colocar código'}
+                                                {loading ? 'Validando...' : 'Colocar codigo'}
                                             </Button>
                                             {status && (
                                                 <p className={`text-[10px] font-bold uppercase mt-2 ${status.type === 'success' ? 'text-green-400' : 'text-red-500'}`}>
@@ -232,6 +287,35 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                                                 </p>
                                             )}
                                         </div>
+
+                                        {!isOwnProfile && userAdminLevel === 1 && (
+                                            <div className="mt-4 pt-4 border-t border-white/10">
+                                                <label className="text-[10px] text-zinc-400 uppercase font-black tracking-widest mb-3 block">
+                                                    Adicionados:
+                                                </label>
+                                                <div className="flex flex-col gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={adicionadosInput}
+                                                        onChange={(e) => setAdicionadosInput(e.target.value)}
+                                                        placeholder="EX: QCS-CADEIRANTE, MVP-2026"
+                                                        className="bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:border-gold/50 outline-none uppercase font-mono"
+                                                    />
+                                                    <Button
+                                                        onClick={handleUpdateAdicionados}
+                                                        disabled={savingAdicionados}
+                                                        className="bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-xs py-5 rounded-lg"
+                                                    >
+                                                        {savingAdicionados ? 'Salvando...' : 'Salvar adicionados'}
+                                                    </Button>
+                                                    {adminStatus && (
+                                                        <p className={`text-[10px] font-bold uppercase mt-2 ${adminStatus.type === 'success' ? 'text-green-400' : 'text-red-500'}`}>
+                                                            {adminStatus.msg}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                     )}
                                 </div>

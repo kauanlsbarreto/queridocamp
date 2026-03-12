@@ -313,14 +313,18 @@ export default function LiveMatchesModal() {
                                             const finishedMapsCount = match.stats?.rounds?.length || 0;
                                             const resultScore = match.results?.score || { faction1: 0, faction2: 0 };
 
-                                            if (hasFinishedMaps && match.status === 'ONGOING') {
+                                            if (hasFinishedMaps && match.status === 'ONGOING' && finishedMapsCount < 2) {
+                                                const currentMapIndex = finishedMapsCount;
+                                                const currentMapStats = match.stats?.rounds?.[currentMapIndex]?.round_stats;
+                                                const mapScore = currentMapStats?.Score.replace(" / ", " - ") || "-";
+                                                
                                                 return (
-                                                    <div className="bg-black/80 px-2 py-1.5 rounded border border-gold/40 mb-2 flex flex-col items-center min-w-[90px]">
+                                                    <div className="bg-black/80 px-4 py-1.5 rounded border border-gold/40 mb-2 flex flex-col items-center min-w-[90px]">
                                                         <span className="text-[7px] text-gray-400 uppercase tracking-widest mb-0.5 font-bold">
-                                                            {finishedMapsCount === 1 ? "MAPA 2" : "MAPA 3"}
+                                                            MAPA {finishedMapsCount + 2}
                                                         </span>
-                                                        <span className="text-[9px] font-black text-gold leading-tight text-center">
-                                                            EM JOGO
+                                                        <span className="text-xl font-black text-gold tabular-nums leading-none">
+                                                            {mapScore}
                                                         </span>
                                                     </div>
                                                 );
