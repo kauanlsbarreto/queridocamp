@@ -140,11 +140,26 @@ export default function PlaycarPage() {
     return (
         <div className="min-h-screen bg-black p-6">
             <div className="max-w-6xl mx-auto">
-                <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-gold uppercase tracking-tighter mb-2">
-                        Overlays de Partidas
-                    </h1>
-                    <p className="text-gray-400">Links para OBS - Copie a URL e adicione como Source</p>
+                <div className="mb-8 flex items-center justify-between">
+                    <div>
+                        <h1 className="text-4xl font-bold text-gold uppercase tracking-tighter mb-2">
+                            Overlays de Partidas
+                        </h1>
+                        <p className="text-gray-400">Links para OBS - Copie a URL e adicione como Source</p>
+                    </div>
+                    <a
+                        href="/overlay/placar/test"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex"
+                    >
+                        <Button
+                            variant="outline"
+                            className="border-gold/50 text-gold hover:bg-gold/10"
+                        >
+                            🧪 Teste
+                        </Button>
+                    </a>
                 </div>
 
                 {loading ? (
@@ -161,7 +176,6 @@ export default function PlaycarPage() {
                             <Card key={match.match_id} className="bg-gray-900 border-gray-800 overflow-hidden hover:border-gold/50 transition-colors">
                                 <div className="p-6">
                                     <div className="flex items-center justify-between gap-6">
-                                        {/* Times */}
                                         <div className="flex items-center gap-4 flex-1 min-w-0">
                                             <div className="flex items-center gap-3 flex-1 min-w-0">
                                                 <div className="w-12 h-12 relative rounded-full overflow-hidden flex-shrink-0 border border-gray-700">
@@ -202,7 +216,6 @@ export default function PlaycarPage() {
                                             </div>
                                         </div>
 
-                                        {/* Status e Ações */}
                                         <div className="flex items-center gap-3 flex-shrink-0">
                                             <div className="text-right">
                                                 <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase ${

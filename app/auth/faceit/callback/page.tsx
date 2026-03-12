@@ -34,7 +34,6 @@ export default function Callback() {
         const tokenData = await tokenRes.json()
         const accessToken = tokenData.access_token
 
-        // 2️⃣ busca o perfil do usuário na Faceit
         const profileRes = await fetch('https://api.faceit.com/auth/v1/resources/userinfo', {
           headers: { Authorization: `Bearer ${accessToken}` },
         })
@@ -42,7 +41,6 @@ export default function Callback() {
         if (!profileRes.ok) throw new Error('Falha ao buscar perfil')
         const profile = await profileRes.json()
 
-        // 3️⃣ monta user parcial
         const partialUser = {
           faceit_guid: profile.sub,
           nickname: profile.nickname || profile.given_name || 'Usuário',
@@ -52,7 +50,9 @@ export default function Callback() {
         }
 
 
-        // 4️⃣ envia para o backend para pegar ID e Admin
+        const linkPlayerIdRaw = localStorage.getItem('faceit_link_player_id')
+        const linkPlayerId = linkPlayerIdRaw ? Number(linkPlayerIdRaw) : null
+
         const dbRes = await fetch('/api/players', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -60,13 +60,20 @@ export default function Callback() {
             guid: partialUser.faceit_guid,
             nickname: partialUser.nickname,
             avatar: partialUser.avatar,
+            linkPlayerId: Number.isFinite(linkPlayerId as number) ? linkPlayerId : null,
           }),
         })
 
-        if (!dbRes.ok) throw new Error('Falha ao sincronizar com o banco')
+        if (!dbRes.ok) {
+          let message = 'Falha ao sincronizar com o banco'
+          try {
+            const errData = await dbRes.json()
+            if (errData?.message) message = errData.message
+          } catch {}
+          throw new Error(message)
+        }
         const dbUser = await dbRes.json()
 
-        // 5️⃣ monta user completo
         const fullUser = {
           ...partialUser,
           id: dbUser.id ?? dbUser.ID,
@@ -74,12 +81,11 @@ export default function Callback() {
           admin: dbUser.admin,
         }
 
-        // 6️⃣ salva no localStorage
         localStorage.setItem('faceit_user', JSON.stringify(fullUser))
+        localStorage.removeItem('faceit_link_player_id')
         localStorage.removeItem('faceit_code_verifier')
 
 
-        // 7️⃣ fecha popup ou redireciona
         if (window.opener) {
           window.opener.postMessage({ type: 'FACEIT_LOGIN_SUCCESS', user: fullUser }, window.location.origin)
           setTimeout(() => window.close(), 300)
@@ -88,7 +94,7 @@ export default function Callback() {
         }
       } catch (err) {
         console.error(err)
-        // send failure log
+        localStorage.removeItem('faceit_link_player_id')
         try {
           await fetch(window.location.origin + '/api/logins', {
             method: 'POST',
@@ -103,6 +109,20 @@ export default function Callback() {
         } catch (e) {
           console.error('Failed to send failure log', e)
         }
+
+        if (window.opener) {
+          window.opener.postMessage(
+            {
+              type: 'FACEIT_LOGIN_ERROR',
+              message: err instanceof Error ? err.message : String(err),
+            },
+            window.location.origin
+          )
+          setTimeout(() => window.close(), 500)
+          return
+        }
+
+        alert(err instanceof Error ? err.message : 'Falha no login Faceit')
         router.push('/')
       }
     }
