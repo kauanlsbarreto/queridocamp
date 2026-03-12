@@ -1,8 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import Image from "next/image"
 
 export default function TestOverlay() {
+    const [copied, setCopied] = useState(false);
+
     const mockMatch = {
         match_id: "test-match-001",
         status: "ONGOING",
@@ -44,6 +47,14 @@ export default function TestOverlay() {
         }
     };
 
+    const copyLink = () => {
+        const url = `${window.location.origin}/overlay/placar/test`;
+        navigator.clipboard.writeText(url).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
+
     const finishedMapsCount = mockMatch.stats?.rounds?.length || 0;
     const resultScore = mockMatch.results?.score || { faction1: 0, faction2: 0 };
 
@@ -51,111 +62,270 @@ export default function TestOverlay() {
     let currentMapLabel = "MAPA 3";
 
     return (
-        <div className="w-full min-h-screen bg-gradient-to-b from-black via-gray-900 to-black overflow-hidden">
-            {/* Background gradient effect */}
-            <div className="absolute inset-0 opacity-50">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-gold/20 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl"></div>
+        <div style={{
+            width: '100vw',
+            height: '100vh',
+            background: 'linear-gradient(to bottom, #000, #1a1a2e, #000)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '32px',
+            overflow: 'hidden',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            margin: 0
+        }}>
+            <style>{`
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+                button:hover {
+                    border-color: rgba(255, 215, 0, 0.8) !important;
+                    background-color: rgba(255, 215, 0, 0.2) !important;
+                }
+            `}</style>
+
+            <div style={{
+                position: 'absolute',
+                inset: 0,
+                opacity: 0.5,
+                pointerEvents: 'none'
+            }}>
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: '25%',
+                    width: '384px',
+                    height: '384px',
+                    background: 'rgba(255, 215, 0, 0.2)',
+                    borderRadius: '50%',
+                    filter: 'blur(96px)'
+                }}></div>
+                <div style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    right: '25%',
+                    width: '384px',
+                    height: '384px',
+                    background: 'rgba(59, 130, 246, 0.1)',
+                    borderRadius: '50%',
+                    filter: 'blur(96px)'
+                }}></div>
             </div>
 
-            {/* Content */}
-            <div className="relative w-full h-screen flex flex-col items-center justify-center p-8">
-                {/* Main Score Container */}
-                <div className="w-full max-w-4xl">
-                    {/* Status Badge */}
-                    <div className="flex items-center justify-center mb-8">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold uppercase text-sm tracking-wider bg-red-600/30 text-red-300 border border-red-500/50">
-                            <div className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse"></div>
-                            🔴 AO VIVO
+            <div style={{ position: 'relative', width: '100%', maxWidth: '1024px' }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '32px'
+                }}>
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 16px',
+                        borderRadius: '9999px',
+                        fontWeight: 'bold',
+                        textTransform: 'uppercase',
+                        fontSize: '14px',
+                        letterSpacing: '0.05em',
+                        backgroundColor: 'rgba(220, 38, 38, 0.3)',
+                        color: '#fca5a5',
+                        border: '1px solid rgba(239, 68, 68, 0.5)'
+                    }}>
+                        <div style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '50%',
+                            backgroundColor: '#dc2626',
+                            animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                        }}></div>
+                        🔴 AO VIVO
+                    </div>
+                </div>
+
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr 1fr',
+                    gap: '24px',
+                    alignItems: 'center'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '16px',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{
+                            position: 'relative',
+                            width: '128px',
+                            height: '128px',
+                            borderRadius: '16px',
+                            overflow: 'hidden',
+                            border: '4px solid rgba(255, 215, 0, 0.4)',
+                            boxShadow: '0 20px 25px -5px rgba(255, 215, 0, 0.2)'
+                        }}>
+                            <Image 
+                                src={mockMatch.teams.faction1.avatar}
+                                alt={mockMatch.teams.faction1.name}
+                                fill
+                                style={{ objectFit: 'cover' }}
+                                priority
+                            />
                         </div>
+                        <h2 style={{
+                            fontSize: '24px',
+                            fontWeight: 900,
+                            color: '#fff',
+                            textTransform: 'uppercase',
+                            letterSpacing: '-0.05em',
+                            maxWidth: '200px'
+                        }}>
+                            {mockMatch.teams.faction1.name}
+                        </h2>
                     </div>
 
-                    {/* Match Display */}
-                    <div className="grid grid-cols-3 gap-6 items-center">
-                        {/* Time 1 */}
-                        <div className="flex flex-col items-center gap-4 text-center transform hover:scale-105 transition-transform duration-300">
-                            <div className="w-32 h-32 relative rounded-2xl overflow-hidden border-4 border-gold/40 shadow-2xl shadow-gold/20 ring-2 ring-gold/20">
-                                <Image 
-                                    src={mockMatch.teams.faction1.avatar} 
-                                    alt={mockMatch.teams.faction1.name}
-                                    fill
-                                    className="object-cover"
-                                    priority
-                                />
-                            </div>
-                            <div>
-                                <h2 className="text-3xl font-black text-white uppercase tracking-tight line-clamp-2 max-w-xs">
-                                    {mockMatch.teams.faction1.name}
-                                </h2>
-                                <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Time 1</p>
-                            </div>
-                        </div>
-
-                        {/* Central Score */}
-                        <div className="flex flex-col items-center gap-6 py-8">
-                            {/* Map/Round Label */}
-                            <div className="text-center">
-                                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-2">
-                                    {currentMapLabel}
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '24px',
+                        paddingTop: '32px',
+                        paddingBottom: '32px'
+                    }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <p style={{
+                                fontSize: '12px',
+                                color: '#9ca3af',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                fontWeight: 'bold',
+                                marginBottom: '8px'
+                            }}>
+                                {currentMapLabel}
+                            </p>
+                            <div style={{
+                                background: 'linear-gradient(to bottom-right, #000, #111, #000)',
+                                borderRadius: '16px',
+                                border: '2px solid rgba(255, 215, 0, 0.6)',
+                                padding: '24px',
+                                boxShadow: '0 20px 25px -5px rgba(255, 215, 0, 0.2)',
+                                minWidth: '180px'
+                            }}>
+                                <p style={{
+                                    fontSize: '60px',
+                                    fontWeight: 900,
+                                    color: '#FFD700',
+                                    fontFamily: 'monospace',
+                                    lineHeight: 1
+                                }}>
+                                    {currentMapScore}
                                 </p>
-                                {/* Score Display */}
-                                <div className="bg-gradient-to-br from-black via-gray-950 to-black rounded-2xl border-2 border-gold/60 p-6 shadow-2xl shadow-gold/20 min-w-[180px]">
-                                    <p className="text-6xl font-black text-gold tabular-nums leading-none">
-                                        {currentMapScore}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Maps Info */}
-                            <div className="flex flex-col gap-2">
-                                {mockMatch.stats?.rounds.slice(0, 3).map((round, idx) => {
-                                    const mapName = round.round_stats?.Map || `Mapa ${idx + 1}`;
-                                    const score = round.round_stats?.Score.replace(" / ", " - ") || "-";
-                                    const isCurrent = idx === finishedMapsCount && mockMatch.status === 'ONGOING';
-                                    
-                                    return (
-                                        <div 
-                                            key={idx} 
-                                            className={`px-4 py-2 rounded-lg border text-sm font-bold uppercase transition-all ${
-                                                isCurrent 
-                                                    ? 'bg-gold/20 border-gold/60 text-gold shadow-lg shadow-gold/30' 
-                                                    : 'bg-gray-900/50 border-gray-700/50 text-gray-300'
-                                            }`}
-                                        >
-                                            <div className="flex justify-between gap-4">
-                                                <span>{mapName.replace('de_', '')}</span>
-                                                <span>{score}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
                             </div>
                         </div>
 
-                        {/* Time 2 */}
-                        <div className="flex flex-col items-center gap-4 text-center transform hover:scale-105 transition-transform duration-300">
-                            <div className="w-32 h-32 relative rounded-2xl overflow-hidden border-4 border-gold/40 shadow-2xl shadow-gold/20 ring-2 ring-gold/20">
-                                <Image 
-                                    src={mockMatch.teams.faction2.avatar} 
-                                    alt={mockMatch.teams.faction2.name}
-                                    fill
-                                    className="object-cover"
-                                    priority
-                                />
-                            </div>
-                            <div>
-                                <h2 className="text-3xl font-black text-white uppercase tracking-tight line-clamp-2 max-w-xs">
-                                    {mockMatch.teams.faction2.name}
-                                </h2>
-                                <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Time 2</p>
-                            </div>
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px'
+                        }}>
+                            {mockMatch.stats?.rounds.slice(0, 3).map((round, idx) => {
+                                const mapName = round.round_stats?.Map || `Mapa ${idx + 1}`;
+                                const score = round.round_stats?.Score.replace(" / ", " - ") || "-";
+                                const isCurrent = idx === finishedMapsCount && mockMatch.status === 'ONGOING';
+                                
+                                return (
+                                    <div 
+                                        key={idx} 
+                                        style={{
+                                            padding: '8px 16px',
+                                            borderRadius: '8px',
+                                            border: isCurrent ? '2px solid rgba(255, 215, 0, 0.6)' : '1px solid rgba(107, 114, 128, 0.5)',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            textTransform: 'uppercase',
+                                            backgroundColor: isCurrent ? 'rgba(255, 215, 0, 0.2)' : 'rgba(17, 24, 39, 0.5)',
+                                            color: isCurrent ? '#FFD700' : '#d1d5db',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            gap: '16px'
+                                        }}
+                                    >
+                                        <span>{mapName.replace('de_', '')}</span>
+                                        <span>{score}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    {/* Footer Info */}
-                    <div className="mt-8 text-center text-gray-600 text-xs uppercase tracking-wider">
-                        <p>Querido Camp • {mockMatch.game?.toUpperCase()} • OVERLAY DE TESTE</p>
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '16px',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{
+                            position: 'relative',
+                            width: '128px',
+                            height: '128px',
+                            borderRadius: '16px',
+                            overflow: 'hidden',
+                            border: '4px solid rgba(255, 215, 0, 0.4)',
+                            boxShadow: '0 20px 25px -5px rgba(255, 215, 0, 0.2)'
+                        }}>
+                            <Image 
+                                src={mockMatch.teams.faction2.avatar}
+                                alt={mockMatch.teams.faction2.name}
+                                fill
+                                style={{ objectFit: 'cover' }}
+                                priority
+                            />
+                        </div>
+                        <h2 style={{
+                            fontSize: '24px',
+                            fontWeight: 900,
+                            color: '#fff',
+                            textTransform: 'uppercase',
+                            letterSpacing: '-0.05em',
+                            maxWidth: '200px'
+                        }}>
+                            {mockMatch.teams.faction2.name}
+                        </h2>
                     </div>
+                </div>
+
+                <div style={{
+                    marginTop: '32px',
+                    textAlign: 'center',
+                    color: '#4b5563',
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                }}>
+                    <p>Querido Camp • {mockMatch.game?.toUpperCase()} • OVERLAY DE TESTE</p>
+                    <button 
+                        onClick={copyLink}
+                        style={{
+                            marginTop: '16px',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(255, 215, 0, 0.4)',
+                            backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                            color: copied ? '#4ade80' : '#FFD700',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 200ms',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                        }}
+                    >
+                        {copied ? '✓ Copiado!' : '📋 Copiar Link'}
+                    </button>
                 </div>
             </div>
         </div>
