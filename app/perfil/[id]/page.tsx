@@ -4,20 +4,37 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, createJogadoresConnection, type Env } from '@/lib/db';
 
 const faceitApiKey = '7b080715-fe0b-461d-a1f1-62cfd0c47e63';
+const matchCache = new Map<string, any>();
 
 async function getOpponentFromMatch(matchId: string, playerTeamName: string) {
   try {
+    // Verificar cache
+    if (matchCache.has(matchId)) {
+      const cachedData = matchCache.get(matchId);
+      if (cachedData.faction1 && cachedData.faction2) {
+        const team1Name = cachedData.faction1.name;
+        const team2Name = cachedData.faction2.name;
+        if (team1Name.toLowerCase() === playerTeamName.toLowerCase()) return team2Name;
+        if (team2Name.toLowerCase() === playerTeamName.toLowerCase()) return team1Name;
+      }
+      return null;
+    }
+
     const res = await fetch(`https://open.faceit.com/data/v4/matches/${matchId}`, {
-      headers: { Authorization: `Bearer ${faceitApiKey}` }
+      headers: { Authorization: `Bearer ${faceitApiKey}` },
+      signal: AbortSignal.timeout(5000) // Timeout de 5 segundos
     });
 
     if (!res.ok) return null;
 
     const data = await res.json();
+    matchCache.set(matchId, data.teams || {});
+
     const faction1 = data.teams?.faction1;
     const faction2 = data.teams?.faction2;
     const team1Name = faction1?.name;
     const team2Name = faction2?.name;
+    
     if (!team1Name || !team2Name) return null;
     if (team1Name.toLowerCase() === playerTeamName.toLowerCase()) return team2Name;
     if (team2Name.toLowerCase() === playerTeamName.toLowerCase()) return team1Name;
@@ -294,15 +311,36 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     }
 
     if (playerStatsList.length > 0 && playerTeamName) {
+      // Paralelizar fetches de opponent em batch de 5 por vez para não sobrecarregar
+      const batchSize = 5;
+      
       for (const ps of playerStatsList) {
+        const matchRequests: { round: number; matchId: string }[] = [];
+        
         for (let round = 1; round <= 17; round++) {
           const matchId = ps[`r${round}_m1_id`];
           if (matchId) {
-            const opponent = await getOpponentFromMatch(matchId, playerTeamName);
-            if (opponent) {
-              ps[`r${round}_opponent`] = opponent;
-            }
+            matchRequests.push({ round, matchId });
           }
+        }
+
+        // Processar em batches de 5
+        for (let i = 0; i < matchRequests.length; i += batchSize) {
+          const batch = matchRequests.slice(i, i + batchSize);
+          const results = await Promise.allSettled(
+            batch.map(req => 
+              getOpponentFromMatch(req.matchId, playerTeamName).then(opponent => ({
+                round: req.round,
+                opponent
+              }))
+            )
+          );
+
+          results.forEach((result) => {
+            if (result.status === 'fulfilled' && result.value.opponent) {
+              ps[`r${result.value.round}_opponent`] = result.value.opponent;
+            }
+          });
         }
       }
     }

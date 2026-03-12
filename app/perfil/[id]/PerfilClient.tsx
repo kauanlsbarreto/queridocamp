@@ -73,9 +73,15 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
             if (player.id === 0) return;
             if (player?.faceit_guid) {
                 try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 5000); // Timeout de 5 segundos
+
                     const res = await fetch(`https://open.faceit.com/data/v4/players/${player.faceit_guid}`, {
-                        headers: { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' }
+                        headers: { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' },
+                        signal: controller.signal
                     });
+                    clearTimeout(timeout);
+
                     if (res.ok) {
                         const data = await res.json();
                         if (data.games?.cs2?.skill_level) {
@@ -83,9 +89,15 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
 
                             if (data.games.cs2.skill_level === 10 && data.games.cs2.region) {
                                 try {
+                                    const rankController = new AbortController();
+                                    const rankTimeout = setTimeout(() => rankController.abort(), 3000);
+
                                     const rankRes = await fetch(`https://open.faceit.com/data/v4/rankings/games/cs2/regions/${data.games.cs2.region}/players/${player.faceit_guid}`, {
-                                        headers: { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' }
+                                        headers: { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' },
+                                        signal: rankController.signal
                                     });
+                                    clearTimeout(rankTimeout);
+
                                     if (rankRes.ok) {
                                         const rankData = await rankRes.json();
                                         if (rankData.position && rankData.position <= 1000) {
@@ -99,7 +111,11 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                         }
                     }
                 } catch (error) {
-                    console.error("Failed to fetch Faceit level", error);
+                    if (error instanceof Error && error.name === 'AbortError') {
+                        console.log("Faceit fetch timeout");
+                    } else {
+                        console.error("Failed to fetch Faceit level", error);
+                    }
                 }
             }
         };
