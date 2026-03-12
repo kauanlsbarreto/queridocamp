@@ -27,6 +27,8 @@ type PlayerRow = RowDataPacket & {
   faceit_guid: string;
   nickname: string;
   avatar: string;
+  email?: string;
+  senha?: string;
   created_at: string;
   updated_at: string;
 };
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
     const env = ctx.env as unknown as Env;
     const connection = await createMainConnection(env);
 
-    const { guid, nickname, avatar } = await req.json();
+    const { guid, nickname, avatar, linkPlayerId } = await req.json();
 
     if (!guid || !nickname) {
       await connection.end();
@@ -50,13 +52,25 @@ export async function POST(req: Request) {
     await connection.query(`
       CREATE TABLE IF NOT EXISTS players (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        faceit_guid VARCHAR(255) NOT NULL UNIQUE,
+        faceit_guid VARCHAR(255) UNIQUE,
         nickname VARCHAR(255) NOT NULL,
         avatar VARCHAR(255),
+        email VARCHAR(100) DEFAULT NULL,
+        senha VARCHAR(255) DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) AUTO_INCREMENT = 100
     `);
+    // ensure column allows nulls
+    try {
+      await connection.query("ALTER TABLE players MODIFY faceit_guid VARCHAR(255) NULL UNIQUE");
+    } catch {}
+    try {
+      await connection.query("ALTER TABLE players ADD COLUMN IF NOT EXISTS email VARCHAR(100) DEFAULT NULL");
+    } catch {}
+    try {
+      await connection.query("ALTER TABLE players ADD COLUMN IF NOT EXISTS senha VARCHAR(255) DEFAULT NULL");
+    } catch {}
 
     const [rows] = await connection.query<PlayerRow[]>(
       "SELECT * FROM players WHERE faceit_guid = ?",
@@ -65,26 +79,66 @@ export async function POST(req: Request) {
 
     let user = rows[0];
 
-    if (!user) {
-      const [insertResult] = await connection.query<ResultSetHeader>(
-        "INSERT INTO players (faceit_guid, nickname, avatar) VALUES (?, ?, ?)",
-        [guid, nickname, avatar || ""]
-      );
+    // Link mode: attach this Faceit account to a specific existing player.
+    if (linkPlayerId !== undefined && linkPlayerId !== null) {
+      const targetId = Number(linkPlayerId);
+      if (!Number.isFinite(targetId) || targetId <= 0) {
+        await connection.end();
+        return NextResponse.json({ message: "ID de jogador inválido para vinculação." }, { status: 400 });
+      }
 
-      const [newRows] = await connection.query<PlayerRow[]>(
+      const [targetRows] = await connection.query<PlayerRow[]>(
         "SELECT * FROM players WHERE id = ?",
-        [insertResult.insertId]
+        [targetId]
+      );
+      const targetUser = targetRows[0];
+
+      if (!targetUser) {
+        await connection.end();
+        return NextResponse.json({ message: "Jogador não encontrado para vinculação." }, { status: 404 });
+      }
+
+      if (user && user.id !== targetId) {
+        await connection.end();
+        return NextResponse.json(
+          { message: "Esta conta Faceit já está vinculada a outro usuário." },
+          { status: 409 }
+        );
+      }
+
+      await connection.query<ResultSetHeader>(
+        "UPDATE players SET faceit_guid = ?, nickname = ?, avatar = ? WHERE id = ?",
+        [guid, nickname, avatar || "", targetId]
       );
 
-      user = newRows[0];
+      const [updatedRows] = await connection.query<PlayerRow[]>(
+        "SELECT * FROM players WHERE id = ?",
+        [targetId]
+      );
+      user = updatedRows[0];
     } else {
-      if (user.nickname !== nickname || user.avatar !== (avatar || "")) {
-        await connection.query<ResultSetHeader>(
-          "UPDATE players SET nickname = ?, avatar = ? WHERE faceit_guid = ?",
-          [nickname, avatar || "", guid]
+      // Regular Faceit login mode.
+      if (!user) {
+        const [insertResult] = await connection.query<ResultSetHeader>(
+          "INSERT INTO players (faceit_guid, nickname, avatar) VALUES (?, ?, ?)",
+          [guid, nickname, avatar || ""]
         );
 
-        user = { ...user, nickname, avatar: avatar || "" };
+        const [newRows] = await connection.query<PlayerRow[]>(
+          "SELECT * FROM players WHERE id = ?",
+          [insertResult.insertId]
+        );
+
+        user = newRows[0];
+      } else {
+        if (user.nickname !== nickname || user.avatar !== (avatar || "")) {
+          await connection.query<ResultSetHeader>(
+            "UPDATE players SET nickname = ?, avatar = ? WHERE faceit_guid = ?",
+            [nickname, avatar || "", guid]
+          );
+
+          user = { ...user, nickname, avatar: avatar || "" };
+        }
       }
     }
 
@@ -100,7 +154,6 @@ export async function POST(req: Request) {
           error_message TEXT NULL
         )
       `);
-        // make sure legacy tables have the right column definitions
         try {
           await connection.query(
             "ALTER TABLE logs_logins MODIFY horario DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
@@ -115,7 +168,6 @@ export async function POST(req: Request) {
         [nickname, guid, ip]
       );
 
-      // also send webhook
       const webhookUrl =
         "https://discord.com/api/webhooks/1481113334760734886/vG1Hfh5hB6Tix0yDiRmkqvuJ0Wx91s6MhUrGw5BdRjF9QtXzWAVWyQK79diiUi1Mv9YE";
       const contentLines = [

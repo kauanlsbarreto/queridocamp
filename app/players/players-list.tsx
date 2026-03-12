@@ -71,7 +71,7 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
   }, [initialPlayers]);
 
   const filteredPlayers = players.filter(p =>
-    p.nickname.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.nickname ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
