@@ -7,6 +7,12 @@ import { Separator } from '@/components/ui/separator'
 
 const updates = [
   {
+    id: 'att-redondo',
+    title: 'Adicionamos Conquistas no Redondo',
+    date: '11/03/2026',
+    description: 'Adicionamos um sistema de conquistas para o redondo, com recompensas exclusivas para os jogadores.',
+  },
+  {
     id: 'att-classificacao',
     title: 'Atualização na pagina Classificação',
     date: '09/02/2026',

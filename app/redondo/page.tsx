@@ -31,7 +31,9 @@ async function ensureTableExists(connection: any) {
       "semi_1 JSON", "semi_2 JSON", "semi_3 JSON", "semi_4 JSON",
       "final_1 JSON", "final_2 JSON",
       "semi_locked BOOLEAN DEFAULT FALSE",
-      "final_locked BOOLEAN DEFAULT FALSE"
+      "final_locked BOOLEAN DEFAULT FALSE",
+      "winner_1 JSON",
+      "winner_locked BOOLEAN DEFAULT FALSE"
     ];
 
     for (const col of additionalColumns) {
@@ -69,6 +71,67 @@ async function getUsers(connection: any) {
   } catch (error) {
     console.error("Erro ao buscar usuários:", error);
     return [];
+  }
+}
+
+async function getTop8Teams(connection: any): Promise<string[]> {
+  try {
+    const [rows]: any = await connection.query(
+      'SELECT team_name FROM team_config ORDER BY sp DESC, df DESC LIMIT 8'
+    );
+    return rows.map((r: any) => r.team_name as string);
+  } catch (error) {
+    console.error("Erro ao buscar top 8:", error);
+    return [];
+  }
+}
+
+async function getAdminReferencePicks(connection: any) {
+  try {
+    const [rows]: any = await connection.query(
+      `SELECT semi_1, semi_2, semi_3, semi_4, final_1, final_2, winner_1
+       FROM escolhas
+       WHERE nickname = 'ADMIN'
+       LIMIT 1`
+    );
+
+    const adminRow = rows[0] || {};
+    const parseTeam = (value: any) => {
+      if (!value) return null;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }
+      return value;
+    };
+
+    const semiTeams = [adminRow.semi_1, adminRow.semi_2, adminRow.semi_3, adminRow.semi_4]
+      .map(parseTeam)
+      .filter(Boolean)
+      .map((team: any) => team.team_name as string);
+
+    const finalTeams = [adminRow.final_1, adminRow.final_2]
+      .map(parseTeam)
+      .filter(Boolean)
+      .map((team: any) => team.team_name as string);
+
+    const winnerTeam = parseTeam(adminRow.winner_1);
+
+    return {
+      semiTeams,
+      finalTeams,
+      winner: winnerTeam?.team_name || ''
+    };
+  } catch (error) {
+    console.error("Erro ao buscar picks de referência do ADMIN:", error);
+    return {
+      semiTeams: [],
+      finalTeams: [],
+      winner: ''
+    };
   }
 }
 
@@ -126,11 +189,13 @@ export default async function RedondoPage() {
 
     await ensureTableExists(connection);
 
-    const [teams, usersWithPicks, pickStats, lastUpdate] = await Promise.all([
+    const [teams, usersWithPicks, pickStats, lastUpdate, top8Teams, adminReference] = await Promise.all([
       getTeams(connection),
       getUsers(connection),
       getPickStats(connection),
-      getLastUpdate(connection)
+      getLastUpdate(connection),
+      getTop8Teams(connection),
+      getAdminReferencePicks(connection)
     ]);
 
     return (
@@ -142,6 +207,10 @@ export default async function RedondoPage() {
               initialTeams={teams}
               usersWithPicks={usersWithPicks}
               pickStats={pickStats}
+              top8Teams={top8Teams}
+              topSemiTeams={adminReference.semiTeams}
+              topFinalTeams={adminReference.finalTeams}
+              topWinner={adminReference.winner}
             />
           ) : (
             <div className="text-center p-20 border border-dashed border-zinc-800 rounded-2xl">

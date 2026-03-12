@@ -38,7 +38,7 @@ function guessPageFromStack(): string {
       const filePath = m[1];
       const appIndex = filePath.indexOf("app\\");
       if (appIndex !== -1) {
-        let rel = filePath.slice(appIndex + 4); // after 'app\'
+        let rel = filePath.slice(appIndex + 4); 
         rel = rel.replace(/\\/g, "/");
         rel = rel.replace(/\/page\.[tj]sx?$/, "");
         rel = rel.replace(/\/layout\.[tj]sx?$/, "");
@@ -53,7 +53,6 @@ function guessPageFromStack(): string {
 }
 
 function wrapConnection(conn: Connection, dbLabel: string): Connection {
-  // allow consumers to override the detected page
   let pageOverride: string | undefined;
 
   const handler: ProxyHandler<any> = {
@@ -100,7 +99,6 @@ function wrapConnection(conn: Connection, dbLabel: string): Connection {
   };
 
   const proxy = new Proxy(conn, handler);
-  // expose setter for page override
   (proxy as any).setPage = (p: string) => {
     pageOverride = p;
   };

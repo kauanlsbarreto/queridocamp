@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { createMainConnection } from "@/lib/db";
+import { createMainConnection, createJogadoresConnection } from "@/lib/db";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export const dynamic = "force-dynamic";
+
+function getPhaseName(phase: string) {
+  if (phase === "slot") return "Quartas de Final";
+  if (phase === "semi") return "Semi-Finais";
+  if (phase === "final") return "Grande Final";
+  if (phase === "winner") return "Ganhador";
+  return phase;
+}
 
 type Env = {
   DB_PRINCIPAL: {
@@ -91,7 +99,7 @@ export async function POST(request: Request) {
         [nickname, faceit_guid || null, teamJson, teamJson, faceit_guid || null] as any
       );
 
-      const phaseName = phase === 'slot' ? 'Quartas de Final' : phase === 'semi' ? 'Semi-Finais' : 'Grande Final';
+      const phaseName = getPhaseName(phase);
       let logMsg = "";
       if (team) {
         logMsg = ` **Pick Adicionado/Atualizado**\n **Usuário:** ${nickname}\n **Time:** ${team.team_name}\n **Etapa:** ${phaseName} (Slot ${idx + 1})`;
@@ -116,7 +124,7 @@ export async function POST(request: Request) {
         [nickname] as any
       );
 
-      const phaseName = phase === 'slot' ? 'Quartas de Final' : phase === 'semi' ? 'Semi-Finais' : 'Grande Final';
+      const phaseName = getPhaseName(phase);
       const logMsg = ` **Fase Confirmada**\n **Usuário:** ${nickname}\n **Etapa:** ${phaseName}`;
       if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
       else await sendDiscordLog(logMsg);
@@ -136,7 +144,7 @@ export async function POST(request: Request) {
         [targetStatus] as any
       );
 
-      const phaseName = phase === 'slot' ? 'Quartas de Final' : phase === 'semi' ? 'Semi-Finais' : 'Grande Final';
+      const phaseName = getPhaseName(phase);
       const statusText = targetStatus ? "BLOQUEADO 🔒" : "DESBLOQUEADO 🔓";
       const logMsg = ` **Admin: Alteração Global**\n **Admin:** ${nickname}\n **Etapa:** ${phaseName}\n**Status:** ${statusText}`;
       if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
@@ -144,6 +152,188 @@ export async function POST(request: Request) {
 
       revalidatePath("/redondo");
       return NextResponse.json({ success: true });
+    }
+
+    if (action === "sync_guids") {
+      const level = typeof adminLevel === "string" ? parseInt(adminLevel) : adminLevel;
+      if (!level || level > 2)
+        return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+      const [missing]: any = await connection.query(
+        `SELECT nickname FROM escolhas WHERE faceit_guid IS NULL OR faceit_guid = ''`
+      );
+
+      const similarity = (a: string, b: string): number => {
+        const s1 = a.toLowerCase();
+        const s2 = b.toLowerCase();
+        if (s1 === s2) return 1;
+        const longer = s1.length >= s2.length ? s1 : s2;
+        const shorter = s1.length >= s2.length ? s2 : s1;
+        if (longer.length === 0) return 1;
+        const costs: number[] = [];
+        for (let i = 0; i <= shorter.length; i++) {
+          let lastValue = i;
+          for (let j = 0; j <= longer.length; j++) {
+            if (i === 0) { costs[j] = j; }
+            else if (j > 0) {
+              let newValue = costs[j - 1];
+              if (shorter[i - 1] !== longer[j - 1])
+                newValue = Math.min(newValue, lastValue, costs[j]) + 1;
+              costs[j - 1] = lastValue;
+              lastValue = newValue;
+            }
+          }
+          if (i > 0) costs[longer.length] = lastValue;
+        }
+        return (longer.length - costs[longer.length]) / longer.length;
+      }
+
+      let jogadoresConn: any = null;
+      let faceitPlayers: { faceit_nickname: string; faceit_guid: string }[] = [];
+      try {
+        jogadoresConn = await createJogadoresConnection(ctx.env as any);
+        const [fpRows]: any = await jogadoresConn.query(
+          `SELECT faceit_nickname, faceit_guid FROM faceit_players WHERE faceit_guid IS NOT NULL AND faceit_guid != ''`
+        );
+        faceitPlayers = fpRows as { faceit_nickname: string; faceit_guid: string }[];
+      } catch (e) {
+        console.error("Erro ao conectar DB_JOGADORES:", e);
+      }
+
+      let updated = 0;
+      let notFound = 0;
+      const notFoundList: string[] = [];
+
+      for (const row of missing as { nickname: string }[]) {
+        const [players]: any = await connection.query(
+          `SELECT faceit_guid FROM players WHERE nickname = ? LIMIT 1`,
+          [row.nickname]
+        );
+        if (players.length && players[0].faceit_guid) {
+          await connection.query(
+            `UPDATE escolhas SET faceit_guid = ? WHERE nickname = ?`,
+            [players[0].faceit_guid, row.nickname]
+          );
+          updated++;
+          continue;
+        }
+
+        const exactFp = faceitPlayers.find(
+          fp => fp.faceit_nickname.toLowerCase() === row.nickname.toLowerCase()
+        );
+        if (exactFp) {
+          await connection.query(
+            `UPDATE escolhas SET faceit_guid = ? WHERE nickname = ?`,
+            [exactFp.faceit_guid, row.nickname]
+          );
+          updated++;
+          continue;
+        }
+
+        let bestMatch: { faceit_nickname: string; faceit_guid: string } | null = null;
+        let bestScore = 0;
+        for (const fp of faceitPlayers) {
+          const score = similarity(row.nickname, fp.faceit_nickname);
+          if (score > bestScore) { bestScore = score; bestMatch = fp; }
+        }
+        if (bestScore >= 0.8 && bestMatch) {
+          await connection.query(
+            `UPDATE escolhas SET faceit_guid = ? WHERE nickname = ?`,
+            [bestMatch.faceit_guid, row.nickname]
+          );
+          updated++;
+          continue;
+        }
+
+        notFound++;
+        notFoundList.push(row.nickname);
+      }
+
+      if (jogadoresConn) await jogadoresConn.end().catch(console.error);
+
+      const logMsg = ` **Admin: Sync GUIDs**\n **Admin:** ${nickname}\n **Atualizados:** ${updated}\n **Não encontrados (${notFound}):** ${notFoundList.join(", ") || "nenhum"}`;
+      if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
+      else await sendDiscordLog(logMsg);
+
+      return NextResponse.json({ success: true, updated, notFound, notFoundList, total: (missing as any[]).length });
+    }
+
+    if (action === "award_redondop") {
+      const level = typeof adminLevel === "string" ? parseInt(adminLevel) : adminLevel;
+      if (!level || level > 2)
+        return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+      const [participants]: any = await connection.query(
+        `SELECT e.nickname, e.faceit_guid FROM escolhas e`
+      );
+
+      let updated = 0;
+      let alreadyHad = 0;
+      const missingPlayers: string[] = [];
+
+      for (const row of participants as { nickname: string; faceit_guid: string | null }[]) {
+        let playerId: number | null = null;
+        let adicionados: string | null = null;
+
+        // 1) Try by faceit_guid first
+        if (row.faceit_guid) {
+          const [byGuidRows]: any = await connection.query(
+            `SELECT id, adicionados FROM players WHERE faceit_guid = ? LIMIT 1`,
+            [row.faceit_guid]
+          );
+          if (byGuidRows.length) {
+            playerId = byGuidRows[0].id;
+            adicionados = byGuidRows[0].adicionados;
+          }
+        }
+
+        // 2) Fallback by nickname
+        if (!playerId) {
+          const [byNickRows]: any = await connection.query(
+            `SELECT id, adicionados FROM players WHERE nickname = ? LIMIT 1`,
+            [row.nickname]
+          );
+          if (byNickRows.length) {
+            playerId = byNickRows[0].id;
+            adicionados = byNickRows[0].adicionados;
+          }
+        }
+
+        if (!playerId) {
+          missingPlayers.push(row.nickname);
+          continue;
+        }
+
+        const currentCodes = String(adicionados || "")
+          .split(/[,;|\n]/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        if (currentCodes.includes("QCS-REDONDOP")) {
+          alreadyHad++;
+          continue;
+        }
+
+        currentCodes.push("QCS-REDONDOP");
+        await connection.query(
+          `UPDATE players SET adicionados = ? WHERE id = ?`,
+          [currentCodes.join(","), playerId]
+        );
+        updated++;
+      }
+
+      const logMsg = ` **Admin: Premiar Redondo**\n **Admin:** ${nickname}\n **Atualizados:** ${updated}\n **Já tinham:** ${alreadyHad}\n **Sem player vinculado:** ${missingPlayers.length}`;
+      if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
+      else await sendDiscordLog(logMsg);
+
+      return NextResponse.json({
+        success: true,
+        total: (participants as any[]).length,
+        updated,
+        alreadyHad,
+        missingPlayersCount: missingPlayers.length,
+        missingPlayers
+      });
     }
 
     if (action === "admin_manage_user") {
@@ -171,6 +361,8 @@ export async function POST(request: Request) {
           updateQuery = "semi_1=NULL, semi_2=NULL, semi_3=NULL, semi_4=NULL, semi_locked=0";
         else if (phaseToUse === "final")
           updateQuery = "final_1=NULL, final_2=NULL, final_locked=0";
+        else if (phaseToUse === "winner")
+          updateQuery = "winner_1=NULL, winner_locked=0";
 
         if (updateQuery)
           await connection.query(
@@ -179,7 +371,7 @@ export async function POST(request: Request) {
           );
       }
 
-      const phaseName = phaseToUse === 'slot' ? 'Quartas de Final' : phaseToUse === 'semi' ? 'Semi-Finais' : 'Grande Final';
+      const phaseName = getPhaseName(phaseToUse);
       const actionText = type === "unlock" ? "Destravou fase" : "Limpou e Destravou fase";
       const logMsg = ` **Admin: Gerenciar Usuário**\n **Admin:** ${nickname}\n **Alvo:** ${targetNickname}\n **Ação:** ${actionText}\n **Etapa:** ${phaseName}`;
       if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));

@@ -1,9 +1,9 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useCallback } from "react"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import Image from "next/image"
-import { Lock, Shield, AlertCircle, CheckCircle, Eye, X, Unlock, BarChart2, Trash2 } from "lucide-react"
+import { Lock, Shield, AlertCircle, CheckCircle, Eye, X, Unlock, BarChart2, Trash2, Trophy } from "lucide-react"
 import FaceitLogin from "../../components/FaceitLogin"
 
 interface TeamPick {
@@ -21,14 +21,57 @@ interface UserProfile {
   Admin?: number;
 }
 
+function AchievementArtwork({
+  image,
+  title,
+  size = 'large'
+}: {
+  image: string;
+  title: string;
+  size?: 'large' | 'small' | 'gallery';
+}) {
+  const sizeClass =
+    size === 'small'
+      ? 'aspect-square w-full rounded-xl'
+      : size === 'gallery'
+        ? 'aspect-square w-full rounded-xl'
+        : 'aspect-square w-[220px] max-w-full rounded-2xl';
+
+  return (
+    <div
+      aria-label={title}
+      role="img"
+      onContextMenu={(e) => e.preventDefault()}
+      className={`${sizeClass} bg-center bg-cover bg-no-repeat select-none pointer-events-none`}
+      style={{ backgroundImage: `url(${image})` }}
+    />
+  );
+}
+
+function getPhaseLabel(phase: string) {
+  if (phase === 'slot') return 'Quartas';
+  if (phase === 'semi') return 'Semi';
+  if (phase === 'final') return 'Final';
+  if (phase === 'winner') return 'Ganhador';
+  return phase;
+}
+
 export default function PickEmClient({ 
   initialTeams, 
   usersWithPicks,
-  pickStats = {}
+  pickStats = {},
+  top8Teams = [],
+  topSemiTeams = [],
+  topFinalTeams = [],
+  topWinner = ''
 }: { 
   initialTeams: TeamPick[], 
   usersWithPicks: string[],
-  pickStats?: Record<string, number>
+  pickStats?: Record<string, number>,
+  top8Teams?: string[],
+  topSemiTeams?: string[],
+  topFinalTeams?: string[],
+  topWinner?: string
 }) {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loadingPicks, setLoadingPicks] = useState(false)
@@ -40,9 +83,11 @@ export default function PickEmClient({
   const [qualifiedTeams, setQualifiedTeams] = useState<(TeamPick | null)[]>(Array(8).fill(null))
   const [semiTeams, setSemiTeams] = useState<(TeamPick | null)[]>(Array(4).fill(null))
   const [finalTeams, setFinalTeams] = useState<(TeamPick | null)[]>(Array(2).fill(null))
+  const [winnerTeam, setWinnerTeam] = useState<TeamPick | null>(null)
   
-  const [locks, setLocks] = useState({ slot: false, semi: false, final: false })
+  const [locks, setLocks] = useState({ slot: false, semi: false, final: false, winner: false })
   const [statsTab, setStatsTab] = useState<'top' | 'unused'>('top')
+  const [showGallery, setShowGallery] = useState(false)
 
   const userLevel = user?.Admin ?? user?.admin ?? 0;
   const isAdminView = userLevel >= 1 && userLevel <= 5; // 1 a 5 podem ver outros
@@ -68,10 +113,12 @@ export default function PickEmClient({
     setQualifiedTeams(q);
     setSemiTeams(parsePhase('semi', 4));
     setFinalTeams(parsePhase('final', 2));
+    setWinnerTeam(parsePhase('winner', 1)[0] ?? null);
     setLocks({ 
       slot: !!data.locked, 
       semi: !!data.semi_locked, 
-      final: !!data.final_locked 
+      final: !!data.final_locked,
+      winner: !!data.winner_locked
     });
 
     const pickedIds = new Set(q.filter(t => t).map(t => t.id));
@@ -146,7 +193,7 @@ export default function PickEmClient({
 
   const confirmPhase = async (phase: string) => {
     if (!user || isViewingOther || !isAuthorized) return;
-    if (!confirm(`Deseja confirmar suas escolhas para ${phase}? Isso não poderá ser desfeito.`)) return;
+    if (!confirm(`Deseja confirmar suas escolhas para ${getPhaseLabel(phase)}? Isso não poderá ser desfeito.`)) return;
     
     await fetch('/api/picks', {
       method: 'POST',
@@ -181,6 +228,55 @@ export default function PickEmClient({
       alert(`Erro: ${data.error || "Falha na operação"}`);
     }
   }
+
+  const syncGuids = async () => {
+    if (!isHighAdmin) return;
+    if (!confirm('Sincronizar faceit_guid ausentes na tabela escolhas buscando na tabela players?')) return;
+    try {
+      const res = await fetch('/api/picks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sync_guids', nickname: user?.nickname, adminLevel: userLevel })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Sync concluído!\nTotal sem GUID: ${data.total}\nAtualizados: ${data.updated}\nNão encontrados: ${data.notFound}`);
+      } else {
+        alert(`Erro: ${data.error || 'Falha na operação'}`);
+      }
+    } catch (e) { console.error(e); alert('Erro ao sincronizar.'); }
+  };
+
+  const awardRedondoParticipants = async () => {
+    if (!isHighAdmin) return;
+    if (!confirm("Premiar TODOS que participaram do Redondo com o código QCS-REDONDOP?")) return;
+    try {
+      const res = await fetch('/api/picks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'award_redondop', nickname: user?.nickname, adminLevel: userLevel })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const missingList = Array.isArray(data.missingPlayers) && data.missingPlayers.length > 0
+          ? data.missingPlayers.join(', ')
+          : 'nenhum';
+        alert(
+          `Premiação concluída!\n` +
+          `Total analisados: ${data.total}\n` +
+          `Atualizados: ${data.updated}\n` +
+          `Já tinham: ${data.alreadyHad}\n` +
+          `Sem player vinculado: ${data.missingPlayersCount}\n` +
+          `Nicknames: ${missingList}`
+        );
+      } else {
+        alert(`Erro: ${data.error || 'Falha na operação'}`);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao premiar participantes.');
+    }
+  };
 
   const adminManageUser = async (targetNickname: string, type: 'unlock' | 'clear', phase: string) => {
     if (!isHighAdmin) return;
@@ -224,6 +320,7 @@ export default function PickEmClient({
     if (destId.startsWith("slot-") && locks.slot) return;
     if (destId.startsWith("semi-") && locks.semi) return;
     if (destId.startsWith("final-") && locks.final) return;
+    if (destId.startsWith("winner-") && locks.winner) return;
 
     if (destId.startsWith("semi-") && !sourceId.startsWith("slot-")) {
       alert("Para a SEMI, você deve arrastar times que escolheu nas QUARTAS!");
@@ -231,6 +328,10 @@ export default function PickEmClient({
     }
     if (destId.startsWith("final-") && !sourceId.startsWith("semi-")) {
       alert("Para a FINAL, você deve arrastar times que escolheu nas SEMIS!");
+      return;
+    }
+    if (destId.startsWith("winner-") && !sourceId.startsWith("final-")) {
+      alert("Para o GANHADOR, você deve arrastar times que escolheu na FINAL!");
       return;
     }
 
@@ -260,6 +361,12 @@ export default function PickEmClient({
       setFinalTeams(newF);
       savePickToDb('final', dIdx, team);
     }
+    else if (sourceId.startsWith("final-") && destId.startsWith("winner-")) {
+      const sIdx = parseInt(sourceId.replace("final-", ""));
+      const team = finalTeams[sIdx];
+      setWinnerTeam(team);
+      savePickToDb('winner', 0, team);
+    }
   }
 
   const sortedStats = initialTeams
@@ -269,11 +376,144 @@ export default function PickEmClient({
   const topPicks = sortedStats.filter(t => t.count > 0);
   const unusedPicks = sortedStats.filter(t => t.count === 0);
 
+  const top8Set = new Set(top8Teams);
+  const topSemiSet = new Set(topSemiTeams);
+  const topFinalSet = new Set(topFinalTeams);
+  const correctPicks = qualifiedTeams.filter(t => t !== null && top8Set.has(t.team_name)).length;
+  const achievementLevel = correctPicks >= 5 ? Math.min(correctPicks, 8) : null;
+  const correctSemiPicks = semiTeams.filter(t => t !== null && topSemiSet.has(t.team_name)).length;
+  const correctFinalPicks = finalTeams.filter(t => t !== null && topFinalSet.has(t.team_name)).length;
+  const winnerHit = Boolean(winnerTeam && topWinner && winnerTeam.team_name === topWinner);
+  const achievementCards = [
+    { key: 'pick-5', title: '5 acertos', image: '/premiredondo/acertou5.png', achieved: correctPicks >= 5, current: achievementLevel === 5 },
+    { key: 'pick-6', title: '6 acertos', image: '/premiredondo/acertou6.png', achieved: correctPicks >= 6, current: achievementLevel === 6 },
+    { key: 'pick-7', title: '7 acertos', image: '/premiredondo/acertou7.png', achieved: correctPicks >= 7, current: achievementLevel === 7 },
+    { key: 'pick-8', title: '8 acertos', image: '/premiredondo/acertou8.png', achieved: correctPicks >= 8, current: achievementLevel === 8 },
+    { key: 'semi', title: 'Semifinal', image: '/premiredondo/semifinal.png', achieved: correctSemiPicks === 4, current: correctSemiPicks === 4 },
+    { key: 'final', title: 'Finalistas', image: '/premiredondo/finalistas.png', achieved: correctFinalPicks === 2, current: correctFinalPicks === 2 },
+    { key: 'winner', title: 'Ganhador', image: '/premiredondo/ganhador.png', achieved: winnerHit, current: winnerHit }
+  ];
+  const featuredAchievement = achievementCards.filter(card => card.achieved).at(-1) || null;
+
   if (!isMounted) return null;
 
   return (
     <div className="flex flex-col gap-8">
-      {!user ? (
+      {/* Gallery Modal */}
+      {showGallery && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setShowGallery(false)}
+        >
+          <div
+            className="bg-zinc-900 rounded-3xl border border-white/10 p-8 max-w-3xl w-full"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
+                <Trophy size={16} className="text-amber-500" /> Conquistas do Redondo
+              </h3>
+              <button onClick={() => setShowGallery(false)} className="text-zinc-500 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {achievementCards.map(card => {
+                return (
+                  <div
+                    key={card.key}
+                    className={`flex flex-col items-center rounded-2xl border-2 p-3 transition-all
+                      ${card.current ? 'border-amber-500 bg-amber-500/5' :
+                        card.achieved ? 'border-green-500/40 bg-green-500/5' :
+                        'border-zinc-800 bg-zinc-950/60'}`}
+                  >
+                    <AchievementArtwork image={card.image} title={card.title} size="gallery" />
+                    <p className="text-xs font-bold mt-2 text-center text-zinc-300">{card.title}</p>
+                    {card.current && <span className="text-amber-500 text-[10px] font-bold mt-1">Atual</span>}
+                    {!card.current && card.achieved && <span className="text-green-400 text-[10px] font-bold mt-1">Conquistado</span>}
+                    {!card.achieved && <span className="text-zinc-500 text-[10px] mt-1">Expectativa</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
+
+        {/* Conquistas */}
+        <div className="lg:w-56 w-full shrink-0 flex flex-col items-center gap-4 lg:sticky lg:top-24">
+          {loadingPicks ? (
+            <div className="text-zinc-500 text-xs">Carregando...</div>
+          ) : featuredAchievement ? (
+            <>
+              <button
+                onClick={() => setShowGallery(true)}
+                className="relative group cursor-pointer"
+                title="Clique para ver todas as conquistas"
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                <div className="group-hover:scale-105 transition-transform drop-shadow-2xl">
+                  <AchievementArtwork image={featuredAchievement.image} title={featuredAchievement.title} />
+                </div>
+                <div className="absolute inset-0 flex items-end justify-center pb-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="bg-black/70 text-white text-xs font-bold px-3 py-1 rounded-full">Ver conquistas</span>
+                </div>
+              </button>
+              <p className="text-amber-500 font-black text-sm">{featuredAchievement.title}</p>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowGallery(true)}
+                className="flex items-center gap-2 text-zinc-500 hover:text-amber-500 transition-colors"
+              >
+                <Trophy size={18} className="text-zinc-600" />
+                <span className="text-xs font-bold uppercase tracking-wider">Ver conquistas</span>
+              </button>
+              <div className="grid grid-cols-2 gap-2 w-full">
+                {achievementCards.slice(4).map(card => (
+                  <div
+                    key={card.key}
+                    className={`rounded-2xl border p-2 ${card.achieved ? 'border-green-500/40 bg-green-500/5' : 'border-zinc-800 bg-zinc-950/60'}`}
+                    onContextMenu={(e) => e.preventDefault()}
+                  >
+                    <AchievementArtwork image={card.image} title={card.title} size="small" />
+                    <p className="mt-2 text-[10px] text-center font-bold text-zinc-300 uppercase">{card.title}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap justify-center gap-1.5">
+                {Array(8).fill(null).map((_, i) => {
+                  const team = qualifiedTeams[i];
+                  const isCorrect = team && top8Set.has(team.team_name);
+                  return (
+                    <div
+                      key={i}
+                      className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center text-[10px] font-bold transition-all
+                        ${isCorrect ? 'border-green-500 bg-green-500/20 text-green-400' :
+                          team ? 'border-zinc-600 bg-zinc-800 text-zinc-500' :
+                          'border-zinc-800 bg-zinc-900/20 text-zinc-700'}`}
+                    >
+                      {isCorrect ? '✓' : team ? '?' : i + 1}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="w-full space-y-1 text-center">
+                <p className="text-zinc-400 text-xs font-bold">Quartas: {correctPicks}/8</p>
+                <p className="text-zinc-400 text-xs font-bold">Semis: {correctSemiPicks}/4</p>
+                <p className="text-zinc-400 text-xs font-bold">Final: {correctFinalPicks}/2</p>
+                <p className="text-zinc-400 text-xs font-bold">Ganhador: {winnerHit ? 'acertou' : 'em aberto'}</p>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+
+        {!user ? (
         <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/50 rounded-3xl border border-white/5 border-dashed">
           <FaceitLogin user={user} onAuthChange={checkUser} />
           <p className="mt-4 text-zinc-500 text-sm">Entre para salvar suas escolhas</p>
@@ -319,20 +559,32 @@ export default function PickEmClient({
           </div>
 
           {isHighAdmin && (
-            <div className="bg-red-500/10 border-2 border-red-500/30 p-4 rounded-2xl flex items-center justify-between">
+            <div className="bg-red-500/10 border-2 border-red-500/30 p-4 rounded-2xl flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2 text-red-500 font-black italic text-sm">
                 <Shield size={20} /> ADMIN
               </div>
-              <div className="flex gap-2">
-                {['slot', 'semi', 'final'].map(phase => (
+              <div className="flex flex-wrap gap-2">
+                {['slot', 'semi', 'final', 'winner'].map(phase => (
                   <button 
                     key={phase}
                     onClick={() => adminToggleGlobal(phase, !locks[phase as keyof typeof locks])}
                     className="bg-red-600 hover:bg-red-700 text-white text-[10px] px-4 py-2 rounded-xl font-bold uppercase transition-all"
                   >
-                    Bloquear / Desbloquear {phase === 'slot' ? 'Quartas' : phase}
+                    Bloquear / Desbloquear {getPhaseLabel(phase)}
                   </button>
                 ))}
+                <button
+                  onClick={syncGuids}
+                  className="bg-zinc-700 hover:bg-zinc-600 text-white text-[10px] px-4 py-2 rounded-xl font-bold uppercase transition-all"
+                >
+                  Sincronizar GUIDs
+                </button>
+                <button
+                  onClick={awardRedondoParticipants}
+                  className="bg-amber-600 hover:bg-amber-500 text-black text-[10px] px-4 py-2 rounded-xl font-bold uppercase transition-all"
+                >
+                  Premiar Redondo
+                </button>
               </div>
             </div>
           )}
@@ -343,9 +595,9 @@ export default function PickEmClient({
                 <Shield size={20} /> GERENCIAR: {viewingNickname}
               </div>
               <div className="flex flex-wrap gap-2">
-                {['slot', 'semi', 'final'].map(phase => (
+                {['slot', 'semi', 'final', 'winner'].map(phase => (
                   <div key={phase} className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase px-2 w-16 text-center">{phase === 'slot' ? 'Quartas' : phase}</span>
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase px-2 w-16 text-center">{getPhaseLabel(phase)}</span>
                     <button 
                       onClick={() => adminManageUser(viewingNickname, 'unlock', phase)}
                       className="bg-green-600 hover:bg-green-700 text-white p-1.5 rounded-md transition-all"
@@ -397,10 +649,11 @@ export default function PickEmClient({
                 {[
                   { title: "Quartas de Final", data: qualifiedTeams, key: 'slot', cols: 4 },
                   { title: "Semi-Finais", data: semiTeams, key: 'semi', cols: 4 },
-                  { title: "Grande Final", data: finalTeams, key: 'final', cols: 2 }
+                  { title: "Grande Final", data: finalTeams, key: 'final', cols: 2 },
+                  { title: "Ganhador", data: [winnerTeam], key: 'winner', cols: 1 }
                 ].map((phase) => {
                   const isLocked = locks[phase.key as keyof typeof locks];
-                  const nextPhaseKey = phase.key === 'slot' ? 'semi' : (phase.key === 'semi' ? 'final' : null);
+                  const nextPhaseKey = phase.key === 'slot' ? 'semi' : (phase.key === 'semi' ? 'final' : (phase.key === 'final' ? 'winner' : null));
                   const isNextLocked = nextPhaseKey ? locks[nextPhaseKey as keyof typeof locks] : true;
                   const dragDisabled = (isLocked && (!nextPhaseKey || isNextLocked)) || isViewingOther || !isAuthorized;
 
@@ -439,7 +692,7 @@ export default function PickEmClient({
                                   )}
                                 </Draggable>
                               ) : (
-                                <span className="text-zinc-800 font-black text-5xl select-none">{index + 1}</span>
+                                <span className="text-zinc-800 font-black text-5xl select-none">{phase.key === 'winner' ? 'W' : index + 1}</span>
                               )}
                               {provided.placeholder}
                             </div>
@@ -501,6 +754,9 @@ export default function PickEmClient({
           </DragDropContext>
         </div>
       )}
+
+        </div>
+      </div>
     </div>
   )
 }
