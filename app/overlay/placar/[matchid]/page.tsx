@@ -23,11 +23,6 @@ interface MatchDetails {
             }
         }[]
     };
-    voting?: {
-        map?: {
-            pick?: string[];
-        };
-    };
     maps?: string[];
 }
 
@@ -38,6 +33,15 @@ export default function MatchOverlay() {
     const matchId = params.matchid as string;
     const [match, setMatch] = useState<MatchDetails | null>(null);
     const [loading, setLoading] = useState(true);
+    const [copied, setCopied] = useState(false);
+
+    const copyLink = () => {
+        const url = `${window.location.origin}/overlay/placar/${matchId}`;
+        navigator.clipboard.writeText(url).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
 
     const fetchMatch = useCallback(async () => {
         try {
@@ -80,9 +84,28 @@ export default function MatchOverlay() {
 
     if (loading || !match) {
         return (
-            <div className="w-full h-screen bg-black flex items-center justify-center">
-                <div className="text-gold text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold mx-auto mb-4"></div>
+            <div style={{
+                width: '100%',
+                height: '100vh',
+                background: '#000',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: 0,
+                padding: 0,
+                overflow: 'hidden'
+            }}>
+                <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+                <div style={{ color: '#FFD700', textAlign: 'center' }}>
+                    <div style={{
+                        width: '48px',
+                        height: '48px',
+                        border: '3px solid #FFD700',
+                        borderRadius: '50%',
+                        borderTop: 'transparent',
+                        animation: 'spin 1s linear infinite',
+                        margin: '0 auto 16px'
+                    }}></div>
                     <p>Carregando...</p>
                 </div>
             </div>
@@ -107,108 +130,270 @@ export default function MatchOverlay() {
     }
 
     return (
-        <div className="w-full min-h-screen bg-gradient-to-b from-black via-gray-900 to-black overflow-hidden">
-            <div className="absolute inset-0 opacity-50">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-gold/20 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl"></div>
+        <div style={{
+            width: '100vw',
+            height: '100vh',
+            background: 'linear-gradient(to bottom, #000, #1a1a2e, #000)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '32px',
+            overflow: 'hidden',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            margin: 0
+        }}>
+            <style>{`
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+                button:hover {
+                    border-color: rgba(255, 215, 0, 0.8) !important;
+                    background-color: rgba(255, 215, 0, 0.2) !important;
+                }
+            `}</style>
+
+            <div style={{
+                position: 'absolute',
+                inset: 0,
+                opacity: 0.5,
+                pointerEvents: 'none'
+            }}>
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: '25%',
+                    width: '384px',
+                    height: '384px',
+                    background: 'rgba(255, 215, 0, 0.2)',
+                    borderRadius: '50%',
+                    filter: 'blur(96px)'
+                }}></div>
+                <div style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    right: '25%',
+                    width: '384px',
+                    height: '384px',
+                    background: 'rgba(59, 130, 246, 0.1)',
+                    borderRadius: '50%',
+                    filter: 'blur(96px)'
+                }}></div>
             </div>
 
-            <div className="relative w-full h-screen flex flex-col items-center justify-center p-8">
-                <div className="w-full max-w-4xl">
-                    <div className="flex items-center justify-center mb-8">
-                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold uppercase text-sm tracking-wider ${
-                            match.status === 'READY' 
-                                ? 'bg-blue-600/30 text-blue-300 border border-blue-500/50' 
-                                : 'bg-red-600/30 text-red-300 border border-red-500/50'
-                        }`}>
-                            <div className={`w-2.5 h-2.5 rounded-full ${
-                                match.status === 'READY' ? 'bg-blue-500' : 'bg-red-600 animate-pulse'
-                            }`}></div>
-                            {match.status === 'READY' ? '⏳ Pronto para começar' : '🔴 AO VIVO'}
+            <div style={{ position: 'relative', width: '100%', maxWidth: '1024px' }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '32px'
+                }}>
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 16px',
+                        borderRadius: '9999px',
+                        fontWeight: 'bold',
+                        textTransform: 'uppercase',
+                        fontSize: '14px',
+                        letterSpacing: '0.05em',
+                        backgroundColor: match.status === 'READY' ? 'rgba(37, 99, 235, 0.3)' : 'rgba(220, 38, 38, 0.3)',
+                        color: match.status === 'READY' ? '#93c5fd' : '#fca5a5',
+                        border: match.status === 'READY' ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid rgba(239, 68, 68, 0.5)'
+                    }}>
+                        <div style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '50%',
+                            backgroundColor: match.status === 'READY' ? '#3b82f6' : '#dc2626',
+                            animation: match.status !== 'READY' ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
+                        }}></div>
+                        {match.status === 'READY' ? '⏳ Pronto' : '🔴 AO VIVO'}
+                    </div>
+                </div>
+
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr 1fr',
+                    gap: '24px',
+                    alignItems: 'center'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '16px',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{
+                            position: 'relative',
+                            width: '128px',
+                            height: '128px',
+                            borderRadius: '16px',
+                            overflow: 'hidden',
+                            border: '4px solid rgba(255, 215, 0, 0.4)',
+                            boxShadow: '0 20px 25px -5px rgba(255, 215, 0, 0.2)'
+                        }}>
+                            <Image 
+                                src={match.teams.faction1.avatar}
+                                alt={match.teams.faction1.name}
+                                fill
+                                style={{ objectFit: 'cover' }}
+                                priority
+                            />
                         </div>
+                        <h2 style={{
+                            fontSize: '24px',
+                            fontWeight: 900,
+                            color: '#fff',
+                            textTransform: 'uppercase',
+                            letterSpacing: '-0.05em',
+                            maxWidth: '200px'
+                        }}>
+                            {match.teams.faction1.name}
+                        </h2>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-6 items-center">
-                        <div className="flex flex-col items-center gap-4 text-center transform hover:scale-105 transition-transform duration-300">
-                            <div className="w-32 h-32 relative rounded-2xl overflow-hidden border-4 border-gold/40 shadow-2xl shadow-gold/20 ring-2 ring-gold/20">
-                                <Image 
-                                    src={match.teams.faction1.avatar || "https://cdn.faceit.com/static/stats/avatar/default_user_blue.png"} 
-                                    alt={match.teams.faction1.name}
-                                    fill
-                                    className="object-cover"
-                                    priority
-                                />
-                            </div>
-                            <div>
-                                <h2 className="text-3xl font-black text-white uppercase tracking-tight line-clamp-2 max-w-xs">
-                                    {match.teams.faction1.name}
-                                </h2>
-                                <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Time 1</p>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col items-center gap-6 py-8">
-                            <div className="text-center">
-                                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-2">
-                                    {currentMapLabel}
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '24px',
+                        paddingTop: '32px',
+                        paddingBottom: '32px'
+                    }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <p style={{
+                                fontSize: '12px',
+                                color: '#9ca3af',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                fontWeight: 'bold',
+                                marginBottom: '8px'
+                            }}>
+                                {currentMapLabel}
+                            </p>
+                            <div style={{
+                                background: 'linear-gradient(to bottom-right, #000, #111, #000)',
+                                borderRadius: '16px',
+                                border: '2px solid rgba(255, 215, 0, 0.6)',
+                                padding: '24px',
+                                boxShadow: '0 20px 25px -5px rgba(255, 215, 0, 0.2)',
+                                minWidth: '180px'
+                            }}>
+                                <p style={{
+                                    fontSize: '60px',
+                                    fontWeight: 900,
+                                    color: '#FFD700',
+                                    fontFamily: 'monospace',
+                                    lineHeight: 1
+                                }}>
+                                    {currentMapScore}
                                 </p>
-                                <div className="bg-gradient-to-br from-black via-gray-950 to-black rounded-2xl border-2 border-gold/60 p-6 shadow-2xl shadow-gold/20 min-w-[180px]">
-                                    <p className="text-6xl font-black text-gold tabular-nums leading-none">
-                                        {currentMapScore}
-                                    </p>
-                                </div>
                             </div>
-
-                            {match.stats?.rounds && match.stats.rounds.length > 0 && (
-                                <div className="flex flex-col gap-2">
-                                    {match.stats.rounds.slice(0, 3).map((round, idx) => {
-                                        const mapName = round.round_stats?.Map || `Mapa ${idx + 1}`;
-                                        const score = round.round_stats?.Score.replace(" / ", " - ") || "-";
-                                        const isCurrent = idx === finishedMapsCount && match.status === 'ONGOING';
-                                        
-                                        return (
-                                            <div 
-                                                key={idx} 
-                                                className={`px-4 py-2 rounded-lg border text-sm font-bold uppercase transition-all ${
-                                                    isCurrent 
-                                                        ? 'bg-gold/20 border-gold/60 text-gold shadow-lg shadow-gold/30' 
-                                                        : 'bg-gray-900/50 border-gray-700/50 text-gray-300'
-                                                }`}
-                                            >
-                                                <div className="flex justify-between gap-4">
-                                                    <span>{mapName.replace('de_', '')}</span>
-                                                    <span>{score}</span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
                         </div>
 
-                        {/* Time 2 */}
-                        <div className="flex flex-col items-center gap-4 text-center transform hover:scale-105 transition-transform duration-300">
-                            <div className="w-32 h-32 relative rounded-2xl overflow-hidden border-4 border-gold/40 shadow-2xl shadow-gold/20 ring-2 ring-gold/20">
-                                <Image 
-                                    src={match.teams.faction2.avatar || "https://cdn.faceit.com/static/stats/avatar/default_user_blue.png"} 
-                                    alt={match.teams.faction2.name}
-                                    fill
-                                    className="object-cover"
-                                    priority
-                                />
-                            </div>
-                            <div>
-                                <h2 className="text-3xl font-black text-white uppercase tracking-tight line-clamp-2 max-w-xs">
-                                    {match.teams.faction2.name}
-                                </h2>
-                                <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Time 2</p>
-                            </div>
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px'
+                        }}>
+                            {match.stats?.rounds.slice(0, 3).map((round, idx) => {
+                                const mapName = round.round_stats?.Map || `Mapa ${idx + 1}`;
+                                const score = round.round_stats?.Score.replace(" / ", " - ") || "-";
+                                const isCurrent = idx === finishedMapsCount && match.status === 'ONGOING';
+                                
+                                return (
+                                    <div 
+                                        key={idx} 
+                                        style={{
+                                            padding: '8px 16px',
+                                            borderRadius: '8px',
+                                            border: isCurrent ? '2px solid rgba(255, 215, 0, 0.6)' : '1px solid rgba(107, 114, 128, 0.5)',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            textTransform: 'uppercase',
+                                            backgroundColor: isCurrent ? 'rgba(255, 215, 0, 0.2)' : 'rgba(17, 24, 39, 0.5)',
+                                            color: isCurrent ? '#FFD700' : '#d1d5db',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            gap: '16px'
+                                        }}
+                                    >
+                                        <span>{mapName.replace('de_', '')}</span>
+                                        <span>{score}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    <div className="mt-8 text-center text-gray-600 text-xs uppercase tracking-wider">
-                        <p>Querido Camp • {match.game?.toUpperCase()} • Match ID: {matchId.slice(0, 8)}...</p>
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '16px',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{
+                            position: 'relative',
+                            width: '128px',
+                            height: '128px',
+                            borderRadius: '16px',
+                            overflow: 'hidden',
+                            border: '4px solid rgba(255, 215, 0, 0.4)',
+                            boxShadow: '0 20px 25px -5px rgba(255, 215, 0, 0.2)'
+                        }}>
+                            <Image 
+                                src={match.teams.faction2.avatar}
+                                alt={match.teams.faction2.name}
+                                fill
+                                style={{ objectFit: 'cover' }}
+                                priority
+                            />
+                        </div>
+                        <h2 style={{
+                            fontSize: '24px',
+                            fontWeight: 900,
+                            color: '#fff',
+                            textTransform: 'uppercase',
+                            letterSpacing: '-0.05em',
+                            maxWidth: '200px'
+                        }}>
+                            {match.teams.faction2.name}
+                        </h2>
                     </div>
+                </div>
+
+                <div style={{
+                    marginTop: '32px',
+                    textAlign: 'center',
+                    color: '#4b5563',
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                }}>
+                    <p>Querido Camp • {match.game?.toUpperCase()}</p>
+                    <button 
+                        onClick={copyLink}
+                        style={{
+                            marginTop: '16px',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(255, 215, 0, 0.4)',
+                            backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                            color: copied ? '#4ade80' : '#FFD700',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 200ms',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                        }}
+                    >
+                        {copied ? '✓ Copiado!' : '📋 Copiar Link'}
+                    </button>
                 </div>
             </div>
         </div>
