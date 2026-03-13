@@ -79,7 +79,7 @@ export default function TestOverlay() {
                 width: '100%',
                 maxWidth: '760px',
                 padding: '8px 12px',
-                background: 'transparent',
+                background: 'linear-gradient(180deg, rgba(15, 11, 3, 0.92), rgba(8, 6, 2, 0.88))',
                 border: '1px solid rgba(247, 207, 102, 0.75)',
                 borderRadius: '16px',
                 boxShadow: 'inset 0 0 0 1px rgba(128, 88, 16, 0.35), 0 0 18px rgba(247, 207, 102, 0.14)'
@@ -103,6 +103,24 @@ export default function TestOverlay() {
                     }}>
                         {mockMatch.teams.faction1.name}
                     </h2>
+                    <div style={{
+                        position: 'relative',
+                        width: '30px',
+                        height: '30px',
+                        borderRadius: '9999px',
+                        overflow: 'hidden',
+                        border: '1px solid rgba(247, 207, 102, 0.75)',
+                        flexShrink: 0,
+                        boxShadow: '0 0 10px rgba(247, 207, 102, 0.18)'
+                    }}>
+                        <Image
+                            src={mockMatch.teams.faction1.avatar || "https://cdn.faceit.com/static/stats/avatar/default_user_blue.png"}
+                            alt={mockMatch.teams.faction1.name}
+                            fill
+                            style={{ objectFit: 'cover' }}
+                            sizes="30px"
+                        />
+                    </div>
                 </div>
 
                 <div style={{
@@ -110,8 +128,9 @@ export default function TestOverlay() {
                     flexDirection: 'column',
                     alignItems: 'center',
                     gap: '8px',
-                    padding: '0',
-                    background: 'transparent'
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    background: 'rgba(0, 0, 0, 0.28)'
                 }}>
                     <Image
                         src="/logo.png"
@@ -141,6 +160,24 @@ export default function TestOverlay() {
                     gap: '8px',
                     minWidth: 0
                 }}>
+                    <div style={{
+                        position: 'relative',
+                        width: '30px',
+                        height: '30px',
+                        borderRadius: '9999px',
+                        overflow: 'hidden',
+                        border: '1px solid rgba(247, 207, 102, 0.75)',
+                        flexShrink: 0,
+                        boxShadow: '0 0 10px rgba(247, 207, 102, 0.18)'
+                    }}>
+                        <Image
+                            src={mockMatch.teams.faction2.avatar || "https://cdn.faceit.com/static/stats/avatar/default_user_red.png"}
+                            alt={mockMatch.teams.faction2.name}
+                            fill
+                            style={{ objectFit: 'cover' }}
+                            sizes="30px"
+                        />
+                    </div>
                     <h2 style={{
                         fontSize: '22px',
                         fontWeight: 900,
