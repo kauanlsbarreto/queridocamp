@@ -27,6 +27,7 @@ interface MatchDetails {
     match_id: string;
     status: string;
     game: string;
+    best_of?: number;
     teams: { 
         faction1: { name: string; avatar: string }; 
         faction2: { name: string; avatar: string } 
@@ -34,14 +35,12 @@ interface MatchDetails {
     results?: {
         score: { faction1: number; faction2: number };
     };
-    stats?: {
-        rounds: {
-            round_stats: {
-                Map: string;
-                Score: string;
-            }
-        }[]
-    };
+    detailed_results?: {
+        factions?: {
+            faction1?: { score?: number };
+            faction2?: { score?: number };
+        };
+    }[];
     voting?: {
         map?: {
             pick?: string[];
@@ -122,24 +121,9 @@ export default function LiveMatchesModal() {
                     match && (match.status === 'ONGOING' || match.status === 'READY')
                 );
 
-                const matchesWithStats = await Promise.all(activeMatches.map(async (match: any) => {
-                    try {
-                        const statsRes = await fetch(`https://open.faceit.com/data/v4/matches/${match.match_id}/stats`, {
-                            headers: { 'Authorization': `Bearer ${API_KEY_FACEIT}` }
-                        });
-                        if (statsRes.ok) {
-                            const stats = await statsRes.json();
-                            return { ...match, stats };
-                        }
-                    } catch (e) {
-                        console.error("Erro ao buscar stats:", e);
-                    }
-                    return match;
-                }));
-
-                setMatches(matchesWithStats);
-                window.dispatchEvent(new CustomEvent('liveMatchesUpdated', { detail: { matches: matchesWithStats, loading: false } }));
-                return matchesWithStats;
+                setMatches(activeMatches);
+                window.dispatchEvent(new CustomEvent('liveMatchesUpdated', { detail: { matches: activeMatches, loading: false } }));
+                return activeMatches;
             } else {
                 setMatches([]);
                 window.dispatchEvent(new CustomEvent('liveMatchesUpdated', { detail: { matches: [], loading: false } }));
@@ -203,7 +187,7 @@ export default function LiveMatchesModal() {
         const interval = setInterval(() => {
             fetchFaceitMatches();
             fetchScheduledMatches();
-        }, 45000);
+        }, 10000);
         return () => clearInterval(interval);
     }, [internalOpen, fetchFaceitMatches, fetchScheduledMatches]);
 
@@ -309,22 +293,39 @@ export default function LiveMatchesModal() {
                                     {/* Score Central */}
                                     <div className="flex flex-col items-center justify-center w-1/3">
                                         {(() => {
-                                            const hasFinishedMaps = match.stats?.rounds && match.stats.rounds.length > 0;
-                                            const finishedMapsCount = match.stats?.rounds?.length || 0;
                                             const resultScore = match.results?.score || { faction1: 0, faction2: 0 };
+                                            const detailedResults = match.detailed_results || [];
+                                            const secondMap = detailedResults[1];
+                                            const firstMap = detailedResults[0];
 
-                                            if (hasFinishedMaps && match.status === 'ONGOING' && finishedMapsCount < 2) {
-                                                const currentMapIndex = finishedMapsCount;
-                                                const currentMapStats = match.stats?.rounds?.[currentMapIndex]?.round_stats;
-                                                const mapScore = currentMapStats?.Score.replace(" / ", " - ") || "-";
-                                                
+                                            if (
+                                                match.best_of === 2 &&
+                                                secondMap?.factions?.faction1?.score != null &&
+                                                secondMap?.factions?.faction2?.score != null
+                                            ) {
                                                 return (
                                                     <div className="bg-black/80 px-4 py-1.5 rounded border border-gold/40 mb-2 flex flex-col items-center min-w-[90px]">
                                                         <span className="text-[7px] text-gray-400 uppercase tracking-widest mb-0.5 font-bold">
-                                                            MAPA {finishedMapsCount + 2}
+                                                            MAPA 2
                                                         </span>
                                                         <span className="text-xl font-black text-gold tabular-nums leading-none">
-                                                            {mapScore}
+                                                            {`${secondMap.factions.faction1.score} - ${secondMap.factions.faction2.score}`}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            }
+
+                                            if (
+                                                firstMap?.factions?.faction1?.score != null &&
+                                                firstMap?.factions?.faction2?.score != null
+                                            ) {
+                                                return (
+                                                    <div className="bg-black/80 px-4 py-1.5 rounded border border-gold/40 mb-2 flex flex-col items-center min-w-[90px]">
+                                                        <span className="text-[7px] text-gray-400 uppercase tracking-widest mb-0.5 font-bold">
+                                                            MAPA 1
+                                                        </span>
+                                                        <span className="text-xl font-black text-gold tabular-nums leading-none">
+                                                            {`${firstMap.factions.faction1.score} - ${firstMap.factions.faction2.score}`}
                                                         </span>
                                                     </div>
                                                 );
@@ -345,17 +346,21 @@ export default function LiveMatchesModal() {
                                         <div className="flex flex-col gap-1 w-full px-1">
                                             {(() => {
                                                 const picks = match.voting?.map?.pick || match.maps || [];
-                                                const finishedMapsCount = match.stats?.rounds?.length || 0;
+                                                const detailedResults = match.detailed_results || [];
+                                                const currentMapIndex = match.status === 'ONGOING'
+                                                    ? Math.max(detailedResults.length - 1, 0)
+                                                    : -1;
                                                 
                                                 if (picks.length > 0) {
                                                     return picks.map((mapName, idx) => {
-                                                        const stats = match.stats?.rounds?.find(r => 
-                                                            r.round_stats?.Map === mapName || 
-                                                            r.round_stats?.Map.replace('de_', '') === mapName.replace('de_', '')
-                                                        );
-                                                        
-                                                        let score = stats ? stats.round_stats.Score.replace(" / ", " - ") : "-";
-                                                        const isCurrent = idx === finishedMapsCount && match.status === 'ONGOING';
+                                                        const mapResult = detailedResults[idx];
+                                                        const mapScoreLeft = mapResult?.factions?.faction1?.score;
+                                                        const mapScoreRight = mapResult?.factions?.faction2?.score;
+                                                        const score =
+                                                            mapScoreLeft != null && mapScoreRight != null
+                                                                ? `${mapScoreLeft} - ${mapScoreRight}`
+                                                                : "-";
+                                                        const isCurrent = idx === currentMapIndex && match.status === 'ONGOING';
                                                         
                                                         return (
                                                             <div key={idx} className={`flex flex-col items-center bg-black/40 rounded p-1 border ${isCurrent ? 'border-gold/60 shadow-[0_0_8px_rgba(255,215,0,0.15)]' : 'border-white/5'}`}>

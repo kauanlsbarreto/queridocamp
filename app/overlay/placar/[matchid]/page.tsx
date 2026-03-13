@@ -8,6 +8,7 @@ interface MatchDetails {
     match_id: string;
     status: string;
     game: string;
+    best_of?: number;
     teams: { 
         faction1: { name: string; avatar: string }; 
         faction2: { name: string; avatar: string } 
@@ -15,13 +16,16 @@ interface MatchDetails {
     results?: {
         score: { faction1: number; faction2: number };
     };
-    stats?: {
-        rounds: {
-            round_stats: {
-                Map: string;
-                Score: string;
-            }
-        }[]
+    detailed_results?: {
+        factions?: {
+            faction1?: { score?: number };
+            faction2?: { score?: number };
+        };
+    }[];
+    voting?: {
+        map?: {
+            pick?: string[];
+        };
     };
     maps?: string[];
 }
@@ -43,22 +47,7 @@ export default function MatchOverlay() {
             if (!res.ok) throw new Error('Failed to fetch match');
             const matchData = await res.json();
 
-            try {
-                const statsRes = await fetch(
-                    `https://open.faceit.com/data/v4/matches/${matchId}/stats`,
-                    { headers: { 'Authorization': `Bearer ${API_KEY_FACEIT}` } }
-                );
-                if (statsRes.ok) {
-                    const stats = await statsRes.json();
-                    setMatch({ ...matchData, stats });
-                } else {
-                    setMatch(matchData);
-                }
-            } catch (e) {
-                console.error("Erro ao buscar stats:", e);
-                setMatch(matchData);
-            }
-            
+            setMatch(matchData);
             setLoading(false);
         } catch (e) {
             console.error("Erro ao buscar partida:", e);
@@ -103,26 +92,30 @@ export default function MatchOverlay() {
         );
     }
 
-    const finishedMapsCount = match.stats?.rounds?.length || 0;
     const resultScore = match.results?.score || { faction1: 0, faction2: 0 };
+    const detailedResults = match.detailed_results || [];
+    const secondMap = detailedResults[1];
+    const firstMap = detailedResults[0];
+    const pickedMaps = match.voting?.map?.pick?.length ? match.voting.map.pick : (match.maps || []);
 
-    let faction1CurrentScore = 0;
-    let faction2CurrentScore = 0;
-    let currentMapScore = "-";
-    
-    if (match.stats?.rounds && match.stats.rounds.length > 0 && match.status === 'ONGOING' && finishedMapsCount < 2) {
-        const currentMapIndex = finishedMapsCount;
-        const currentMapStats = match.stats.rounds[currentMapIndex]?.round_stats;
-        if (currentMapStats?.Score) {
-            const [leftScore, rightScore] = currentMapStats.Score.split(" / ").map((value) => Number.parseInt(value, 10) || 0);
-            faction1CurrentScore = leftScore;
-            faction2CurrentScore = rightScore;
-            currentMapScore = `${leftScore} - ${rightScore}`;
-        }
-    } else {
-        faction1CurrentScore = resultScore.faction1;
-        faction2CurrentScore = resultScore.faction2;
-        currentMapScore = `${resultScore.faction1} - ${resultScore.faction2}`;
+    let currentMapName = "-";
+    if (pickedMaps.length > 0) {
+        const currentMapIndex = match.status === "ONGOING"
+            ? Math.min(detailedResults.length, pickedMaps.length - 1)
+            : Math.max(Math.min(detailedResults.length - 1, pickedMaps.length - 1), 0);
+        currentMapName = pickedMaps[currentMapIndex]?.replace(/^de_/i, "").toUpperCase() || "-";
+    }
+
+    // Em BO2, prioriza sempre o placar do mapa 2 quando ele estiver disponível.
+    let faction1CurrentScore = resultScore.faction1;
+    let faction2CurrentScore = resultScore.faction2;
+
+    if (match.best_of === 2 && secondMap?.factions?.faction1?.score != null && secondMap?.factions?.faction2?.score != null) {
+        faction1CurrentScore = secondMap.factions.faction1.score;
+        faction2CurrentScore = secondMap.factions.faction2.score;
+    } else if (firstMap?.factions?.faction1?.score != null && firstMap?.factions?.faction2?.score != null) {
+        faction1CurrentScore = firstMap.factions.faction1.score;
+        faction2CurrentScore = firstMap.factions.faction2.score;
     }
 
     const teamNameColor = '#ffffff';
@@ -217,6 +210,16 @@ export default function MatchOverlay() {
                         height={44}
                         priority
                     />
+                    <span style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        color: '#f7cf66',
+                        textShadow: '0 0 8px rgba(247, 207, 102, 0.2)'
+                    }}>
+                        MAPA ATUAL: {currentMapName}
+                    </span>
                     <p style={{
                         fontSize: '34px',
                         fontWeight: 900,

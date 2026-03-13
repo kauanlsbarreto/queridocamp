@@ -7,6 +7,7 @@ export default function TestOverlay() {
         match_id: "test-match-001",
         status: "ONGOING",
         game: "cs2",
+        best_of: 2,
         teams: {
             faction1: {
                 name: "TIME TESTE A",
@@ -20,33 +21,28 @@ export default function TestOverlay() {
         results: {
             score: { faction1: 2, faction2: 1 }
         },
-        stats: {
-            rounds: [
-                {
-                    round_stats: {
-                        Map: "de_mirage",
-                        Score: "16 / 13"
-                    }
-                },
-                {
-                    round_stats: {
-                        Map: "de_inferno",
-                        Score: "16 / 14"
-                    }
-                },
-                {
-                    round_stats: {
-                        Map: "de_ancient",
-                        Score: "8 / 5"
-                    }
+        maps: ["de_mirage", "de_inferno"],
+        detailed_results: [
+            {
+                factions: {
+                    faction1: { score: 16 },
+                    faction2: { score: 12 }
                 }
-            ]
-        }
+            },
+            {
+                factions: {
+                    faction1: { score: 8 },
+                    faction2: { score: 5 }
+                }
+            }
+        ]
     };
 
-    const faction1CurrentScore = 8;
-    const faction2CurrentScore = 5;
-    let currentMapScore = `${faction1CurrentScore} - ${faction2CurrentScore}`;
+    const secondMap = mockMatch.detailed_results[1];
+    const faction1CurrentScore = secondMap?.factions?.faction1?.score ?? 0;
+    const faction2CurrentScore = secondMap?.factions?.faction2?.score ?? 0;
+    const currentMapIndex = Math.min(mockMatch.detailed_results.length, mockMatch.maps.length - 1);
+    const currentMapName = mockMatch.maps[currentMapIndex]?.replace(/^de_/i, "").toUpperCase() || "-";
     const teamNameColor = '#ffffff';
     const faction1Color = faction1CurrentScore > faction2CurrentScore ? '#86efac' : faction1CurrentScore < faction2CurrentScore ? '#fca5a5' : '#f7cf66';
     const faction2Color = faction2CurrentScore > faction1CurrentScore ? '#86efac' : faction2CurrentScore < faction1CurrentScore ? '#fca5a5' : '#f7cf66';
@@ -139,6 +135,16 @@ export default function TestOverlay() {
                         height={44}
                         priority
                     />
+                    <span style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        color: '#f7cf66',
+                        textShadow: '0 0 8px rgba(247, 207, 102, 0.2)'
+                    }}>
+                        MAPA ATUAL: {currentMapName}
+                    </span>
                     <p style={{
                         fontSize: '34px',
                         fontWeight: 900,
