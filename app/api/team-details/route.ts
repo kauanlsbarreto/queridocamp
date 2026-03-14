@@ -41,36 +41,30 @@ export async function GET(request: Request) {
 
     const normalizedName = teamName.toLowerCase().replace(/\s+/g, "");
 
-    const queryMatches = `
-      SELECT *
-      FROM jogos
-      WHERE LOWER(REPLACE(time1, ' ', '')) = ?
-         OR LOWER(REPLACE(time2, ' ', '')) = ?
-    `;
-    const queryAdjustments = `
-      SELECT motivo, sp, vitorias, derrotas
-      FROM ajustes_manuais
-      WHERE LOWER(REPLACE(team_name, ' ', '')) = ?
-    `;
-
     const [matchesResult, adjustmentsResult] = await Promise.all([
-      connection.query(queryMatches, [normalizedName, normalizedName]),
-      connection.query(queryAdjustments, [normalizedName])
+      connection.query("SELECT * FROM jogos"),
+      connection.query("SELECT motivo, sp, vitorias, derrotas, team_name FROM ajustes_manuais")
     ]);
 
-    const rawMatches = matchesResult[0] as MatchRow[];
-    const adjustments = adjustmentsResult[0] as AdjustmentRow[];
+    const allMatches = matchesResult[0] as MatchRow[];
+    const allAdjustments = adjustmentsResult[0] as (AdjustmentRow & { team_name: string })[];
 
     const normalize = (name: string) =>
       name.toLowerCase().replace(/\s+/g, "");
 
-    const matches = rawMatches.map((m) => {
+    const matches = allMatches
+      .filter((m) => normalize(m.time1) === normalizedName || normalize(m.time2) === normalizedName)
+      .map((m) => {
       const n1 = normalize(m.time1);
       const n2 = normalize(m.time2);
       const t1 = n1 === normalize(teamName!) ? teamName! : m.time1;
       const t2 = n2 === normalize(teamName!) ? teamName! : m.time2;
       return { ...m, time1: t1, time2: t2 };
     });
+
+    const adjustments = allAdjustments
+      .filter((adj) => normalize(adj.team_name) === normalizedName)
+      .map(({ motivo, sp, vitorias, derrotas }) => ({ motivo, sp, vitorias, derrotas }));
 
     return NextResponse.json({ 
       matches: matches || [], 
