@@ -22,6 +22,39 @@ type AdjustmentRow = RowDataPacket & {
   derrotas: number;
 };
 
+const normalizeTeamKey = (value: string) =>
+  value.toLowerCase().replace(/\s+/g, "");
+
+const canonicalTeamName = (value: string) => {
+  const key = normalizeTeamKey(value);
+
+  if (key === "22cao") return "22Cao Na Chapa";
+  if (key === "22caonachapa") return "22Cao Na Chapa";
+  if (key === "uns&outros") return "Uns&Outros";
+  if (key === "team_mulekera") return "Boxx";
+  if (key === "boxx") return "Boxx";
+
+  return value;
+};
+
+const buildTeamAliases = (teamName: string) => {
+  const normalized = normalizeTeamKey(teamName);
+
+  if (normalized === "22caonachapa" || normalized === "22cao") {
+    return ["22Cao", "22Cao Na Chapa"];
+  }
+
+  if (normalized === "uns&outros") {
+    return ["Uns&Outros", "Uns & Outros"];
+  }
+
+  if (normalized === "boxx" || normalized === "team_mulekera") {
+    return ["Boxx", "team_mulekera"];
+  }
+
+  return [teamName];
+};
+
 export async function GET(request: Request) {
   let connection: any;
   try {
@@ -33,27 +66,30 @@ export async function GET(request: Request) {
     }
 
     teamName = teamName.trim();
-    
-    let dbNames = [teamName];
-    if (teamName === "22Cao Na Chapa") {
-      dbNames = ["22Cao", "22Cao Na Chapa"];
-    } else if (teamName === "Uns&Outros") {
-      dbNames = ["Uns&Outros", "Uns & Outros"];
-    } else if (teamName === "Boxx") {
-      dbNames = ["Boxx", "team_mulekera"];
-    }
+
+    const dbNames = buildTeamAliases(teamName);
+    const normalizedNames = dbNames.map(normalizeTeamKey);
 
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
 
     connection = await createMainConnection(env);
 
-    const placeholders = dbNames.map(() => "?").join(",");
-    const queryMatches = `SELECT * FROM jogos WHERE time1 IN (${placeholders}) OR time2 IN (${placeholders})`;
-    const queryAdjustments = `SELECT motivo, sp, vitorias, derrotas FROM ajustes_manuais WHERE team_name IN (${placeholders})`;
-    
-    const paramsMatches = [...dbNames, ...dbNames];
-    const paramsAdjustments = [...dbNames];
+    const placeholders = normalizedNames.map(() => "?").join(",");
+    const queryMatches = `
+      SELECT *
+      FROM jogos
+      WHERE LOWER(REPLACE(time1, ' ', '')) IN (${placeholders})
+         OR LOWER(REPLACE(time2, ' ', '')) IN (${placeholders})
+    `;
+    const queryAdjustments = `
+      SELECT motivo, sp, vitorias, derrotas
+      FROM ajustes_manuais
+      WHERE LOWER(REPLACE(team_name, ' ', '')) IN (${placeholders})
+    `;
+
+    const paramsMatches = [...normalizedNames, ...normalizedNames];
+    const paramsAdjustments = [...normalizedNames];
 
     const [matchesResult, adjustmentsResult] = await Promise.all([
       connection.query(queryMatches, paramsMatches),
@@ -64,17 +100,9 @@ export async function GET(request: Request) {
     const adjustments = adjustmentsResult[0] as AdjustmentRow[];
 
     if (matches && matches.length > 0) {
-      matches = matches.map(m => {
-        let t1 = m.time1;
-        let t2 = m.time2;
-
-        if (t1 === "22Cao") t1 = "22Cao Na Chapa";
-        if (t1 === "Uns & Outros") t1 = "Uns&Outros";
-        if (t1 === "team_mulekera") t1 = "Boxx";
-
-        if (t2 === "22Cao") t2 = "22Cao Na Chapa";
-        if (t2 === "Uns & Outros") t2 = "Uns&Outros";
-        if (t2 === "team_mulekera") t2 = "Boxx";
+      matches = matches.map((m) => {
+        const t1 = canonicalTeamName(m.time1);
+        const t2 = canonicalTeamName(m.time2);
 
         return { ...m, time1: t1, time2: t2 };
       });
