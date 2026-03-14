@@ -58,8 +58,19 @@ export async function GET(request: Request) {
       connection.query(queryAdjustments, [normalizedName])
     ]);
 
-    const matches = matchesResult[0] as MatchRow[];
+    const rawMatches = matchesResult[0] as MatchRow[];
     const adjustments = adjustmentsResult[0] as AdjustmentRow[];
+
+    const normalize = (name: string) =>
+      name.toLowerCase().replace(/\s+/g, "");
+
+    const matches = rawMatches.map((m) => {
+      const n1 = normalize(m.time1);
+      const n2 = normalize(m.time2);
+      const t1 = n1 === normalize(teamName!) ? teamName! : m.time1;
+      const t2 = n2 === normalize(teamName!) ? teamName! : m.time2;
+      return { ...m, time1: t1, time2: t2 };
+    });
 
     return NextResponse.json({ 
       matches: matches || [], 
