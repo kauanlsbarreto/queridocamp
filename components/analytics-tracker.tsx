@@ -14,6 +14,8 @@ interface AnalyticsData {
   adSeen: string;
 }
 
+const LAST_UPDATE_STORAGE_KEY = 'qc_last_update_seen';
+
 async function getIpAddress(): Promise<string> {
   try {
     const response = await fetch('/api/ip', { cache: 'no-store' });
@@ -23,6 +25,37 @@ async function getIpAddress(): Promise<string> {
   } catch (error) {
     console.error('Falha ao buscar IP:', error);
     return 'Falha na requisição de IP';
+  }
+}
+
+async function getDataSource(pathname: string): Promise<string> {
+  try {
+    const res = await fetch('/api/last-update', { cache: 'no-store' });
+    if (!res.ok) return 'Indefinido';
+
+    const data = await res.json();
+    const lastUpdateRaw = data?.lastUpdate;
+    const currentUpdateMs = Number.isFinite(Date.parse(lastUpdateRaw)) ? Date.parse(lastUpdateRaw) : NaN;
+
+    if (!Number.isFinite(currentUpdateMs)) return 'Indefinido';
+
+    const pageKey = `${LAST_UPDATE_STORAGE_KEY}:${pathname}`;
+    const previousRaw = localStorage.getItem(pageKey) || localStorage.getItem(LAST_UPDATE_STORAGE_KEY);
+    const previousUpdateMs = previousRaw && Number.isFinite(Date.parse(previousRaw)) ? Date.parse(previousRaw) : NaN;
+
+    localStorage.setItem(pageKey, lastUpdateRaw);
+    localStorage.setItem(LAST_UPDATE_STORAGE_KEY, lastUpdateRaw);
+
+    if (!previousRaw || !Number.isFinite(previousUpdateMs)) {
+      return 'Banco de Dados (primeiro acesso)';
+    }
+
+    return currentUpdateMs > previousUpdateMs
+      ? 'Banco de Dados (atualizado)'
+      : 'Cache';
+  } catch (error) {
+    console.error('Falha ao detectar fonte de dados:', error);
+    return 'Indefinido';
   }
 }
 
@@ -51,12 +84,18 @@ export default function AnalyticsTracker() {
       }
 
       const userRaw = localStorage.getItem('faceit_user');
-      const user = userRaw ? JSON.parse(userRaw)?.nickname || 'Anônimo' : 'Anônimo';
+      let user = 'Anônimo';
+      if (userRaw) {
+        try {
+          user = JSON.parse(userRaw)?.nickname || 'Anônimo';
+        } catch {
+          user = 'Anônimo';
+        }
+      }
       
       const ip = await getIpAddress();
       const loadTime = getLoadTime();
-      
-      const dataSource = 'Cache';
+      const dataSource = await getDataSource(pathname);
 
       const adSeen = (window as any).adWasShown ? 'Sim' : 'Não';
 
