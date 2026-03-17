@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Copy, ExternalLink, Loader } from "lucide-react"
+import { Copy, ExternalLink, Loader, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import Image from "next/image"
@@ -122,10 +122,10 @@ export default function PlaycarPage() {
         }
     }, []);
 
-    const copyToClipboard = (matchId: string) => {
-        const overlayUrl = `${window.location.origin}/overlay/placar/${matchId}`;
+    const copyToClipboard = (matchId: string, overlayType: "placar" | "chat" = "placar") => {
+        const overlayUrl = `${window.location.origin}/overlay/${overlayType}/${matchId}`;
         navigator.clipboard.writeText(overlayUrl);
-        setCopiedId(matchId);
+        setCopiedId(`${overlayType}-${matchId}`);
         setTimeout(() => setCopiedId(null), 2000);
     };
 
@@ -229,15 +229,15 @@ export default function PlaycarPage() {
                                             </div>
 
                                             <Button
-                                                onClick={() => copyToClipboard(match.match_id)}
+                                                onClick={() => copyToClipboard(match.match_id, "placar")}
                                                 variant="outline"
                                                 size="sm"
                                                 className={`border-gold/50 text-gold hover:bg-gold/10 ${
-                                                    copiedId === match.match_id ? 'bg-gold/20' : ''
+                                                    copiedId === `placar-${match.match_id}` ? 'bg-gold/20' : ''
                                                 }`}
                                             >
                                                 <Copy size={16} />
-                                                {copiedId === match.match_id ? 'Copiado!' : 'Copiar URL'}
+                                                {copiedId === `placar-${match.match_id}` ? 'Copiado!' : 'Copiar Placar'}
                                             </Button>
 
                                             <a
@@ -253,6 +253,34 @@ export default function PlaycarPage() {
                                                 >
                                                     <ExternalLink size={16} />
                                                     Abrir
+                                                </Button>
+                                            </a>
+
+                                            <Button
+                                                onClick={() => copyToClipboard(match.match_id, "chat")}
+                                                variant="outline"
+                                                size="sm"
+                                                className={`border-gold/50 text-gold hover:bg-gold/10 ${
+                                                    copiedId === `chat-${match.match_id}` ? 'bg-gold/20' : ''
+                                                }`}
+                                            >
+                                                <MessageSquare size={16} />
+                                                {copiedId === `chat-${match.match_id}` ? 'Copiado!' : 'Copiar Chat'}
+                                            </Button>
+
+                                            <a
+                                                href={`/overlay/chat/${match.match_id}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex"
+                                            >
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="border-gold/50 text-gold hover:bg-gold/10"
+                                                >
+                                                    <MessageSquare size={16} />
+                                                    Abrir Chat
                                                 </Button>
                                             </a>
                                         </div>
