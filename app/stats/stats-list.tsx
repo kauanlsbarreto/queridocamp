@@ -177,6 +177,48 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
 
   const isSortDisabled = !isAdmin && timeLeft > 0;
 
+  const handleDownloadPlayerReport = (player: any) => {
+    const rounds = Array.from({ length: TOTAL_ROUNDS }, (_, i) => i + 1)
+      .map((round) => {
+        const kills = Number(player[`r${round}_k`] || 0);
+        const deaths = Number(player[`r${round}_d`] || 0);
+        const matchId = String(player[`r${round}_m1_id`] || '').trim();
+
+        if (kills <= 0 && deaths <= 0 && !matchId) return null;
+
+        return {
+          round,
+          matchId,
+          kills,
+          deaths,
+        };
+      })
+      .filter(Boolean) as Array<{ round: number; matchId: string; kills: number; deaths: number }>;
+
+    const safeNick = String(player?.nick || 'jogador').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const lines = [
+      `Jogador: ${String(player?.nick || 'N/A')}`,
+      '',
+      'Relatorio por partida',
+      '----------------------',
+      ...rounds.map((item) =>
+        `Rodada ${item.round} | Match ID: ${item.matchId || '-'} | Kills: ${item.kills} | Mortes: ${item.deaths}`
+      ),
+    ];
+
+    const textContent = lines.join('\n');
+
+    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relatorio_${safeNick}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleSortChange = (newSort: string) => {
     if (isSortDisabled) return;
     setSortBy(newSort);
@@ -394,6 +436,18 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                     {((isGeral && k === 0) || (!isGeral && isWO)) && (
                       <div className="mt-4 py-1 bg-red-500/5 rounded border border-red-500/10 text-center">
                         <p className="text-[9px] text-red-500/40 font-black uppercase italic tracking-widest">Inativo para MVP</p>
+                      </div>
+                    )}
+
+                    {isGeral && isAdmin && (
+                      <div className="mt-4 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadPlayerReport(player)}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gold/40 bg-gold/10 hover:bg-gold/20 text-gold text-[10px] font-black uppercase tracking-widest transition-colors"
+                        >
+                          Baixar Relatorio
+                        </button>
                       </div>
                     )}
                   </div>
