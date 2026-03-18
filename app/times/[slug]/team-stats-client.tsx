@@ -192,12 +192,6 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
                         if (item?.matchId) {
                             next[String(item.matchId)] = Number(roundKey);
                         }
-                        if (item?.matchOrder && item.matchOrder > 0) {
-                            const matchByOrder = adminMatchesInOrder[item.matchOrder - 1];
-                            if (matchByOrder?.id) {
-                                next[String(matchByOrder.id)] = Number(roundKey);
-                            }
-                        }
                     });
                     return next;
                 });
@@ -736,17 +730,15 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
                                 <div className="p-5 space-y-4">
                                     {(() => {
                                         const existingRoundEntry = Object.entries(usedRounds).find(([, value]) => String(value.matchId) === String(match.id));
-                                        const existingByOrder = Object.entries(usedRounds).find(([, value]) => Number(value.matchOrder) === (index + 1));
                                         const inferredRound =
                                             Number(roundByMatch[match.id]) ||
-                                            Number(existingRoundEntry?.[0] || 0) ||
-                                            Number(existingByOrder?.[0] || 0);
+                                            Number(existingRoundEntry?.[0] || 0);
                                         const hasRoundSelected = inferredRound > 0;
                                         const matchKey = String(match.id);
                                         const isSaving = savingMatchId === matchKey;
                                         const isResetting = resettingMatchId === matchKey;
                                         const saveStatus = saveStatusByMatch[matchKey];
-                                        const wasLoadedFromDb = Boolean(existingRoundEntry || existingByOrder);
+                                        const wasLoadedFromDb = Boolean(existingRoundEntry);
 
                                         return (
                                             <>
@@ -787,7 +779,6 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
                                                         const used = usedRounds[String(round)];
                                                         if (!used) return true;
                                                         if (String(used.matchId) === String(match.id)) return true;
-                                                        if (Number(used.matchOrder) === (index + 1)) return true;
                                                         return false;
                                                     })
                                                     .map((round) => (

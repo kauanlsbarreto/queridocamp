@@ -172,7 +172,6 @@ async function ensureOrdemStatsSchema(connection: any) {
           id INT AUTO_INCREMENT PRIMARY KEY,
           nickname VARCHAR(255) NOT NULL,
           nome_do_time VARCHAR(255) NOT NULL,
-          matchid VARCHAR(255) NOT NULL,
           rodada1 INT DEFAULT 0,
           rodada2 INT DEFAULT 0,
           rodada3 INT DEFAULT 0,
@@ -210,9 +209,6 @@ async function ensureOrdemStatsSchema(connection: any) {
           UNIQUE KEY uniq_nickname_time (nickname, nome_do_time)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
-
-      // Existing environments may already have INT columns; migrate to VARCHAR for Faceit IDs.
-      await connection.query('ALTER TABLE ordem_stats MODIFY COLUMN matchid VARCHAR(255) NOT NULL');
 
       for (let i = 1; i <= 17; i++) {
         const col = `matchid${i}`;
@@ -274,9 +270,9 @@ export async function GET(request: Request) {
         if (rodadaValue <= 0) continue;
 
         if (!usedRounds[String(i)]) {
-          const mid = row[`matchid${i}`] || row.matchid || '';
+          const mid = row[`matchid${i}`] || '';
           usedRounds[String(i)] = {
-            matchOrder: rodadaValue,
+            matchOrder: 0,
             matchId: String(mid),
           };
         }
@@ -394,7 +390,7 @@ export async function POST(request: Request) {
 
         const rodadaAssignments: string[] = [];
         const matchIdAssignments: string[] = [];
-        const updateParams: any[] = [nickname, teamName, safeMatchId];
+        const updateParams: any[] = [nickname, teamName];
 
         for (let r = 1; r <= 17; r++) {
           rodadaAssignments.push(`rodada${r} = ?`);
@@ -414,7 +410,6 @@ export async function POST(request: Request) {
             SET
               nickname = ?,
               nome_do_time = ?,
-              matchid = ?,
               ${rodadaAssignments.join(', ')},
               ${matchIdAssignments.join(', ')}
             WHERE id = ?
@@ -428,13 +423,12 @@ export async function POST(request: Request) {
             INSERT INTO ordem_stats (
               nickname,
               nome_do_time,
-              matchid,
               ${rodadaColumn},
               ${matchIdColumn}
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?)
           `,
-          [nickname, teamName, safeMatchId, currentPlayerOrder, safeMatchId]
+          [nickname, teamName, currentPlayerOrder, safeMatchId]
         );
         canonicalId = Number(insertResult.insertId);
       }
@@ -551,7 +545,7 @@ export async function DELETE(request: Request) {
 
       const rodadaAssignments: string[] = [];
       const matchIdAssignments: string[] = [];
-      const updateParams: any[] = [nickname, teamName, safeMatchId];
+      const updateParams: any[] = [nickname, teamName];
 
       for (let r = 1; r <= 17; r++) {
         rodadaAssignments.push(`rodada${r} = ?`);
@@ -571,7 +565,6 @@ export async function DELETE(request: Request) {
           SET
             nickname = ?,
             nome_do_time = ?,
-            matchid = ?,
             ${rodadaAssignments.join(', ')},
             ${matchIdAssignments.join(', ')}
           WHERE id = ?
