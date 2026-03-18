@@ -739,6 +739,14 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
                                         const isResetting = resettingMatchId === matchKey;
                                         const saveStatus = saveStatusByMatch[matchKey];
                                         const wasLoadedFromDb = Boolean(existingRoundEntry);
+                                        const roundsSelectedInOtherMatches = new Set<number>();
+
+                                        Object.entries(roundByMatch).forEach(([otherMatchId, selectedRound]) => {
+                                            const selected = Number(selectedRound || 0);
+                                            if (!selected || selected < 1 || selected > 17) return;
+                                            if (String(otherMatchId) === matchKey) return;
+                                            roundsSelectedInOtherMatches.add(selected);
+                                        });
 
                                         return (
                                             <>
@@ -776,6 +784,9 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
                                                 <option value="">Selecionar rodada</option>
                                                 {Array.from({ length: 17 }, (_, i) => i + 1)
                                                     .filter((round) => {
+                                                        if (round === inferredRound) return true;
+                                                        if (roundsSelectedInOtherMatches.has(round)) return false;
+
                                                         const used = usedRounds[String(round)];
                                                         if (!used) return true;
                                                         if (String(used.matchId) === String(match.id)) return true;
