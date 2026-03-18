@@ -16,9 +16,27 @@ const MAP_IMAGES: Record<string, string> = {
   de_dust2: "https://static.draft5.gg/news/2023/04/04161748/dust2_ct_ramp_Cs2.jpg",
 };
 
+const normalizeText = (value: string | null | undefined): string => {
+        if (!value) return '';
+        return value
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]/g, '');
+};
+
 export default function TeamStatsClient({ team, initialStats }: { team: any, initialStats?: any }) {
     const [stats, setStats] = useState<any>(initialStats || null);
     const [loading, setLoading] = useState(!initialStats);
+    const [isAdmin12, setIsAdmin12] = useState(false);
+    const [adminUser, setAdminUser] = useState<any>(null);
+    const [roundByMatch, setRoundByMatch] = useState<Record<string, number>>({});
+    const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
+    const [resettingMatchId, setResettingMatchId] = useState<string | null>(null);
+    const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
+    const [feedbackVisible, setFeedbackVisible] = useState(false);
+    const [usedRounds, setUsedRounds] = useState<Record<string, { matchOrder: number; matchId: string }>>({});
+    const [saveStatusByMatch, setSaveStatusByMatch] = useState<Record<string, 'saved' | 'error' | 'unsaved'>>({});
 
     useEffect(() => {
         if (initialStats) {
@@ -27,7 +45,39 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
         }
     }, [initialStats]);
 
-    if (loading) return <div className="text-gold text-center py-20 animate-pulse font-black italic">CARREGANDO DADOS DA FACEIT...</div>;
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const syncAdminState = () => {
+            const storedUser = localStorage.getItem('manual_user') || localStorage.getItem('faceit_user');
+            if (!storedUser) {
+                setIsAdmin12(false);
+                setAdminUser(null);
+                return;
+            }
+
+            try {
+                const parsed = JSON.parse(storedUser);
+                const level = parsed?.admin ?? parsed?.Admin;
+                if (level === 1 || level === 2) {
+                    setIsAdmin12(true);
+                    setAdminUser(parsed);
+                } else {
+                    setIsAdmin12(false);
+                    setAdminUser(null);
+                }
+            } catch (error) {
+                console.error('Erro ao identificar admin:', error);
+                setIsAdmin12(false);
+                setAdminUser(null);
+            }
+        };
+
+        syncAdminState();
+        const interval = setInterval(syncAdminState, 10000);
+
+        return () => clearInterval(interval);
+    }, []);
 
     const { mapStats, vetoStats, matchStats } = stats || { 
         mapStats: {}, 
@@ -100,9 +150,249 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
 
     const totalHalfDraws = Object.values(mapStats).reduce((acc: number, curr: any) => acc + (curr.halfDraws || 0), 0);
     const totalHalfWins = Object.values(mapStats).reduce((acc: number, curr: any) => acc + (curr.halfWins || 0), 0);
+    const adminMatchesInOrder = [...(matchStats.matchesList || [])].sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    useEffect(() => {
+        if (!saveFeedback) return;
+        setFeedbackVisible(true);
+        const timer = setTimeout(() => {
+            setFeedbackVisible(false);
+            setTimeout(() => setSaveFeedback(null), 300);
+        }, 3500);
+        return () => clearTimeout(timer);
+    }, [saveFeedback]);
+
+    useEffect(() => {
+        if (!isAdmin12 || !adminUser?.faceit_guid || !team?.name) return;
+
+        const loadUsedRounds = async () => {
+            try {
+                const accessToken = adminUser?.accessToken || adminUser?.access_token;
+                const query = new URLSearchParams({
+                    teamName: team.name,
+                    faceit_guid: adminUser.faceit_guid,
+                }).toString();
+
+                const response = await fetch(`/api/admin/team-match-order?${query}`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken || ''}`,
+                    },
+                });
+
+                const data = await response.json();
+                if (!response.ok) return;
+
+                const fetchedUsedRounds = data?.usedRounds || {};
+                setUsedRounds(fetchedUsedRounds);
+
+                setRoundByMatch((prev) => {
+                    const next = { ...prev };
+                    Object.keys(fetchedUsedRounds).forEach((roundKey) => {
+                        const item = fetchedUsedRounds[roundKey];
+                        if (item?.matchId) {
+                            next[String(item.matchId)] = Number(roundKey);
+                        }
+                        if (item?.matchOrder && item.matchOrder > 0) {
+                            const matchByOrder = adminMatchesInOrder[item.matchOrder - 1];
+                            if (matchByOrder?.id) {
+                                next[String(matchByOrder.id)] = Number(roundKey);
+                            }
+                        }
+                    });
+                    return next;
+                });
+            } catch (error) {
+                console.error('Erro ao carregar rodadas usadas:', error);
+            }
+        };
+
+        loadUsedRounds();
+    }, [isAdmin12, adminUser, team?.name, adminMatchesInOrder]);
+
+    if (loading) return <div className="text-gold text-center py-20 animate-pulse font-black italic">CARREGANDO DADOS DA FACEIT...</div>;
+
+    const handleSaveMatchRound = async (match: any, matchOrder: number) => {
+        const matchKey = String(match.id);
+        const selectedRound = Number(roundByMatch[match.id]);
+        if (!selectedRound || selectedRound < 1 || selectedRound > 17) {
+            setSaveFeedback('Selecione uma rodada entre 1 e 17 antes de confirmar.');
+            setSaveStatusByMatch((prev) => ({ ...prev, [matchKey]: 'error' }));
+            return;
+        }
+
+        const accessToken = adminUser?.accessToken || adminUser?.access_token;
+        if (!adminUser?.faceit_guid) {
+            setSaveFeedback('Não foi possível validar o usuário admin.');
+            setSaveStatusByMatch((prev) => ({ ...prev, [matchKey]: 'error' }));
+            return;
+        }
+
+        try {
+            setSavingMatchId(matchKey);
+            setSaveFeedback(null);
+
+            const response = await fetch('/api/admin/team-match-order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken || ''}`
+                },
+                body: JSON.stringify({
+                    faceit_guid: adminUser.faceit_guid,
+                    teamName: team.name,
+                    matchId: match.id,
+                    matchOrder,
+                    roundNumber: selectedRound,
+                    players: (match.players || []).map((p: any) => ({
+                        nickname: getCurrentNickname(p),
+                        player_id: p.player_id
+                    })),
+                    matchesTimeline: adminMatchesInOrder.map((timelineMatch: any) => ({
+                        matchId: timelineMatch.id,
+                        players: (timelineMatch.players || []).map((p: any) => ({
+                            nickname: getCurrentNickname(p),
+                            player_id: p.player_id,
+                        })),
+                    })),
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data?.message || 'Falha ao salvar a ordem da partida.');
+            }
+
+            setUsedRounds((prev) => {
+                const next = { ...prev };
+
+                Object.keys(next).forEach((roundKey) => {
+                    const item = next[roundKey];
+                    if (!item) return;
+
+                    if (String(item.matchId) === String(match.id) || Number(item.matchOrder) === matchOrder) {
+                        delete next[roundKey];
+                    }
+                });
+
+                next[String(selectedRound)] = {
+                    matchOrder,
+                    matchId: String(match.id),
+                };
+
+                return next;
+            });
+
+            setSaveStatusByMatch((prev) => ({ ...prev, [matchKey]: 'saved' }));
+            setSaveFeedback(`Partida #${matchOrder} salva no banco com sucesso (Rodada ${selectedRound}).`);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Erro ao salvar.';
+            setSaveStatusByMatch((prev) => ({ ...prev, [matchKey]: 'error' }));
+            setSaveFeedback(message);
+        } finally {
+            setSavingMatchId(null);
+        }
+    };
+
+    const handleResetMatchRound = async (match: any, matchOrder: number) => {
+        const matchKey = String(match.id);
+
+        const accessToken = adminUser?.accessToken || adminUser?.access_token;
+        if (!adminUser?.faceit_guid) {
+            setSaveFeedback('Não foi possível validar o usuário admin.');
+            setSaveStatusByMatch((prev) => ({ ...prev, [matchKey]: 'error' }));
+            return;
+        }
+
+        try {
+            setResettingMatchId(matchKey);
+            setSaveFeedback(null);
+
+            const response = await fetch('/api/admin/team-match-order', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken || ''}`
+                },
+                body: JSON.stringify({
+                    faceit_guid: adminUser.faceit_guid,
+                    teamName: team.name,
+                    matchId: match.id,
+                    players: (match.players || []).map((p: any) => ({
+                        nickname: getCurrentNickname(p),
+                        player_id: p.player_id
+                    })),
+                    matchesTimeline: adminMatchesInOrder.map((timelineMatch: any) => ({
+                        matchId: timelineMatch.id,
+                        players: (timelineMatch.players || []).map((p: any) => ({
+                            nickname: getCurrentNickname(p),
+                            player_id: p.player_id,
+                        })),
+                    })),
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data?.message || 'Falha ao resetar a partida.');
+            }
+
+            setUsedRounds((prev) => {
+                const next = { ...prev };
+
+                Object.keys(next).forEach((roundKey) => {
+                    const item = next[roundKey];
+                    if (!item) return;
+
+                    if (String(item.matchId) === String(match.id) || Number(item.matchOrder) === matchOrder) {
+                        delete next[roundKey];
+                    }
+                });
+
+                return next;
+            });
+
+            setRoundByMatch((prev) => {
+                const next = { ...prev };
+                delete next[matchKey];
+                return next;
+            });
+
+            setSaveStatusByMatch((prev) => ({ ...prev, [matchKey]: 'unsaved' }));
+            setSaveFeedback(`Partida #${matchOrder} resetada com sucesso.`);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Erro ao resetar.';
+            setSaveStatusByMatch((prev) => ({ ...prev, [matchKey]: 'error' }));
+            setSaveFeedback(message);
+        } finally {
+            setResettingMatchId(null);
+        }
+    };
+
+    const getCurrentNickname = (player: any) => {
+        const byGuid = team.players?.find((tp: any) => String(tp.faceit_guid || '') === String(player.player_id || ''));
+        if (byGuid?.nickname) return byGuid.nickname;
+
+        const byNormalized = team.players?.find((tp: any) => normalizeText(tp.nickname) === normalizeText(player.nickname));
+        if (byNormalized?.nickname) return byNormalized.nickname;
+
+        return player.nickname || 'N/A';
+    };
 
     return (
         <div className="container mx-auto px-4 py-12 text-white">
+            {saveFeedback && (
+                <div
+                    className={`fixed top-24 md:top-28 right-4 md:right-6 z-[9999] max-w-sm px-5 py-4 rounded-xl shadow-xl border font-bold text-sm transition-all duration-300 ${
+                        feedbackVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
+                    } ${
+                        saveFeedback.toLowerCase().includes('sucesso')
+                            ? 'bg-green-900/90 border-green-500/60 text-green-300'
+                            : 'bg-zinc-900/95 border-gold/40 text-gold'
+                    }`}
+                >
+                    {saveFeedback}
+                </div>
+            )}
             <div className="flex flex-col md:flex-row items-center gap-8 mb-16 bg-white/5 p-8 rounded-3xl border border-white/10">
                 <div className="relative w-32 h-32 md:w-40 md:h-40">
                     <div className="absolute inset-0 bg-gold/20 blur-3xl rounded-full" />
@@ -436,6 +726,127 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
                     </div>
                 </PremiumCard>
             </div>
+
+            {isAdmin12 && (
+                <div className="mt-16">
+                    <h2 className="text-3xl font-black italic uppercase text-gold border-l-4 border-gold pl-4 mb-6">Painel Admin - Ordem por Rodada</h2>
+                    <div className="space-y-4">
+                        {adminMatchesInOrder.map((match: any, index: number) => (
+                            <PremiumCard key={`admin-${match.id}`}>
+                                <div className="p-5 space-y-4">
+                                    {(() => {
+                                        const existingRoundEntry = Object.entries(usedRounds).find(([, value]) => String(value.matchId) === String(match.id));
+                                        const existingByOrder = Object.entries(usedRounds).find(([, value]) => Number(value.matchOrder) === (index + 1));
+                                        const inferredRound =
+                                            Number(roundByMatch[match.id]) ||
+                                            Number(existingRoundEntry?.[0] || 0) ||
+                                            Number(existingByOrder?.[0] || 0);
+                                        const hasRoundSelected = inferredRound > 0;
+                                        const matchKey = String(match.id);
+                                        const isSaving = savingMatchId === matchKey;
+                                        const isResetting = resettingMatchId === matchKey;
+                                        const saveStatus = saveStatusByMatch[matchKey];
+                                        const wasLoadedFromDb = Boolean(existingRoundEntry || existingByOrder);
+
+                                        return (
+                                            <>
+                                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Partida #{index + 1}</p>
+                                            <p className="text-sm md:text-base font-black italic text-white uppercase">{match.label}</p>
+                                            <p className="text-[11px] text-zinc-400 font-bold">ID: {match.id}</p>
+                                            {hasRoundSelected && (
+                                                <p className="text-[11px] text-gold font-black uppercase mt-1">Rodada atual: {inferredRound}</p>
+                                            )}
+                                            {isSaving && (
+                                                <p className="text-[11px] text-blue-300 font-black uppercase mt-1">Salvando no banco...</p>
+                                            )}
+                                            {isResetting && (
+                                                <p className="text-[11px] text-blue-300 font-black uppercase mt-1">Resetando no banco...</p>
+                                            )}
+                                            {!isSaving && (saveStatus === 'saved' || (!saveStatus && wasLoadedFromDb)) && (
+                                                <p className="text-[11px] text-green-300 font-black uppercase mt-1">Salvo no banco</p>
+                                            )}
+                                            {!isSaving && !isResetting && (saveStatus === 'error' || saveStatus === 'unsaved') && (
+                                                <p className="text-[11px] text-red-300 font-black uppercase mt-1">Nao salvo no banco</p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <select
+                                                value={inferredRound || ''}
+                                                onChange={(event) => setRoundByMatch((prev) => ({
+                                                    ...prev,
+                                                    [match.id]: Number(event.target.value)
+                                                }))}
+                                                className="bg-black/40 border border-gold/30 rounded-lg px-3 py-2 text-sm text-white font-bold"
+                                            >
+                                                <option value="">Selecionar rodada</option>
+                                                {Array.from({ length: 17 }, (_, i) => i + 1)
+                                                    .filter((round) => {
+                                                        const used = usedRounds[String(round)];
+                                                        if (!used) return true;
+                                                        if (String(used.matchId) === String(match.id)) return true;
+                                                        if (Number(used.matchOrder) === (index + 1)) return true;
+                                                        return false;
+                                                    })
+                                                    .map((round) => (
+                                                        <option key={round} value={round}>Rodada {round}</option>
+                                                    ))}
+                                            </select>
+
+                                            {hasRoundSelected && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSaveMatchRound(match, index + 1)}
+                                                    disabled={isSaving || isResetting}
+                                                    className="px-4 py-2 rounded-lg bg-gold text-black text-xs font-black uppercase disabled:opacity-50"
+                                                >
+                                                    {isSaving ? 'Salvando...' : 'Alterar'}
+                                                </button>
+                                            )}
+
+                                            {hasRoundSelected && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleResetMatchRound(match, index + 1)}
+                                                    disabled={isSaving || isResetting}
+                                                    className="px-4 py-2 rounded-lg border border-red-500/60 text-red-300 text-xs font-black uppercase hover:bg-red-900/20 disabled:opacity-50"
+                                                >
+                                                    {isResetting ? 'Resetando...' : 'Resetar'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {(match.players || []).map((player: any, playerIndex: number) => (
+                                            <div key={`${match.id}-${player.player_id || player.nickname}-${playerIndex}`} className="flex items-center gap-3 p-2 rounded-lg border border-white/10 bg-white/5">
+                                                <div className="text-[10px] text-gold font-black w-6">#{player.position || (playerIndex + 1)}</div>
+                                                <div className="relative w-9 h-9 rounded-full overflow-hidden border border-gold/20 bg-black/40">
+                                                    <Image
+                                                        src={player.avatar || '/images/cs2-player.png'}
+                                                        alt={player.nickname || 'Player'}
+                                                        fill
+                                                        className="object-cover"
+                                                    />
+                                                </div>
+                                                <p className="text-xs font-bold text-white uppercase truncate">{getCurrentNickname(player)}</p>
+                                            </div>
+                                        ))}
+                                        {(!match.players || match.players.length === 0) && (
+                                            <p className="text-xs text-zinc-500 italic">Sem jogadores detectados para esta partida.</p>
+                                        )}
+                                    </div>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            </PremiumCard>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -99,6 +99,18 @@ async function getTeamStats(team: any) {
 
             const myTeamName = isFaction1 ? m.teams.faction1.name : m.teams.faction2.name;
             const enemyTeamName = isFaction1 ? m.teams.faction2.name : m.teams.faction1.name;
+            const myFactionKey = isFaction1 ? 'faction1' : 'faction2';
+            const myRoster = m.teams?.[myFactionKey]?.roster || [];
+
+            const playersWithOrder = myRoster.map((player: any, idx: number) => {
+                const fallbackFromTeam = team.players.find((tp: any) => tp.faceit_guid === player.player_id || normalizeText(tp.nickname) === normalizeText(player.nickname));
+                return {
+                    position: idx + 1,
+                    player_id: player.player_id,
+                    nickname: player.nickname,
+                    avatar: player.avatar || fallbackFromTeam?.avatar || '/images/cs2-player.png'
+                };
+            });
 
             matchStats.matchesList.push({
                 id: m.match_id,
@@ -106,7 +118,8 @@ async function getTeamStats(team: any) {
                 url: `https://www.faceit.com/en/cs2/room/${m.match_id}`,
                 score: `${myScore}-${enemyScore}`,
                 result: myScore > enemyScore ? 'W' : (myScore < enemyScore ? 'L' : 'D'),
-                timestamp: m.started_at
+                timestamp: m.started_at,
+                players: playersWithOrder
             });
 
             if (m.voting?.map?.veto && Array.isArray(m.voting.map.veto) && m.voting.map.veto.length > 0) {
@@ -319,7 +332,8 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ slu
                 image: team.team_image,
                 players: playerGuids.map((pg: any) => ({
                     ...pg,
-                    pote: jogadoresRows.find((j: any) => normalizeText(j.nick) === normalizeText(pg.nickname))?.pote || 0
+                    pote: jogadoresRows.find((j: any) => normalizeText(j.nick) === normalizeText(pg.nickname))?.pote || 0,
+                    avatar: faceitRows.find((f: any) => normalizeText(f.faceit_nickname) === normalizeText(pg.nickname))?.fotoperfil || '/images/cs2-player.png'
                 })),
                 tournamentStats: statsRows.map((stat: any) => ({
                     ...stat,
