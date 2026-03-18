@@ -439,7 +439,15 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                       </div>
                     )}
 
-                    {isGeral && isAdmin && (
+                    {(() => {
+                      const isOwnCard =
+                        Boolean(myNick) &&
+                        String(player?.nick || '').trim().toLowerCase() === String(myNick || '').trim().toLowerCase();
+                      const canDownloadReport = isAdmin || isOwnCard;
+
+                      if (!isGeral || !canDownloadReport) return null;
+
+                      return (
                       <div className="mt-4 flex justify-center">
                         <button
                           type="button"
@@ -449,7 +457,8 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
                           Baixar Relatorio
                         </button>
                       </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 </PremiumCard>
               </motion.div>
