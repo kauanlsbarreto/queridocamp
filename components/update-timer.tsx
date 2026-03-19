@@ -1,7 +1,5 @@
 "use client"
 
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -12,7 +10,6 @@ interface UpdateTimerProps {
 export default function UpdateTimer({ lastUpdate }: UpdateTimerProps) {
   const [remainingMinutes, setRemainingMinutes] = useState<number>(30);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
-  const [nextUpdateLabel, setNextUpdateLabel] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const lastRefreshSlotRef = useRef<string>('');
   const router = useRouter();
@@ -46,7 +43,6 @@ export default function UpdateTimer({ lastUpdate }: UpdateTimerProps) {
 
     setRemainingMinutes(minutes);
     setRemainingSeconds(seconds);
-    setNextUpdateLabel(format(nextUpdate, "HH:mm", { locale: ptBR }));
 
     if (totalSeconds > 2 && isRefreshing) {
       setIsRefreshing(false);
@@ -80,11 +76,10 @@ export default function UpdateTimer({ lastUpdate }: UpdateTimerProps) {
   return (
     <p className="text-center text-gray-400 mb-6 text-sm">
       {isRefreshing ? (
-        <>Atualizando a página...</>
+        <>A pagina sera atualizada agora</>
       ) : (
         <>
-          Próxima atualização em <span className="text-gold font-bold">{remainingMinutes} minuto{remainingMinutes === 1 ? '' : 's'} e {remainingSeconds} segundo{remainingSeconds === 1 ? '' : 's'}</span> ({nextUpdateLabel})
-          {' '}<span className="text-gold/80">A página será atualizada automaticamente.</span>
+          Proxima atualizacao em <span className="text-gold font-bold">{remainingMinutes} minuto{remainingMinutes === 1 ? '' : 's'} e {remainingSeconds} segundo{remainingSeconds === 1 ? '' : 's'}</span>
         </>
       )}
     </p>
