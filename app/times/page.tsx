@@ -2,6 +2,7 @@ import TeamsList from '@/app/times/teams-list';
 import SideAds from '@/components/side-ads';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, createJogadoresConnection } from '@/lib/db';
+import { getDatabaseLastUpdate } from '@/lib/last-update';
 import UpdateTimer from '@/components/update-timer';
 import { unstable_cache } from 'next/cache';
 
@@ -32,17 +33,6 @@ const normalizeText = (str: string | null | undefined): string => {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]/g, '');
 };
-
-async function getLastUpdate(connection: any) {
-  try {
-    const [rows]: any = await connection.query(
-      "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
-    );
-    return rows[0]?.value || new Date().toISOString();
-  } catch (error) {
-    return new Date().toISOString();
-  }
-}
 
 const getTeamsData = unstable_cache(async (mainConnection: any, jogadoresConnection: any): Promise<TeamData[]> => {
   try {
@@ -153,7 +143,7 @@ export default async function TimesPage() {
     jogadoresConnection = await createJogadoresConnection(env);
 
     teams = await getTeamsData(mainConnection, jogadoresConnection);
-    lastUpdate = await getLastUpdate(mainConnection);
+    lastUpdate = await getDatabaseLastUpdate(mainConnection);
   } catch (err) {
     console.error("Erro na página Times:", err);
   } finally {

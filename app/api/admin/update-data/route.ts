@@ -44,13 +44,6 @@ export async function POST(request: Request) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    const now = new Date().toISOString();
-
-    await connection.query(
-      "INSERT INTO site_metadata (key_name, value) VALUES ('last_update', ?) ON DUPLICATE KEY UPDATE value = ?",
-      [now, now]
-    );
-
     const allPaths = [
       {name:"Classificação",path:"/classificacao"},
       {name:"Times",path:"/times"},
@@ -64,12 +57,14 @@ export async function POST(request: Request) {
         : allPaths;
 
     const results: { name: string; status: 'success' | 'error'; message: string }[] = [];
+  let hasSuccessfulTableUpdate = false;
 
     for (const p of pathsToUpdate) {
         try {
             const type = (p as any).type as "layout" | "page" | undefined;
             revalidatePath(p.path, type);
             results.push({ name: p.name, status: 'success', message: 'Página atualizada.' });
+      hasSuccessfulTableUpdate = true;
         } catch (e) {
             console.error(`Erro ao revalidar ${p.path}:`, e);
             results.push({ name: p.name, status: 'error', message: 'Falha ao atualizar página.' });
@@ -108,6 +103,14 @@ export async function POST(request: Request) {
     } catch (e) {
       console.error('Falha ao processar avatares:', e);
       results.push({ name: 'Atualizar avatares', status: 'error', message: 'Falha ao consultar jogadores.' });
+    }
+
+    if (hasSuccessfulTableUpdate) {
+      const now = new Date().toISOString();
+      await connection.query(
+        "INSERT INTO site_metadata (key_name, value) VALUES ('last_update', ?) ON DUPLICATE KEY UPDATE value = ?",
+        [now, now]
+      );
     }
 
     return NextResponse.json({ success: true, results });

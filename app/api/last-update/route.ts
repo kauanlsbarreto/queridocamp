@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
+import { getDatabaseLastUpdate } from '@/lib/last-update';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,13 +14,10 @@ export async function GET() {
     const env = ctx.env as any;
     
     connection = await createMainConnection(env);
-    
-    const [rows]: any = await connection.query(
-      "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
-    );
+    const lastUpdate = await getDatabaseLastUpdate(connection);
 
     return NextResponse.json({ 
-      lastUpdate: rows[0]?.value || deployTime 
+      lastUpdate: lastUpdate || deployTime 
     }, {
       headers: {
         'Cache-Control': 'no-store, max-age=0, must-revalidate',

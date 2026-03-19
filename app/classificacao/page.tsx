@@ -4,6 +4,7 @@ import RankingTable from "./ranking-table";
 import UpdateTimer from "@/components/update-timer";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
+import { getDatabaseLastUpdate } from "@/lib/last-update";
 import type { RowDataPacket } from "mysql2";
 
 export const revalidate = 86400; 
@@ -34,14 +35,6 @@ async function getTeams(connection: any) {
   }));
 }
 
-async function getLastUpdate(connection: any) {
-  const [rows] = await connection.query(
-    "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
-  ) as [({ value: string })[], any];
-
-  return rows[0]?.value || new Date().toISOString();
-}
-
 export default async function Classificacao() {
   let connection: any;
   try {
@@ -52,7 +45,7 @@ export default async function Classificacao() {
 
     const [teams, lastUpdate] = await Promise.all([
       getTeams(connection),
-      getLastUpdate(connection)
+      getDatabaseLastUpdate(connection)
     ]);
 
     return (

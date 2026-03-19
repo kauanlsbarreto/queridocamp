@@ -1,6 +1,7 @@
 import PlayersList from './players-list';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
+import { getDatabaseLastUpdate } from '@/lib/last-update';
 import type { Env } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -14,17 +15,6 @@ const SPECIAL_ROLE_GUIDS = [
 function parseAdicionadosCodes(raw: any): string[] {
   if (!raw || typeof raw !== 'string') return [];
   return raw.split(/[,;|\n]/).map((s: string) => s.trim()).filter(Boolean);
-}
-
-async function getLastUpdate(connection: any) {
-  try {
-    const [rows]: any = await connection.query(
-      "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
-    );
-    return rows[0]?.value || new Date().toISOString();
-  } catch (error) {
-    return new Date().toISOString();
-  }
 }
 
 async function getPlayersData(mainConn: any, offset: number, search: string) {
@@ -150,7 +140,7 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
     (mainConnection as any).setPage('/players');
 
     playersData = await getPlayersData(mainConnection, offset, search);
-    lastUpdate = await getLastUpdate(mainConnection);
+    lastUpdate = await getDatabaseLastUpdate(mainConnection);
 
   } catch (error: any) {
     console.error("Erro ao carregar dados:", error.message);

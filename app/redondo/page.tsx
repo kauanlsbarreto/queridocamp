@@ -2,6 +2,7 @@ import PickEmClient from './pick-em-client';
 import AdPropaganda from '@/components/ad-propaganda';
 import UpdateTimer from '@/components/update-timer';
 import { createMainConnection, Env, HyperdriveBinding } from '@/lib/db';
+import { getDatabaseLastUpdate } from '@/lib/last-update';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 export const revalidate = 86400; 
@@ -160,17 +161,6 @@ async function getPickStats(connection: any) {
   }
 }
 
-async function getLastUpdate(connection: any) {
-  try {
-    const [rows]: any = await connection.query(
-      "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
-    );
-    return rows[0]?.value || new Date().toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
-}
-
 // --------------------------- Componente ---------------------------
 
 export default async function RedondoPage() {
@@ -193,7 +183,7 @@ export default async function RedondoPage() {
       getTeams(connection),
       getUsers(connection),
       getPickStats(connection),
-      getLastUpdate(connection),
+      getDatabaseLastUpdate(connection),
       getTop8Teams(connection),
       getAdminReferencePicks(connection)
     ]);

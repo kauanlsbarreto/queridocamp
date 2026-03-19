@@ -3,21 +3,9 @@ import SideAds from "@/components/side-ads";
 import AdPropaganda from '@/components/ad-propaganda';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
+import { getDatabaseLastUpdate } from '@/lib/last-update';
 
 export const revalidate = 86400; 
-
-async function getLastUpdate(connection: any) {
-  try {
-    const [rows] = await connection.query(
-      "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
-    ) as [{ value: string }[], any];
-
-    return rows[0]?.value || new Date().toISOString();
-  } catch (error) {
-    console.error("Erro ao buscar lastUpdate:", error);
-    return new Date().toISOString();
-  }
-}
 
 export default async function Rodadas() {
   let connection: any;
@@ -35,7 +23,7 @@ export default async function Rodadas() {
     ] = await Promise.all([
       connection.query("SELECT id, team_name AS name, team_image AS logo FROM team_config ORDER BY team_name ASC") as Promise<[any[], any]>,
       connection.query("SELECT * FROM jogos") as Promise<[any[], any]>,
-      getLastUpdate(connection)
+      getDatabaseLastUpdate(connection)
     ]);
 
     const excludedTeams = ["Alfajor Soluções", "NeshaStore"];

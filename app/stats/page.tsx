@@ -4,6 +4,7 @@ import UpdateTimer from '@/components/update-timer';
 import AdPropaganda from '@/components/ad-propaganda';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, createJogadoresConnection } from '@/lib/db';
+import { getDatabaseLastUpdate } from '@/lib/last-update';
 import type { Env } from '@/lib/db';
 
 export const revalidate = 86400;
@@ -16,18 +17,6 @@ const normalizeText = (str: string | null | undefined): string => {
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
 };
-
-
-async function getLastUpdate(connection: any) {
-  try {
-    const [rows]: any = await connection.query(
-      "SELECT value FROM site_metadata WHERE key_name = 'last_update'"
-    );
-    return rows[0]?.value || new Date().toISOString();
-  } catch (error) {
-    return new Date().toISOString();
-  }
-}
 
 async function getStats(mainConn: any, jogadoresConn: any) {
   try {
@@ -106,7 +95,7 @@ export default async function StatsPage() {
 
     const [statsResult, updateResult] = await Promise.all([
       getStats(mainConnection, jogadoresConnection),
-      getLastUpdate(mainConnection)
+      getDatabaseLastUpdate(mainConnection)
     ]);
 
     allStats = statsResult;
