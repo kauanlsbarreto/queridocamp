@@ -2,7 +2,7 @@
 
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface UpdateTimerProps {
@@ -10,44 +10,83 @@ interface UpdateTimerProps {
 }
 
 export default function UpdateTimer({ lastUpdate }: UpdateTimerProps) {
-  const [formattedDate, setFormattedDate] = useState<string>("");
+  const [remainingMinutes, setRemainingMinutes] = useState<number>(30);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
+  const [nextUpdateLabel, setNextUpdateLabel] = useState<string>('');
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const lastRefreshSlotRef = useRef<string>('');
   const router = useRouter();
 
-  useEffect(() => {
-    setFormattedDate(format(new Date(lastUpdate), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }));
-  }, [lastUpdate]);
+  const getNextScheduledUpdate = (now: Date) => {
+    const next = new Date(now);
+    next.setSeconds(0, 0);
+
+    const minute = now.getMinutes();
+    if (minute < 1) {
+      next.setMinutes(1);
+      return next;
+    }
+    if (minute < 31) {
+      next.setMinutes(31);
+      return next;
+    }
+
+    next.setHours(next.getHours() + 1);
+    next.setMinutes(1);
+    return next;
+  };
+
+  const updateCountdown = () => {
+    const now = new Date();
+    const nextUpdate = getNextScheduledUpdate(now);
+    const diffMs = nextUpdate.getTime() - now.getTime();
+    const totalSeconds = Math.max(0, Math.ceil(diffMs / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    setRemainingMinutes(minutes);
+    setRemainingSeconds(seconds);
+    setNextUpdateLabel(format(nextUpdate, "HH:mm", { locale: ptBR }));
+
+    if (totalSeconds > 2 && isRefreshing) {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const checkUpdate = async () => {
-      try {
-        const res = await fetch('/api/last-update', { cache: 'no-store' });
-        if (!res.ok) return;
-        const data = await res.json();
-        // Se a data no banco for mais nova que a data atual da página, recarrega
-        if (data.lastUpdate && new Date(data.lastUpdate).getTime() > new Date(lastUpdate).getTime()) {
+    updateCountdown();
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const minute = now.getMinutes();
+      const second = now.getSeconds();
+
+      // Refresh once at each scheduled tick: xx:01 and xx:31
+      if ((minute === 1 || minute === 31) && second < 2) {
+        const slotKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${minute}`;
+        if (lastRefreshSlotRef.current !== slotKey) {
+          lastRefreshSlotRef.current = slotKey;
+          setIsRefreshing(true);
           router.refresh();
         }
-      } catch (e) {
-        console.error("Erro ao verificar atualização:", e);
       }
-    };
 
-    // Verifica a cada 30 segundos
-    const interval = setInterval(checkUpdate, 30000);
+      updateCountdown();
+    }, 1000);
+
     return () => clearInterval(interval);
-  }, [lastUpdate, router]);
-
-  if (!formattedDate) {
-    return (
-      <p className="text-center text-gray-400 mb-6 text-sm">
-        Última atualização: <span className="text-gold font-bold">...</span>
-      </p>
-    )
-  }
+  }, [router, lastUpdate]);
 
   return (
     <p className="text-center text-gray-400 mb-6 text-sm">
-      Última atualização: <span className="text-gold font-bold">{formattedDate}</span>
+      {isRefreshing ? (
+        <>Atualizando a página...</>
+      ) : (
+        <>
+          Próxima atualização em <span className="text-gold font-bold">{remainingMinutes} minuto{remainingMinutes === 1 ? '' : 's'} e {remainingSeconds} segundo{remainingSeconds === 1 ? '' : 's'}</span> ({nextUpdateLabel})
+          {' '}<span className="text-gold/80">A página será atualizada automaticamente.</span>
+        </>
+      )}
     </p>
   )
 }
