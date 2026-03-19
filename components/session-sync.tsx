@@ -1,18 +1,25 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+
+const SESSION_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
 export default function SessionSync() {
+  const isSyncingRef = useRef(false);
+
   useEffect(() => {
     const syncSession = async () => {
+      if (isSyncingRef.current) return;
+
       const storedUser = localStorage.getItem("faceit_user");
       if (!storedUser) return;
 
       try {
+        isSyncingRef.current = true;
+
         const user = JSON.parse(storedUser);
         if (!user.id) return;
 
-        // sync with DB record first (admin route just returns stored info)
       const res = await fetch(`/api/admin/players?id=${user.id}`, { cache: 'no-store' });
       if (res.ok) {
         const updatedData = await res.json();
@@ -26,7 +33,6 @@ export default function SessionSync() {
           avatar: updatedData.avatar || user.avatar,
         };
 
-        // also try to pull freshest profile from Faceit if we have a token
         if (user.accessToken && user.faceit_guid) {
           try {
             const faceitRes = await fetch('https://api.faceit.com/auth/v1/resources/userinfo', {
@@ -36,7 +42,6 @@ export default function SessionSync() {
               const faceitData = await faceitRes.json();
               if (faceitData.picture && faceitData.picture !== newUser.avatar) {
                 newUser.avatar = faceitData.picture;
-                // update DB so other clients see the change
                 await fetch('/api/players', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -56,20 +61,34 @@ export default function SessionSync() {
         if ('admin' in newUser) delete newUser.admin;
 
         if (JSON.stringify(user) !== JSON.stringify(newUser)) {
-          console.log('Sessão atualizada em background:', newUser);
           localStorage.setItem('faceit_user', JSON.stringify(newUser));
           window.dispatchEvent(new Event('storage'));
         }
       }
       } catch (error) {
+      } finally {
+        isSyncingRef.current = false;
       }
     };
 
-    const interval = setInterval(syncSession, 1000);
-    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void syncSession();
+      }
+    };
+
+    window.addEventListener('focus', syncSession);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const interval = setInterval(syncSession, SESSION_SYNC_INTERVAL_MS);
+
     syncSession();
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', syncSession);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   return null; 
