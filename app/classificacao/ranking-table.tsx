@@ -32,6 +32,15 @@ interface TeamDetails {
   adjustments: { motivo: string; sp: number; vitorias?: number; derrotas?: number }[];
 }
 
+interface QuarterfinalMatch {
+  id: string;
+  side: "Lado A" | "Lado B";
+  topSeed: number;
+  bottomSeed: number;
+  topTeam: Team | null;
+  bottomTeam: Team | null;
+}
+
 const getMatchRound = (teams: Team[], t1: string, t2: string) => {
   const sortedTeams = [...teams].sort((a, b) => a.name.localeCompare(b.name));
   const numTeams = sortedTeams.length;
@@ -421,6 +430,46 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
     return map;
   }, [activeTeams, extraWins]);
 
+  const quarterfinalMatches = useMemo<QuarterfinalMatch[]>(() => {
+    const seededTeams = activeTeams.slice(0, 8);
+    const getSeedTeam = (seed: number) => seededTeams[seed - 1] || null;
+
+    return [
+      {
+        id: "QF1",
+        side: "Lado A",
+        topSeed: 1,
+        bottomSeed: 8,
+        topTeam: getSeedTeam(1),
+        bottomTeam: getSeedTeam(8)
+      },
+      {
+        id: "QF2",
+        side: "Lado A",
+        topSeed: 3,
+        bottomSeed: 6,
+        topTeam: getSeedTeam(3),
+        bottomTeam: getSeedTeam(6)
+      },
+      {
+        id: "QF3",
+        side: "Lado B",
+        topSeed: 2,
+        bottomSeed: 7,
+        topTeam: getSeedTeam(2),
+        bottomTeam: getSeedTeam(7)
+      },
+      {
+        id: "QF4",
+        side: "Lado B",
+        topSeed: 4,
+        bottomSeed: 5,
+        topTeam: getSeedTeam(4),
+        bottomTeam: getSeedTeam(5)
+      }
+    ];
+  }, [activeTeams]);
+
   const toggleTeam = useCallback(async (teamName: string) => {
     if (expandedTeam === teamName) {
       setExpandedTeam(null)
@@ -453,6 +502,25 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
 
   return (
     <>
+      <div className="sticky top-0 z-30 mb-6">
+        <div className="flex items-center justify-center gap-2 py-3 px-4">
+          {[
+            { label: "Tabela", href: "#tabela" },
+            ...(withdrawnTeams.length > 0 ? [{ label: "Desistentes", href: "#desistentes" }] : []),
+            { label: "Chaveamento", href: "#chaveamento" },
+          ].map(item => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="text-xs md:text-sm font-bold text-gray-300 hover:text-white transition-all border border-white/10 hover:border-gold/60 bg-white/5 hover:bg-gold/10 rounded-full px-4 py-1.5 hover:shadow-[0_0_12px_rgba(212,175,55,0.25)]"
+            >
+              {item.label}
+            </a>
+          ))}
+        </div>
+      </div>
+
+      <div id="tabela">
       <PremiumCard hoverEffect={true}>
         <div className="p-4 md:p-8 overflow-x-auto">
           <div className="mb-6 pb-6 border-b border-white/10 text-center text-xs text-gray-400">
@@ -493,46 +561,194 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
           </table>
         </div>
       </PremiumCard>
+      </div>
 
-      {withdrawnTeams.length > 0 && (
-        <div className="mt-12">
-          <motion.h3
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-xl font-bold text-center text-red-400 mb-4"
-          >
-            Times Desistentes
-          </motion.h3>
-          <PremiumCard>
-            <div className="p-4 md:p-8">
-              <table className="w-full border-collapse">
-                <tbody>
-                  {withdrawnTeams.map((team) => (
-                    <tr key={team.id} className="border-b border-white/10 last:border-b-0">
-                      <td className="py-3 px-2">
-                        <div className="flex items-center gap-3">
-                          <div className="relative w-8 h-8 flex-shrink-0">
-                            <Image
-                              src={team.logo || "/placeholder.svg"}
-                              alt={team.name}
-                              fill
-                              sizes="32px"
-                              className="object-contain rounded-lg opacity-50"
-                            />
+      <section className="mt-10">
+        {withdrawnTeams.length > 0 && (
+          <div id="desistentes">
+            <motion.h3
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="text-xl font-bold text-center text-red-400 mb-4"
+            >
+              Times Desistentes
+            </motion.h3>
+            <PremiumCard>
+              <div className="p-4 md:p-8">
+                <table className="w-full border-collapse">
+                  <tbody>
+                    {withdrawnTeams.map((team) => (
+                      <tr key={team.id} className="border-b border-white/10 last:border-b-0">
+                        <td className="py-3 px-2">
+                          <div className="flex items-center gap-3">
+                            <div className="relative w-8 h-8 flex-shrink-0">
+                              <Image
+                                src={team.logo || "/placeholder.svg"}
+                                alt={team.name}
+                                fill
+                                sizes="32px"
+                                className="object-contain rounded-lg opacity-50"
+                              />
+                            </div>
+                            <span className="text-gray-500 font-medium line-through">{team.name}</span>
                           </div>
-                          <span className="text-gray-500 font-medium line-through">{team.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-2 text-right text-gray-500 italic">Desistiu do campeonato</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </td>
+                        <td className="py-3 px-2 text-right text-gray-500 italic">Desistiu do campeonato</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </PremiumCard>
+          </div>
+        )}
+
+        <div id="chaveamento">
+        <PremiumCard hoverEffect={true} className="mt-8">
+          <div className="p-5 md:p-8 bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.14),_transparent_50%),linear-gradient(140deg,#081320_0%,#0E1A2A_45%,#121826_100%)] rounded-2xl border border-white/10">
+            <div className="mb-6">
+              <h3 className="text-white font-black tracking-wide text-lg md:text-2xl uppercase">Chaveamento Fase Final</h3>
+              <p className="text-xs md:text-sm text-gray-400 mt-1">Quartas definidas pela classificação: 1x8, 3x6, 2x7, 4x5</p>
+              <div className="mt-3 inline-flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2">
+                <span className="text-yellow-400 text-base leading-none">⚠</span>
+                <p className="text-[11px] text-yellow-300/80 leading-snug">
+                  O chaveamento exibido é baseado na <span className="font-bold text-yellow-300">tabela atual</span>. Os confrontos serão definitivos somente após a finalização de todas as rodadas.
+                </p>
+              </div>
             </div>
-          </PremiumCard>
+
+            <div className="overflow-x-auto pb-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5 min-w-[980px] xl:min-w-0">
+              <div className="rounded-xl border border-white/10 bg-black/25 p-3 md:p-4">
+                <h4 className="text-[11px] uppercase tracking-[0.2em] text-gold font-black mb-3">Quartas</h4>
+                <div className="space-y-3">
+                  {quarterfinalMatches.map(match => {
+                    const slots = [
+                      { seed: match.topSeed, team: match.topTeam },
+                      { seed: match.bottomSeed, team: match.bottomTeam }
+                    ];
+                    return (
+                      <div key={match.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                        <div className="text-[10px] tracking-wider uppercase text-gray-400 font-bold mb-2">{match.id}</div>
+
+                        {/* Time 1 */}
+                        <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                          <span className="text-[10px] font-black text-gold bg-gold/20 border border-gold/30 px-2 py-1 rounded-md shrink-0">#{slots[0].seed}</span>
+                          <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                            <Image src={slots[0].team?.logo || "/placeholder.svg"} alt={slots[0].team?.name || `Seed ${slots[0].seed}`} fill sizes="28px" className="object-contain" />
+                          </div>
+                          <span className="text-xs text-white font-semibold">{slots[0].team?.name || "A definir"}</span>
+                        </div>
+
+                        {/* Placar */}
+                        <div className="flex items-center justify-center gap-3 py-2">
+                          <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">--</div>
+                          <span className="text-[11px] text-gray-500 font-bold">×</span>
+                          <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">--</div>
+                        </div>
+
+                        {/* Time 2 */}
+                        <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                          <span className="text-[10px] font-black text-gold bg-gold/20 border border-gold/30 px-2 py-1 rounded-md shrink-0">#{slots[1].seed}</span>
+                          <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                            <Image src={slots[1].team?.logo || "/placeholder.svg"} alt={slots[1].team?.name || `Seed ${slots[1].seed}`} fill sizes="28px" className="object-contain" />
+                          </div>
+                          <span className="text-xs text-white font-semibold">{slots[1].team?.name || "A definir"}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-black/25 p-3 md:p-4 xl:mt-8">
+                <h4 className="text-[11px] uppercase tracking-[0.2em] text-gold font-black mb-3">Semifinais</h4>
+                <div className="space-y-4 md:space-y-6">
+                  {[
+                    { id: "SF1", top: "Vencedor QF1", bottom: "Vencedor QF2" },
+                    { id: "SF2", top: "Vencedor QF3", bottom: "Vencedor QF4" }
+                  ].map(semifinal => (
+                    <div key={semifinal.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                      <div className="text-[10px] tracking-wider uppercase text-gray-400 font-bold mb-2">{semifinal.id}</div>
+
+                      <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                        <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                          <Image src="/placeholder.svg" alt={semifinal.top} fill sizes="28px" className="object-contain opacity-70" />
+                        </div>
+                        <span className="text-xs text-gray-200 font-semibold">{semifinal.top}</span>
+                      </div>
+
+                      <div className="flex items-center justify-center gap-3 py-2">
+                        <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">--</div>
+                        <span className="text-[11px] text-gray-500 font-bold">×</span>
+                        <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">--</div>
+                      </div>
+
+                      <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                        <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                          <Image src="/placeholder.svg" alt={semifinal.bottom} fill sizes="28px" className="object-contain opacity-70" />
+                        </div>
+                        <span className="text-xs text-gray-200 font-semibold">{semifinal.bottom}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-black/25 p-3 md:p-4 xl:mt-20">
+                <h4 className="text-[11px] uppercase tracking-[0.2em] text-gold font-black mb-3">Final</h4>
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] tracking-wider uppercase text-gray-400 font-bold mb-2">F1</div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src="/placeholder.svg" alt="Vencedor SF1" fill sizes="28px" className="object-contain opacity-70" />
+                      </div>
+                      <span className="text-xs text-gray-200 font-semibold">Vencedor SF1</span>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-3 py-2">
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">--</div>
+                      <span className="text-[11px] text-gray-500 font-bold">×</span>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">--</div>
+                    </div>
+
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src="/placeholder.svg" alt="Vencedor SF2" fill sizes="28px" className="object-contain opacity-70" />
+                      </div>
+                      <span className="text-xs text-gray-200 font-semibold">Vencedor SF2</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gold/30 bg-gradient-to-b from-gold/10 to-transparent p-3 md:p-4 xl:mt-32">
+                <h4 className="text-[11px] uppercase tracking-[0.2em] text-gold font-black mb-3">Campeao</h4>
+                <div className="rounded-lg border border-gold/25 bg-black/40 p-4">
+                  <div className="flex flex-col items-center text-center gap-3">
+                    <div className="w-14 h-14 rounded-xl border border-gold/40 bg-black/40 flex items-center justify-center text-gold text-2xl font-black">?</div>
+                    <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/15 bg-black/30">
+                      <Image
+                        src="/placeholder.svg"
+                        alt="Campeao"
+                        fill
+                        sizes="40px"
+                        className="object-contain opacity-80"
+                      />
+                    </div>
+                    <p className="text-sm text-white font-bold">A definir</p>
+                    <p className="text-[10px] uppercase tracking-widest text-gold/80">Vencedor da Final</p>
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
+        </PremiumCard>
         </div>
-      )}
+      </section>
     </>
   )
 }

@@ -1,7 +1,6 @@
 import AdPropaganda from "@/components/ad-propaganda";
 import SideAds from "@/components/side-ads";
-import RankingTable from "./ranking-table";
-import UpdateTimer from "@/components/update-timer";
+import ClassificacaoLive from "./classificacao-live";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
 import { getDatabaseLastUpdate } from "@/lib/last-update";
@@ -58,8 +57,7 @@ export default async function Classificacao() {
         <section className="py-16 bg-gradient-to-b from-black to-gray-900">
           <div className="container mx-auto px-4">
             <div className="max-w-6xl mx-auto">
-              <UpdateTimer lastUpdate={lastUpdate} />
-              <RankingTable teams={teams} />
+              <ClassificacaoLive initialTeams={teams} initialLastUpdate={lastUpdate} />
             </div>
           </div>
         </section>

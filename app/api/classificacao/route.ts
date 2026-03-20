@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
+import { getDatabaseLastUpdate } from "@/lib/last-update";
 import type { RowDataPacket } from "mysql2";
 
 export const dynamic = "force-dynamic";
@@ -33,18 +34,18 @@ type TeamRow = RowDataPacket & {
 };
 
 export async function GET() {
+  let connection: any;
   try {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
-    const connection = await createMainConnection(env);
+    connection = await createMainConnection(env);
 
-    const [rows] = await connection.query<TeamRow[]>(
-      "SELECT * FROM team_config ORDER BY sp DESC, df DESC"
-    );
+    const [rows, lastUpdate] = await Promise.all([
+      connection.query<TeamRow[]>("SELECT * FROM team_config ORDER BY sp DESC, df DESC"),
+      getDatabaseLastUpdate(connection)
+    ]);
 
-    await connection.end();
-
-    const teams = rows.map((row) => ({
+    const teams = rows[0].map((row) => ({
       id: row.id,
       name: row.team_name,
       logo: row.team_image,
@@ -54,9 +55,11 @@ export async function GET() {
       rounds: row.df > 0 ? `+${row.df}` : `${row.df}`,
     }));
 
-    return NextResponse.json(teams);
+    return NextResponse.json({ teams, lastUpdate });
   } catch (err) {
     console.error(err);
-    return NextResponse.json([], { status: 500 });
+    return NextResponse.json({ teams: [], lastUpdate: new Date().toISOString() }, { status: 500 });
+  } finally {
+    if (connection) await connection.end();
   }
 }

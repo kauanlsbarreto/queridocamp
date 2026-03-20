@@ -1,18 +1,17 @@
 "use client"
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 interface UpdateTimerProps {
   lastUpdate: string;
+  onRefresh: () => Promise<void>;
 }
 
-export default function UpdateTimer({ lastUpdate }: UpdateTimerProps) {
+export default function UpdateTimer({ lastUpdate, onRefresh }: UpdateTimerProps) {
   const [remainingMinutes, setRemainingMinutes] = useState<number>(30);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const lastRefreshSlotRef = useRef<string>('');
-  const router = useRouter();
 
   const getNextScheduledUpdate = (now: Date) => {
     const next = new Date(now);
@@ -63,7 +62,13 @@ export default function UpdateTimer({ lastUpdate }: UpdateTimerProps) {
         if (lastRefreshSlotRef.current !== slotKey) {
           lastRefreshSlotRef.current = slotKey;
           setIsRefreshing(true);
-          router.refresh();
+          onRefresh()
+            .catch((error) => {
+              console.error("Erro ao atualizar classificacao em segundo plano:", error);
+            })
+            .finally(() => {
+              setIsRefreshing(false);
+            });
         }
       }
 
@@ -71,12 +76,12 @@ export default function UpdateTimer({ lastUpdate }: UpdateTimerProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [router, lastUpdate]);
+  }, [lastUpdate, onRefresh]);
 
   return (
     <p className="text-center text-gray-400 mb-6 text-sm">
       {isRefreshing ? (
-        <>A pagina sera atualizada agora</>
+        <>Atualizando tabela...</>
       ) : (
         <>
           Proxima atualizacao em <span className="text-gold font-bold">{remainingMinutes} minuto{remainingMinutes === 1 ? '' : 's'} e {remainingSeconds} segundo{remainingSeconds === 1 ? '' : 's'}</span>

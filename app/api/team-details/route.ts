@@ -66,6 +66,24 @@ export async function GET(request: Request) {
       .filter((adj) => normalize(adj.team_name) === normalizedName)
       .map(({ motivo, sp, vitorias, derrotas }) => ({ motivo, sp, vitorias, derrotas }));
 
+    const candidateNames = Array.from(
+      new Set(
+        allMatches.flatMap((match) => [match.time1, match.time2])
+      )
+    ).filter((name) => {
+      const lowered = String(name || '').toLowerCase();
+      return lowered.includes(teamName!.toLowerCase()) || lowered.includes('uns') || lowered.includes('outros');
+    });
+
+    console.info('team-details debug', {
+      requestedTeam: teamName,
+      normalizedName,
+      totalMatchesLoaded: allMatches.length,
+      matchedMatches: matches.length,
+      matchedAdjustments: adjustments.length,
+      candidateNames,
+    });
+
     return NextResponse.json({ 
       matches: matches || [], 
       adjustments: adjustments || [] 
