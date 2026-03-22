@@ -91,8 +91,8 @@ export default function PickEmClient({
   const [showGallery, setShowGallery] = useState(false)
 
   const userPermissions: string[] = Array.isArray((user as any)?.permissions) ? (user as any).permissions : [];
-  const isAdminView = userPermissions.includes('manage_picks'); // pode ver picks de outros
-  const isHighAdmin = userPermissions.includes('manage_picks'); // pode bloquear fases, sync e premiar
+  const canViewOtherPicks = userPermissions.includes('view_other_picks'); 
+  const isHighAdmin = userPermissions.includes('manage_picks'); 
   const isViewingOther = !!(viewingNickname && user && viewingNickname !== user.nickname);
   const isAuthorized = user ? usersWithPicks.includes(user.nickname) : false;
 
@@ -580,7 +580,7 @@ export default function PickEmClient({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {isAdminView && (
+                  {canViewOtherPicks && (
                     <div className="flex items-center gap-2 rounded-2xl border border-white/5 bg-black/40 p-2">
                       <Eye size={16} className="ml-2 text-amber-500" />
                       <select
@@ -689,7 +689,7 @@ export default function PickEmClient({
                     </div>
                   </div>
 
-                  <div className={`${isAdminView ? 'lg:col-span-6' : 'lg:col-span-9'} space-y-12`}>
+                  <div className={`${canViewOtherPicks ? 'lg:col-span-6' : 'lg:col-span-9'} space-y-12`}>
                     {[
                       { title: 'Quartas de Final', data: qualifiedTeams, key: 'slot', cols: 4 },
                       { title: 'Semi-Finais', data: semiTeams, key: 'semi', cols: 4 },
@@ -750,7 +750,7 @@ export default function PickEmClient({
                     })}
                   </div>
 
-                  {isAdminView && (
+                  {canViewOtherPicks && (
                     <div className="space-y-4 lg:col-span-3">
                       <div className="h-full rounded-3xl border border-white/5 bg-zinc-900/50 p-6">
                         <h3 className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">

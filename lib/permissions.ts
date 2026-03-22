@@ -12,6 +12,7 @@ export const PERMISSION_KEYS = {
   SEND_NOTIFICATIONS: 'send_notifications',
   MANAGE_ADMINS: 'manage_admins',
   VIEW_STATUS: 'view_status',
+  VIEW_OTHER_PICKS: 'view_other_picks',
   MANAGE_PICKS: 'manage_picks',
 } as const;
 
@@ -103,10 +104,16 @@ export const PERMISSIONS_LIST: PermissionDefinition[] = [
       'Permite visualizar o painel de status e saúde dos serviços da plataforma (banco de dados, Faceit API, etc.).',
   },
   {
+    key: PERMISSION_KEYS.VIEW_OTHER_PICKS,
+    label: 'Ver Redondo de Outros Players',
+    description:
+      'Permite visualizar os picks de outros jogadores no Redondo. Não concede acesso para bloquear fases, sincronizar GUIDs ou premiar.',
+  },
+  {
     key: PERMISSION_KEYS.MANAGE_PICKS,
     label: 'Gerenciar Pick\'Em (Redondo)',
     description:
-      'Permite visualizar os picks de qualquer usuário no Pick\'Em, além de bloquear/desbloquear fases, sincronizar GUIDs e distribuir pontos Redondo.',
+      'Permite bloquear/desbloquear fases, sincronizar GUIDs e executar ações administrativas no Pick\'Em (Redondo).',
   },
 ];
 
@@ -123,7 +130,6 @@ export async function ensurePermissionsSchema(connection: any): Promise<void> {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
-  // Migrate legacy schema (permission_key + player_id) to level-based schema.
   const [adminLevelCol]: any = await connection.query(
     "SHOW COLUMNS FROM admin_permissions LIKE 'admin_level'"
   );
@@ -168,7 +174,6 @@ export async function hasPermission(
   faceitGuid: string,
   permissionKey: PermissionKey
 ): Promise<boolean> {
-  // Super-admin (level 1) always has every permission
   const [adminRows]: any = await connection.query(
     'SELECT admin FROM players WHERE faceit_guid = ? LIMIT 1',
     [faceitGuid]
@@ -189,10 +194,7 @@ export async function hasPermission(
   return rows.length > 0;
 }
 
-/**
- * Returns all permission keys available to the player identified by
- * `faceitGuid`. Admin level 1 gets every permission implicitly.
- */
+
 export async function getPlayerPermissions(
   connection: any,
   faceitGuid: string
@@ -203,7 +205,6 @@ export async function getPlayerPermissions(
   );
   if (!adminRows.length) return [];
   const level = Number(adminRows[0].admin);
-  // Super-admin (level 1) implicitly has every permission
   if (level === 1) return Object.values(PERMISSION_KEYS);
   if (level < 2 || level > 5) return [];
 
