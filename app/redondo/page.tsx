@@ -1,61 +1,12 @@
 import PickEmClient from './pick-em-client';
 import AdPropaganda from '@/components/ad-propaganda';
 import UpdateTimer from '@/components/update-timer';
-import { createMainConnection, Env, HyperdriveBinding } from '@/lib/db';
+import { createMainConnection, Env } from '@/lib/db';
 import { getDatabaseLastUpdate } from '@/lib/last-update';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { ensureTableExists, getAdminReferencePicks, getTop8Teams } from './ranking-data';
 
 export const revalidate = 86400; 
-
-const WITHDRAWN_TEAMS = ["NeshaStore", "Alfajor Solucoes", "Alfajor Soluções"];
-
-function normalizeTeamName(value: string) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "")
-    .toLowerCase();
-}
-
-
-async function ensureTableExists(connection: any) {
-  try {
-    const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS escolhas (
-        nickname VARCHAR(255) PRIMARY KEY,
-        faceit_guid VARCHAR(255),
-        slot_1 JSON,
-        slot_2 JSON,
-        slot_3 JSON,
-        slot_4 JSON,
-        slot_5 JSON,
-        slot_6 JSON,
-        slot_7 JSON,
-        slot_8 JSON,
-        locked BOOLEAN DEFAULT FALSE,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `;
-    await connection.query(createTableQuery);
-
-    const additionalColumns = [
-      "semi_1 JSON", "semi_2 JSON", "semi_3 JSON", "semi_4 JSON",
-      "final_1 JSON", "final_2 JSON",
-      "semi_locked BOOLEAN DEFAULT FALSE",
-      "final_locked BOOLEAN DEFAULT FALSE",
-      "winner_1 JSON",
-      "winner_locked BOOLEAN DEFAULT FALSE"
-    ];
-
-    for (const col of additionalColumns) {
-      try {
-        await connection.query(`ALTER TABLE escolhas ADD COLUMN ${col}`);
-      } catch {}
-    }
-  } catch (error) {
-    console.error("Erro ao criar tabela:", error);
-  }
-}
 
 async function getTeams(connection: any) {
   try {
@@ -82,78 +33,6 @@ async function getUsers(connection: any) {
   } catch (error) {
     console.error("Erro ao buscar usuários:", error);
     return [];
-  }
-}
-
-async function getTop8Teams(connection: any): Promise<string[]> {
-  try {
-    const [rows]: any = await connection.query(
-      'SELECT team_name, sp, df FROM team_config'
-    );
-
-    const withdrawnSet = new Set(WITHDRAWN_TEAMS.map(normalizeTeamName));
-
-    return rows
-      .filter((row: any) => !withdrawnSet.has(normalizeTeamName(row.team_name)))
-      .sort((a: any, b: any) => {
-        const spDiff = Number(b.sp || 0) - Number(a.sp || 0);
-        if (spDiff !== 0) return spDiff;
-        return Number(b.df || 0) - Number(a.df || 0);
-      })
-      .slice(0, 8)
-      .map((r: any) => r.team_name as string);
-  } catch (error) {
-    console.error("Erro ao buscar top 8:", error);
-    return [];
-  }
-}
-
-async function getAdminReferencePicks(connection: any) {
-  try {
-    const [rows]: any = await connection.query(
-      `SELECT semi_1, semi_2, semi_3, semi_4, final_1, final_2, winner_1
-       FROM escolhas
-       WHERE nickname = 'ADMIN'
-       LIMIT 1`
-    );
-
-    const adminRow = rows[0] || {};
-    const parseTeam = (value: any) => {
-      if (!value) return null;
-      if (typeof value === 'string') {
-        try {
-          return JSON.parse(value);
-        } catch {
-          return null;
-        }
-      }
-      return value;
-    };
-
-    const semiTeams = [adminRow.semi_1, adminRow.semi_2, adminRow.semi_3, adminRow.semi_4]
-      .map(parseTeam)
-      .filter(Boolean)
-      .map((team: any) => team.team_name as string);
-
-    const finalTeams = [adminRow.final_1, adminRow.final_2]
-      .map(parseTeam)
-      .filter(Boolean)
-      .map((team: any) => team.team_name as string);
-
-    const winnerTeam = parseTeam(adminRow.winner_1);
-
-    return {
-      semiTeams,
-      finalTeams,
-      winner: winnerTeam?.team_name || ''
-    };
-  } catch (error) {
-    console.error("Erro ao buscar picks de referência do ADMIN:", error);
-    return {
-      semiTeams: [],
-      finalTeams: [],
-      winner: ''
-    };
   }
 }
 

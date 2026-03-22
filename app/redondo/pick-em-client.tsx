@@ -1,5 +1,6 @@
 ﻿"use client"
 
+import Link from "next/link"
 import { useState, useEffect, useCallback } from "react"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import Image from "next/image"
@@ -179,12 +180,11 @@ export default function PickEmClient({
     if (!viewingNickname) return;
 
     const refreshCurrentView = () => {
-      if (document.visibilityState === 'visible') {
-        loadUserPicks(viewingNickname, true, true);
-      }
+      loadUserPicks(viewingNickname, true, true);
     };
 
-    const intervalId = window.setInterval(refreshCurrentView, 15000);
+    // Keep locks synchronized in near real-time without interrupting the user flow.
+    const intervalId = window.setInterval(refreshCurrentView, 3000);
     window.addEventListener('focus', refreshCurrentView);
     document.addEventListener('visibilitychange', refreshCurrentView);
 
@@ -256,7 +256,17 @@ export default function PickEmClient({
     
     if (res.ok) {
       alert("Operação realizada com sucesso.");
-      window.location.reload();
+      setPicksCache(prev => {
+        const next = { ...prev };
+        if (viewingNickname) delete next[viewingNickname];
+        if (user?.nickname) delete next[user.nickname];
+        return next;
+      });
+
+      const targetView = viewingNickname || user?.nickname;
+      if (targetView) {
+        await loadUserPicks(targetView, true, true);
+      }
     } else {
       const data = await res.json();
       alert(`Erro: ${data.error || "Falha na operação"}`);
@@ -433,362 +443,363 @@ export default function PickEmClient({
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Gallery Modal */}
       {showGallery && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
           onClick={() => setShowGallery(false)}
         >
           <div
-            className="bg-zinc-900 rounded-3xl border border-white/10 p-8 max-w-3xl w-full"
+            className="w-full max-w-3xl rounded-3xl border border-white/10 bg-zinc-900 p-8"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-white">
                 <Trophy size={16} className="text-amber-500" /> Conquistas do Redondo
               </h3>
-              <button onClick={() => setShowGallery(false)} className="text-zinc-500 hover:text-white transition-colors">
+              <button onClick={() => setShowGallery(false)} className="text-zinc-500 transition-colors hover:text-white">
                 <X size={20} />
               </button>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {achievementCards.map(card => {
-                return (
-                  <div
-                    key={card.key}
-                    className={`flex flex-col items-center rounded-2xl border-2 p-3 transition-all
-                      ${card.current ? 'border-amber-500 bg-amber-500/5' :
-                        card.achieved ? 'border-green-500/40 bg-green-500/5' :
-                        'border-zinc-800 bg-zinc-950/60'}`}
-                  >
-                    <AchievementArtwork image={card.image} title={card.title} size="gallery" />
-                    <p className="text-xs font-bold mt-2 text-center text-zinc-300">{card.title}</p>
-                    {card.current && <span className="text-amber-500 text-[10px] font-bold mt-1">Atual</span>}
-                    {!card.current && card.achieved && <span className="text-green-400 text-[10px] font-bold mt-1">Conquistado</span>}
-                    {!card.achieved && <span className="text-zinc-500 text-[10px] mt-1">Expectativa</span>}
-                  </div>
-                );
-              })}
+
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {achievementCards.map(card => (
+                <div
+                  key={card.key}
+                  className={`flex flex-col items-center rounded-2xl border-2 p-3 transition-all ${card.current ? 'border-amber-500 bg-amber-500/5' : card.achieved ? 'border-green-500/40 bg-green-500/5' : 'border-zinc-800 bg-zinc-950/60'}`}
+                >
+                  <AchievementArtwork image={card.image} title={card.title} size="gallery" />
+                  <p className="mt-2 text-center text-xs font-bold text-zinc-300">{card.title}</p>
+                  {card.current && <span className="mt-1 text-[10px] font-bold text-amber-500">Atual</span>}
+                  {!card.current && card.achieved && <span className="mt-1 text-[10px] font-bold text-green-400">Conquistado</span>}
+                  {!card.achieved && <span className="mt-1 text-[10px] text-zinc-500">Expectativa</span>}
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row gap-8 items-start">
-
-        {/* Conquistas */}
+      <div className="flex flex-col items-start gap-8 lg:flex-row">
         <div className="lg:w-56 w-full shrink-0 flex flex-col items-center gap-4 lg:sticky lg:top-24">
-          {loadingPicks ? (
-            <div className="text-zinc-500 text-xs">Carregando...</div>
-          ) : featuredAchievement ? (
-            <>
-              <button
-                onClick={() => setShowGallery(true)}
-                className="relative group cursor-pointer"
-                title="Clique para ver todas as conquistas"
-                onContextMenu={(e) => e.preventDefault()}
-              >
-                <div className="group-hover:scale-105 transition-transform drop-shadow-2xl">
-                  <AchievementArtwork image={featuredAchievement.image} title={featuredAchievement.title} />
-                </div>
-                <div className="absolute inset-0 flex items-end justify-center pb-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="bg-black/70 text-white text-xs font-bold px-3 py-1 rounded-full">Ver conquistas</span>
-                </div>
-              </button>
-              <p className="text-amber-500 font-black text-sm">{featuredAchievement.title}</p>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => setShowGallery(true)}
-                className="flex items-center gap-2 text-zinc-500 hover:text-amber-500 transition-colors"
-              >
-                <Trophy size={18} className="text-zinc-600" />
-                <span className="text-xs font-bold uppercase tracking-wider">Ver conquistas</span>
-              </button>
-              <div className="grid grid-cols-2 gap-2 w-full">
-                {achievementCards.slice(4).map(card => (
-                  <div
-                    key={card.key}
-                    className={`rounded-2xl border p-2 ${card.achieved ? 'border-green-500/40 bg-green-500/5' : 'border-zinc-800 bg-zinc-950/60'}`}
-                    onContextMenu={(e) => e.preventDefault()}
-                  >
-                    <AchievementArtwork image={card.image} title={card.title} size="small" />
-                    <p className="mt-2 text-[10px] text-center font-bold text-zinc-300 uppercase">{card.title}</p>
+            {loadingPicks ? (
+              <div className="text-xs text-zinc-500">Carregando...</div>
+            ) : featuredAchievement ? (
+              <>
+                <button
+                  onClick={() => setShowGallery(true)}
+                  className="group relative cursor-pointer"
+                  title="Clique para ver todas as conquistas"
+                  onContextMenu={(e) => e.preventDefault()}
+                >
+                  <div className="drop-shadow-2xl transition-transform group-hover:scale-105">
+                    <AchievementArtwork image={featuredAchievement.image} title={featuredAchievement.title} />
                   </div>
-                ))}
-              </div>
-              <div className="flex flex-wrap justify-center gap-1.5">
-                {Array(8).fill(null).map((_, i) => {
-                  const team = qualifiedTeams[i];
-                  const isCorrect = team && top8Set.has(team.team_name);
-                  return (
+                  <div className="absolute inset-0 flex items-end justify-center pb-4 opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white">Ver conquistas</span>
+                  </div>
+                </button>
+                <p className="text-sm font-black text-amber-500">{featuredAchievement.title}</p>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setShowGallery(true)}
+                  className="flex items-center gap-2 text-zinc-500 transition-colors hover:text-amber-500"
+                >
+                  <Trophy size={18} className="text-zinc-600" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Ver conquistas</span>
+                </button>
+                <div className="grid w-full grid-cols-2 gap-2">
+                  {achievementCards.slice(4).map(card => (
                     <div
-                      key={i}
-                      className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center text-[10px] font-bold transition-all
-                        ${isCorrect ? 'border-green-500 bg-green-500/20 text-green-400' :
-                          team ? 'border-zinc-600 bg-zinc-800 text-zinc-500' :
-                          'border-zinc-800 bg-zinc-900/20 text-zinc-700'}`}
+                      key={card.key}
+                      className={`rounded-2xl border p-2 ${card.achieved ? 'border-green-500/40 bg-green-500/5' : 'border-zinc-800 bg-zinc-950/60'}`}
+                      onContextMenu={(e) => e.preventDefault()}
                     >
-                      {isCorrect ? '✓' : team ? '?' : i + 1}
+                      <AchievementArtwork image={card.image} title={card.title} size="small" />
+                      <p className="mt-2 text-center text-[10px] font-bold uppercase text-zinc-300">{card.title}</p>
                     </div>
-                  );
-                })}
-              </div>
-              <div className="w-full space-y-1 text-center">
-                <p className="text-zinc-400 text-xs font-bold">Quartas: {correctPicks}/8</p>
-                <p className="text-zinc-400 text-xs font-bold">Semis: {correctSemiPicks}/4</p>
-                <p className="text-zinc-400 text-xs font-bold">Final: {correctFinalPicks}/2</p>
-                <p className="text-zinc-400 text-xs font-bold">Ganhador: {winnerHit ? 'acertou' : 'em aberto'}</p>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-
-        {!user ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/50 rounded-3xl border border-white/5 border-dashed">
-          <FaceitLogin user={user} onAuthChange={checkUser} />
-          <p className="mt-4 text-zinc-500 text-sm">Entre para salvar suas escolhas</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-6">
-          {!isAuthorized && (
-            <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-2xl flex items-center gap-3 text-red-400 font-bold text-sm">
-              <AlertCircle size={20} />
-              Sua conta não possui permissão para participar deste Pick'Em. Entre em contato com a administração.
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center justify-between gap-4 bg-zinc-900/80 p-6 rounded-3xl border border-white/10 backdrop-blur-md">
-            <div className="flex items-center gap-4">
-              <div className="relative group">
-                <Image src={user.avatar || "/fallback-avatar.png"} alt={user.nickname} width={50} height={50} className="rounded-2xl border-2 border-amber-500 group-hover:scale-105 transition-transform" unoptimized />
-                <div className="absolute -bottom-2 -right-2 bg-amber-500 text-black p-1 rounded-lg"><CheckCircle size={14} /></div>
-              </div>
-              <div>
-                <h3 className="text-xl font-black italic tracking-tighter uppercase">{user.nickname}</h3>
-                <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Participante do Redondo</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {isAdminView && (
-                <div className="flex items-center gap-2 bg-black/40 p-2 rounded-2xl border border-white/5">
-                  <Eye size={16} className="text-amber-500 ml-2" />
-                  <select 
-                    value={viewingNickname || ""} 
-                    onChange={(e) => setViewingNickname(e.target.value)}
-                    className="bg-transparent text-xs font-bold uppercase outline-none cursor-pointer pr-4 text-amber-500"
-                  >
-                    <option value={user.nickname} className="bg-zinc-900 text-amber-500">Minhas Escolhas</option>
-                    {usersWithPicks.filter(n => n !== user.nickname).map(name => (
-                      <option key={name} value={name} className="bg-zinc-900 text-amber-500">{name}</option>
-                    ))}
-                  </select>
+                  ))}
                 </div>
-              )}
-            </div>
+                <div className="flex flex-wrap justify-center gap-1.5">
+                  {Array(8).fill(null).map((_, i) => {
+                    const team = qualifiedTeams[i];
+                    const isCorrect = team && top8Set.has(team.team_name);
+                    return (
+                      <div
+                        key={i}
+                        className={`flex h-7 w-7 items-center justify-center rounded-lg border-2 text-[10px] font-bold transition-all ${isCorrect ? 'border-green-500 bg-green-500/20 text-green-400' : team ? 'border-zinc-600 bg-zinc-800 text-zinc-500' : 'border-zinc-800 bg-zinc-900/20 text-zinc-700'}`}
+                      >
+                        {isCorrect ? '✓' : team ? '?' : i + 1}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="w-full space-y-1 text-center">
+                  <p className="text-xs font-bold text-zinc-400">Quartas: {correctPicks}/8</p>
+                  <p className="text-xs font-bold text-zinc-400">Semis: {correctSemiPicks}/4</p>
+                  <p className="text-xs font-bold text-zinc-400">Final: {correctFinalPicks}/2</p>
+                  <p className="text-xs font-bold text-zinc-400">Ganhador: {winnerHit ? 'acertou' : 'em aberto'}</p>
+                </div>
+              </>
+            )}
+
+            <Link
+              href="/redondo/ranking"
+              className="w-full rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center text-xs font-black uppercase tracking-[0.25em] text-amber-300 transition-all hover:border-amber-400 hover:bg-amber-500/15 hover:text-white"
+            >
+              Ranking
+            </Link>
           </div>
 
-          {isHighAdmin && (
-            <div className="bg-red-500/10 border-2 border-red-500/30 p-4 rounded-2xl flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-2 text-red-500 font-black italic text-sm">
-                <Shield size={20} /> ADMIN
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {['slot', 'semi', 'final', 'winner'].map(phase => (
-                  <button 
-                    key={phase}
-                    onClick={() => adminToggleGlobal(phase, !locks[phase as keyof typeof locks])}
-                    className="bg-red-600 hover:bg-red-700 text-white text-[10px] px-4 py-2 rounded-xl font-bold uppercase transition-all"
-                  >
-                    Bloquear / Desbloquear {getPhaseLabel(phase)}
-                  </button>
-                ))}
-                <button
-                  onClick={syncGuids}
-                  className="bg-zinc-700 hover:bg-zinc-600 text-white text-[10px] px-4 py-2 rounded-xl font-bold uppercase transition-all"
-                >
-                  Sincronizar GUIDs
-                </button>
-                <button
-                  onClick={awardRedondoParticipants}
-                  className="bg-amber-600 hover:bg-amber-500 text-black text-[10px] px-4 py-2 rounded-xl font-bold uppercase transition-all"
-                >
-                  Premiar Redondo
-                </button>
-              </div>
+        <div className="min-w-0 flex-1">
+          {!user ? (
+            <div className="flex flex-col items-center justify-center rounded-3xl border border-white/5 border-dashed bg-zinc-900/50 py-20">
+              <FaceitLogin user={user} onAuthChange={checkUser} />
+              <p className="mt-4 text-sm text-zinc-500">Entre para salvar suas escolhas</p>
             </div>
-          )}
+          ) : (
+            <div className="flex flex-col gap-6">
+              {!isAuthorized && (
+                <div className="flex items-center gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-400">
+                  <AlertCircle size={20} />
+                  Sua conta não possui permissão para participar deste Pick'Em. Entre em contato com a administração.
+                </div>
+              )}
 
-          {isHighAdmin && viewingNickname && (
-            <div className="bg-blue-500/10 border-2 border-blue-500/30 p-4 rounded-2xl flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-blue-500 font-black italic text-sm">
-                <Shield size={20} /> GERENCIAR: {viewingNickname}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {['slot', 'semi', 'final', 'winner'].map(phase => (
-                  <div key={phase} className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase px-2 w-16 text-center">{getPhaseLabel(phase)}</span>
-                    <button 
-                      onClick={() => adminManageUser(viewingNickname, 'unlock', phase)}
-                      className="bg-green-600 hover:bg-green-700 text-white p-1.5 rounded-md transition-all"
-                      title="Destravar"
-                    >
-                      <Unlock size={12} />
-                    </button>
-                    <button 
-                      onClick={() => adminManageUser(viewingNickname, 'clear', phase)}
-                      className="bg-red-600 hover:bg-red-700 text-white p-1.5 rounded-md transition-all"
-                      title="Limpar e Destravar"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-white/10 bg-zinc-900/80 p-6 backdrop-blur-md">
+                <div className="flex items-center gap-4">
+                  <div className="group relative">
+                    <Image src={user.avatar || "/fallback-avatar.png"} alt={user.nickname} width={50} height={50} className="rounded-2xl border-2 border-amber-500 transition-transform group-hover:scale-105" unoptimized />
+                    <div className="absolute -bottom-2 -right-2 rounded-lg bg-amber-500 p-1 text-black"><CheckCircle size={14} /></div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  <div>
+                    <h3 className="text-xl font-black uppercase italic tracking-tighter">{user.nickname}</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Participante do Redondo</p>
+                  </div>
+                </div>
 
-          <DragDropContext onDragEnd={onDragEnd}>
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              <div className="lg:col-span-3 space-y-4">
-                <div className="bg-zinc-900/50 p-6 rounded-3xl border border-white/5">
-                  <h3 className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2">
-                    <AlertCircle size={14}/> Lista de Equipes
-                  </h3>
-                  <Droppable droppableId="pool" isDropDisabled={isViewingOther || !isAuthorized}>
-                    {(provided) => (
-                      <div {...provided.droppableProps} ref={provided.innerRef} className="grid grid-cols-2 gap-3">
-                        {availableTeams.map((team, index) => (
-                          <Draggable key={team.id} draggableId={team.id} index={index} isDragDisabled={locks.slot || isViewingOther || !isAuthorized}>
-                            {(p, s) => (
-                              <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
-                                className={`aspect-square rounded-2xl border-2 border-zinc-800 bg-black/40 p-3 flex items-center justify-center hover:border-amber-500/50 transition-all ${s.isDragging ? "scale-110 shadow-2xl border-amber-500 z-50" : ""}`}>
-                                <Image src={team.team_image} alt={team.team_name} width={50} height={50} className="object-contain" unoptimized />
-                              </div>
-                            )}
-                          </Draggable>
+                <div className="flex items-center gap-3">
+                  {isAdminView && (
+                    <div className="flex items-center gap-2 rounded-2xl border border-white/5 bg-black/40 p-2">
+                      <Eye size={16} className="ml-2 text-amber-500" />
+                      <select
+                        value={viewingNickname || ""}
+                        onChange={(e) => setViewingNickname(e.target.value)}
+                        className="cursor-pointer bg-transparent pr-4 text-xs font-bold uppercase text-amber-500 outline-none"
+                      >
+                        <option value={user.nickname} className="bg-zinc-900 text-amber-500">Minhas Escolhas</option>
+                        {usersWithPicks.filter(n => n !== user.nickname).map(name => (
+                          <option key={name} value={name} className="bg-zinc-900 text-amber-500">{name}</option>
                         ))}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className={`${isAdminView ? "lg:col-span-6" : "lg:col-span-9"} space-y-12`}>
-                {[
-                  { title: "Quartas de Final", data: qualifiedTeams, key: 'slot', cols: 4 },
-                  { title: "Semi-Finais", data: semiTeams, key: 'semi', cols: 4 },
-                  { title: "Grande Final", data: finalTeams, key: 'final', cols: 2 },
-                  { title: "Ganhador", data: [winnerTeam], key: 'winner', cols: 1 }
-                ].map((phase) => {
-                  const isLocked = locks[phase.key as keyof typeof locks];
-                  const nextPhaseKey = phase.key === 'slot' ? 'semi' : (phase.key === 'semi' ? 'final' : (phase.key === 'final' ? 'winner' : null));
-                  const isNextLocked = nextPhaseKey ? locks[nextPhaseKey as keyof typeof locks] : true;
-                  const dragDisabled = (isLocked && (!nextPhaseKey || isNextLocked)) || isViewingOther || !isAuthorized;
+              {isHighAdmin && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-red-500/30 bg-red-500/10 p-4">
+                  <div className="flex items-center gap-2 text-sm font-black italic text-red-500">
+                    <Shield size={20} /> ADMIN
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {['slot', 'semi', 'final', 'winner'].map(phase => (
+                      <button
+                        key={phase}
+                        onClick={() => adminToggleGlobal(phase, !locks[phase as keyof typeof locks])}
+                        className="rounded-xl bg-red-600 px-4 py-2 text-[10px] font-bold uppercase text-white transition-all hover:bg-red-700"
+                      >
+                        Bloquear / Desbloquear {getPhaseLabel(phase)}
+                      </button>
+                    ))}
+                    <button
+                      onClick={syncGuids}
+                      className="rounded-xl bg-zinc-700 px-4 py-2 text-[10px] font-bold uppercase text-white transition-all hover:bg-zinc-600"
+                    >
+                      Sincronizar GUIDs
+                    </button>
+                    <button
+                      onClick={awardRedondoParticipants}
+                      className="rounded-xl bg-amber-600 px-4 py-2 text-[10px] font-bold uppercase text-black transition-all hover:bg-amber-500"
+                    >
+                      Premiar Redondo
+                    </button>
+                  </div>
+                </div>
+              )}
 
-                  return (
-                  <div key={phase.key} className="relative">
-                    <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3">
-                        {locks[phase.key as keyof typeof locks] ? <Lock className="text-red-500" /> : <Unlock className="text-amber-500" />}
-                        {phase.title}
-                      </h2>
-                      {!locks[phase.key as keyof typeof locks] && !isViewingOther && isAuthorized && (
-                        <button 
-                          onClick={() => confirmPhase(phase.key)}
-                          className="bg-amber-500 text-black px-6 py-2 rounded-full font-black text-xs uppercase hover:bg-white transition-all shadow-lg shadow-amber-500/20"
+              {isHighAdmin && viewingNickname && (
+                <div className="flex flex-col gap-3 rounded-2xl border-2 border-blue-500/30 bg-blue-500/10 p-4">
+                  <div className="flex items-center gap-2 text-sm font-black italic text-blue-500">
+                    <Shield size={20} /> GERENCIAR: {viewingNickname}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {['slot', 'semi', 'final', 'winner'].map(phase => (
+                      <div key={phase} className="flex items-center gap-1 rounded-lg border border-white/5 bg-black/20 p-1">
+                        <span className="w-16 px-2 text-center text-[10px] font-bold uppercase text-zinc-400">{getPhaseLabel(phase)}</span>
+                        <button
+                          onClick={() => adminManageUser(viewingNickname, 'unlock', phase)}
+                          className="rounded-md bg-green-600 p-1.5 text-white transition-all hover:bg-green-700"
+                          title="Destravar"
                         >
-                          Confirmar Escolhas
+                          <Unlock size={12} />
                         </button>
-                      )}
-                    </div>
-
-                    <div className={`grid grid-cols-2 md:grid-cols-${phase.cols} gap-4`}>
-                      {phase.data.map((team, index) => (
-                        <Droppable key={index} droppableId={`${phase.key}-${index}`} isDropDisabled={locks[phase.key as keyof typeof locks] || isViewingOther || !isAuthorized}>
-                          {(provided, snapshot) => (
-                            <div ref={provided.innerRef} {...provided.droppableProps}
-                              className={`h-40 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center transition-all
-                                ${team ? "border-amber-500 bg-amber-500/5" : "border-zinc-800 bg-zinc-900/20"}
-                                ${snapshot.isDraggingOver ? "border-amber-400 bg-amber-500/10 scale-105" : ""}`}>
-                              {team ? (
-                                <Draggable draggableId={`${phase.key}-slot-${team.id}-${index}`} index={index} isDragDisabled={dragDisabled}>
-                                  {(p) => (
-                                    <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="flex flex-col items-center">
-                                      <Image src={team.team_image} alt="" width={64} height={64} className="drop-shadow-2xl" unoptimized />
-                                      <span className="text-[10px] font-black mt-3 text-amber-500 tracking-tighter uppercase">{team.team_name}</span>
-                                    </div>
-                                  )}
-                                </Draggable>
-                              ) : (
-                                <span className="text-zinc-800 font-black text-5xl select-none">{phase.key === 'winner' ? 'W' : index + 1}</span>
-                              )}
-                              {provided.placeholder}
-                            </div>
-                          )}
-                        </Droppable>
-                      ))}
-                    </div>
+                        <button
+                          onClick={() => adminManageUser(viewingNickname, 'clear', phase)}
+                          className="rounded-md bg-red-600 p-1.5 text-white transition-all hover:bg-red-700"
+                          title="Limpar e Destravar"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                )})}
-              </div>
+                </div>
+              )}
 
-              {isAdminView && (
-              <div className="lg:col-span-3 space-y-4">
-                <div className="bg-zinc-900/50 p-6 rounded-3xl border border-white/5 h-full">
-                  <h3 className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2">
-                    <BarChart2 size={14}/> Estatísticas
-                  </h3>
-                  
-                  <div className="flex gap-2 mb-4 bg-black/20 p-1 rounded-xl">
-                    <button 
-                      onClick={() => setStatsTab('top')}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all ${statsTab === 'top' ? 'bg-amber-500 text-black' : 'text-zinc-500 hover:text-white'}`}
-                    >
-                      Mais Escolhidos
-                    </button>
-                    <button 
-                      onClick={() => setStatsTab('unused')}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all ${statsTab === 'unused' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
-                    >
-                      Não Escolhidos
-                    </button>
-                  </div>
-
-                  <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                    {(statsTab === 'top' ? topPicks : unusedPicks).map((team, idx) => (
-                      <div key={team.id} className="flex items-center justify-between bg-black/40 p-2 rounded-xl border border-white/5">
-                        <div className="flex items-center gap-3">
-                          <span className={`text-xs font-bold w-4 text-center ${idx < 3 && statsTab === 'top' ? 'text-amber-500' : 'text-zinc-600'}`}>
-                            {idx + 1}
-                          </span>
-                          <Image src={team.team_image} alt={team.team_name} width={24} height={24} className="object-contain" unoptimized />
-                          <span className="text-xs font-bold text-zinc-300 truncate max-w-[100px]">{team.team_name}</span>
-                        </div>
-                        {statsTab === 'top' && (
-                          <div className="bg-amber-500/10 text-amber-500 text-[10px] font-black px-2 py-1 rounded-lg">
-                            {team.count}
+              <DragDropContext onDragEnd={onDragEnd}>
+                <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+                  <div className="space-y-4 lg:col-span-3">
+                    <div className="rounded-3xl border border-white/5 bg-zinc-900/50 p-6">
+                      <h3 className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                        <AlertCircle size={14}/> Lista de Equipes
+                      </h3>
+                      <Droppable droppableId="pool" isDropDisabled={isViewingOther || !isAuthorized}>
+                        {(provided) => (
+                          <div {...provided.droppableProps} ref={provided.innerRef} className="grid grid-cols-2 gap-3">
+                            {availableTeams.map((team, index) => (
+                              <Draggable key={team.id} draggableId={team.id} index={index} isDragDisabled={locks.slot || isViewingOther || !isAuthorized}>
+                                {(p, s) => (
+                                  <div
+                                    ref={p.innerRef}
+                                    {...p.draggableProps}
+                                    {...p.dragHandleProps}
+                                    className={`flex aspect-square items-center justify-center rounded-2xl border-2 border-zinc-800 bg-black/40 p-3 transition-all hover:border-amber-500/50 ${s.isDragging ? 'z-50 scale-110 border-amber-500 shadow-2xl' : ''}`}
+                                  >
+                                    <Image src={team.team_image} alt={team.team_name} width={50} height={50} className="object-contain" unoptimized />
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
                           </div>
                         )}
-                      </div>
-                    ))}
-                    {(statsTab === 'top' ? topPicks : unusedPicks).length === 0 && (
-                      <p className="text-center text-zinc-600 text-xs py-4">Nenhum time encontrado.</p>
-                    )}
+                      </Droppable>
+                    </div>
                   </div>
-                </div>
-              </div>
-              )}
-            </div>
-          </DragDropContext>
-        </div>
-      )}
 
+                  <div className={`${isAdminView ? 'lg:col-span-6' : 'lg:col-span-9'} space-y-12`}>
+                    {[
+                      { title: 'Quartas de Final', data: qualifiedTeams, key: 'slot', cols: 4 },
+                      { title: 'Semi-Finais', data: semiTeams, key: 'semi', cols: 4 },
+                      { title: 'Grande Final', data: finalTeams, key: 'final', cols: 2 },
+                      { title: 'Ganhador', data: [winnerTeam], key: 'winner', cols: 1 }
+                    ].map((phase) => {
+                      const isLocked = locks[phase.key as keyof typeof locks];
+                      const nextPhaseKey = phase.key === 'slot' ? 'semi' : (phase.key === 'semi' ? 'final' : (phase.key === 'final' ? 'winner' : null));
+                      const isNextLocked = nextPhaseKey ? locks[nextPhaseKey as keyof typeof locks] : true;
+                      const dragDisabled = (isLocked && (!nextPhaseKey || isNextLocked)) || isViewingOther || !isAuthorized;
+
+                      return (
+                        <div key={phase.key} className="relative">
+                          <div className="mb-6 flex items-center justify-between">
+                            <h2 className="flex items-center gap-3 text-3xl font-black uppercase italic tracking-tighter">
+                              {locks[phase.key as keyof typeof locks] ? <Lock className="text-red-500" /> : <Unlock className="text-amber-500" />}
+                              {phase.title}
+                            </h2>
+                            {!locks[phase.key as keyof typeof locks] && !isViewingOther && isAuthorized && (
+                              <button
+                                onClick={() => confirmPhase(phase.key)}
+                                className="rounded-full bg-amber-500 px-6 py-2 text-xs font-black uppercase text-black shadow-lg shadow-amber-500/20 transition-all hover:bg-white"
+                              >
+                                Confirmar Escolhas
+                              </button>
+                            )}
+                          </div>
+
+                          <div className={`grid grid-cols-2 gap-4 md:grid-cols-${phase.cols}`}>
+                            {phase.data.map((team, index) => (
+                              <Droppable key={index} droppableId={`${phase.key}-${index}`} isDropDisabled={locks[phase.key as keyof typeof locks] || isViewingOther || !isAuthorized}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.droppableProps}
+                                    className={`flex h-40 flex-col items-center justify-center rounded-3xl border-2 border-dashed transition-all ${team ? 'border-amber-500 bg-amber-500/5' : 'border-zinc-800 bg-zinc-900/20'} ${snapshot.isDraggingOver ? 'scale-105 border-amber-400 bg-amber-500/10' : ''}`}
+                                  >
+                                    {team ? (
+                                      <Draggable draggableId={`${phase.key}-slot-${team.id}-${index}`} index={index} isDragDisabled={dragDisabled}>
+                                        {(p) => (
+                                          <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="flex flex-col items-center">
+                                            <Image src={team.team_image} alt="" width={64} height={64} className="drop-shadow-2xl" unoptimized />
+                                            <span className="mt-3 text-[10px] font-black uppercase tracking-tighter text-amber-500">{team.team_name}</span>
+                                          </div>
+                                        )}
+                                      </Draggable>
+                                    ) : (
+                                      <span className="select-none text-5xl font-black text-zinc-800">{phase.key === 'winner' ? 'W' : index + 1}</span>
+                                    )}
+                                    {provided.placeholder}
+                                  </div>
+                                )}
+                              </Droppable>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {isAdminView && (
+                    <div className="space-y-4 lg:col-span-3">
+                      <div className="h-full rounded-3xl border border-white/5 bg-zinc-900/50 p-6">
+                        <h3 className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                          <BarChart2 size={14}/> Estatísticas
+                        </h3>
+
+                        <div className="mb-4 flex gap-2 rounded-xl bg-black/20 p-1">
+                          <button
+                            onClick={() => setStatsTab('top')}
+                            className={`flex-1 rounded-lg py-2 text-[10px] font-bold uppercase transition-all ${statsTab === 'top' ? 'bg-amber-500 text-black' : 'text-zinc-500 hover:text-white'}`}
+                          >
+                            Mais Escolhidos
+                          </button>
+                          <button
+                            onClick={() => setStatsTab('unused')}
+                            className={`flex-1 rounded-lg py-2 text-[10px] font-bold uppercase transition-all ${statsTab === 'unused' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}
+                          >
+                            Não Escolhidos
+                          </button>
+                        </div>
+
+                        <div className="custom-scrollbar max-h-[600px] space-y-2 overflow-y-auto pr-2">
+                          {(statsTab === 'top' ? topPicks : unusedPicks).map((team, idx) => (
+                            <div key={team.id} className="flex items-center justify-between rounded-xl border border-white/5 bg-black/40 p-2">
+                              <div className="flex items-center gap-3">
+                                <span className={`w-4 text-center text-xs font-bold ${idx < 3 && statsTab === 'top' ? 'text-amber-500' : 'text-zinc-600'}`}>
+                                  {idx + 1}
+                                </span>
+                                <Image src={team.team_image} alt={team.team_name} width={24} height={24} className="object-contain" unoptimized />
+                                <span className="max-w-[100px] truncate text-xs font-bold text-zinc-300">{team.team_name}</span>
+                              </div>
+                              {statsTab === 'top' && (
+                                <div className="rounded-lg bg-amber-500/10 px-2 py-1 text-[10px] font-black text-amber-500">
+                                  {team.count}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          {(statsTab === 'top' ? topPicks : unusedPicks).length === 0 && (
+                            <p className="py-4 text-center text-xs text-zinc-600">Nenhum time encontrado.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </DragDropContext>
+            </div>
+          )}
         </div>
       </div>
     </div>

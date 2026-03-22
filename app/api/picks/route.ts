@@ -7,7 +7,7 @@ import type { RowDataPacket, ResultSetHeader } from "mysql2";
 export const dynamic = "force-dynamic";
 
 const WITHDRAWN_TEAMS = ["NeshaStore", "Alfajor Solucoes", "Alfajor Soluções"];
-const AUTO_RELOCK_AT_UTC = Date.parse("2026-03-28T01:00:00.000Z"); // 27/03/2026 22:00 (UTC-3)
+const AUTO_RELOCK_AT_UTC = Date.parse("2026-03-28T01:00:00.000Z"); 
 
 function normalizeTeamName(value: string) {
   return String(value || "")
@@ -88,15 +88,10 @@ function shouldPhaseBeLocked(
   const dbLocked = Boolean(row?.[lockCol]);
 
   if (!isKnockoutPhase(phase)) return dbLocked;
+  // Hard deadline always wins.
   if (gate.relockReached) return true;
-  if (!gate.allActiveCompleted17) return true;
-
-  const hits = getUserTop8Hits(row, gate.top8Set);
-  if (hits < 5) return true;
-
-  if (dbLocked && hasPhasePicks(row, phase)) return true;
-
-  return false;
+  // Outside the deadline, DB column is the source of truth for lock state.
+  return dbLocked;
 }
 
 async function reconcileAutoKnockoutLocks(connection: any) {
@@ -109,56 +104,7 @@ async function reconcileAutoKnockoutLocks(connection: any) {
     return gate;
   }
 
-  if (!gate.allActiveCompleted17) {
-    const [invalidRows] = await connection.query(
-      `SELECT nickname, semi_1, semi_2, semi_3, semi_4, final_1, final_2, winner_1,
-              semi_locked, final_locked, winner_locked
-       FROM escolhas
-       WHERE semi_1 IS NOT NULL OR semi_2 IS NOT NULL OR semi_3 IS NOT NULL OR semi_4 IS NOT NULL
-          OR final_1 IS NOT NULL OR final_2 IS NOT NULL OR winner_1 IS NOT NULL
-          OR semi_locked = 0 OR final_locked = 0 OR winner_locked = 0`
-    ) as [RowDataPacket[], any];
-
-    if (invalidRows.length > 0) {
-      await connection.query(
-        `UPDATE escolhas
-         SET semi_1 = NULL,
-             semi_2 = NULL,
-             semi_3 = NULL,
-             semi_4 = NULL,
-             final_1 = NULL,
-             final_2 = NULL,
-             winner_1 = NULL,
-             semi_locked = 1,
-             final_locked = 1,
-             winner_locked = 1
-         WHERE semi_1 IS NOT NULL OR semi_2 IS NOT NULL OR semi_3 IS NOT NULL OR semi_4 IS NOT NULL
-            OR final_1 IS NOT NULL OR final_2 IS NOT NULL OR winner_1 IS NOT NULL
-            OR semi_locked = 0 OR final_locked = 0 OR winner_locked = 0`
-      );
-
-      const usersWithPicksToClear = invalidRows
-        .filter((row) => hasPhasePicks(row, "semi") || hasPhasePicks(row, "final") || hasPhasePicks(row, "winner"))
-        .map((row) => String(row.nickname));
-      const usersUnlockedEarly = invalidRows
-        .filter((row) => !row.semi_locked || !row.final_locked || !row.winner_locked)
-        .map((row) => String(row.nickname));
-
-      const picksList = usersWithPicksToClear.slice(0, 20).join(", ") || "nenhum";
-      const unlockedList = usersUnlockedEarly.slice(0, 20).join(", ") || "nenhum";
-
-      await sendDiscordLog(
-        ` **Validação Automática Redondo (Pré-17 Rodadas)**\n` +
-        ` **Ação:** limpeza + bloqueio de Semi/Final/Ganhador\n` +
-        ` **Usuários com picks desfeitos:** ${usersWithPicksToClear.length}\n` +
-        ` **Usuários desbloqueados bloqueados:** ${usersUnlockedEarly.length}\n` +
-        ` **Lista picks desfeitos:** ${picksList}\n` +
-        ` **Lista desbloqueados bloqueados:** ${unlockedList}`
-      );
-    }
-
-    return gate;
-  }
+  if (!gate.allActiveCompleted17) return gate;
 
   const [rows] = await connection.query(
     `SELECT nickname, slot_1, slot_2, slot_3, slot_4, slot_5, slot_6, slot_7, slot_8,
@@ -291,7 +237,7 @@ export async function POST(request: Request) {
         if (shouldPhaseBeLocked(phase, userRow, gate)) {
           const errorMsg = gate.relockReached
             ? "Fase bloqueada para todos (prazo encerrado em 27/03/2026 22:00)."
-            : "Fase disponível apenas para quem acertou 5+ no Top 8.";
+            : "Fase bloqueada.";
           return NextResponse.json({ error: errorMsg }, { status: 403 });
         }
       }
@@ -344,7 +290,7 @@ export async function POST(request: Request) {
         if (shouldPhaseBeLocked(phase, userRow, gate)) {
           const errorMsg = gate.relockReached
             ? "Fase bloqueada para todos (prazo encerrado em 27/03/2026 22:00)."
-            : "Fase disponível apenas para quem acertou 5+ no Top 8.";
+            : "Fase bloqueada.";
           return NextResponse.json({ error: errorMsg }, { status: 403 });
         }
       }
