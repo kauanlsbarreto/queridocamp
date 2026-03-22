@@ -6,6 +6,196 @@ import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export const dynamic = "force-dynamic";
 
+const WITHDRAWN_TEAMS = ["NeshaStore", "Alfajor Solucoes", "Alfajor Soluções"];
+const AUTO_RELOCK_AT_UTC = Date.parse("2026-03-28T01:00:00.000Z"); // 27/03/2026 22:00 (UTC-3)
+
+function normalizeTeamName(value: string) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "")
+    .toLowerCase();
+}
+
+function isKnockoutPhase(phase: string) {
+  return phase === "semi" || phase === "final" || phase === "winner";
+}
+
+function parsePickJson(value: unknown) {
+  if (!value) return null;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return value as any;
+}
+
+function hasPhasePicks(row: RowDataPacket | undefined, phase: string) {
+  if (!row) return false;
+  if (phase === "semi") return Boolean(row.semi_1 || row.semi_2 || row.semi_3 || row.semi_4);
+  if (phase === "final") return Boolean(row.final_1 || row.final_2);
+  if (phase === "winner") return Boolean(row.winner_1);
+  return false;
+}
+
+async function getTournamentGateContext(connection: any) {
+  const [rows] = await connection.query(
+    "SELECT team_name, vitorias, derrotas, sp, df FROM team_config"
+  ) as [RowDataPacket[], any];
+
+  const withdrawnSet = new Set(WITHDRAWN_TEAMS.map(normalizeTeamName));
+  const activeTeams = rows.filter((team) => !withdrawnSet.has(normalizeTeamName(String(team.team_name || ""))));
+  const allActiveCompleted17 =
+    activeTeams.length > 0 &&
+    activeTeams.every((team) => Number(team.vitorias || 0) + Number(team.derrotas || 0) >= 34);
+
+  const top8Names = [...activeTeams]
+    .sort((a, b) => {
+      const spDiff = Number(b.sp || 0) - Number(a.sp || 0);
+      if (spDiff !== 0) return spDiff;
+      return Number(b.df || 0) - Number(a.df || 0);
+    })
+    .slice(0, 8)
+    .map((team) => normalizeTeamName(String(team.team_name || "")));
+
+  return {
+    allActiveCompleted17,
+    relockReached: Date.now() >= AUTO_RELOCK_AT_UTC,
+    top8Set: new Set(top8Names),
+  };
+}
+
+function getUserTop8Hits(row: RowDataPacket | undefined, top8Set: Set<string>) {
+  if (!row) return 0;
+  let hits = 0;
+  for (let i = 1; i <= 8; i++) {
+    const team = parsePickJson(row[`slot_${i}`]);
+    const teamName = normalizeTeamName(String(team?.team_name || ""));
+    if (teamName && top8Set.has(teamName)) hits++;
+  }
+  return hits;
+}
+
+function shouldPhaseBeLocked(
+  phase: string,
+  row: RowDataPacket | undefined,
+  gate: { allActiveCompleted17: boolean; relockReached: boolean; top8Set: Set<string> }
+) {
+  const lockCol = phase === "slot" ? "locked" : `${phase}_locked`;
+  const dbLocked = Boolean(row?.[lockCol]);
+
+  if (!isKnockoutPhase(phase)) return dbLocked;
+  if (gate.relockReached) return true;
+  if (!gate.allActiveCompleted17) return true;
+
+  const hits = getUserTop8Hits(row, gate.top8Set);
+  if (hits < 5) return true;
+
+  if (dbLocked && hasPhasePicks(row, phase)) return true;
+
+  return false;
+}
+
+async function reconcileAutoKnockoutLocks(connection: any) {
+  const gate = await getTournamentGateContext(connection);
+
+  if (gate.relockReached) {
+    await connection.query(
+      "UPDATE escolhas SET semi_locked = 1, final_locked = 1, winner_locked = 1"
+    );
+    return gate;
+  }
+
+  if (!gate.allActiveCompleted17) {
+    const [invalidRows] = await connection.query(
+      `SELECT nickname, semi_1, semi_2, semi_3, semi_4, final_1, final_2, winner_1,
+              semi_locked, final_locked, winner_locked
+       FROM escolhas
+       WHERE semi_1 IS NOT NULL OR semi_2 IS NOT NULL OR semi_3 IS NOT NULL OR semi_4 IS NOT NULL
+          OR final_1 IS NOT NULL OR final_2 IS NOT NULL OR winner_1 IS NOT NULL
+          OR semi_locked = 0 OR final_locked = 0 OR winner_locked = 0`
+    ) as [RowDataPacket[], any];
+
+    if (invalidRows.length > 0) {
+      await connection.query(
+        `UPDATE escolhas
+         SET semi_1 = NULL,
+             semi_2 = NULL,
+             semi_3 = NULL,
+             semi_4 = NULL,
+             final_1 = NULL,
+             final_2 = NULL,
+             winner_1 = NULL,
+             semi_locked = 1,
+             final_locked = 1,
+             winner_locked = 1
+         WHERE semi_1 IS NOT NULL OR semi_2 IS NOT NULL OR semi_3 IS NOT NULL OR semi_4 IS NOT NULL
+            OR final_1 IS NOT NULL OR final_2 IS NOT NULL OR winner_1 IS NOT NULL
+            OR semi_locked = 0 OR final_locked = 0 OR winner_locked = 0`
+      );
+
+      const usersWithPicksToClear = invalidRows
+        .filter((row) => hasPhasePicks(row, "semi") || hasPhasePicks(row, "final") || hasPhasePicks(row, "winner"))
+        .map((row) => String(row.nickname));
+      const usersUnlockedEarly = invalidRows
+        .filter((row) => !row.semi_locked || !row.final_locked || !row.winner_locked)
+        .map((row) => String(row.nickname));
+
+      const picksList = usersWithPicksToClear.slice(0, 20).join(", ") || "nenhum";
+      const unlockedList = usersUnlockedEarly.slice(0, 20).join(", ") || "nenhum";
+
+      await sendDiscordLog(
+        ` **Validação Automática Redondo (Pré-17 Rodadas)**\n` +
+        ` **Ação:** limpeza + bloqueio de Semi/Final/Ganhador\n` +
+        ` **Usuários com picks desfeitos:** ${usersWithPicksToClear.length}\n` +
+        ` **Usuários desbloqueados bloqueados:** ${usersUnlockedEarly.length}\n` +
+        ` **Lista picks desfeitos:** ${picksList}\n` +
+        ` **Lista desbloqueados bloqueados:** ${unlockedList}`
+      );
+    }
+
+    return gate;
+  }
+
+  const [rows] = await connection.query(
+    `SELECT nickname, slot_1, slot_2, slot_3, slot_4, slot_5, slot_6, slot_7, slot_8,
+            semi_1, semi_2, semi_3, semi_4, final_1, final_2, winner_1,
+            semi_locked, final_locked, winner_locked
+     FROM escolhas`
+  ) as [RowDataPacket[], any];
+
+  for (const row of rows) {
+    const hits = getUserTop8Hits(row, gate.top8Set);
+    if (hits < 5) {
+      await connection.query(
+        "UPDATE escolhas SET semi_locked = 1, final_locked = 1, winner_locked = 1 WHERE nickname = ?",
+        [row.nickname]
+      );
+      continue;
+    }
+
+    const unlockSemi = !hasPhasePicks(row, "semi");
+    const unlockFinal = !hasPhasePicks(row, "final");
+    const unlockWinner = !hasPhasePicks(row, "winner");
+
+    if (unlockSemi || unlockFinal || unlockWinner) {
+      await connection.query(
+        `UPDATE escolhas
+         SET semi_locked = CASE WHEN ? THEN 0 ELSE semi_locked END,
+             final_locked = CASE WHEN ? THEN 0 ELSE final_locked END,
+             winner_locked = CASE WHEN ? THEN 0 ELSE winner_locked END
+         WHERE nickname = ?`,
+        [unlockSemi, unlockFinal, unlockWinner, row.nickname]
+      );
+    }
+  }
+
+  return gate;
+}
+
 function getPhaseName(phase: string) {
   if (phase === "slot") return "Quartas de Final";
   if (phase === "semi") return "Semi-Finais";
@@ -48,6 +238,7 @@ export async function POST(request: Request) {
     connection = await createMainConnection(env);
 
     const body = await request.json();
+    const gate = await reconcileAutoKnockoutLocks(connection);
     const {
       action,
       nickname,
@@ -75,10 +266,36 @@ export async function POST(request: Request) {
       if ((!rows || rows.length === 0) && nickname) {
         [rows] = await connection.query("SELECT * FROM escolhas WHERE nickname = ?", [nickname]);
       }
-      return NextResponse.json((rows as RowDataPacket[])[0] || {});
+
+      const row = (rows as RowDataPacket[])[0] || {};
+      const semiLocked = shouldPhaseBeLocked("semi", row, gate);
+      const finalLocked = shouldPhaseBeLocked("final", row, gate);
+      const winnerLocked = shouldPhaseBeLocked("winner", row, gate);
+
+      return NextResponse.json({
+        ...row,
+        semi_locked: semiLocked,
+        final_locked: finalLocked,
+        winner_locked: winnerLocked,
+      });
     }
 
     if (action === "save") {
+      if (isKnockoutPhase(phase)) {
+        const [gateRows] = await connection.query(
+          "SELECT * FROM escolhas WHERE nickname = ? LIMIT 1",
+          [nickname]
+        ) as [RowDataPacket[], any];
+        const userRow = gateRows[0];
+
+        if (shouldPhaseBeLocked(phase, userRow, gate)) {
+          const errorMsg = gate.relockReached
+            ? "Fase bloqueada para todos (prazo encerrado em 27/03/2026 22:00)."
+            : "Fase disponível apenas para quem acertou 5+ no Top 8.";
+          return NextResponse.json({ error: errorMsg }, { status: 403 });
+        }
+      }
+
       const lockCol = phase === "slot" ? "locked" : `${phase}_locked`;
       const [rows] = await connection.query(
         `SELECT ${lockCol} FROM escolhas WHERE nickname = ?`,
@@ -118,6 +335,20 @@ export async function POST(request: Request) {
     }
 
     if (action === "lock") {
+      if (isKnockoutPhase(phase)) {
+        const [gateRows] = await connection.query(
+          "SELECT * FROM escolhas WHERE nickname = ? LIMIT 1",
+          [nickname]
+        ) as [RowDataPacket[], any];
+        const userRow = gateRows[0];
+        if (shouldPhaseBeLocked(phase, userRow, gate)) {
+          const errorMsg = gate.relockReached
+            ? "Fase bloqueada para todos (prazo encerrado em 27/03/2026 22:00)."
+            : "Fase disponível apenas para quem acertou 5+ no Top 8.";
+          return NextResponse.json({ error: errorMsg }, { status: 403 });
+        }
+      }
+
       const lockCol = phase === "slot" ? "locked" : `${phase}_locked`;
       await connection.query(
         `UPDATE escolhas SET ${lockCol} = 1 WHERE nickname = ?`,
@@ -137,6 +368,13 @@ export async function POST(request: Request) {
       const level = typeof adminLevel === "string" ? parseInt(adminLevel) : adminLevel;
       if (!level || level > 2)
         return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+      if (isKnockoutPhase(phase) && gate.relockReached && !targetStatus) {
+        return NextResponse.json(
+          { error: "Prazo encerrado: semis/final/ganhador estão bloqueados para todos." },
+          { status: 403 }
+        );
+      }
 
       const lockCol = phase === "slot" ? "locked" : `${phase}_locked`;
       await connection.query(
