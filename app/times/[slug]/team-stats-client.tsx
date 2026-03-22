@@ -58,8 +58,8 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
 
             try {
                 const parsed = JSON.parse(storedUser);
-                const level = parsed?.admin ?? parsed?.Admin;
-                if (level === 1 || level === 2) {
+                const permissions: string[] = Array.isArray(parsed?.permissions) ? parsed.permissions : [];
+                if (permissions.includes('team_match_order')) {
                     setIsAdmin12(true);
                     setAdminUser(parsed);
                 } else {

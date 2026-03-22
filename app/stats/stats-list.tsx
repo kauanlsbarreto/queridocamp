@@ -60,7 +60,8 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
           try {
             const user = JSON.parse(saved);
             setMyNick(user.nickname || user.nick);
-            if (user.admin === 1 || user.admin === 2 || user.Admin === 1 || user.Admin === 2) {
+            const permissions: string[] = Array.isArray(user.permissions) ? user.permissions : [];
+            if (permissions.includes('view_post_stats') || permissions.includes('moderate_posts')) {
               setIsAdmin(true);
             }
           } catch (e) {

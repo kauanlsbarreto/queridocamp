@@ -90,9 +90,9 @@ export default function PickEmClient({
   const [statsTab, setStatsTab] = useState<'top' | 'unused'>('top')
   const [showGallery, setShowGallery] = useState(false)
 
-  const userLevel = user?.Admin ?? user?.admin ?? 0;
-  const isAdminView = userLevel >= 1 && userLevel <= 5; // 1 a 5 podem ver outros
-  const isHighAdmin = userLevel >= 1 && userLevel <= 2; // 1 e 2 podem bloquear
+  const userPermissions: string[] = Array.isArray((user as any)?.permissions) ? (user as any).permissions : [];
+  const isAdminView = userPermissions.includes('manage_picks'); // pode ver picks de outros
+  const isHighAdmin = userPermissions.includes('manage_picks'); // pode bloquear fases, sync e premiar
   const isViewingOther = !!(viewingNickname && user && viewingNickname !== user.nickname);
   const isAuthorized = user ? usersWithPicks.includes(user.nickname) : false;
 
@@ -250,7 +250,7 @@ export default function PickEmClient({
         phase, 
         targetStatus, 
         nickname: user?.nickname,
-        adminLevel: userLevel
+        adminLevel: user?.Admin ?? user?.admin ?? 0
       })
     });
     
@@ -280,7 +280,7 @@ export default function PickEmClient({
       const res = await fetch('/api/picks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'sync_guids', nickname: user?.nickname, adminLevel: userLevel })
+        body: JSON.stringify({ action: 'sync_guids', nickname: user?.nickname, adminLevel: user?.Admin ?? user?.admin ?? 0 })
       });
       const data = await res.json();
       if (res.ok) {
@@ -298,7 +298,7 @@ export default function PickEmClient({
       const res = await fetch('/api/picks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'award_redondop', nickname: user?.nickname, adminLevel: userLevel })
+        body: JSON.stringify({ action: 'award_redondop', nickname: user?.nickname, adminLevel: user?.Admin ?? user?.admin ?? 0 })
       });
       const data = await res.json();
       if (res.ok) {
@@ -335,7 +335,7 @@ export default function PickEmClient({
         body: JSON.stringify({ 
           action: 'admin_manage_user', 
           nickname: user?.nickname,
-          adminLevel: userLevel,
+          adminLevel: user?.Admin ?? user?.admin ?? 0,
           targetNickname,
           type,
           phase
