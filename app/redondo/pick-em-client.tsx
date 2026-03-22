@@ -145,12 +145,12 @@ export default function PickEmClient({
     return () => window.removeEventListener('faceit_auth_updated', checkUser)
   }, [checkUser])
   
-  const loadUserPicks = useCallback(async (nickname: string, force = false) => {
+  const loadUserPicks = useCallback(async (nickname: string, force = false, silent = false) => {
     if (!force && picksCache[nickname]) {
       processPicksData(picksCache[nickname]);
       return;
     }
-    setLoadingPicks(true)
+    if (!silent) setLoadingPicks(true)
     try {
       const guid = (user && user.nickname === nickname) ? user.faceit_guid : undefined;
 
@@ -167,7 +167,7 @@ export default function PickEmClient({
     } catch (error) {
       console.error("Erro ao carregar:", error);
     } finally {
-      setLoadingPicks(false)
+      if (!silent) setLoadingPicks(false)
     }
   }, [picksCache, processPicksData, user]);
 
@@ -175,9 +175,29 @@ export default function PickEmClient({
     if (viewingNickname) loadUserPicks(viewingNickname)
   }, [viewingNickname, loadUserPicks])
 
+  useEffect(() => {
+    if (!viewingNickname) return;
+
+    const refreshCurrentView = () => {
+      if (document.visibilityState === 'visible') {
+        loadUserPicks(viewingNickname, true, true);
+      }
+    };
+
+    const intervalId = window.setInterval(refreshCurrentView, 15000);
+    window.addEventListener('focus', refreshCurrentView);
+    document.addEventListener('visibilitychange', refreshCurrentView);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshCurrentView);
+      document.removeEventListener('visibilitychange', refreshCurrentView);
+    };
+  }, [viewingNickname, loadUserPicks]);
+
   const savePickToDb = async (phase: string, slotIndex: number, team: TeamPick | null) => {
     if (!user || isViewingOther || !isAuthorized) return
-    await fetch('/api/picks', {
+    const res = await fetch('/api/picks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -189,18 +209,32 @@ export default function PickEmClient({
         team 
       })
     })
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data?.error) alert(data.error);
+      if (user?.nickname) await loadUserPicks(user.nickname, true);
+    }
   }
 
   const confirmPhase = async (phase: string) => {
     if (!user || isViewingOther || !isAuthorized) return;
     if (!confirm(`Deseja confirmar suas escolhas para ${getPhaseLabel(phase)}? Isso não poderá ser desfeito.`)) return;
     
-    await fetch('/api/picks', {
+    const res = await fetch('/api/picks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'lock', nickname: user.nickname, phase })
     });
-    setLocks(prev => ({ ...prev, [phase]: true }));
+
+    if (res.ok) {
+      setLocks(prev => ({ ...prev, [phase]: true }));
+      return;
+    }
+
+    const data = await res.json().catch(() => ({}));
+    alert(data?.error || 'Falha ao confirmar fase.');
+    await loadUserPicks(user.nickname, true);
   }
 
   const adminToggleGlobal = async (phase: string, targetStatus: boolean) => {

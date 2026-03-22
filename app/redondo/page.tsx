@@ -7,6 +7,16 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 export const revalidate = 86400; 
 
+const WITHDRAWN_TEAMS = ["NeshaStore", "Alfajor Solucoes", "Alfajor Soluções"];
+
+function normalizeTeamName(value: string) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "")
+    .toLowerCase();
+}
+
 
 async function ensureTableExists(connection: any) {
   try {
@@ -78,9 +88,20 @@ async function getUsers(connection: any) {
 async function getTop8Teams(connection: any): Promise<string[]> {
   try {
     const [rows]: any = await connection.query(
-      'SELECT team_name FROM team_config ORDER BY sp DESC, df DESC LIMIT 8'
+      'SELECT team_name, sp, df FROM team_config'
     );
-    return rows.map((r: any) => r.team_name as string);
+
+    const withdrawnSet = new Set(WITHDRAWN_TEAMS.map(normalizeTeamName));
+
+    return rows
+      .filter((row: any) => !withdrawnSet.has(normalizeTeamName(row.team_name)))
+      .sort((a: any, b: any) => {
+        const spDiff = Number(b.sp || 0) - Number(a.sp || 0);
+        if (spDiff !== 0) return spDiff;
+        return Number(b.df || 0) - Number(a.df || 0);
+      })
+      .slice(0, 8)
+      .map((r: any) => r.team_name as string);
   } catch (error) {
     console.error("Erro ao buscar top 8:", error);
     return [];

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 interface UpdateTimerProps {
   lastUpdate: string;
-  onRefresh: () => Promise<void>;
+  onRefresh?: () => Promise<void> | void;
 }
 
 export default function UpdateTimer({ lastUpdate, onRefresh }: UpdateTimerProps) {
@@ -62,7 +62,7 @@ export default function UpdateTimer({ lastUpdate, onRefresh }: UpdateTimerProps)
         if (lastRefreshSlotRef.current !== slotKey) {
           lastRefreshSlotRef.current = slotKey;
           setIsRefreshing(true);
-          onRefresh()
+          Promise.resolve(onRefresh?.())
             .catch((error) => {
               console.error("Erro ao atualizar classificacao em segundo plano:", error);
             })
