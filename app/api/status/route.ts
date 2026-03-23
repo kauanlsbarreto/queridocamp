@@ -3,7 +3,6 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection, type Env } from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
 import type { Connection } from "mysql2/promise";
-import { ensurePermissionsSchema, hasPermission, PERMISSION_KEYS } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -125,9 +124,8 @@ export async function GET(request: Request) {
       [faceitGuid]
     );
 
-    await ensurePermissionsSchema(connection);
-    const allowed = await hasPermission(connection, faceitGuid, PERMISSION_KEYS.VIEW_STATUS);
-    if (!allowed) {
+    const adminLevel = Number(adminRows?.[0]?.admin ?? 0);
+    if (adminLevel !== 1 && adminLevel !== 2) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 

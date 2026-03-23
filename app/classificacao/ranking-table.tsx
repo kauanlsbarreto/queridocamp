@@ -367,8 +367,8 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
     if (storedUser) {
       try {
         const u = JSON.parse(storedUser)
-        const permissions: string[] = Array.isArray(u.permissions) ? u.permissions : []
-        if (permissions.includes('team_match_order')) setIsAdmin(true)
+        const lvl = Number(u.admin || u.Admin)
+        if (lvl === 1 || lvl === 2) setIsAdmin(true)
       } catch (e) {
         console.error("Erro ao verificar admin:", e)
       }

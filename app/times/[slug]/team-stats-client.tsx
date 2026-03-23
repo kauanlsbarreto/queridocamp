@@ -58,15 +58,8 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
             }
             try {
                 const parsed = JSON.parse(storedUser);
-                // Se for admin 1, já libera tudo
-                if (parsed?.admin === 1) {
-                    setIsAdmin12(true);
-                    setAdminUser(parsed);
-                    return;
-                }
-                // Caso não seja admin 1, verifica permissões
-                const permissions: string[] = Array.isArray(parsed?.permissions) ? parsed.permissions : [];
-                if (permissions.includes('team_match_order')) {
+                const level = parsed?.admin ?? parsed?.Admin;
+                if (level === 1 || level === 2) {
                     setIsAdmin12(true);
                     setAdminUser(parsed);
                 } else {

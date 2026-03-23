@@ -40,8 +40,8 @@ const AdminJogosPage = () => {
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser);
-        const permissions: string[] = Array.isArray(user.permissions) ? user.permissions : [];
-        if (permissions.includes('schedule_matches')) {
+        const adminLevel = user.Admin ?? user.admin ?? 0;
+        if (adminLevel >= 1 && adminLevel <= 5) {
           setIsAuthorized(true);
         } else {
           router.push('/');

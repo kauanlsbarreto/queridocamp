@@ -135,9 +135,22 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                     }
                 }
 
-                const permissions: string[] = Array.isArray(user.permissions) ? user.permissions : [];
-                if (permissions.includes('manage_profiles')) {
-                    setUserAdminLevel(1); // treat as level 1 for canManageThisProfile
+                const localAdminLevel = Number(user.Admin || user.admin || 0);
+                if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+                    setUserAdminLevel(localAdminLevel);
+                } else if (user.faceit_guid) {
+                    fetch(`/api/admin/players?faceit_guid=${user.faceit_guid}`)
+                        .then((res) => res.json())
+                        .then((data) => {
+                            if (data && typeof data.admin === 'number') {
+                                setUserAdminLevel(data.admin);
+                            } else {
+                                setUserAdminLevel(localAdminLevel);
+                            }
+                        })
+                        .catch(() => setUserAdminLevel(localAdminLevel));
+                } else {
+                    setUserAdminLevel(localAdminLevel);
                 }
             } catch (e) {
                 console.error("Failed to parse user session", e);

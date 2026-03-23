@@ -1,13 +1,12 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Pencil, Trash2, Save, X, Search, User, ArrowLeft, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Pencil, Trash2, Save, X, Search, User, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 import PremiumCard from '@/components/premium-card';
 import PerfilClient from '@/app/perfil/[id]/PerfilClient';
-import { PERMISSIONS_LIST } from '@/lib/permissions';
 
 // --- COMPONENTES DE ABA ---
 
@@ -387,19 +386,9 @@ const ViewPlayerTab = () => {
     useEffect(() => {
         if (viewMode === 'list') {
             fetch(`/api/admin/player-profile?q=${search}`)
-                .then(async (r) => {
-                    const data = await r.json().catch(() => []);
-                    if (!r.ok) {
-                        console.error('Erro ao carregar lista de players:', data);
-                        return [];
-                    }
-                    return Array.isArray(data) ? data : [];
-                })
+                .then(r => r.json())
                 .then(setPlayers)
-                .catch((err) => {
-                    console.error(err);
-                    setPlayers([]);
-                });
+                .catch(console.error);
         }
     }, [viewMode, search]);
 
@@ -503,197 +492,44 @@ const ViewPlayerTab = () => {
     );
 };
 
-// --- ABA DE PERMISSÕES ---
-
-type PermissionEntry = {
-    key: string;
-    label: string;
-    description: string;
-    grantedToLevels: number[];
-};
-
-const ADMIN_LEVEL_NAMES: Record<number, string> = {
-    1: 'Admin',
-    2: 'Desenvolvedor',
-    3: 'Mesa Avaliadora',
-    4: 'Parceiro',
-    5: 'Streamer',
-};
-
-const TOGGLEABLE_LEVELS = [2, 3, 4, 5];
-
-const PermissionsTab = ({ requesterGuid }: { requesterGuid: string }) => {
-    const [permissions, setPermissions] = useState<PermissionEntry[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [savingKey, setSavingKey] = useState<string | null>(null);
-
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const res = await fetch(`/api/admin/permissions?faceit_guid=${requesterGuid}`);
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                alert(err.message || 'Erro ao carregar permissões.');
-                return;
-            }
-            const data = await res.json();
-            setPermissions(data.permissions ?? []);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => { fetchData(); }, [requesterGuid]);
-
-    const togglePermission = async (permissionKey: string, adminLevel: number, currentlyGranted: boolean) => {
-        setSavingKey(`${permissionKey}-${adminLevel}`);
-        try {
-            const method = currentlyGranted ? 'DELETE' : 'POST';
-            const res = await fetch('/api/admin/permissions', {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    requester_guid: requesterGuid,
-                    permission_key: permissionKey,
-                    admin_level: adminLevel,
-                }),
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                alert(err.message || 'Erro ao atualizar permissão.');
-                return;
-            }
-            setPermissions(prev =>
-                prev.map(p => {
-                    if (p.key !== permissionKey) return p;
-                    const grantedToLevels = currentlyGranted
-                        ? p.grantedToLevels.filter(l => l !== adminLevel)
-                        : [...p.grantedToLevels, adminLevel];
-                    return { ...p, grantedToLevels };
-                })
-            );
-        } catch (e) {
-            alert('Erro de rede ao atualizar permissão.');
-        } finally {
-            setSavingKey(null);
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[300px] text-zinc-500 text-sm">
-                Carregando permissões...
-            </div>
-        );
-    }
-
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center gap-3 mb-2">
-                <ShieldCheck className="text-gold" size={22} />
-                <div>
-                    <h2 className="text-white font-black text-lg uppercase tracking-tight">Permissões por Nível</h2>
-                    <p className="text-zinc-500 text-xs mt-0.5">
-                        Defina quais níveis têm acesso a cada recurso. O nível 1 (Admin) tem acesso total automático.
-                    </p>
-                </div>
-            </div>
-
-            {permissions.map(perm => (
-                <Card key={perm.key} className="bg-zinc-900 border-zinc-800 text-white overflow-hidden">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-base font-black text-gold uppercase tracking-tight flex items-center gap-2">
-                            <ShieldCheck size={16} className="opacity-70" />
-                            {perm.label}
-                        </CardTitle>
-                        <CardDescription className="text-zinc-400 text-xs leading-relaxed">
-                            {perm.description}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-wrap gap-3">
-                            {/* Level 1 — always on, read-only */}
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-gold/10 border-gold/30 text-gold/60 text-sm font-bold cursor-default select-none">
-                                <ShieldCheck size={14} className="shrink-0" />
-                                <span>Admin</span>
-                                <span className="text-[10px] opacity-60 font-normal">(Sempre)</span>
-                            </div>
-
-                            {TOGGLEABLE_LEVELS.map(level => {
-                                const isGranted = perm.grantedToLevels.includes(level);
-                                const isBusy = savingKey === `${perm.key}-${level}`;
-                                return (
-                                    <button
-                                        key={level}
-                                        onClick={() => togglePermission(perm.key, level, isGranted)}
-                                        disabled={isBusy}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-bold transition-all duration-150 ${
-                                            isGranted
-                                                ? 'bg-green-900/50 border-green-600/60 text-green-400 hover:bg-red-900/40 hover:border-red-600/60 hover:text-red-400'
-                                                : 'bg-zinc-800/60 border-zinc-700 text-zinc-500 hover:bg-green-900/30 hover:border-green-700 hover:text-green-400'
-                                        } ${isBusy ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                                    >
-                                        {isGranted ? (
-                                            <ShieldCheck size={14} className="shrink-0" />
-                                        ) : (
-                                            <ShieldOff size={14} className="shrink-0 opacity-40" />
-                                        )}
-                                        <span>{ADMIN_LEVEL_NAMES[level]}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </CardContent>
-                </Card>
-            ))}
-        </div>
-    );
-};
-
 // --- PÁGINA PRINCIPAL ---
 
 export default function AdminPage() {
-    const [user, setUser] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const stored = localStorage.getItem('faceit_user');
-        if (stored) {
-            const u = JSON.parse(stored);
-            if (u.Admin >= 1) setUser(u);
-        }
-        setLoading(false);
-    }, []);
+  useEffect(() => {
+    const stored = localStorage.getItem('faceit_user');
+    if (stored) {
+        const u = JSON.parse(stored);
+        if (u.Admin >= 1) setUser(u);
+    }
+    setLoading(false);
+  }, []);
 
-    if (loading) return <div className="flex justify-center items-center min-h-screen bg-black text-white"><p>Carregando...</p></div>;
-    if (!user) return <div className="flex justify-center items-center min-h-screen bg-black text-white"><p>Acesso negado.</p></div>;
+  if (loading) return <div className="flex justify-center items-center min-h-screen bg-black text-white"><p>Carregando...</p></div>;
+  if (!user) return <div className="flex justify-center items-center min-h-screen bg-black text-white"><p>Acesso negado.</p></div>;
 
-    return (
-        <div className="container mx-auto p-4 pt-24 min-h-screen bg-black">
-            <h1 className="text-3xl font-bold mb-6 text-white uppercase italic tracking-tighter">Painel de Administração</h1>
-            <Tabs defaultValue="add-code" className="w-full">
-                <TabsList className="grid w-full grid-cols-6 bg-zinc-900 text-zinc-400 border border-zinc-800">
-                    <TabsTrigger value="add-code" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white uppercase text-[10px] font-black">Códigos</TabsTrigger>
-                    <TabsTrigger value="manage-players" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white uppercase text-[10px] font-black">IDs</TabsTrigger>
-                    <TabsTrigger value="set-admin" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white uppercase text-[10px] font-black">Equipe</TabsTrigger>
-                    <TabsTrigger value="manage-adicionados" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white uppercase text-[10px] font-black">Tags</TabsTrigger>
-                    <TabsTrigger value="view-player" className="text-gold font-bold data-[state=active]:bg-gold data-[state=active]:text-black uppercase text-[10px] font-black">Ver Player</TabsTrigger>
-                    <TabsTrigger value="permissions" className="text-green-400 font-bold data-[state=active]:bg-green-900/50 data-[state=active]:text-green-300 uppercase text-[10px] font-black">Permissões</TabsTrigger>
-                </TabsList>
-
-                <div className="mt-6">
-                    <TabsContent value="add-code"><AddCodesTab /></TabsContent>
-                    <TabsContent value="manage-players"><ManagePlayersTab /></TabsContent>
-                    <TabsContent value="set-admin"><SetAdminsTab /></TabsContent>
-                    <TabsContent value="manage-adicionados"><ModificationsTab /></TabsContent>
-                    <TabsContent value="view-player"><ViewPlayerTab /></TabsContent>
-                    <TabsContent value="permissions">
-                        <PermissionsTab requesterGuid={user?.faceit_guid ?? ''} />
-                    </TabsContent>
-                </div>
-            </Tabs>
+  return (
+    <div className="container mx-auto p-4 pt-24 min-h-screen bg-black">
+      <h1 className="text-3xl font-bold mb-6 text-white uppercase italic tracking-tighter">Painel de Administração</h1>
+      <Tabs defaultValue="add-code" className="w-full">
+        <TabsList className="grid w-full grid-cols-5 bg-zinc-900 text-zinc-400 border border-zinc-800">
+          <TabsTrigger value="add-code" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white uppercase text-[10px] font-black">Códigos</TabsTrigger>
+          <TabsTrigger value="manage-players" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white uppercase text-[10px] font-black">IDs</TabsTrigger>
+          <TabsTrigger value="set-admin" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white uppercase text-[10px] font-black">Equipe</TabsTrigger>
+          <TabsTrigger value="manage-adicionados" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white uppercase text-[10px] font-black">Tags</TabsTrigger>
+          <TabsTrigger value="view-player" className="text-gold font-bold data-[state=active]:bg-gold data-[state=active]:text-black uppercase text-[10px] font-black">Ver Player</TabsTrigger>
+        </TabsList>
+        
+        <div className="mt-6">
+            <TabsContent value="add-code"><AddCodesTab /></TabsContent>
+            <TabsContent value="manage-players"><ManagePlayersTab /></TabsContent>
+            <TabsContent value="set-admin"><SetAdminsTab /></TabsContent>
+            <TabsContent value="manage-adicionados"><ModificationsTab /></TabsContent>
+            <TabsContent value="view-player"><ViewPlayerTab /></TabsContent>
         </div>
-    );
+      </Tabs>
+    </div>
+  );
 }

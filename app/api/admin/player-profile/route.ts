@@ -75,8 +75,6 @@ export async function GET(request: Request) {
 
     // MODO 1: LISTA DE JOGADORES (Se não tiver ID)
     if (!id) {
-        const normalizeNick = (value: any) => String(value ?? '').trim().toLowerCase();
-
         // Buscar todos os jogadores do campeonato (tabela jogadores)
         const [jogadoresRows]: any = await jogadoresConnection.query('SELECT id, nick FROM jogadores ORDER BY nick ASC');
         
@@ -87,33 +85,27 @@ export async function GET(request: Request) {
         const [registeredRows]: any = await mainConnection.query('SELECT id, nickname, avatar FROM players');
 
         const faceitMap = new Map();
-        faceitRows.forEach((f: any) => {
-            const key = normalizeNick(f.faceit_nickname);
-            if (key) faceitMap.set(key, f);
-        });
+        faceitRows.forEach((f: any) => faceitMap.set(f.faceit_nickname.toLowerCase(), f));
 
         const registeredMap = new Map();
-        registeredRows.forEach((r: any) => {
-            const key = normalizeNick(r.nickname);
-            if (key) registeredMap.set(key, r);
-        });
+        registeredRows.forEach((r: any) => registeredMap.set(r.nickname.toLowerCase(), r));
 
         let players = jogadoresRows.map((j: any) => {
-            const nickLower = normalizeNick(j.nick);
+            const nickLower = j.nick.toLowerCase();
             const registered = registeredMap.get(nickLower);
             const faceit = faceitMap.get(nickLower);
 
             if (registered) {
                 return {
                     id: `real_${registered.id}`, // ID único para o frontend saber que é registrado
-                    nickname: registered.nickname || j.nick || 'Sem Nick',
+                    nickname: registered.nickname,
                     avatar: registered.avatar,
                     is_registered: true
                 };
             } else {
                 return {
                     id: `sim_${j.id}`, // ID único para simulação
-                    nickname: j.nick || 'Sem Nick',
+                    nickname: j.nick,
                     avatar: faceit?.fotoperfil || "/images/cs2-player.png",
                     is_registered: false
                 };
@@ -121,8 +113,7 @@ export async function GET(request: Request) {
         });
 
         if (q) {
-            const queryNick = normalizeNick(q);
-            players = players.filter((p: any) => normalizeNick(p.nickname).includes(queryNick));
+            players = players.filter((p: any) => p.nickname.toLowerCase().includes(q.toLowerCase()));
         }
         return NextResponse.json(players);
     }

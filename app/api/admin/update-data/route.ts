@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
-import { ensurePermissionsSchema, hasPermission, PERMISSION_KEYS } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -28,10 +27,10 @@ export async function POST(request: Request) {
         if (!faceit_guid) {
             return NextResponse.json({ message: "Identificação do usuário ausente." }, { status: 401 });
         }
-
-        await ensurePermissionsSchema(connection);
-        const allowed = await hasPermission(connection, faceit_guid, PERMISSION_KEYS.UPDATE_DATA);
-        if (!allowed) {
+        
+        const [rows]: any = await connection.query("SELECT admin FROM players WHERE faceit_guid = ?", [faceit_guid]);
+        
+        if (!rows.length || (rows[0].admin !== 1 && rows[0].admin !== 2)) {
             return NextResponse.json({ message: "Dessa vez nao pequeno gafanhoto" }, { status: 403 });
         }
     }

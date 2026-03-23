@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
-import { ensurePermissionsSchema, hasPermission, PERMISSION_KEYS } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -153,8 +152,16 @@ async function ensureAdminAccess(connection: any, faceitGuid: string, authHeader
   const isLocalDev = authHeader === 'Bearer local-dev-token';
   if (isLocalDev) return true;
 
-  await ensurePermissionsSchema(connection);
-  return hasPermission(connection, faceitGuid, PERMISSION_KEYS.TEAM_MATCH_ORDER);
+  const [adminRows]: any = await connection.query(
+    'SELECT admin FROM players WHERE faceit_guid = ? LIMIT 1',
+    [faceitGuid]
+  );
+
+  if (!adminRows.length || (adminRows[0].admin !== 1 && adminRows[0].admin !== 2)) {
+    return false;
+  }
+
+  return true;
 }
 
 async function ensureOrdemStatsSchema(connection: any) {
