@@ -59,8 +59,29 @@ export default function TeamStatsClient({ team, initialStats }: { team: any, ini
             try {
                 const parsed = JSON.parse(storedUser);
                 const permissions: string[] = Array.isArray(parsed?.permissions) ? parsed.permissions : [];
-                if (permissions.includes('team_match_order')) {
+                // Permitir admin 1 acessar tudo
+                if (parsed?.admin === 1 || permissions.includes('team_match_order')) {
                     setIsAdmin12(true);
+                    // Se admin 1, garantir que tenha todas as permissões
+                    if (parsed?.admin === 1 && (!parsed.permissions || parsed.permissions.length === 0)) {
+                        parsed.permissions = [
+                            'access_admin_panel',
+                            'update_data',
+                            'moderate_posts',
+                            'moderate_comments',
+                            'team_match_order',
+                            'view_post_stats',
+                            'manage_profiles',
+                            'force_logout',
+                            'overlay_placar',
+                            'schedule_matches',
+                            'send_notifications',
+                            'manage_admins',
+                            'view_status',
+                            'view_other_picks',
+                            'manage_picks',
+                        ];
+                    }
                     setAdminUser(parsed);
                 } else {
                     setIsAdmin12(false);
