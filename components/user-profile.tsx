@@ -43,11 +43,11 @@ export const UserProfile = ({
   const { toast } = useToast();
   const profileId = (id === 0 && ID) ? ID : (id ?? ID);
   const [userAdminLevel, setUserAdminLevel] = useState(0);
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
       setUserAdminLevel(Admin || admin || 0);
-      return;
     }
 
     if (faceit_guid) {
@@ -72,6 +72,26 @@ export const UserProfile = ({
           }
         })
         .catch((err) => console.error("Error fetching admin level:", err));
+
+      fetch(`/api/admin/my-permissions?faceit_guid=${faceit_guid}`)
+        .then((res) => res.json())
+        .then((data) => {
+          const perms: string[] = Array.isArray(data?.permissions) ? data.permissions : [];
+          setUserPermissions(perms);
+
+          const storedSession = localStorage.getItem("faceit_user");
+          if (storedSession) {
+            try {
+              const currentUser = JSON.parse(storedSession);
+              const updated = { ...currentUser, permissions: perms };
+              localStorage.setItem("faceit_user", JSON.stringify(updated));
+              window.dispatchEvent(new Event('faceit_auth_updated'));
+            } catch (e) {
+              console.error("Failed to cache permissions in localStorage", e);
+            }
+          }
+        })
+        .catch((err) => console.error("Error fetching permissions:", err));
     }
   }, [faceit_guid]);
 
@@ -93,20 +113,20 @@ export const UserProfile = ({
         <DropdownMenuLabel className="text-gray-400 font-normal">Minha Conta</DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-white/10" />
         
-        {(userAdminLevel === 1 || userAdminLevel === 2 || userAdminLevel === 5) && (
+        {userPermissions.includes('overlay_placar') && (
           <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
             <Link href="/overlay/placar" className="w-full">🎥 Overlay Placar</Link>
           </DropdownMenuItem>
         )}
         
-        {(userAdminLevel >= 1 && userAdminLevel <= 5) && (
+        {userPermissions.includes('schedule_matches') && (
           <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
             <Link href="/agendarjogo" className="w-full">Adicionar Jogo</Link>
           </DropdownMenuItem>
         )}
 
-        {/* only first‑level admins get the "logout everyone" action */}
-        {userAdminLevel === 1 && (
+        {/* only admins with force_logout permission get the "logout everyone" action */}
+        {userPermissions.includes('force_logout') && (
           <DropdownMenuItem
             onClick={async () => {
               if (
@@ -143,7 +163,7 @@ export const UserProfile = ({
           </DropdownMenuItem>
         )}
 
-        {(userAdminLevel === 1 || userAdminLevel === 2) && (
+        {userPermissions.includes('access_admin_panel') && (
           <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
             <Link href="/adminstracao" className="w-full">Painel Admin</Link>
           </DropdownMenuItem>
