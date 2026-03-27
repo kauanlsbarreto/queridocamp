@@ -359,6 +359,8 @@ export default function PickEmClient({
     const { source, destination } = result;
     if (!destination) return;
 
+    alert('Aguarde a conclusão do salvamento da sua escolha. Não feche ou atualize a página até aparecer novamente.');
+
     const sourceId = source.droppableId;
     const destId = destination.droppableId;
 
