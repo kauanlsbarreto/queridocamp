@@ -98,32 +98,40 @@ function shouldPhaseBeLocked(
   return dbLocked; // Fora do prazo ou sem atingir acertos, respeita o status individual no banco
 }
 
-async function reconcileAutoKnockoutLocks(connection: any, env: Env, ctx?: any) {
-  const gate = await getTournamentGateContext(connection);
-
+async function triggerBackgroundUpdates(env: Env, gate: any, ctx?: any, logMsg?: string) {
   // Lógica de sincronização global do banco de dados em segundo plano
   const runBackgroundUpdates = async () => {
     let bgConn: any;
     try {
       bgConn = await createMainConnection(env);
+      
+      // 1. Atualizar Locks Globais se necessário
       if (gate.relockReached) {
         await bgConn.query(
           "UPDATE escolhas SET locked = 1, semi_locked = 1, final_locked = 1, winner_locked = 1"
         );
       } else {
+        // Sincroniza apenas nicknames para não pesar a query
         const [rows] = await bgConn.query(
-          "SELECT nickname, slot_1, slot_2, slot_3, slot_4, slot_5, slot_6, slot_7, slot_8 FROM escolhas"
+          "SELECT * FROM escolhas"
         ) as [RowDataPacket[], any];
 
         for (const row of rows) {
           const hits = getUserTop8Hits(row, gate.top8Set);
           const isUnlocked = hits >= 5;
           await bgConn.query(
-            "UPDATE escolhas SET semi_locked = ?, final_locked = ?, winner_locked = ? WHERE nickname = ?",
+            "UPDATE escolhas SET semi_locked = IF(semi_locked=1, ?, semi_locked), final_locked = IF(final_locked=1, ?, final_locked), winner_locked = IF(winner_locked=1, ?, winner_locked) WHERE nickname = ?",
             [!isUnlocked, !isUnlocked, !isUnlocked, row.nickname]
           );
         }
       }
+
+      // 2. Enviar Log do Discord
+      if (logMsg) await sendDiscordLog(logMsg);
+
+      // 3. Revalidar cache do ranking
+      revalidatePath("/redondo");
+
     } catch (e) {
       console.error("Background update error:", e);
     } finally {
@@ -133,8 +141,6 @@ async function reconcileAutoKnockoutLocks(connection: any, env: Env, ctx?: any) 
 
   if (ctx?.waitUntil) ctx.waitUntil(runBackgroundUpdates());
   else runBackgroundUpdates(); // Em desenvolvimento local, roda de forma assíncrona
-
-  return gate;
 }
 
 function getPhaseName(phase: string) {
@@ -179,7 +185,8 @@ export async function POST(request: Request) {
     connection = await createMainConnection(env);
 
     const body = await request.json();
-    const gate = await reconcileAutoKnockoutLocks(connection, env, ctx);
+    const gate = await getTournamentGateContext(connection);
+
     const {
       action,
       nickname,
@@ -253,14 +260,10 @@ export async function POST(request: Request) {
       } else {
         logMsg = ` **Pick Removido**\n **Usuário:** ${nickname}\n **Etapa:** ${phaseName} (Slot ${idx + 1})`;
       }
-      
-      if (ctx && (ctx as any).waitUntil) {
-        (ctx as any).waitUntil(sendDiscordLog(logMsg));
-      } else {
-        await sendDiscordLog(logMsg);
-      }
 
-      revalidatePath("/redondo");
+      // Dispara atualizações de segundo plano (Discord, Locks, Cache) sem esperar
+      await triggerBackgroundUpdates(env, gate, ctx, logMsg);
+
       return NextResponse.json({ success: true });
     }
 
@@ -286,10 +289,9 @@ export async function POST(request: Request) {
 
       const phaseName = getPhaseName(phase);
       const logMsg = ` **Fase Confirmada**\n **Usuário:** ${nickname}\n **Etapa:** ${phaseName}`;
-      if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
-      else await sendDiscordLog(logMsg);
+      
+      await triggerBackgroundUpdates(env, gate, ctx, logMsg);
 
-      revalidatePath("/redondo");
       return NextResponse.json({ success: true });
     }
 
