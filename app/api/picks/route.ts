@@ -7,7 +7,7 @@ import type { RowDataPacket, ResultSetHeader } from "mysql2";
 export const dynamic = "force-dynamic";
 
 const WITHDRAWN_TEAMS = ["NeshaStore", "Alfajor Solucoes", "Alfajor Soluções"];
-const AUTO_RELOCK_AT_UTC = Date.parse("2026-03-28T01:00:00.000Z"); 
+const AUTO_RELOCK_AT_UTC = Date.parse("2026-03-28T12:00:00.000Z"); // 09:00 Brasília (UTC-3)
 
 function normalizeTeamName(value: string) {
   return String(value || "")
@@ -87,57 +87,52 @@ function shouldPhaseBeLocked(
   const lockCol = phase === "slot" ? "locked" : `${phase}_locked`;
   const dbLocked = Boolean(row?.[lockCol]);
 
-  if (!isKnockoutPhase(phase)) return dbLocked;
-  // Hard deadline always wins.
-  if (gate.relockReached) return true;
-  // Outside the deadline, DB column is the source of truth for lock state.
-  return dbLocked;
+  if (gate.relockReached) return true; // Bloqueio geral após o prazo
+
+  // Regra especial: se acertou 5 ou mais, libera as fases de mata-mata imediatamente na resposta (sem precisar de F5)
+  if (isKnockoutPhase(phase)) {
+    const hits = getUserTop8Hits(row, gate.top8Set);
+    if (hits >= 5) return false;
+  }
+
+  return dbLocked; // Fora do prazo ou sem atingir acertos, respeita o status individual no banco
 }
 
-async function reconcileAutoKnockoutLocks(connection: any) {
+async function reconcileAutoKnockoutLocks(connection: any, env: Env, ctx?: any) {
   const gate = await getTournamentGateContext(connection);
 
-  if (gate.relockReached) {
-    await connection.query(
-      "UPDATE escolhas SET semi_locked = 1, final_locked = 1, winner_locked = 1"
-    );
-    return gate;
-  }
+  // Lógica de sincronização global do banco de dados em segundo plano
+  const runBackgroundUpdates = async () => {
+    let bgConn: any;
+    try {
+      bgConn = await createMainConnection(env);
+      if (gate.relockReached) {
+        await bgConn.query(
+          "UPDATE escolhas SET locked = 1, semi_locked = 1, final_locked = 1, winner_locked = 1"
+        );
+      } else {
+        const [rows] = await bgConn.query(
+          "SELECT nickname, slot_1, slot_2, slot_3, slot_4, slot_5, slot_6, slot_7, slot_8 FROM escolhas"
+        ) as [RowDataPacket[], any];
 
-  if (!gate.allActiveCompleted17) return gate;
-
-  const [rows] = await connection.query(
-    `SELECT nickname, slot_1, slot_2, slot_3, slot_4, slot_5, slot_6, slot_7, slot_8,
-            semi_1, semi_2, semi_3, semi_4, final_1, final_2, winner_1,
-            semi_locked, final_locked, winner_locked
-     FROM escolhas`
-  ) as [RowDataPacket[], any];
-
-  for (const row of rows) {
-    const hits = getUserTop8Hits(row, gate.top8Set);
-    if (hits < 5) {
-      await connection.query(
-        "UPDATE escolhas SET semi_locked = 1, final_locked = 1, winner_locked = 1 WHERE nickname = ?",
-        [row.nickname]
-      );
-      continue;
+        for (const row of rows) {
+          const hits = getUserTop8Hits(row, gate.top8Set);
+          const isUnlocked = hits >= 5;
+          await bgConn.query(
+            "UPDATE escolhas SET semi_locked = ?, final_locked = ?, winner_locked = ? WHERE nickname = ?",
+            [!isUnlocked, !isUnlocked, !isUnlocked, row.nickname]
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Background update error:", e);
+    } finally {
+      if (bgConn) await bgConn.end();
     }
+  };
 
-    const unlockSemi = !hasPhasePicks(row, "semi");
-    const unlockFinal = !hasPhasePicks(row, "final");
-    const unlockWinner = !hasPhasePicks(row, "winner");
-
-    if (unlockSemi || unlockFinal || unlockWinner) {
-      await connection.query(
-        `UPDATE escolhas
-         SET semi_locked = CASE WHEN ? THEN 0 ELSE semi_locked END,
-             final_locked = CASE WHEN ? THEN 0 ELSE final_locked END,
-             winner_locked = CASE WHEN ? THEN 0 ELSE winner_locked END
-         WHERE nickname = ?`,
-        [unlockSemi, unlockFinal, unlockWinner, row.nickname]
-      );
-    }
-  }
+  if (ctx?.waitUntil) ctx.waitUntil(runBackgroundUpdates());
+  else runBackgroundUpdates(); // Em desenvolvimento local, roda de forma assíncrona
 
   return gate;
 }
@@ -184,7 +179,7 @@ export async function POST(request: Request) {
     connection = await createMainConnection(env);
 
     const body = await request.json();
-    const gate = await reconcileAutoKnockoutLocks(connection);
+    const gate = await reconcileAutoKnockoutLocks(connection, env, ctx);
     const {
       action,
       nickname,
@@ -236,7 +231,7 @@ export async function POST(request: Request) {
 
         if (shouldPhaseBeLocked(phase, userRow, gate)) {
           const errorMsg = gate.relockReached
-            ? "Fase bloqueada para todos (prazo encerrado em 27/03/2026 22:00)."
+            ? "Fase bloqueada para todos (prazo encerrado em 28/03/2026 09:00)."
             : "Fase bloqueada.";
           return NextResponse.json({ error: errorMsg }, { status: 403 });
         }
@@ -289,7 +284,7 @@ export async function POST(request: Request) {
         const userRow = gateRows[0];
         if (shouldPhaseBeLocked(phase, userRow, gate)) {
           const errorMsg = gate.relockReached
-            ? "Fase bloqueada para todos (prazo encerrado em 27/03/2026 22:00)."
+            ? "Fase bloqueada para todos (prazo encerrado em 28/03/2026 09:00)."
             : "Fase bloqueada.";
           return NextResponse.json({ error: errorMsg }, { status: 403 });
         }
