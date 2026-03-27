@@ -222,29 +222,18 @@ export async function POST(request: Request) {
     }
 
     if (action === "save") {
-      if (isKnockoutPhase(phase)) {
-        const [gateRows] = await connection.query(
-          "SELECT * FROM escolhas WHERE nickname = ? LIMIT 1",
-          [nickname]
-        ) as [RowDataPacket[], any];
-        const userRow = gateRows[0];
-
-        if (shouldPhaseBeLocked(phase, userRow, gate)) {
-          const errorMsg = gate.relockReached
-            ? "Fase bloqueada para todos (prazo encerrado em 28/03/2026 09:00)."
-            : "Fase bloqueada.";
-          return NextResponse.json({ error: errorMsg }, { status: 403 });
-        }
-      }
-
-      const lockCol = phase === "slot" ? "locked" : `${phase}_locked`;
-      const [rows] = await connection.query(
-        `SELECT ${lockCol} FROM escolhas WHERE nickname = ?`,
+      const [userRows] = await connection.query(
+        "SELECT * FROM escolhas WHERE nickname = ? LIMIT 1",
         [nickname]
-      );
+      ) as [RowDataPacket[], any];
+      const userRow = userRows[0];
 
-      if ((rows as RowDataPacket[])[0]?.[lockCol])
-        return NextResponse.json({ error: "Fase bloqueada" }, { status: 403 });
+      if (shouldPhaseBeLocked(phase, userRow, gate)) {
+        const errorMsg = gate.relockReached
+          ? "Fase bloqueada para todos (prazo encerrado em 28/03/2026 09:00)."
+          : "Fase bloqueada.";
+        return NextResponse.json({ error: errorMsg }, { status: 403 });
+      }
 
       const idx = typeof slotIndex === "string" ? parseInt(slotIndex) : slotIndex;
       const col = `${phase}_${idx + 1}`;
@@ -276,18 +265,17 @@ export async function POST(request: Request) {
     }
 
     if (action === "lock") {
-      if (isKnockoutPhase(phase)) {
-        const [gateRows] = await connection.query(
-          "SELECT * FROM escolhas WHERE nickname = ? LIMIT 1",
-          [nickname]
-        ) as [RowDataPacket[], any];
-        const userRow = gateRows[0];
-        if (shouldPhaseBeLocked(phase, userRow, gate)) {
-          const errorMsg = gate.relockReached
-            ? "Fase bloqueada para todos (prazo encerrado em 28/03/2026 09:00)."
-            : "Fase bloqueada.";
-          return NextResponse.json({ error: errorMsg }, { status: 403 });
-        }
+      const [userRows] = await connection.query(
+        "SELECT * FROM escolhas WHERE nickname = ? LIMIT 1",
+        [nickname]
+      ) as [RowDataPacket[], any];
+      const userRow = userRows[0];
+
+      if (shouldPhaseBeLocked(phase, userRow, gate)) {
+        const errorMsg = gate.relockReached
+          ? "Fase bloqueada para todos (prazo encerrado em 28/03/2026 09:00)."
+          : "Fase bloqueada.";
+        return NextResponse.json({ error: errorMsg }, { status: 403 });
       }
 
       const lockCol = phase === "slot" ? "locked" : `${phase}_locked`;
