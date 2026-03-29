@@ -230,6 +230,229 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
 
   return (
     <div className="space-y-8">
+      {/* --- ÁREA DE STATS DO PRESENCIAL --- */}
+      <div className="bg-black/80 border border-gold/30 rounded-2xl p-6 mb-10">
+        <h2 className="text-2xl font-black text-gold mb-4 uppercase tracking-widest">Stats do Presencial</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Quartas de Final */}
+          <div>
+            <h3 className="text-lg font-bold text-yellow-300 mb-2 uppercase tracking-wider">Quartas de Final</h3>
+            <div className="space-y-4">
+              {/* Elo Imaginario vs Uns&Outros */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="font-bold text-white mb-2">Elo Imaginario vs Uns&Outros</div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[320px] w-full text-xs text-gray-200 mb-4">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>Elo Imaginario</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">pdX</td><td className="p-1">58</td><td className="p-1">41</td><td className="p-1">1.41</td><td className="p-1">119.26</td></tr>
+                      <tr><td className="p-1">gok1</td><td className="p-1">43</td><td className="p-1">43</td><td className="p-1">1.00</td><td className="p-1">94.33</td></tr>
+                      <tr><td className="p-1">Vinny</td><td className="p-1">41</td><td className="p-1">46</td><td className="p-1">0.89</td><td className="p-1">86.86</td></tr>
+                      <tr><td className="p-1">slayerk1ng ㅤツ</td><td className="p-1">31</td><td className="p-1">47</td><td className="p-1">0.66</td><td className="p-1">64.58</td></tr>
+                      <tr><td className="p-1">nEX-</td><td className="p-1">44</td><td className="p-1">38</td><td className="p-1">1.16</td><td className="p-1">76.71</td></tr>
+                    </tbody>
+                  </table>
+                  <table className="min-w-[320px] w-full text-xs text-gray-200">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>Uns&Outros</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">Jony</td><td className="p-1">42</td><td className="p-1">40</td><td className="p-1">1.05</td><td className="p-1">91.60</td></tr>
+                      <tr><td className="p-1">iuRyy</td><td className="p-1">39</td><td className="p-1">45</td><td className="p-1">0.87</td><td className="p-1">70.85</td></tr>
+                      <tr><td className="p-1">alvz</td><td className="p-1">39</td><td className="p-1">41</td><td className="p-1">0.95</td><td className="p-1">83.28</td></tr>
+                      <tr><td className="p-1">Microlock</td><td className="p-1">50</td><td className="p-1">44</td><td className="p-1">1.14</td><td className="p-1">84.26</td></tr>
+                      <tr><td className="p-1">kio</td><td className="p-1">43</td><td className="p-1">48</td><td className="p-1">0.90</td><td className="p-1">87.16</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {/* Lafise vs 22Cao Na Chapa */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="font-bold text-white mb-2">Lafise vs 22Cao Na Chapa</div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[320px] w-full text-xs text-gray-200 mb-4">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>Lafise</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">gAbri</td><td className="p-1">42</td><td className="p-1">8</td><td className="p-1">5.25</td><td className="p-1">179.43</td></tr>
+                      <tr><td className="p-1">Ezy</td><td className="p-1">30</td><td className="p-1">12</td><td className="p-1">2.50</td><td className="p-1">151.75</td></tr>
+                      <tr><td className="p-1">Sh4kyon</td><td className="p-1">22</td><td className="p-1">16</td><td className="p-1">1.38</td><td className="p-1">106.07</td></tr>
+                      <tr><td className="p-1">tex</td><td className="p-1">19</td><td className="p-1">17</td><td className="p-1">1.12</td><td className="p-1">102.93</td></tr>
+                      <tr><td className="p-1">Kondz'</td><td className="p-1">14</td><td className="p-1">19</td><td className="p-1">0.74</td><td className="p-1">59.68</td></tr>
+                    </tbody>
+                  </table>
+                  <table className="min-w-[320px] w-full text-xs text-gray-200">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>22Cao Na Chapa</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">Naturesa</td><td className="p-1">9</td><td className="p-1">11</td><td className="p-1">0.82</td><td className="p-1">88.71</td></tr>
+                      <tr><td className="p-1">raul</td><td className="p-1">21</td><td className="p-1">24</td><td className="p-1">0.88</td><td className="p-1">96.93</td></tr>
+                      <tr><td className="p-1">Nekron</td><td className="p-1">20</td><td className="p-1">26</td><td className="p-1">0.77</td><td className="p-1">100.68</td></tr>
+                      <tr><td className="p-1">TicoMeria</td><td className="p-1">7</td><td className="p-1">26</td><td className="p-1">0.27</td><td className="p-1">50.07</td></tr>
+                      <tr><td className="p-1">LUIZAO</td><td className="p-1">10</td><td className="p-1">27</td><td className="p-1">0.37</td><td className="p-1">39.64</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {/* União vs La Fab */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="font-bold text-white mb-2">União vs La Fab</div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[320px] w-full text-xs text-gray-200 mb-4">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>União</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">b r z i k</td><td className="p-1">63</td><td className="p-1">36</td><td className="p-1">1.75</td><td className="p-1">136.19</td></tr>
+                      <tr><td className="p-1">C00K1ESKU$H</td><td className="p-1">40</td><td className="p-1">40</td><td className="p-1">1.00</td><td className="p-1">94.21</td></tr>
+                      <tr><td className="p-1">Tchello</td><td className="p-1">41</td><td className="p-1">41</td><td className="p-1">1.00</td><td className="p-1">105.25</td></tr>
+                      <tr><td className="p-1">JzN</td><td className="p-1">38</td><td className="p-1">43</td><td className="p-1">0.88</td><td className="p-1">86.96</td></tr>
+                      <tr><td className="p-1">Jords ☆</td><td className="p-1">39</td><td className="p-1">44</td><td className="p-1">0.89</td><td className="p-1">91.25</td></tr>
+                    </tbody>
+                  </table>
+                  <table className="min-w-[320px] w-full text-xs text-gray-200">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>La Fab</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">Den1nh0</td><td className="p-1">61</td><td className="p-1">41</td><td className="p-1">1.49</td><td className="p-1">148.86</td></tr>
+                      <tr><td className="p-1">Gabizinha</td><td className="p-1">55</td><td className="p-1">42</td><td className="p-1">1.31</td><td className="p-1">109.81</td></tr>
+                      <tr><td className="p-1">Snk</td><td className="p-1">49</td><td className="p-1">47</td><td className="p-1">1.04</td><td className="p-1">115.61</td></tr>
+                      <tr><td className="p-1">ROMA</td><td className="p-1">22</td><td className="p-1">47</td><td className="p-1">0.47</td><td className="p-1">57.52</td></tr>
+                      <tr><td className="p-1">Dislan</td><td className="p-1">14</td><td className="p-1">44</td><td className="p-1">0.32</td><td className="p-1">34.76</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {/* PassosJR vs Contabilize */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="font-bold text-white mb-2">PassosJR vs Contabilize</div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[320px] w-full text-xs text-gray-200 mb-4">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>PassosJR</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">mailontchukey</td><td className="p-1">40</td><td className="p-1">27</td><td className="p-1">1.48</td><td className="p-1">144.42</td></tr>
+                      <tr><td className="p-1">Sid</td><td className="p-1">17</td><td className="p-1">33</td><td className="p-1">0.52</td><td className="p-1">76.92</td></tr>
+                      <tr><td className="p-1">Brn</td><td className="p-1">21</td><td className="p-1">28</td><td className="p-1">0.75</td><td className="p-1">78.86</td></tr>
+                      <tr><td className="p-1">SaGa</td><td className="p-1">14</td><td className="p-1">33</td><td className="p-1">0.42</td><td className="p-1">50.53</td></tr>
+                      <tr><td className="p-1">O baiano</td><td className="p-1">6</td><td className="p-1">31</td><td className="p-1">0.19</td><td className="p-1">34.91</td></tr>
+                    </tbody>
+                  </table>
+                  <table className="min-w-[320px] w-full text-xs text-gray-200">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>Contabilize</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">Marcos</td><td className="p-1">35</td><td className="p-1">23</td><td className="p-1">1.52</td><td className="p-1">132.47</td></tr>
+                      <tr><td className="p-1">dNt-</td><td className="p-1">31</td><td className="p-1">20</td><td className="p-1">1.55</td><td className="p-1">133.77</td></tr>
+                      <tr><td className="p-1">Iuryzhirkov</td><td className="p-1">25</td><td className="p-1">19</td><td className="p-1">1.32</td><td className="p-1">86.12</td></tr>
+                      <tr><td className="p-1">Vina</td><td className="p-1">33</td><td className="p-1">17</td><td className="p-1">1.94</td><td className="p-1">106.17</td></tr>
+                      <tr><td className="p-1">El Padrinho R.I.P Thor!</td><td className="p-1">25</td><td className="p-1">19</td><td className="p-1">1.32</td><td className="p-1">106.04</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Semifinais */}
+          <div>
+            <h3 className="text-lg font-bold text-yellow-300 mb-2 uppercase tracking-wider">Semifinais</h3>
+            <div className="space-y-4">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-center min-h-[80px]">
+                <span className="text-gold text-lg font-bold">Em Andamento</span>
+              </div>
+            </div>
+          </div>
+          {/* Final */}
+          <div>
+            <h3 className="text-lg font-bold text-yellow-300 mb-2 uppercase tracking-wider">Final</h3>
+            <div className="space-y-4">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-center min-h-[80px]">
+                <span className="text-gold text-lg font-bold">Em Andamento</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* --- FIM STATS PRESENCIAL --- */}
       {!filterMe && (
       <div className="flex flex-col xl:flex-row items-center justify-between gap-6 bg-white/5 p-4 rounded-xl border border-white/10 shadow-2xl">
         <div className="relative flex flex-wrap justify-center gap-2">

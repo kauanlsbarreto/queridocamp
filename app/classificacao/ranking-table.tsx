@@ -623,76 +623,146 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
               <div className="rounded-xl border border-white/10 bg-black/25 p-3 md:p-4">
                 <h4 className="text-[11px] uppercase tracking-[0.2em] text-gold font-black mb-3">Quartas</h4>
                 <div className="space-y-3">
-                  {quarterfinalMatches.map(match => {
-                    const slots = [
-                      { seed: match.topSeed, team: match.topTeam },
-                      { seed: match.bottomSeed, team: match.bottomTeam }
-                    ];
-                    return (
-                      <div key={match.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                        <div className="text-[10px] tracking-wider uppercase text-gray-400 font-bold mb-2">{match.id}</div>
-
-                        {/* Time 1 */}
-                        <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
-                          <span className="text-[10px] font-black text-gold bg-gold/20 border border-gold/30 px-2 py-1 rounded-md shrink-0">#{slots[0].seed}</span>
-                          <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
-                            <Image src={slots[0].team?.logo || "/placeholder.svg"} alt={slots[0].team?.name || `Seed ${slots[0].seed}`} fill sizes="28px" className="object-contain" />
-                          </div>
-                          <span className="text-xs text-white font-semibold">{slots[0].team?.name || "A definir"}</span>
-                        </div>
-
-                        {/* Placar */}
-                        <div className="flex items-center justify-center gap-3 py-2">
-                          <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">--</div>
-                          <span className="text-[11px] text-gray-500 font-bold">×</span>
-                          <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">--</div>
-                        </div>
-
-                        {/* Time 2 */}
-                        <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
-                          <span className="text-[10px] font-black text-gold bg-gold/20 border border-gold/30 px-2 py-1 rounded-md shrink-0">#{slots[1].seed}</span>
-                          <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
-                            <Image src={slots[1].team?.logo || "/placeholder.svg"} alt={slots[1].team?.name || `Seed ${slots[1].seed}`} fill sizes="28px" className="object-contain" />
-                          </div>
-                          <span className="text-xs text-white font-semibold">{slots[1].team?.name || "A definir"}</span>
-                        </div>
+                  {/* QF1 */}
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="text-[10px] tracking-wider uppercase text-gray-400 font-bold mb-2">QF1</div>
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <span className="text-[10px] font-black text-gold bg-gold/20 border border-gold/30 px-2 py-1 rounded-md shrink-0">#1</span>
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src={quarterfinalMatches[0].topTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[0].topTeam?.name || `Seed 1`} fill sizes="28px" className="object-contain" />
                       </div>
-                    );
-                  })}
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[0].topTeam?.name || "A definir"}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 py-2">
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">1</div>
+                      <span className="text-[11px] text-gray-500 font-bold">×</span>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">2</div>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <span className="text-[10px] font-black text-gold bg-gold/20 border border-gold/30 px-2 py-1 rounded-md shrink-0">#8</span>
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src={quarterfinalMatches[0].bottomTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[0].bottomTeam?.name || `Seed 8`} fill sizes="28px" className="object-contain" />
+                      </div>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[0].bottomTeam?.name || "A definir"} </span>
+                    </div>
+                  </div>
+                  {/* QF2 */}
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="text-[10px] tracking-wider uppercase text-gray-400 font-bold mb-2">QF2</div>
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <span className="text-[10px] font-black text-gold bg-gold/20 border border-gold/30 px-2 py-1 rounded-md shrink-0">#3</span>
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src={quarterfinalMatches[1].topTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[1].topTeam?.name || `Seed 3`} fill sizes="28px" className="object-contain" />
+                      </div>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[1].topTeam?.name || "A definir"}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 py-2">
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">1</div>
+                      <span className="text-[11px] text-gray-500 font-bold">×</span>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">2</div>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <span className="text-[10px] font-black text-gold bg-gold/20 border border-gold/30 px-2 py-1 rounded-md shrink-0">#6</span>
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src={quarterfinalMatches[1].bottomTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[1].bottomTeam?.name || `Seed 6`} fill sizes="28px" className="object-contain" />
+                      </div>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[1].bottomTeam?.name || "A definir"}</span>
+                    </div>
+                  </div>
+                  {/* QF3 */}
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="text-[10px] tracking-wider uppercase text-gray-400 font-bold mb-2">QF3</div>
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <span className="text-[10px] font-black text-gold bg-gold/20 border border-gold/30 px-2 py-1 rounded-md shrink-0">#2</span>
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src={quarterfinalMatches[2].topTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[2].topTeam?.name || `Seed 2`} fill sizes="28px" className="object-contain" />
+                      </div>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[2].topTeam?.name || "A definir"} </span>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 py-2">
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">2</div>
+                      <span className="text-[11px] text-gray-500 font-bold">×</span>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">0</div>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <span className="text-[10px] font-black text-gold bg-gold/20 border border-gold/30 px-2 py-1 rounded-md shrink-0">#7</span>
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src={quarterfinalMatches[2].bottomTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[2].bottomTeam?.name || `Seed 7`} fill sizes="28px" className="object-contain" />
+                      </div>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[2].bottomTeam?.name || "A definir"}</span>
+                    </div>
+                  </div>
+                  {/* QF4 */}
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="text-[10px] tracking-wider uppercase text-gray-400 font-bold mb-2">QF4</div>
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <span className="text-[10px] font-black text-gold bg-gold/20 border border-gold/30 px-2 py-1 rounded-md shrink-0">#4</span>
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src={quarterfinalMatches[3].topTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[3].topTeam?.name || `Seed 4`} fill sizes="28px" className="object-contain" />
+                      </div>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[3].topTeam?.name || "A definir"}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 py-2">
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">2</div>
+                      <span className="text-[11px] text-gray-500 font-bold">×</span>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">0</div>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <span className="text-[10px] font-black text-gold bg-gold/20 border border-gold/30 px-2 py-1 rounded-md shrink-0">#5</span>
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src={quarterfinalMatches[3].bottomTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[3].bottomTeam?.name || `Seed 5`} fill sizes="28px" className="object-contain" />
+                      </div>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[3].bottomTeam?.name || "A definir"}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="rounded-xl border border-white/10 bg-black/25 p-3 md:p-4 xl:mt-8">
                 <h4 className="text-[11px] uppercase tracking-[0.2em] text-gold font-black mb-3">Semifinais</h4>
                 <div className="space-y-4 md:space-y-6">
-                  {[
-                    { id: "SF1", top: "Vencedor QF1", bottom: "Vencedor QF2" },
-                    { id: "SF2", top: "Vencedor QF3", bottom: "Vencedor QF4" }
-                  ].map(semifinal => (
-                    <div key={semifinal.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                      <div className="text-[10px] tracking-wider uppercase text-gray-400 font-bold mb-2">{semifinal.id}</div>
-
-                      <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
-                        <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
-                          <Image src="/placeholder.svg" alt={semifinal.top} fill sizes="28px" className="object-contain opacity-70" />
-                        </div>
-                        <span className="text-xs text-gray-200 font-semibold">{semifinal.top}</span>
+                  {/* SF1: 8º vs 6º */}
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="text-[10px] tracking-wider uppercase text-gray-400 font-bold mb-2">SF1</div>
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src={quarterfinalMatches[0].bottomTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[0].bottomTeam?.name || `Seed 8`} fill sizes="28px" className="object-contain opacity-70" />
                       </div>
-
-                      <div className="flex items-center justify-center gap-3 py-2">
-                        <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">--</div>
-                        <span className="text-[11px] text-gray-500 font-bold">×</span>
-                        <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">--</div>
-                      </div>
-
-                      <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
-                        <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
-                          <Image src="/placeholder.svg" alt={semifinal.bottom} fill sizes="28px" className="object-contain opacity-70" />
-                        </div>
-                        <span className="text-xs text-gray-200 font-semibold">{semifinal.bottom}</span>
-                      </div>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[0].bottomTeam?.name || "A definir"}</span>
                     </div>
-                  ))}
+                    <div className="flex items-center justify-center gap-3 py-2">
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">-</div>
+                      <span className="text-[11px] text-gray-500 font-bold">×</span>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">-</div>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src={quarterfinalMatches[1].bottomTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[1].bottomTeam?.name || `Seed 6`} fill sizes="28px" className="object-contain opacity-70" />
+                      </div>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[1].bottomTeam?.name || "A definir"}</span>
+                    </div>
+                  </div>
+                  {/* SF2: 2º vs 4º */}
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div className="text-[10px] tracking-wider uppercase text-gray-400 font-bold mb-2">SF2</div>
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src={quarterfinalMatches[2].topTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[2].topTeam?.name || `Seed 2`} fill sizes="28px" className="object-contain opacity-70" />
+                      </div>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[2].topTeam?.name || "A definir"}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 py-2">
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">-</div>
+                      <span className="text-[11px] text-gray-500 font-bold">×</span>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">-</div>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
+                      <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
+                        <Image src={quarterfinalMatches[3].topTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[3].topTeam?.name || `Seed 4`} fill sizes="28px" className="object-contain opacity-70" />
+                      </div>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[3].topTeam?.name || "A definir"}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
