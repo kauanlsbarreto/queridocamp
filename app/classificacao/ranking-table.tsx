@@ -731,9 +731,9 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
                       <span className="text-xs text-white font-semibold">{quarterfinalMatches[0].bottomTeam?.name || "A definir"}</span>
                     </div>
                     <div className="flex items-center justify-center gap-3 py-2">
-                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">-</div>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">2</div>
                       <span className="text-[11px] text-gray-500 font-bold">×</span>
-                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">-</div>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">1</div>
                     </div>
                     <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
                       <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
@@ -752,9 +752,9 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
                       <span className="text-xs text-white font-semibold">{quarterfinalMatches[2].topTeam?.name || "A definir"}</span>
                     </div>
                     <div className="flex items-center justify-center gap-3 py-2">
-                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">-</div>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">0</div>
                       <span className="text-[11px] text-gray-500 font-bold">×</span>
-                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">-</div>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">2</div>
                     </div>
                     <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
                       <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
@@ -773,22 +773,22 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
                       <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
-                        <Image src="/placeholder.svg" alt="Vencedor SF1" fill sizes="28px" className="object-contain opacity-70" />
+                        <Image src={quarterfinalMatches[0].bottomTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[0].bottomTeam?.name || "Vencedor SF1"} fill sizes="28px" className="object-contain opacity-70" />
                       </div>
-                      <span className="text-xs text-gray-200 font-semibold">Vencedor SF1</span>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[0].bottomTeam?.name || "Vencedor SF1"}</span>
                     </div>
 
                     <div className="flex items-center justify-center gap-3 py-2">
-                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">--</div>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">0</div>
                       <span className="text-[11px] text-gray-500 font-bold">×</span>
-                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">--</div>
+                      <div className="w-10 h-8 rounded-md border border-gold/30 bg-black/60 text-gold text-sm font-black flex items-center justify-center">2</div>
                     </div>
 
                     <div className="flex items-center gap-2 rounded-md border border-white/10 bg-black/40 px-2 py-2">
                       <div className="relative w-7 h-7 shrink-0 rounded-md overflow-hidden border border-white/15 bg-black/30">
-                        <Image src="/placeholder.svg" alt="Vencedor SF2" fill sizes="28px" className="object-contain opacity-70" />
+                        <Image src={quarterfinalMatches[3].topTeam?.logo || "/placeholder.svg"} alt={quarterfinalMatches[3].topTeam?.name || "Vencedor SF2"} fill sizes="28px" className="object-contain opacity-70" />
                       </div>
-                      <span className="text-xs text-gray-200 font-semibold">Vencedor SF2</span>
+                      <span className="text-xs text-white font-semibold">{quarterfinalMatches[3].topTeam?.name || "Vencedor SF2"}</span>
                     </div>
                   </div>
                 </div>
@@ -798,17 +798,17 @@ export default function RankingTable({ teams: initialTeams }: { teams: Team[] })
                 <h4 className="text-[11px] uppercase tracking-[0.2em] text-gold font-black mb-3">Campeao</h4>
                 <div className="rounded-lg border border-gold/25 bg-black/40 p-4">
                   <div className="flex flex-col items-center text-center gap-3">
-                    <div className="w-14 h-14 rounded-xl border border-gold/40 bg-black/40 flex items-center justify-center text-gold text-2xl font-black">?</div>
+                    <div className="w-14 h-14 rounded-xl border border-gold/40 bg-black/40 flex items-center justify-center text-gold text-2xl font-black">🏆</div>
                     <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/15 bg-black/30">
                       <Image
-                        src="/placeholder.svg"
-                        alt="Campeao"
+                        src={quarterfinalMatches[3].topTeam?.logo || "/placeholder.svg"}
+                        alt={quarterfinalMatches[3].topTeam?.name || "Campeao"}
                         fill
                         sizes="40px"
                         className="object-contain opacity-80"
                       />
                     </div>
-                    <p className="text-sm text-white font-bold">A definir</p>
+                    <p className="text-sm text-white font-bold">{quarterfinalMatches[3].topTeam?.name || "A definir"}</p>
                     <p className="text-[10px] uppercase tracking-widest text-gold/80">Vencedor da Final</p>
                   </div>
                 </div>

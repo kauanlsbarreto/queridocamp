@@ -323,6 +323,38 @@ export default function PickEmClient({
     }
   };
 
+  const awardPickEmAchievements = async () => {
+    if (!isHighAdmin) return;
+    if (!confirm("Deseja processar e premiar as conquistas de acertos para TODOS os participantes?")) return;
+    
+    try {
+      const res = await fetch('/api/picks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'award_pickem_achievements', 
+          nickname: user?.nickname, 
+          adminLevel: userLevel,
+          officialResults: {
+            top8Teams,
+            topSemiTeams,
+            topFinalTeams,
+            topWinner
+          }
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Premiação de acertos concluída!\nTotal analisados: ${data.total}\nConquistas concedidas: ${data.awardedCount}`);
+      } else {
+        alert(`Erro: ${data.error || 'Falha na operação'}`);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao premiar conquistas de acertos.');
+    }
+  };
+
   const adminManageUser = async (targetNickname: string, type: 'unlock' | 'clear', phase: string) => {
     if (!isHighAdmin) return;
     const actionText = type === 'unlock' ? "DESTRAVAR" : "LIMPAR e DESTRAVAR";
@@ -627,6 +659,12 @@ export default function PickEmClient({
                       className="rounded-xl bg-amber-600 px-4 py-2 text-[10px] font-bold uppercase text-black transition-all hover:bg-amber-500"
                     >
                       Premiar Redondo
+                    </button>
+                    <button
+                      onClick={awardPickEmAchievements}
+                      className="rounded-xl bg-indigo-600 px-4 py-2 text-[10px] font-bold uppercase text-white transition-all hover:bg-indigo-500"
+                    >
+                      Premiar Acertos
                     </button>
                   </div>
                 </div>

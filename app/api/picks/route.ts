@@ -198,7 +198,8 @@ export async function POST(request: Request) {
       adminLevel,
       targetNickname,
       type,
-      phase: targetPhase
+      phase: targetPhase,
+      officialResults
     } = body;
 
     if (!nickname)
@@ -503,6 +504,114 @@ export async function POST(request: Request) {
         missingPlayersCount: missingPlayers.length,
         missingPlayers
       });
+    }
+
+    if (action === "award_pickem_achievements") {
+      const level = typeof adminLevel === "string" ? parseInt(adminLevel) : adminLevel;
+      if (!level || level > 2)
+        return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+      if (!officialResults)
+        return NextResponse.json({ error: "Resultados oficiais não informados" }, { status: 400 });
+
+      const top8Set = new Set((officialResults.top8Teams || []).map(normalizeTeamName));
+      const topSemiSet = new Set((officialResults.topSemiTeams || []).map(normalizeTeamName));
+      const topFinalSet = new Set((officialResults.topFinalTeams || []).map(normalizeTeamName));
+      const topWinnerNorm = normalizeTeamName(officialResults.topWinner || "");
+
+      const [participants]: any = await connection.query(`SELECT * FROM escolhas`);
+
+      let awardedCount = 0;
+      const logDetails: string[] = [];
+
+      for (const row of participants) {
+        const achievements: { code: string; label: string; image: string }[] = [];
+
+        // 1. Quartas de Final (5 a 8 acertos)
+        let qHits = 0;
+        for (let i = 1; i <= 8; i++) {
+          const t = parsePickJson(row[`slot_${i}`]);
+          if (t && top8Set.has(normalizeTeamName(t.team_name))) qHits++;
+        }
+        if (qHits >= 5) {
+          achievements.push({
+            code: `QCS-PICK${qHits}`,
+            label: `Acertei ${qHits} palpites do redondo`,
+            image: `/premiredondo/acertou${qHits}.png`
+          });
+        }
+
+        // 2. Semifinal (Acertou os 4 times)
+        let sHits = 0;
+        for (let i = 1; i <= 4; i++) {
+          const t = parsePickJson(row[`semi_${i}`]);
+          if (t && topSemiSet.has(normalizeTeamName(t.team_name))) sHits++;
+        }
+        if (sHits === 4) {
+          achievements.push({
+            code: `QCS-PICKSEMI`,
+            label: `Acertei o palpite da SemiFinal`,
+            image: `/premiredondo/semifinal.png`
+          });
+        }
+
+        // 3. Final (Acertou os 2 times)
+        let fHits = 0;
+        for (let i = 1; i <= 2; i++) {
+          const t = parsePickJson(row[`final_${i}`]);
+          if (t && topFinalSet.has(normalizeTeamName(t.team_name))) fHits++;
+        }
+        if (fHits === 2) {
+          achievements.push({
+            code: `QCS-PICKFINAL`,
+            label: `Acertei o palpite da Final`,
+            image: `/premiredondo/finalistas.png`
+          });
+        }
+
+        // 4. Ganhador
+        const winnerPick = parsePickJson(row.winner_1);
+        if (winnerPick && normalizeTeamName(winnerPick.team_name) === topWinnerNorm) {
+          achievements.push({
+            code: `QCS-PICKWINNER`,
+            label: `Acerteio o ganhador do Querido Draft 2026.1`,
+            image: `/premiredondo/ganhador.png`
+          });
+        }
+
+        if (achievements.length > 0) {
+          let player: any = null;
+          const [pByGuid]: any = row.faceit_guid ? await connection.query(`SELECT id, adicionados FROM players WHERE faceit_guid = ?`, [row.faceit_guid]) : [[]];
+          if (pByGuid.length) player = pByGuid[0];
+          else {
+            const [pByNick]: any = await connection.query(`SELECT id, adicionados FROM players WHERE nickname = ?`, [row.nickname]);
+            if (pByNick.length) player = pByNick[0];
+          }
+
+          if (player) {
+            const currentCodes = String(player.adicionados || "").split(',').map((s: string) => s.trim()).filter(Boolean);
+            const newToGive = achievements.filter(a => !currentCodes.includes(a.code));
+
+            if (newToGive.length > 0) {
+              for (const ach of newToGive) {
+                await connection.query(
+                  `INSERT INTO adicionados (codigo, imagem, label) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE imagem = VALUES(imagem), label = VALUES(label)`,
+                  [ach.code, ach.image, ach.label]
+                );
+              }
+              const updatedCodes = [...currentCodes, ...newToGive.map(a => a.code)].join(',');
+              await connection.query(`UPDATE players SET adicionados = ? WHERE id = ?`, [updatedCodes, player.id]);
+              awardedCount++;
+              logDetails.push(`**${row.nickname}**: ${newToGive.map(a => a.code).join(', ')}`);
+            }
+          }
+        }
+      }
+
+      const logMsg = ` **Admin: Premiar Acertos**\n **Admin:** ${nickname}\n **Jogadores Premiados:** ${awardedCount}\n **Detalhes:**\n${logDetails.join('\n') || 'nenhum'}`;
+      await triggerBackgroundUpdates(env, gate, ctx, logMsg);
+
+      return NextResponse.json({ success: true, awardedCount, total: participants.length });
     }
 
     if (action === "admin_manage_user") {
