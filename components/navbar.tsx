@@ -141,12 +141,24 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
               <NavLink href="/galeria">Galeria</NavLink>
               <NavLink href="/regras">Regras</NavLink>
               <NavLink href="/campeonato">Campeonato</NavLink>
-              
+
+
+              <div className="relative group">
+                <button className="flex items-center gap-1 text-gold font-bold px-4 py-2 rounded-xl border border-gold/50 hover:bg-gold/10 transition-all whitespace-nowrap text-sm xl:text-base">
+                  Querida Fila <ChevronDown size={14} />
+                </button>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#060D15]/95 backdrop-blur-xl border border-gold/20 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top flex flex-col p-1">
+                  <DropdownLink href="/queridafila/inscricao">Inscrição</DropdownLink>
+                  <span className="block text-red-500 font-bold px-4 py-2 rounded-lg text-sm text-center cursor-default">Classificação</span>
+                </div>
+              </div>
+
               <div className="relative group">
                 <button className="flex items-center gap-1 text-gold font-bold px-4 py-2 rounded-xl border border-gold/50 hover:bg-gold/10 transition-all whitespace-nowrap text-sm xl:text-base">
                   Querido Draft <ChevronDown size={14} />
                 </button>
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#060D15]/95 backdrop-blur-xl border border-gold/20 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top flex flex-col p-1">
+                  <DropdownLink href="/demos">Demos</DropdownLink>
                   <DropdownLink href="/times">Times</DropdownLink>
                   <DropdownLink href="/stats">Estatísticas</DropdownLink>
                   <DropdownLink href="/classificacao">Classificação</DropdownLink>

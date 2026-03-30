@@ -101,7 +101,7 @@ export default function Inscricao() {
 
   return (
     <div>
-      <HeroBanner title="INSCRIÇÃO" subtitle="Faça sua inscrição no Querido Camp" />
+      <HeroBanner title="INSCRIÇÃO" subtitle="Faça sua inscrição na Querida" />
 
       <section className="py-16 bg-gradient-to-b from-dark to-dark/80 min-h-screen">
         <div className="container mx-auto px-4">
@@ -133,7 +133,7 @@ export default function Inscricao() {
                     <p>
                       <span className="font-semibold">Titular:</span> Denis Lima
                     </p>
-                    <p className="text-xl font-bold text-primary mt-2">Valor: R$ 75,00</p>
+                    <p className="text-xl font-bold text-primary mt-2">Valor: R$ 30,00</p>
                   </div>
                 </div>
               </PremiumCard>

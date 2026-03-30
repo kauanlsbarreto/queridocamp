@@ -7,6 +7,7 @@ import NavbarClient from "@/components/navbar-client"
 import SessionSync from "@/components/session-sync"
 import LocalhostWatcher from "@/components/localhost-watcher"
 import AnalyticsTracker from '@/components/analytics-tracker';
+import AnuncioModal from '@/components/AnuncioModal';
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -27,6 +28,7 @@ export default function RootLayout({
         <LocalhostWatcher />
         <SessionSync />
         <NavbarClient />
+        <AnuncioModal />
         <AnalyticsTracker />
         <ClientProviders>
           <main className="flex-grow pt-24">
