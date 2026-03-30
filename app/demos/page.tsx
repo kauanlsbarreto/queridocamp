@@ -73,20 +73,12 @@ export default async function DownloadDemosPage() {
           <PremiumCard key={idx}>
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-6">
               <div className="flex items-center gap-4 flex-1">
-                {match.teams.map((teamName, i) => {
-                  const team = getTeamInfo(teams, teamName);
-                  return (
-                    <React.Fragment key={teamName}>
-                      <div className="flex flex-col items-center">
-                        <div className="relative w-16 h-16 mb-2">
-                          <Image src={team?.logo || "/placeholder.svg"} alt={teamName} fill className="object-contain rounded-lg bg-black/40" />
-                        </div>
-                        <span className="text-white font-semibold text-center text-sm whitespace-nowrap">{teamName}</span>
-                      </div>
-                      {i === 0 && <span className="mx-2 text-gold font-bold text-lg">×</span>} 
-                    </React.Fragment>
-                  );
-                })}
+                {match.teams.map((teamName, i) => (
+                  <React.Fragment key={teamName}>
+                    <span className="text-white font-semibold text-center text-sm whitespace-nowrap">{teamName}</span>
+                    {i === 0 && <span className="mx-2 text-gold font-bold text-lg">×</span>}
+                  </React.Fragment>
+                ))}
               </div>
               <a
                 href={match.url}
@@ -100,25 +92,18 @@ export default async function DownloadDemosPage() {
           </PremiumCard>
         ))}
 
-        {/* Destaque da Final */}
         <PremiumCard className="scale-105 shadow-[0_0_30px_rgba(212,175,55,0.3)]">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-8 border-2 border-gold bg-gold/5 relative overflow-hidden">
             <div className="absolute top-0 right-0 bg-gold text-black px-4 py-1 font-black text-xs uppercase tracking-tighter rounded-bl-lg">
               Grande Final
             </div>
             <div className="flex items-center gap-4 flex-1">
-              {finalMatchData.teams.map((teamName, i) => {
-                const team = getTeamInfo(teams, teamName);
-                return (
-                  <div key={teamName} className="flex flex-col items-center">
-                    <div className="relative w-16 h-16 mb-2">
-                      <Image src={team?.logo || "/placeholder.svg"} alt={teamName} fill className="object-contain rounded-lg bg-black/40" />
-                    </div>
-                    <span className="text-gold font-bold text-center text-base whitespace-nowrap">{teamName}</span>
-                  </div>
-                );
-              })}
-              <span className="mx-2 text-gold font-extrabold text-xl">×</span>
+              {finalMatchData.teams.map((teamName, i) => (
+                <React.Fragment key={teamName}>
+                  <span className="text-gold font-bold text-center text-base whitespace-nowrap">{teamName}</span>
+                  {i === 0 && <span className="mx-2 text-gold font-extrabold text-xl">×</span>}
+                </React.Fragment>
+              ))}
             </div>
             <a
               href={finalMatchData.url}
