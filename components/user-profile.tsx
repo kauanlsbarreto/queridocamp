@@ -42,23 +42,12 @@ export const UserProfile = ({
 }: UserProfileProps) => {
   const { toast } = useToast();
   const profileId = (id === 0 && ID) ? ID : (id ?? ID);
-
   const [userAdminLevel, setUserAdminLevel] = useState(0);
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
 
   useEffect(() => {
-    // Padrão igual ao classificacao: checa localStorage faceit_user
-    if (typeof window !== 'undefined') {
-      const storedUser = localStorage.getItem('faceit_user');
-      if (storedUser) {
-        try {
-          const u = JSON.parse(storedUser);
-          const lvl = Number(u.admin || u.Admin);
-          setUserAdminLevel(lvl);
-        } catch (e) {
-          setUserAdminLevel(0);
-        }
-      }
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      setUserAdminLevel(Admin || admin || 0);
+      return;
     }
 
     if (faceit_guid) {
@@ -66,6 +55,8 @@ export const UserProfile = ({
         .then((res) => res.json())
         .then((data) => {
           if (data && typeof data.admin === 'number') {
+            setUserAdminLevel(data.admin);
+
             const storedSession = localStorage.getItem("faceit_user");
             if (storedSession) {
               try {
@@ -73,8 +64,6 @@ export const UserProfile = ({
                 if (currentUser.Admin !== data.admin || currentUser.id !== data.id) {
                   const updatedUser = { ...currentUser, Admin: data.admin, id: data.id, nickname: data.nickname, avatar: data.avatar || currentUser.avatar };
                   localStorage.setItem("faceit_user", JSON.stringify(updatedUser));
-                  // Atualiza adminLevel local
-                  setUserAdminLevel(Number(data.admin));
                 }
               } catch (e) {
                 console.error("Failed to update user session in localStorage", e);
@@ -83,26 +72,6 @@ export const UserProfile = ({
           }
         })
         .catch((err) => console.error("Error fetching admin level:", err));
-
-      fetch(`/api/admin/my-permissions?faceit_guid=${faceit_guid}`)
-        .then((res) => res.json())
-        .then((data) => {
-          const perms: string[] = Array.isArray(data?.permissions) ? data.permissions : [];
-          setUserPermissions(perms);
-
-          const storedSession = localStorage.getItem("faceit_user");
-          if (storedSession) {
-            try {
-              const currentUser = JSON.parse(storedSession);
-              const updated = { ...currentUser, permissions: perms };
-              localStorage.setItem("faceit_user", JSON.stringify(updated));
-              window.dispatchEvent(new Event('faceit_auth_updated'));
-            } catch (e) {
-              console.error("Failed to cache permissions in localStorage", e);
-            }
-          }
-        })
-        .catch((err) => console.error("Error fetching permissions:", err));
     }
   }, [faceit_guid]);
 
@@ -124,20 +93,20 @@ export const UserProfile = ({
         <DropdownMenuLabel className="text-gray-400 font-normal">Minha Conta</DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-white/10" />
         
-        {userPermissions.includes('overlay_placar') && (
+        {(userAdminLevel === 1 || userAdminLevel === 2 || userAdminLevel === 5) && (
           <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
             <Link href="/overlay/placar" className="w-full">🎥 Overlay Placar</Link>
           </DropdownMenuItem>
         )}
         
-        {userPermissions.includes('schedule_matches') && (
+        {(userAdminLevel >= 1 && userAdminLevel <= 5) && (
           <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
             <Link href="/agendarjogo" className="w-full">Adicionar Jogo</Link>
           </DropdownMenuItem>
         )}
 
-        {/* only admins with force_logout permission get the "logout everyone" action */}
-        {userPermissions.includes('force_logout') && (
+        {/* only first‑level admins get the "logout everyone" action */}
+        {userAdminLevel === 1 && (
           <DropdownMenuItem
             onClick={async () => {
               if (
@@ -174,7 +143,7 @@ export const UserProfile = ({
           </DropdownMenuItem>
         )}
 
-        {userPermissions.includes('access_admin_panel') && (
+        {(userAdminLevel === 1 || userAdminLevel === 2) && (
           <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
             <Link href="/adminstracao" className="w-full">Painel Admin</Link>
           </DropdownMenuItem>
