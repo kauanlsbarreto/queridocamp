@@ -10,6 +10,7 @@ import { Button } from './ui/button'
 import { Notifications } from './notifications'
 import { UserProfile } from './user-profile'
 import { UpdateDataButton } from './UpdateDataButton'
+import { Nav } from 'react-day-picker'
 
 interface NavbarProps {
   user: UserProfile | null
@@ -141,6 +142,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
               <NavLink href="/galeria">Galeria</NavLink>
               <NavLink href="/regras">Regras</NavLink>
               <NavLink href="/campeonato">Campeonato</NavLink>
+              <NavLink href="/players">Jogadores</NavLink>
 
 
               <div className="relative group">
@@ -164,7 +166,6 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
                   <DropdownLink href="/classificacao">Classificação</DropdownLink>
                   <DropdownLink href="/rodadas">Rodadas</DropdownLink>
                   <DropdownLink href="/redondo">Redondo</DropdownLink>
-                  <DropdownLink href="/players">Jogadores</DropdownLink>
                   <DropdownLink href="/premiacao">Premiação</DropdownLink>
                 </div>
               </div>
@@ -228,7 +229,6 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
                 <MobileGridLink href="/classificacao">Classificação</MobileGridLink>
                 <MobileGridLink href="/rodadas">Rodadas</MobileGridLink>
                 <MobileGridLink href="/redondo">Redondo</MobileGridLink>
-                <MobileGridLink href="/players">Jogadores</MobileGridLink>
                 <MobileGridLink href="/premiacao">Premiação</MobileGridLink>
               </div>
             </div>
