@@ -86,12 +86,7 @@ export async function POST(req: Request) {
         "INSERT INTO codigos_conquistas (resgatado_por, codigo, tipo, nome, resgatado_em, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())",
         [playerId, conquista.codigo, conquista.tipo, conquista.nome]
       );
-
-      // mark the code as used globally
-      await connection.query(
-        "UPDATE codigos_sistema SET usado = 1 WHERE codigo = ?",
-        [codigo]
-      );
+      // NÃO marcar como usado globalmente, para permitir múltiplos resgates
     } catch (err: any) {
       if (err?.code === "ER_BAD_FIELD_ERROR") {
         const [existingOld] = await connection.query<RowDataPacket[]>(
@@ -130,6 +125,12 @@ export async function POST(req: Request) {
       }
     }
 
+    // Buscar todos os IDs que já resgataram este código
+    const [allResgates] = await connection.query<RowDataPacket[]>(
+      "SELECT resgatado_por FROM codigos_conquistas WHERE codigo = ?",
+      [conquista.codigo]
+    );
+
     await connection.end();
 
     return NextResponse.json({
@@ -139,6 +140,7 @@ export async function POST(req: Request) {
         tipo: conquista.tipo,
         nome: conquista.nome,
       },
+      resgatadoPorIds: allResgates.map((r: any) => r.resgatado_por)
     });
   } catch {
     return NextResponse.json(
