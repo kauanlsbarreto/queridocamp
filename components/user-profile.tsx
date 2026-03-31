@@ -42,12 +42,23 @@ export const UserProfile = ({
 }: UserProfileProps) => {
   const { toast } = useToast();
   const profileId = (id === 0 && ID) ? ID : (id ?? ID);
+
   const [userAdminLevel, setUserAdminLevel] = useState(0);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-      setUserAdminLevel(Admin || admin || 0);
+    // Padrão igual ao classificacao: checa localStorage faceit_user
+    if (typeof window !== 'undefined') {
+      const storedUser = localStorage.getItem('faceit_user');
+      if (storedUser) {
+        try {
+          const u = JSON.parse(storedUser);
+          const lvl = Number(u.admin || u.Admin);
+          setUserAdminLevel(lvl);
+        } catch (e) {
+          setUserAdminLevel(0);
+        }
+      }
     }
 
     if (faceit_guid) {
@@ -55,8 +66,6 @@ export const UserProfile = ({
         .then((res) => res.json())
         .then((data) => {
           if (data && typeof data.admin === 'number') {
-            setUserAdminLevel(data.admin);
-
             const storedSession = localStorage.getItem("faceit_user");
             if (storedSession) {
               try {
@@ -64,6 +73,8 @@ export const UserProfile = ({
                 if (currentUser.Admin !== data.admin || currentUser.id !== data.id) {
                   const updatedUser = { ...currentUser, Admin: data.admin, id: data.id, nickname: data.nickname, avatar: data.avatar || currentUser.avatar };
                   localStorage.setItem("faceit_user", JSON.stringify(updatedUser));
+                  // Atualiza adminLevel local
+                  setUserAdminLevel(Number(data.admin));
                 }
               } catch (e) {
                 console.error("Failed to update user session in localStorage", e);
