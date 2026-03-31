@@ -114,22 +114,27 @@ export async function POST(req: Request) {
           "INSERT INTO codigos_conquistas (player_id, codigo, tipo, nome, resgatado_em, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())",
           [playerId, conquista.codigo, conquista.tipo, conquista.nome]
         );
-
-        await connection.query(
-          "UPDATE codigos_sistema SET usado = 1 WHERE codigo = ?",
-          [codigo]
-        );
+        // Não atualizar codigos_sistema.usado
       } else {
         await connection.end();
         throw err;
       }
     }
 
-    // Buscar todos os IDs que já resgataram este código
-    const [allResgates] = await connection.query<RowDataPacket[]>(
-      "SELECT resgatado_por FROM codigos_conquistas WHERE codigo = ?",
-      [conquista.codigo]
-    );
+    // Buscar todos os IDs que já resgataram este código (compatível com ambas as colunas)
+    let allResgates: RowDataPacket[] = [];
+    try {
+      [allResgates] = await connection.query<RowDataPacket[]>(
+        "SELECT resgatado_por FROM codigos_conquistas WHERE codigo = ?",
+        [conquista.codigo]
+      );
+    } catch {
+      // fallback para player_id
+      [allResgates] = await connection.query<RowDataPacket[]>(
+        "SELECT player_id FROM codigos_conquistas WHERE codigo = ?",
+        [conquista.codigo]
+      );
+    }
 
     await connection.end();
 
@@ -140,7 +145,7 @@ export async function POST(req: Request) {
         tipo: conquista.tipo,
         nome: conquista.nome,
       },
-      resgatadoPorIds: allResgates.map((r: any) => r.resgatado_por)
+      resgatadoPorIds: allResgates.map((r: any) => r.resgatado_por ?? r.player_id)
     });
   } catch {
     return NextResponse.json(
