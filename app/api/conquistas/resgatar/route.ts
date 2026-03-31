@@ -147,9 +147,10 @@ export async function POST(req: Request) {
       },
       resgatadoPorIds: allResgates.map((r: any) => r.resgatado_por ?? r.player_id)
     });
-  } catch {
+  } catch (err: any) {
+    console.error("[API RESGATAR ERRO]", err);
     return NextResponse.json(
-      { message: "Erro interno ao processar resgate" },
+      { message: "Erro interno ao processar resgate", error: err?.message || String(err) },
       { status: 500 }
     );
   }
