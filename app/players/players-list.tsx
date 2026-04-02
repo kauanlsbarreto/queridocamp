@@ -53,6 +53,7 @@ interface Player {
   faceit_guid: string;
   achievements: Achievement[];
   playerAdicionados: PlayerAdicionado[];
+  punicao?: number;
   faceit_level?: number;
   is_challenger?: boolean;
 }
@@ -189,6 +190,48 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
               }
             }
 
+            // Punição: mostra 1, 2 ou 3 imagens, label só na última
+            let punicao = player.punicao;
+            let iconSize = player.nickname && player.nickname.length > 10 ? 16 : 20;
+            let punicaoContent = null;
+            if (punicao === 1) {
+              punicaoContent = (
+                <div className="flex items-center">
+                  <div className="relative group">
+                    <img src="/queridafila/punicao.png" alt="Aviso" width={iconSize} height={iconSize} />
+                    <span className="absolute left-1/2 -translate-x-1/2 mt-2 z-20 hidden group-hover:block px-2 py-1 rounded bg-black/90 text-yellow-400 text-[10px] font-bold uppercase whitespace-nowrap shadow-lg border border-yellow-400">
+                      AVISO
+                    </span>
+                  </div>
+                </div>
+              );
+            } else if (punicao === 2) {
+              punicaoContent = (
+                <div className="flex items-center gap-1">
+                  <img src="/queridafila/punicao.png" alt="Aviso" width={iconSize} height={iconSize} />
+                  <div className="relative group">
+                    <img src="/queridafila/punicao.png" alt="Ban 3 Dias" width={iconSize} height={iconSize} />
+                    <span className="absolute left-1/2 -translate-x-1/2 mt-2 z-20 hidden group-hover:block px-2 py-1 rounded bg-black/90 text-red-500 text-[10px] font-bold uppercase whitespace-nowrap shadow-lg border border-red-500">
+                      Ban 3 Dias
+                    </span>
+                  </div>
+                </div>
+              );
+            } else if (punicao === 3) {
+              punicaoContent = (
+                <div className="flex items-center gap-1">
+                  <img src="/queridafila/punicao.png" alt="Aviso" width={iconSize} height={iconSize} />
+                  <img src="/queridafila/punicao.png" alt="Ban 3 Dias" width={iconSize} height={iconSize} />
+                  <div className="relative group">
+                    <img src="/queridafila/punicao.png" alt="Ban 7 Dias" width={iconSize} height={iconSize} />
+                    <span className="absolute left-1/2 -translate-x-1/2 mt-2 z-20 hidden group-hover:block px-2 py-1 rounded bg-black/90 text-red-700 text-[10px] font-bold uppercase whitespace-nowrap shadow-lg border border-red-700">
+                      Ban 7 Dias
+                    </span>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <Link href={`/perfil/${player.id}`} key={player.id} className="group">
                 <PremiumCard className={`hover:scale-[1.02] transition-all duration-300 shadow-xl ${role ? `${role.cardGlow} border-transparent` : 'border-white/5 group-hover:border-gold/30'}`}>
@@ -214,18 +257,25 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
                           {role.emoji}
                         </div>
                       )}
+                      {/* Punição */}
+                      {/* punicaoContent removido daqui para evitar duplicidade */}
                     </div>
 
                     {/* Name + Level */}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 flex flex-col items-start">
                       {role && (
                         <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full mb-1 ${role.badgeClass}`}>
                           {role.emoji} {role.label}
                         </span>
                       )}
-                      <h3 className="text-lg font-black text-white italic uppercase tracking-tighter truncate group-hover:text-gold transition-colors">
-                        {player.nickname}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className="min-w-0 flex-1">
+                          <h3 className="text-lg font-black text-white italic uppercase tracking-tighter truncate group-hover:text-gold transition-colors">
+                            {player.nickname}
+                          </h3>
+                        </span>
+                        {punicaoContent}
+                      </div>
                       <div className="flex items-center gap-2 mt-1.5">
                         <img
                           src={player.id === 0 ? "/faceitlevel/-1.png" : (player.is_challenger ? "/faceitlevel/challenger.png" : `/faceitlevel/${player.faceit_level || 1}.png`)}

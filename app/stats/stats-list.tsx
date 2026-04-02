@@ -436,8 +436,101 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
           <div>
             <h3 className="text-lg font-bold text-yellow-300 mb-2 uppercase tracking-wider">Semifinais</h3>
             <div className="space-y-4">
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-center min-h-[80px]">
-                <span className="text-gold text-lg font-bold">Em Andamento</span>
+              {/* Semi 1: Contabilize vs Lafise */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="font-bold text-white mb-2">Contabilize vs Lafise</div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[320px] w-full text-xs text-gray-200 mb-4">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>Contabilize</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">El Padrinho</td><td className="p-1">35</td><td className="p-1">29</td><td className="p-1">1.21</td><td className="p-1">117.49</td></tr>
+                      <tr><td className="p-1">I</td><td className="p-1">37</td><td className="p-1">28</td><td className="p-1">1.32</td><td className="p-1">104.12</td></tr>
+                      <tr><td className="p-1">É VANDSO FIA</td><td className="p-1">26</td><td className="p-1">32</td><td className="p-1">0.81</td><td className="p-1">100.14</td></tr>
+                      <tr><td className="p-1">dNt-</td><td className="p-1">42</td><td className="p-1">25</td><td className="p-1">1.68</td><td className="p-1">141.80</td></tr>
+                      <tr><td className="p-1">Vina</td><td className="p-1">24</td><td className="p-1">30</td><td className="p-1">0.80</td><td className="p-1">84.18</td></tr>
+                    </tbody>
+                  </table>
+                  <table className="min-w-[320px] w-full text-xs text-gray-200">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>Lafise</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">gAbri</td><td className="p-1">44</td><td className="p-1">31</td><td className="p-1">1.42</td><td className="p-1">130.48</td></tr>
+                      <tr><td className="p-1">Sh4kyon</td><td className="p-1">33</td><td className="p-1">36</td><td className="p-1">0.91</td><td className="p-1">90.17</td></tr>
+                      <tr><td className="p-1">tex</td><td className="p-1">23</td><td className="p-1">32</td><td className="p-1">0.72</td><td className="p-1">70.14</td></tr>
+                      <tr><td className="p-1">Ezy</td><td className="p-1">25</td><td className="p-1">30</td><td className="p-1">0.83</td><td className="p-1">89.55</td></tr>
+                      <tr><td className="p-1">Kondz'</td><td className="p-1">18</td><td className="p-1">36</td><td className="p-1">0.50</td><td className="p-1">58.70</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {/* Semi 2: Elo Imaginario vs La Fab */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="font-bold text-white mb-2">Elo Imaginario vs La Fab</div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[320px] w-full text-xs text-gray-200 mb-4">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>Elo Imaginario</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">gok1</td><td className="p-1">73</td><td className="p-1">33</td><td className="p-1">2.21</td><td className="p-1">153.44</td></tr>
+                      <tr><td className="p-1">pdX</td><td className="p-1">55</td><td className="p-1">46</td><td className="p-1">1.20</td><td className="p-1">124.78</td></tr>
+                      <tr><td className="p-1">Vinny</td><td className="p-1">52</td><td className="p-1">44</td><td className="p-1">1.18</td><td className="p-1">90.49</td></tr>
+                      <tr><td className="p-1">nEX-</td><td className="p-1">48</td><td className="p-1">47</td><td className="p-1">1.02</td><td className="p-1">87.49</td></tr>
+                      <tr><td className="p-1">slayerk1ng</td><td className="p-1">36</td><td className="p-1">48</td><td className="p-1">0.75</td><td className="p-1">69.02</td></tr>
+                    </tbody>
+                  </table>
+                  <table className="min-w-[320px] w-full text-xs text-gray-200">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>La Fab</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">snk-</td><td className="p-1">35</td><td className="p-1">28</td><td className="p-1">1.25</td><td className="p-1">131.12</td></tr>
+                      <tr><td className="p-1">𝖌𝖆𝖇𝖟𝖎𝖓𝖍𝖆</td><td className="p-1">50</td><td className="p-1">53</td><td className="p-1">0.94</td><td className="p-1">97.60</td></tr>
+                      <tr><td className="p-1">ROMA</td><td className="p-1">20</td><td className="p-1">53</td><td className="p-1">0.38</td><td className="p-1">38.47</td></tr>
+                      <tr><td className="p-1">Trembolona</td><td className="p-1">33</td><td className="p-1">51</td><td className="p-1">0.65</td><td className="p-1">75.47</td></tr>
+                      <tr><td className="p-1">Den1nh0</td><td className="p-1">40</td><td className="p-1">31</td><td className="p-1">1.29</td><td className="p-1">107.94</td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -445,8 +538,52 @@ export default function StatsList({ allStats }: { allStats: any[] }) {
           <div>
             <h3 className="text-lg font-bold text-yellow-300 mb-2 uppercase tracking-wider">Final</h3>
             <div className="space-y-4">
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-center min-h-[80px]">
-                <span className="text-gold text-lg font-bold">Em Andamento</span>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="font-bold text-white mb-2">Elo Imaginario vs Contabilize</div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-[320px] w-full text-xs text-gray-200 mb-4">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>Elo Imaginario</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">pdX</td><td className="p-1">48</td><td className="p-1">29</td><td className="p-1">1.66</td><td className="p-1">104.7</td></tr>
+                      <tr><td className="p-1">nEX-</td><td className="p-1">26</td><td className="p-1">38</td><td className="p-1">0.68</td><td className="p-1">56.8</td></tr>
+                      <tr><td className="p-1">gok1</td><td className="p-1">36</td><td className="p-1">40</td><td className="p-1">0.90</td><td className="p-1">74.3</td></tr>
+                      <tr><td className="p-1">Vinny</td><td className="p-1">26</td><td className="p-1">39</td><td className="p-1">0.67</td><td className="p-1">57.1</td></tr>
+                      <tr><td className="p-1">kevendodoy ㅤツ</td><td className="p-1">31</td><td className="p-1">40</td><td className="p-1">0.78</td><td className="p-1">64.4</td></tr>
+                    </tbody>
+                  </table>
+                  <table className="min-w-[320px] w-full text-xs text-gray-200">
+                    <thead>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left" colSpan={5}>Contabilize</th>
+                      </tr>
+                      <tr className="text-gold">
+                        <th className="p-1 text-left">Jogador</th>
+                        <th className="p-1">K</th>
+                        <th className="p-1">D</th>
+                        <th className="p-1">K/D</th>
+                        <th className="p-1">ADR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td className="p-1">El Padrinho</td><td className="p-1">41</td><td className="p-1">37</td><td className="p-1">1.11</td><td className="p-1">86.4</td></tr>
+                      <tr><td className="p-1">É VANDSO FIA</td><td className="p-1">34</td><td className="p-1">41</td><td className="p-1">0.83</td><td className="p-1">76.6</td></tr>
+                      <tr><td className="p-1">dNt-</td><td className="p-1">45</td><td className="p-1">32</td><td className="p-1">1.41</td><td className="p-1">95.1</td></tr>
+                      <tr><td className="p-1">Vina</td><td className="p-1">39</td><td className="p-1">33</td><td className="p-1">1.18</td><td className="p-1">83.9</td></tr>
+                      <tr><td className="p-1">I</td><td className="p-1">38</td><td className="p-1">38</td><td className="p-1">1.00</td><td className="p-1">87.7</td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>

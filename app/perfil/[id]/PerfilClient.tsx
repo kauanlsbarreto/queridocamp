@@ -258,9 +258,48 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                                         </div>
                                     )}
                                     
-                                    <p className="text-sm text-zinc-500 font-mono mb-6 uppercase tracking-tighter">
-                                        Querido ID: {player?.id}
-                                    </p>
+                                                                        <p className="text-sm text-zinc-500 font-mono mb-2 uppercase tracking-tighter">
+                                                                                Querido ID: {player?.id}
+                                                                        </p>
+                                                                        {/* Punição */}
+                                                                        {/* Punição: mostra 1, 2 ou 3 imagens, label só na última */}
+                                                                        {player?.punicao === 1 && (
+                                                                            <div className="flex flex-col items-center mb-4">
+                                                                                <div className="relative group">
+                                                                                    <img src="/queridafila/punicao.png" alt="Aviso" width={36} height={36} />
+                                                                                    <span className="absolute left-1/2 -translate-x-1/2 mt-2 z-20 hidden group-hover:block px-3 py-2 rounded bg-black/90 text-yellow-400 text-xs font-bold uppercase whitespace-nowrap shadow-lg border border-yellow-400">
+                                                                                        AVISO
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {player?.punicao === 2 && (
+                                                                            <div className="flex flex-col items-center mb-4">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <img src="/queridafila/punicao.png" alt="Aviso" width={36} height={36} />
+                                                                                    <div className="relative group">
+                                                                                        <img src="/queridafila/punicao.png" alt="Ban 3 Dias" width={36} height={36} />
+                                                                                        <span className="absolute left-1/2 -translate-x-1/2 mt-2 z-20 hidden group-hover:block px-3 py-2 rounded bg-black/90 text-red-500 text-xs font-bold uppercase whitespace-nowrap shadow-lg border border-red-500">
+                                                                                            Ban 3 Dias
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {player?.punicao === 3 && (
+                                                                            <div className="flex flex-col items-center mb-4">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <img src="/queridafila/punicao.png" alt="Aviso" width={36} height={36} />
+                                                                                    <img src="/queridafila/punicao.png" alt="Ban 3 Dias" width={36} height={36} />
+                                                                                    <div className="relative group">
+                                                                                        <img src="/queridafila/punicao.png" alt="Ban 7 Dias" width={36} height={36} />
+                                                                                        <span className="absolute left-1/2 -translate-x-1/2 mt-2 z-20 hidden group-hover:block px-3 py-2 rounded bg-black/90 text-red-700 text-xs font-bold uppercase whitespace-nowrap shadow-lg border border-red-700">
+                                                                                            Ban 7 Dias
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
                                     
                                     {player.id !== 0 && hasFaceitLink && (
                                         <Button asChild className="w-full bg-[#ff5500] hover:bg-[#e04b00] text-white font-bold py-6 rounded-xl mb-4">
