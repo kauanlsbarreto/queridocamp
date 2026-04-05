@@ -37,6 +37,12 @@
   * {
     @apply border-border;
   }
+
+  img {
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+
   body {
     @apply bg-background text-foreground;
     

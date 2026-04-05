@@ -32,7 +32,10 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
     if (stored) {
       try {
         const parsed = JSON.parse(stored)
-        setCurrentUser(prev => prev?.faceit_guid !== parsed.faceit_guid ? parsed : prev)
+        setCurrentUser(prev => {
+          if (!prev) return parsed
+          return JSON.stringify(prev) === JSON.stringify(parsed) ? prev : parsed
+        })
       } catch (e) {
         console.error("Erro ao ler usuário:", e)
         setCurrentUser(null)
@@ -142,6 +145,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
               <NavLink href="/galeria">Galeria</NavLink>
               <NavLink href="/regras">Regras</NavLink>
               <NavLink href="/campeonato">Campeonato</NavLink>
+              <NavLink href="/loja">Loja</NavLink>
               <NavLink href="/players">Jogadores</NavLink>
 
 
@@ -151,7 +155,8 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
                 </button>
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#060D15]/95 backdrop-blur-xl border border-gold/20 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top flex flex-col p-1">
                   <DropdownLink href="/queridafila/inscricao">Inscrição</DropdownLink>
-                  <span className="block text-red-500 font-bold px-4 py-2 rounded-lg text-sm text-center cursor-default">Classificação</span>
+                  <DropdownLink href="/queridafila/classificacao">Classificação</DropdownLink>
+                  <DropdownLink href="/queridafila/partidas">Partidas</DropdownLink>
                 </div>
               </div>
 
@@ -221,6 +226,15 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
             <NavLink href="/regras">Regras</NavLink>
             <NavLink href="/campeonato">Campeonato</NavLink>
             
+            <div className="my-2 border-t border-white/10 pt-4 pb-2 bg-white/5 rounded-xl px-2">
+              <p className="px-2 text-xs font-bold text-gold uppercase tracking-widest mb-2 text-center">Querida Fila</p>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <MobileGridLink href="/queridafila/inscricao">Inscrição</MobileGridLink>
+                <MobileGridLink href="/queridafila/classificacao">Classificação</MobileGridLink>
+                <MobileGridLink href="/queridafila/partidas">Partidas</MobileGridLink>
+              </div>
+            </div>
+
             <div className="my-2 border-t border-white/10 pt-4 pb-2 bg-white/5 rounded-xl px-2">
               <p className="px-2 text-xs font-bold text-gold uppercase tracking-widest mb-2 text-center">Querido Draft</p>
               <div className="grid grid-cols-2 gap-2">

@@ -8,6 +8,7 @@ import SessionSync from "@/components/session-sync"
 import LocalhostWatcher from "@/components/localhost-watcher"
 import AnalyticsTracker from '@/components/analytics-tracker';
 import AnuncioModal from '@/components/AnuncioModal';
+import ImageProtection from "@/components/image-protection";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body
         className={`${montserrat.className} min-h-screen flex flex-col`}
       >
+        <ImageProtection />
         <LocalhostWatcher />
         <SessionSync />
         <NavbarClient />

@@ -177,7 +177,31 @@ async function getConquistas(player: any, mainConn: any) {
     // codigos_conquistas unavailable — silently ignore
   }
 
-  return [...adicionadosRows, ...baseRows];
+  // 3) Compras da loja (item personalizado com imagem enviada)
+  let lojaRows: any[] = [];
+  try {
+    const [rowsLoja] = await mainConn.query(
+      `SELECT id, item_nome, label_text, image_url, points_cost, created_at
+       FROM loja_compras
+       WHERE player_id = ?
+       ORDER BY id DESC`,
+      [playerId]
+    ) as [any[], any];
+
+    lojaRows = rowsLoja.map((row: any) => ({
+      id: `loja-${row.id}`,
+      codigo: `LOJA-${row.id}`,
+      tipo: 'LOJA',
+      nome: row.label_text || row.item_nome || 'Compra da loja',
+      imagem: row.image_url,
+      points_cost: row.points_cost,
+      created_at: row.created_at,
+    }));
+  } catch (e) {
+    // tabela de compras pode não existir ainda
+  }
+
+  return [...lojaRows, ...adicionadosRows, ...baseRows];
 }
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
