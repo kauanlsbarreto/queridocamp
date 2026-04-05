@@ -8,7 +8,6 @@ import ImageModal from "@/components/image-modal"
 import Image from "next/image"
 import { Search, Camera } from "lucide-react"
 
-// Dados estáticos movidos para fora do componente para evitar recriação a cada render
 const teamShowcases = [
   {
     id: 1,
@@ -44,34 +43,81 @@ const teamShowcases = [
   },
 ]
 
-const draftGalleryImages = [
+const draft2026Highlights = [
   {
     id: 1,
-    src: "/uti-do-cs-campeao.jpeg",
-    alt: "Time Campeão UTI DO CS",
-    description: "Equipe campeã UTI DO CS com o troféu",
+    label: "Campeao",
+    teamName: "Contabilize",
+    src: "/queridodraft2026.1/contabilize.jpeg",
+    alt: "Time campeao Contabilize",
+    description: "Contabilize levantou o trofeu e ficou com o titulo do Querido Draft 2026.1.",
   },
   {
     id: 2,
-    src: "/sundown-vice-campeao.jpeg",
-    alt: "Time Vice-Campeão Sundown",
-    description: "Equipe Sundown - Vice-campeã do torneio",
+    label: "Vice",
+    teamName: "Elo Imaginario",
+    src: "/queridodraft2026.1/eloimaginario.jpeg",
+    alt: "Time vice Elo Imaginario",
+    description: "Elo Imaginario terminou a campanha como vice-campeao da edicao.",
   },
   {
     id: 3,
-    src: "/mvp-gabri.jpeg",
-    alt: "MVP Gabri com Troféu",
-    description: "Gabri - MVP do campeonato",
+    label: "MVP",
+    teamName: "Gabri",
+    src: "/queridodraft2026.1/gabri.jpeg",
+    alt: "MVP Gabri",
+    description: "Gabri foi o grande destaque individual do campeonato.",
+  },
+  {
+    id: 4,
+    label: "MVP Pote 3",
+    teamName: "Vina",
+    src: "/queridodraft2026.1/vina.jpeg",
+    alt: "MVP Pote 3 Vina",
+    description: "Vina brilhou entre os jogadores do Pote 3 e garantiu o premio.",
+  },
+  {
+    id: 5,
+    label: "MVP Pote 4",
+    teamName: "El Padrinho",
+    src: "/queridodraft2026.1/elpadrinho.jpeg",
+    alt: "MVP Pote 4 El Padrinho",
+    description: "El Padrinho foi o principal nome do Pote 4 no Draft 2026.1.",
   },
 ]
 
-// Pré-processamento das imagens para o modal
+const draft2026OtherTeams = [
+  {
+    id: 6,
+    teamName: "22 Cao na Chapa",
+    src: "/queridodraft2026.1/22caonachapa.jpeg",
+    alt: "Time 22 Cao na Chapa",
+    description: "Registro da equipe 22 Cao na Chapa no Querido Draft 2026.1.",
+  },
+  {
+    id: 7,
+    teamName: "Uns&Outros",
+    src: "/queridodraft2026.1/unseoutros.jpeg",
+    alt: "Time Uns e Outros",
+    description: "A equipe Uns&Outros tambem ganhou espaco na galeria da edicao.",
+  },
+]
+
+const draft2026FeaturedMatch = {
+  id: 8,
+  title: "Duelo em destaque",
+  teamName: "Elo Imaginario x Uns&Outros",
+  src: "/queridodraft2026.1/duelo.jpeg",
+  alt: "Duelo entre Elo Imaginario e Uns e Outros",
+  description: "Confronto entre Elo Imaginario e Uns&Outros em um dos momentos marcantes do campeonato.",
+}
+
 const teamImages = teamShowcases.map((team) => ({
   src: team.image,
   alt: `Equipe ${team.teamName}`,
 }))
 
-const draftImages = draftGalleryImages.map((img) => ({
+const draftImages = [...draft2026Highlights, ...draft2026OtherTeams, draft2026FeaturedMatch].map((img) => ({
   src: img.src,
   alt: img.alt,
 }))
@@ -163,7 +209,6 @@ export default function Galeria() {
                       sizes="(max-width: 768px) 100vw, 50vw"
                     />
 
-                    {/* Botão de visualização sempre visível */}
                     <div className="absolute bottom-4 right-4 bg-gold/80 text-black p-2 rounded-full shadow-lg">
                       <Search size={20} />
                     </div>
@@ -185,47 +230,151 @@ export default function Galeria() {
         </div>
       </section>
 
-      {/* Querido Camp Draft section from home page */}
+      {/* Querido Draft 2026.1 */}
       <section className="py-20 bg-gradient-to-b from-gray-900 to-black">
         <div className="container mx-auto px-4">
           <SectionTitle
-            title="Querido Camp Draft"
-            subtitle="Evento de Draft"
-            description="Reviva os melhores momentos do evento de draft e formação dos times"
+            title="Querido Draft 2026.1"
+            subtitle="Galeria da Edição"
+            description="Confira os campeões, destaques individuais, outros times e o duelo em destaque do Draft 2026.1"
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
-            {draftGalleryImages.map((image, index) => (
+          <div className="mt-12 space-y-16">
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-px flex-1 bg-gold/20" />
+                <p className="text-gold uppercase tracking-[0.3em] text-xs">Destaques Principais</p>
+                <div className="h-px flex-1 bg-gold/20" />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {draft2026Highlights.map((image, index) => (
+                  <motion.div
+                    key={image.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: index * 0.08 }}
+                    className="group cursor-pointer"
+                    onClick={() => openImageModal(image.src, image.alt, index, "draft")}
+                  >
+                    <PremiumCard hoverEffect={false}>
+                      <div className="p-4 space-y-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.3em] text-gold/80">{image.label}</p>
+                            <h3 className="text-2xl font-bold text-white mt-2">{image.teamName}</h3>
+                          </div>
+                          <div className="shrink-0 rounded-full bg-gold/15 p-3 text-gold">
+                            <Camera size={20} />
+                          </div>
+                        </div>
+
+                        <div className="relative h-[320px] overflow-hidden rounded-lg border border-gold/10">
+                          <Image
+                            src={image.src || "/placeholder.svg"}
+                            alt={image.alt}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-500"
+                            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
+                          <div className="absolute bottom-0 left-0 right-0 p-4">
+                            <p className="text-white/90 text-sm leading-relaxed">{image.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </PremiumCard>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-px flex-1 bg-gold/20" />
+                <p className="text-gold uppercase tracking-[0.3em] text-xs">Outros Times</p>
+                <div className="h-px flex-1 bg-gold/20" />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {draft2026OtherTeams.map((image, index) => (
+                  <motion.div
+                    key={image.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: index * 0.1 }}
+                    className="group cursor-pointer"
+                    onClick={() => openImageModal(image.src, image.alt, draft2026Highlights.length + index, "draft")}
+                  >
+                    <PremiumCard hoverEffect={false}>
+                      <div className="relative h-[320px] overflow-hidden rounded-lg">
+                        <Image
+                          src={image.src || "/placeholder.svg"}
+                          alt={image.alt}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                          sizes="(max-width: 1024px) 100vw, 50vw"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-5">
+                          <h3 className="text-2xl font-bold text-white">{image.teamName}</h3>
+                          <p className="text-white/80 mt-2">{image.description}</p>
+                        </div>
+                      </div>
+                    </PremiumCard>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-px flex-1 bg-gold/20" />
+                <p className="text-gold uppercase tracking-[0.3em] text-xs">Duelo em Destaque</p>
+                <div className="h-px flex-1 bg-gold/20" />
+              </div>
+
               <motion.div
-                key={image.id}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                transition={{ duration: 0.5 }}
                 className="group cursor-pointer"
-                onClick={() => openImageModal(image.src, image.alt, index, "draft")}
+                onClick={() =>
+                  openImageModal(
+                    draft2026FeaturedMatch.src,
+                    draft2026FeaturedMatch.alt,
+                    draft2026Highlights.length + draft2026OtherTeams.length,
+                    "draft",
+                  )
+                }
               >
                 <PremiumCard hoverEffect={false}>
-                  <div className={`relative ${image.id === 3 ? "h-[350px]" : "h-[250px]"} overflow-hidden rounded-lg`}>
-                    <Image
-                      src={image.src || "/placeholder.svg"}
-                      alt={image.alt}
-                      fill
-                      className={`${image.id === 3 ? "object-contain" : "object-cover"} group-hover:scale-110 transition-transform duration-500`}
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="absolute bottom-0 left-0 right-0 p-4">
-                        <p className="text-white font-bold text-lg">{image.description}</p>
+                  <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_0.9fr] gap-6 p-4">
+                    <div className="relative h-[320px] md:h-[420px] overflow-hidden rounded-lg border border-gold/10">
+                      <Image
+                        src={draft2026FeaturedMatch.src || "/placeholder.svg"}
+                        alt={draft2026FeaturedMatch.alt}
+                        fill
+                        className="object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                        sizes="(max-width: 1280px) 100vw, 60vw"
+                      />
+                      <div className="absolute top-4 right-4 bg-gold/85 text-black p-2 rounded-full shadow-lg">
+                        <Search size={20} />
                       </div>
                     </div>
-                    <div className="absolute top-4 right-4 bg-gold/80 text-black p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <Camera size={20} />
+
+                    <div className="flex flex-col justify-center space-y-4 p-2">
+                      <p className="text-xs uppercase tracking-[0.35em] text-gold/80">{draft2026FeaturedMatch.title}</p>
+                      <h3 className="text-3xl font-bold text-white leading-tight">{draft2026FeaturedMatch.teamName}</h3>
+                      <p className="text-gray-300 text-lg leading-relaxed">{draft2026FeaturedMatch.description}</p>
                     </div>
                   </div>
                 </PremiumCard>
               </motion.div>
-            ))}
+            </div>
           </div>
         </div>
       </section>

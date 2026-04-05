@@ -148,8 +148,6 @@ export default function TimeAdminGate({
 							<p className="mt-1 text-xs uppercase tracking-wider text-zinc-300">Seg</p>
 						</div>
 					</div>
-
-					<p className="mt-6 text-xs text-zinc-400">Admin 1 e 2 continuam com acesso antes da liberacao.</p>
 				</div>
 			</div>
 		</div>
