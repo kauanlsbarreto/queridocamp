@@ -86,7 +86,7 @@ export function verifyMercadoPagoWebhookSignature(request: Request, id: string):
   const signatureHeader = normalizeString(request.headers.get("x-signature"));
   const requestId = normalizeString(request.headers.get("x-request-id"));
 
-  if (!signatureHeader || !requestId || !id) {
+  if (!signatureHeader || !requestId) {
     return { valid: false, reason: "missing-signature-data", ...blank, requestId };
   }
 
@@ -95,23 +95,44 @@ export function verifyMercadoPagoWebhookSignature(request: Request, id: string):
     return { valid: false, reason: "invalid-signature-header", ts, receivedV1: v1, expectedHash: "", requestId };
   }
 
-  const manifest = `id:${id};request-id:${requestId};ts:${ts};`;
-  const expectedHash = createHmac("sha256", secret).update(manifest).digest("hex");
-
   // Normaliza para minúsculas — MercadoPago pode enviar hex em maiúsculas.
   const normalizedV1 = v1.toLowerCase().trim();
 
+  const { searchParams } = new URL(request.url);
+  const candidateIds = Array.from(
+    new Set(
+      [
+        normalizeString(searchParams.get("data.id")).toLowerCase(),
+        normalizeString(searchParams.get("id")).toLowerCase(),
+        normalizeString(searchParams.get("payment_id")).toLowerCase(),
+        normalizeString(searchParams.get("resource")).toLowerCase(),
+        normalizeString(id).toLowerCase(),
+      ].filter(Boolean),
+    ),
+  );
+
+  const manifests = [
+    ...candidateIds.map((candidateId) => `id:${candidateId};request-id:${requestId};ts:${ts};`),
+    // A documentação orienta remover campos ausentes do template.
+    `request-id:${requestId};ts:${ts};`,
+  ];
+
+  const expectedHashes = manifests.map((manifest) => createHmac("sha256", secret).update(manifest).digest("hex"));
+
   try {
-    const left = Buffer.from(expectedHash, "utf8");
     const right = Buffer.from(normalizedV1, "utf8");
-    const valid = left.length === right.length && timingSafeEqual(left, right);
+    const valid = expectedHashes.some((expectedHash) => {
+      const left = Buffer.from(expectedHash, "utf8");
+      return left.length === right.length && timingSafeEqual(left, right);
+    });
+
     return {
       valid,
       reason: valid ? "ok" : "signature-mismatch",
       ts,
       receivedV1: normalizedV1,
-      // Exibe o hash esperado apenas em caso de falha, para diagnóstico no Discord.
-      expectedHash: valid ? "" : expectedHash,
+      // Exibe todas as combinações testadas apenas em caso de falha, para diagnóstico.
+      expectedHash: valid ? "" : expectedHashes.join(" | "),
       requestId,
     };
   } catch {
