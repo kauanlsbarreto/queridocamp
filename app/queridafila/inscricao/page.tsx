@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { Upload, CheckCircle2, AlertCircle } from "lucide-react"
 
@@ -13,7 +13,14 @@ export default function Inscricao() {
   return <InscricaoForm />;
 }
 
+type SessionUser = {
+  faceit_guid?: string;
+  admin?: number;
+  Admin?: number;
+};
+
 function InscricaoForm() {
+  const [authorized, setAuthorized] = useState<boolean | null>(null)
   const [formData, setFormData] = useState({
     nomeCompleto: "",
     faceitLink: "",
@@ -23,6 +30,22 @@ function InscricaoForm() {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const stored = localStorage.getItem("faceit_user")
+    if (!stored) {
+      setAuthorized(false)
+      return
+    }
+
+    try {
+      const parsed = JSON.parse(stored) as SessionUser
+      const level = Number(parsed.admin ?? parsed.Admin ?? 0)
+      setAuthorized(level === 1 || level === 2)
+    } catch {
+      setAuthorized(false)
+    }
+  }, [])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -70,6 +93,27 @@ function InscricaoForm() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (authorized === null) {
+    return (
+      <div className="min-h-screen text-white flex items-center justify-center pt-24">
+        <p className="text-zinc-300 uppercase tracking-widest text-sm">Carregando...</p>
+      </div>
+    )
+  }
+
+  if (!authorized) {
+    return (
+      <div className="min-h-screen text-white flex items-center justify-center px-4">
+        <div className="max-w-xl w-full border border-red-500/30 bg-red-950/20 rounded-2xl p-8 text-center">
+          <h1 className="text-2xl font-black uppercase italic tracking-tight text-red-200">Acesso negado</h1>
+          <p className="mt-3 text-sm text-zinc-300">
+            Apenas Admin 1 e Admin 2 podem visualizar a página <span className="text-gold font-bold">/queridafila/inscricao</span>.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (submitted) {
