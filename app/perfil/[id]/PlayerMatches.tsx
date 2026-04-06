@@ -2,15 +2,10 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { ExternalLink, Trophy, Calendar, Map as MapIcon, Swords, Medal } from "lucide-react"
+import { ExternalLink, Calendar, Map as MapIcon, Medal } from "lucide-react"
 import { motion } from "framer-motion"
-import PlayerUpcomingMatches from "./PlayerUpcomingMatches"
 
 const API_KEY = "7b080715-fe0b-461d-a1f1-62cfd0c47e63"
-const MAIN_QUEUES = [
-  "fdd5221c-408c-4148-bc63-e2940da4a490",
-  "04a14d7f-0511-451b-8208-9a6c3215ccaa"
-]
 const SEASON_QUEUE = "c23c971b-677a-4046-8203-26023e283529"
 const START_DATE = Math.floor(new Date('2026-01-01T00:00:00.000Z').getTime() / 1000);
 
@@ -183,10 +178,9 @@ const MatchCard = ({ match, playerId }: { match: any, playerId: string }) => {
   )
 }
 
-export default function PlayerMatches({ faceitId, upcomingMatches, teamName }: { faceitId: string, upcomingMatches?: any[], teamName?: string }) {
+export default function PlayerMatches({ faceitId }: { faceitId: string }) {
   const [matches, setMatches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'hub' | 'season'>('hub')
 
   useEffect(() => {
     const fetchMatches = async () => {
@@ -200,10 +194,8 @@ export default function PlayerMatches({ faceitId, upcomingMatches, teamName }: {
         
         if (res.ok) {
           const data = await res.json()
-          // Filtra pelas filas especificadas
-          const allQueues = [...MAIN_QUEUES, SEASON_QUEUE]
           const filteredMatches = data.items.filter((m: any) => 
-            allQueues.includes(m.competition_id) || allQueues.includes(m.entity_id)
+            (m.competition_id || m.entity_id) === SEASON_QUEUE
           )
           setMatches(filteredMatches)
         }
@@ -216,14 +208,6 @@ export default function PlayerMatches({ faceitId, upcomingMatches, teamName }: {
 
     fetchMatches()
   }, [faceitId])
-
-  const displayedMatches = matches.filter(m => {
-    const id = m.competition_id || m.entity_id
-    if (activeTab === 'hub') {
-      return MAIN_QUEUES.includes(id)
-    }
-    return id === SEASON_QUEUE
-  })
 
   if (loading) {
     return (
@@ -238,28 +222,10 @@ export default function PlayerMatches({ faceitId, upcomingMatches, teamName }: {
     <div className="space-y-4">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
         <div className="flex bg-zinc-900 p-1 rounded-xl border border-white/10">
-          <button
-            onClick={() => setActiveTab('hub')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'hub' 
-                ? "bg-gold text-black shadow-lg" 
-                : "text-zinc-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <Swords size={16} />
-            Querido Draft
-          </button>
-          <button
-            onClick={() => setActiveTab('season')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'season' 
-                ? "bg-gold text-black shadow-lg" 
-                : "text-zinc-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
+          <div className="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 bg-gold text-black shadow-lg">
             <Medal size={16} />
             Querida Fila
-          </button>
+          </div>
         </div>
         
         <span className="text-[10px] text-zinc-500 bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800 flex items-center gap-2">
@@ -268,19 +234,17 @@ export default function PlayerMatches({ faceitId, upcomingMatches, teamName }: {
       </div>
       
       <div className="max-h-[600px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-zinc-800">
-        {displayedMatches.length > 0 ? (
-          displayedMatches.map((match) => (
+        {matches.length > 0 ? (
+          matches.map((match) => (
             <MatchCard key={match.match_id} match={match} playerId={faceitId} />
           ))
         ) : (
           <div className="text-center py-12 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/20">
             <Calendar className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-            <p className="text-zinc-500">Nenhuma partida encontrada nesta categoria.</p>
+            <p className="text-zinc-500">Nenhuma partida encontrada na Querida Fila.</p>
           </div>
         )}
       </div>
-
-      <PlayerUpcomingMatches matches={upcomingMatches || []} teamName={teamName} />
     </div>
   )
 }

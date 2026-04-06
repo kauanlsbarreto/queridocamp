@@ -51,6 +51,7 @@ interface Player {
   nickname: string;
   avatar: string;
   faceit_guid: string;
+  fundoperfil?: string;
   achievements: Achievement[];
   playerAdicionados: PlayerAdicionado[];
   punicao?: number;
@@ -167,6 +168,10 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
           {players.map((player) => {
             const allItems: HallItem[] = [];
             const role = SPECIAL_ROLES[player.faceit_guid || ''] || null;
+            const rawCardBackground = typeof player.fundoperfil === 'string' ? player.fundoperfil.trim() : '';
+            const cardBackground = rawCardBackground
+              ? (rawCardBackground.startsWith('/public/') ? rawCardBackground.replace('/public/', '/') : rawCardBackground)
+              : '';
 
             for (const ach of (player.achievements || [])) {
               allItems.push({
@@ -235,7 +240,17 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
             return (
               <Link href={`/perfil/${player.id}`} key={player.id} className="group">
                 <PremiumCard className={`hover:scale-[1.02] transition-all duration-300 shadow-xl ${role ? `${role.cardGlow} border-transparent` : 'border-white/5 group-hover:border-gold/30'}`}>
-                  <div className="p-5 flex items-center gap-5 relative overflow-hidden">
+                  <div
+                    className="p-5 flex items-center gap-5 relative overflow-hidden"
+                    style={cardBackground
+                      ? {
+                          backgroundImage: `linear-gradient(rgba(6,13,21,0.72), rgba(6,13,21,0.88)), url(${cardBackground})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          backgroundRepeat: 'no-repeat',
+                        }
+                      : undefined}
+                  >
                     {role && (
                       <div className={`absolute inset-0 bg-gradient-to-r ${role.shimmer} to-transparent pointer-events-none`} />
                     )}

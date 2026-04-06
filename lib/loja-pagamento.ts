@@ -20,7 +20,28 @@ export type PaymentOperationRow = {
   created_at: string;
   updated_at: string;
   finished_at: string | null;
+  categoria?: string | null;
+  imagem_url?: string | null;
 };
+
+function normalizeStorePath(raw: string | null | undefined) {
+  const value = String(raw || "").trim().replace(/\\/g, "/");
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+
+  let normalized = value;
+  if (normalized.toLowerCase().startsWith("public/")) {
+    normalized = normalized.slice("public".length);
+  }
+  if (!normalized.startsWith("/")) {
+    normalized = `/${normalized}`;
+  }
+  return normalized;
+}
+
+function isWallpaperCategory(category: string | null | undefined) {
+  return String(category || "").trim().toLowerCase() === "wallpaper";
+}
 
 export const OPERATION_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -252,6 +273,26 @@ export async function finalizeOperationWithStockPolicy(
         current.id,
       ],
     );
+
+    if (status === "approved") {
+      const [benefitRows] = await connection.query(
+        `SELECT lp.player_id, e.categoria, e.imagem_url
+         FROM loja_pagamentos_preco lp
+         INNER JOIN estoque e ON e.id = lp.estoque_id
+         WHERE lp.id = ?
+         LIMIT 1`,
+        [current.id],
+      );
+
+      const benefits = benefitRows as Array<{ player_id: number; categoria: string | null; imagem_url: string | null }>;
+      const benefit = benefits[0];
+      if (benefit && isWallpaperCategory(benefit.categoria)) {
+        const wallpaperPath = normalizeStorePath(benefit.imagem_url);
+        if (wallpaperPath) {
+          await connection.query("UPDATE players SET fundoperfil = ? WHERE id = ?", [wallpaperPath, benefit.player_id]);
+        }
+      }
+    }
 
     if (shouldRestoreStock) {
       await connection.query("UPDATE estoque SET estoque = estoque + 1 WHERE id = ?", [current.estoque_id]);

@@ -45,8 +45,8 @@ async function getPlayersData(mainConn: any, offset: number, search: string) {
 
   const [playersRows]: any = await mainConn.query(
     searchPattern
-      ? `SELECT id, ${displayNameExpr} AS nickname, avatar, faceit_guid, adicionados, punicao FROM players WHERE ${displayNameExpr} LIKE ? ORDER BY ${specialOrderClause}, ${displayNameExpr} ASC LIMIT ? OFFSET ?`
-      : `SELECT id, ${displayNameExpr} AS nickname, avatar, faceit_guid, adicionados, punicao FROM players ORDER BY ${specialOrderClause}, ${displayNameExpr} ASC LIMIT ? OFFSET ?`,
+      ? `SELECT id, ${displayNameExpr} AS nickname, avatar, faceit_guid, adicionados, punicao, fundoperfil FROM players WHERE ${displayNameExpr} LIKE ? ORDER BY ${specialOrderClause}, ${displayNameExpr} ASC LIMIT ? OFFSET ?`
+      : `SELECT id, ${displayNameExpr} AS nickname, avatar, faceit_guid, adicionados, punicao, fundoperfil FROM players ORDER BY ${specialOrderClause}, ${displayNameExpr} ASC LIMIT ? OFFSET ?`,
     searchPattern ? [searchPattern, ITEMS_PER_PAGE, offset] : [ITEMS_PER_PAGE, offset]
   );
 
@@ -98,6 +98,7 @@ async function getPlayersData(mainConn: any, offset: number, search: string) {
         nickname: player.nickname,
         avatar: player.avatar,
         faceit_guid: player.faceit_guid,
+        fundoperfil: player.fundoperfil,
         achievements: Array.from(specialAchievements.entries()).map(([tipo, count]) => ({ tipo, count })),
         playerAdicionados: [],
         punicao: player.punicao ? Number(player.punicao) : 0,
@@ -115,6 +116,7 @@ async function getPlayersData(mainConn: any, offset: number, search: string) {
       nickname: player.nickname,
       avatar: player.avatar,
       faceit_guid: player.faceit_guid,
+      fundoperfil: player.fundoperfil,
       achievements: conquistasByPlayer.get(String(player.id)) || [],
       playerAdicionados,
       punicao: player.punicao ? Number(player.punicao) : 0,

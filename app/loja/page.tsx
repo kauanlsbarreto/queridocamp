@@ -50,6 +50,11 @@ type PurchaseModalState = {
 	submitting: boolean;
 };
 
+type WallpaperSuccessModalState = {
+	open: boolean;
+	itemName: string;
+};
+
 const defaultForm: AddItemForm = {
 	nome: "",
 	descricao: "",
@@ -83,6 +88,10 @@ function resolveStoreImageSrc(imageUrl: string | null) {
 	return localPath;
 }
 
+function isWallpaperItem(item: Pick<StoreItem, "categoria"> | null | undefined) {
+	return String(item?.categoria || "").trim().toLowerCase() === "wallpaper";
+}
+
 export default function LojaPage() {
 	const router = useRouter();
 	const [user, setUser] = useState<FaceitUser | null>(null);
@@ -103,6 +112,10 @@ export default function LojaPage() {
 		error: "",
 		submitting: false,
 	});
+	const [wallpaperSuccessModal, setWallpaperSuccessModal] = useState<WallpaperSuccessModalState>({
+		open: false,
+		itemName: "",
+	});
 
 	const adminLevel = useMemo(() => {
 		if (!user) return null;
@@ -113,8 +126,10 @@ export default function LojaPage() {
 
 	const isAdmin12 = adminLevel === 1 || adminLevel === 2;
 
-	const loadItems = useCallback(async (guid: string) => {
-		setLoading(true);
+	const loadItems = useCallback(async (guid: string, options?: { silent?: boolean }) => {
+		if (!options?.silent) {
+			setLoading(true);
+		}
 		setError("");
 
 		try {
@@ -135,7 +150,9 @@ export default function LojaPage() {
 			setItems([]);
 			setError("Erro ao carregar itens da loja.");
 		} finally {
-			setLoading(false);
+			if (!options?.silent) {
+				setLoading(false);
+			}
 		}
 	}, []);
 
@@ -209,6 +226,12 @@ export default function LojaPage() {
 	};
 
 	const handleBuyItem = (item: StoreItem) => {
+		if (isWallpaperItem(item) && Number(item.moedas || 0) > 0) {
+			setPurchaseModal((prev) => ({ ...prev, open: false }));
+			void handleWallpaperPurchase(item);
+			return;
+		}
+
 		const isPricePayment = Number(item.preco || 0) > 0 && Number(item.moedas || 0) <= 0;
 		if (isPricePayment) {
 			router.push(`/loja/pagamento?item=${item.id}`);
@@ -216,6 +239,62 @@ export default function LojaPage() {
 		}
 
 		openPurchaseModal(item);
+	};
+
+	const handleWallpaperPurchase = async (item: StoreItem) => {
+		const faceitGuid = String(user?.faceit_guid || "");
+		if (!faceitGuid) {
+			setError("Você precisa estar logado com Faceit para comprar.");
+			return;
+		}
+
+		setError("");
+
+		try {
+			const res = await fetch("/api/loja/compra", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					item_id: item.id,
+					faceit_guid: faceitGuid,
+				}),
+			});
+
+			const data = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				setError(data?.message || "Erro ao comprar wallpaper.");
+				return;
+			}
+
+			if (typeof window !== "undefined") {
+				const raw = localStorage.getItem("faceit_user");
+				if (raw) {
+					try {
+						const parsed = JSON.parse(raw);
+						parsed.points = data?.points;
+						if (data?.fundoperfil) parsed.fundoperfil = data.fundoperfil;
+						localStorage.setItem("faceit_user", JSON.stringify(parsed));
+					} catch {
+						// no-op
+					}
+				}
+			}
+
+			await loadItems(faceitGuid, { silent: true });
+			setWallpaperSuccessModal({
+				open: true,
+				itemName: item.nome,
+			});
+		} catch {
+			setError("Erro inesperado ao comprar wallpaper.");
+		}
+	};
+
+	const closeWallpaperSuccessModal = () => {
+		setWallpaperSuccessModal({
+			open: false,
+			itemName: "",
+		});
 	};
 
 	const closePurchaseModal = () => {
@@ -231,6 +310,14 @@ export default function LojaPage() {
 
 	const handleConfirmPurchase = async () => {
 		if (!purchaseModal.item) return;
+
+		if (isWallpaperItem(purchaseModal.item)) {
+			setPurchaseModal((prev) => ({
+				...prev,
+				error: "Wallpaper não precisa de upload. Use o botão Comprar.",
+			}));
+			return;
+		}
 
 		const faceitGuid = String(user?.faceit_guid || "");
 		if (!faceitGuid) {
@@ -592,7 +679,7 @@ export default function LojaPage() {
 												onClick={() => handleBuyItem(item)}
 												className="flex-1 rounded-lg border border-gold bg-gold px-3 py-2 text-xs font-black uppercase text-black transition hover:opacity-90"
 											>
-												{Number(item.preco || 0) > 0 && Number(item.moedas || 0) <= 0
+												{!isWallpaperItem(item) && Number(item.preco || 0) > 0 && Number(item.moedas || 0) <= 0
 													? "Pagar"
 													: "Comprar"}
 											</button>
@@ -660,6 +747,28 @@ export default function LojaPage() {
 											className="flex-1 rounded-lg border border-gold bg-gold px-4 py-2 text-sm font-black uppercase text-black disabled:cursor-not-allowed disabled:opacity-50"
 										>
 											{purchaseModal.submitting ? "Processando..." : "Confirmar"}
+										</button>
+									</div>
+								</div>
+							</PremiumCard>
+						</div>
+					)}
+
+					{wallpaperSuccessModal.open && (
+						<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 px-4">
+							<PremiumCard className="w-full max-w-md">
+								<div className="p-6 md:p-8 text-center">
+									<h2 className="text-xl font-black uppercase text-white">Compra Finalizada</h2>
+									<p className="mt-3 text-sm text-zinc-300">
+										O wallpaper <span className="font-bold text-gold">{wallpaperSuccessModal.itemName}</span> foi comprado com sucesso e aplicado no seu perfil.
+									</p>
+									<div className="mt-6">
+										<button
+											type="button"
+											onClick={closeWallpaperSuccessModal}
+											className="w-full rounded-lg border border-gold bg-gold px-4 py-2 text-sm font-black uppercase text-black"
+										>
+											Fechar
 										</button>
 									</div>
 								</div>

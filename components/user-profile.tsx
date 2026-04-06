@@ -118,7 +118,7 @@ export const UserProfile = ({
                 side="bottom"
                 className="max-w-64 rounded-xl border border-gold/20 bg-[#0b1118] px-4 py-3 text-sm leading-relaxed text-white shadow-2xl"
               >
-                Os pontos são calculados apos o termino de uma partida podendo receber de 5 até 25 pontos.
+                Os pontos são calculados apos o termino de uma partida podendo receber de 5 até 30 pontos.
               </TooltipContent>
             </Tooltip>
 

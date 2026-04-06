@@ -26,7 +26,7 @@ const SPECIAL_ROLES: Record<string, { emoji: string; bannerLabel: string; banner
   },
 };
 
-export default function PerfilClient({ player, initialConquistas, upcomingMatches, teamName, playerStatsList, adminView = false }: { player: any, initialConquistas: any[], upcomingMatches?: any[], teamName?: string, playerStatsList?: any[], adminView?: boolean }) {
+export default function PerfilClient({ player, initialConquistas }: { player: any, initialConquistas: any[] }) {
     const [codigo, setCodigo] = useState('');
     const [adicionadosInput, setAdicionadosInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -42,6 +42,13 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
     const role = SPECIAL_ROLES[player?.faceit_guid || ''] || null;
     const hasFaceitLink = Boolean(player?.faceit_guid && player?.nickname);
     const canManageThisProfile = isOwnProfile || (!isOwnProfile && userAdminLevel === 1);
+    const rawProfileBackground = typeof player?.fundoperfil === 'string' ? player.fundoperfil.trim() : '';
+    const profileBackground = rawProfileBackground
+        ? (rawProfileBackground.startsWith('/public/') ? rawProfileBackground.replace('/public/', '/') : rawProfileBackground)
+        : '';
+    const profileCardClassName = profileBackground
+        ? 'bg-black/45 backdrop-blur-[2px] border-white/20'
+        : '';
 
     const handleFaceitLink = async () => {
         localStorage.setItem('faceit_link_player_id', String(player?.id || ''));
@@ -214,12 +221,22 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
     };
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] pt-24 pb-12">
+        <div
+            className="min-h-screen pt-24 pb-12"
+            style={profileBackground
+                ? {
+                    backgroundImage: `linear-gradient(rgba(10,10,10,0.72), rgba(10,10,10,0.88)), url(${profileBackground})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                }
+                : { backgroundColor: '#0a0a0a' }}
+        >
             <div className="container mx-auto px-4">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-1">
                         <div className="sticky top-24">
-                            <PremiumCard>
+                            <PremiumCard className={profileCardClassName}>
                                 <div className="p-8 flex flex-col items-center text-center">
                                     <div className="relative mb-6">
                                         {role && (
@@ -377,7 +394,7 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                             </PremiumCard>
 
                             <div className="mt-6">
-                                <PremiumCard>
+                                <PremiumCard className={profileCardClassName}>
                                     <div className="p-6">
                                         <div className="flex items-center justify-center gap-2 mb-6 text-gold">
                                             <Trophy size={20} />
@@ -426,11 +443,7 @@ export default function PerfilClient({ player, initialConquistas, upcomingMatche
                     </div>
                     <div className="lg:col-span-2">
                         {(player.id !== 0 || player.faceit_guid) && (
-                            <PlayerMatches 
-                                faceitId={player?.faceit_guid} 
-                                upcomingMatches={upcomingMatches} 
-                                teamName={teamName} 
-                            />
+                            <PlayerMatches faceitId={player?.faceit_guid} />
                         )}
                     </div>
                 </div>
