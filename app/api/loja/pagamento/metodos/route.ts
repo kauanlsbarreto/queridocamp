@@ -9,21 +9,13 @@ export async function GET() {
 
     const normalized = methods
       .filter((method) => String(method.status || "").toLowerCase() === "active")
-      .map((method) => {
-        const methodRecord = method as unknown as Record<string, unknown>;
-        const maybeSiteId =
-          "site_id" in methodRecord
-            ? methodRecord.site_id
-            : undefined;
-
-        return {
-          id: method.id,
-          name: method.name,
-          paymentTypeId: method.payment_type_id,
-          status: method.status,
-          siteId: typeof maybeSiteId === "string" ? maybeSiteId : undefined,
-        };
-      });
+      .map((method) => ({
+        id: method.id,
+        name: method.name,
+        paymentTypeId: method.payment_type_id,
+        status: method.status,
+        siteId: method.site_id,
+      }));
 
     return NextResponse.json({
       success: true,

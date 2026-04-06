@@ -1,5 +1,4 @@
-import { Payment, PaymentMethod, Preference } from "mercadopago";
-import { formatDateForMercadoPago, getMercadoPagoClient, resolveRequestOrigin } from "@/lib/loja-pagamento";
+import { formatDateForMercadoPago, getMercadoPagoToken, resolveRequestOrigin } from "@/lib/loja-pagamento";
 
 type CheckoutPreferenceParams = {
   request: Request;
@@ -9,6 +8,55 @@ type CheckoutPreferenceParams = {
   amount: number;
   expiresAt: Date;
 };
+
+export type MpPreferenceResponse = {
+  id: string;
+  init_point: string;
+  sandbox_init_point: string;
+  [key: string]: unknown;
+};
+
+export type MpPaymentResponse = {
+  id: number | null;
+  status: string | null;
+  status_detail: string | null;
+  external_reference: string | null;
+  [key: string]: unknown;
+};
+
+export type MpPaymentMethodItem = {
+  id: string;
+  name: string;
+  payment_type_id: string;
+  status: string;
+  site_id?: string;
+  [key: string]: unknown;
+};
+
+async function mpFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const token = getMercadoPagoToken();
+  const res = await fetch(`https://api.mercadopago.com${endpoint}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(options.headers ?? {}),
+    },
+    cache: "no-store",
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message =
+      (data as any)?.message ||
+      (data as any)?.error ||
+      (data as any)?.cause?.[0]?.description ||
+      `Erro Mercado Pago (${res.status})`;
+    throw new Error(String(message));
+  }
+
+  return data as T;
+}
 
 function parseSafeUrl(value: string) {
   try {
@@ -61,13 +109,14 @@ export function getCheckoutProBackUrls(request: Request, operationCode: string) 
   };
 }
 
-export async function createCheckoutProPreference(params: CheckoutPreferenceParams) {
-  const mpClient = getMercadoPagoClient();
-  const preferenceClient = new Preference(mpClient);
+export async function createCheckoutProPreference(
+  params: CheckoutPreferenceParams,
+): Promise<MpPreferenceResponse> {
   const backUrls = getCheckoutProBackUrls(params.request, params.operationCode);
 
-  return preferenceClient.create({
-    body: {
+  return mpFetch<MpPreferenceResponse>("/checkout/preferences", {
+    method: "POST",
+    body: JSON.stringify({
       items: [
         {
           id: String(params.itemId),
@@ -92,18 +141,16 @@ export async function createCheckoutProPreference(params: CheckoutPreferencePara
       expires: true,
       expiration_date_from: formatDateForMercadoPago(new Date()),
       expiration_date_to: formatDateForMercadoPago(params.expiresAt),
-    },
+    }),
   });
 }
 
-export async function getCheckoutProPaymentById(paymentId: string | number) {
-  const mpClient = getMercadoPagoClient();
-  const paymentClient = new Payment(mpClient);
-  return paymentClient.get({ id: Number(paymentId) });
+export async function getCheckoutProPaymentById(
+  paymentId: string | number,
+): Promise<MpPaymentResponse> {
+  return mpFetch<MpPaymentResponse>(`/v1/payments/${paymentId}`);
 }
 
-export async function getCheckoutProPaymentMethods() {
-  const mpClient = getMercadoPagoClient();
-  const paymentMethodsClient = new PaymentMethod(mpClient);
-  return paymentMethodsClient.get();
+export async function getCheckoutProPaymentMethods(): Promise<MpPaymentMethodItem[]> {
+  return mpFetch<MpPaymentMethodItem[]>("/v1/payment_methods");
 }
