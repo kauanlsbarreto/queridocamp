@@ -47,22 +47,38 @@ function formatDate(unixSeconds: number) {
   });
 }
 
+const PRIZES = [
+  { pos: "1°", prize: "R$ 300,00", colorClass: "text-yellow-400", borderClass: "border-yellow-400/40 bg-yellow-400/5" },
+  { pos: "2°", prize: "R$ 150,00", colorClass: "text-zinc-300", borderClass: "border-zinc-400/30 bg-zinc-400/5" },
+  { pos: "3°", prize: "R$ 100,00", colorClass: "text-orange-400", borderClass: "border-orange-400/30 bg-orange-400/5" },
+  { pos: "4°", prize: "R$ 60,00\nvoucher", colorClass: "text-blue-300", borderClass: "border-blue-400/30 bg-blue-400/5" },
+  { pos: "5°", prize: "Skin", colorClass: "text-purple-300", borderClass: "border-purple-400/30 bg-purple-400/5" },
+];
+
 export default function QueridaFilaClassificacaoClient({
   nextLeaderboard,
   players,
   showGeral = true,
   pastLeaderboards = [],
   initialLeaderboardId = "geral",
+  activeLeaderboardId,
 }: {
   nextLeaderboard: NextLeaderboard | null;
   players: RankingPlayer[];
   showGeral?: boolean;
   pastLeaderboards?: NextLeaderboard[];
   initialLeaderboardId?: string;
+  activeLeaderboardId?: string;
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'premium'>('all');
   const [selectedLeaderboard, setSelectedLeaderboard] = useState<'geral' | string>(initialLeaderboardId || 'geral');
+
+  const isLiveLeaderboard = Boolean(
+    activeLeaderboardId &&
+    selectedLeaderboard !== 'geral' &&
+    selectedLeaderboard === activeLeaderboardId
+  );
   const [loading, setLoading] = useState(false);
   const [dynamicPlayers, setDynamicPlayers] = useState<RankingPlayer[] | null>(null);
 
@@ -140,10 +156,10 @@ export default function QueridaFilaClassificacaoClient({
     if (filter === 'all' && selectedLeaderboard === 'geral') {
       setDynamicPlayers(null);
     } else {
-      fetchLeaderboardPlayers(selectedLeaderboard, filter === 'premium');
+      fetchLeaderboardPlayers(selectedLeaderboard, filter === 'premium' || isLiveLeaderboard);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLeaderboard, filter]);
+  }, [selectedLeaderboard, filter, isLiveLeaderboard]);
 
   return (
     <section className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black py-12">
@@ -233,6 +249,22 @@ export default function QueridaFilaClassificacaoClient({
               <div className="p-6 md:p-8 text-center">
                 <h2 className="text-lg font-black uppercase text-white">Nenhuma leaderboard encontrada</h2>
                 <p className="mt-3 text-sm text-zinc-400">Nenhuma leaderboard futura encontrada no momento.</p>
+              </div>
+            </PremiumCard>
+          )}
+
+          {isLiveLeaderboard && (
+            <PremiumCard>
+              <div className="p-6 md:p-8">
+                <h2 className="text-lg font-black uppercase text-white mb-4">🏆 Premiação</h2>
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-5">
+                  {PRIZES.map(({ pos, prize, colorClass, borderClass }) => (
+                    <div key={pos} className={`rounded-xl border ${borderClass} p-4 text-center`}>
+                      <p className={`text-2xl font-black ${colorClass}`}>{pos}</p>
+                      <p className="mt-1 text-sm font-bold text-white whitespace-pre-line">{prize}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </PremiumCard>
           )}

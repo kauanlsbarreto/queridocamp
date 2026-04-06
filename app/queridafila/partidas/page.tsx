@@ -11,7 +11,7 @@ async function getQueueMatches(): Promise<FaceitQueueMatch[]> {
 		`https://open.faceit.com/data/v4/hubs/${QUEUE_ID}/matches?type=past&offset=0&limit=100`,
 		{
 			headers: { Authorization: `Bearer ${API_KEY_FACEIT}` },
-			next: { revalidate },
+			next: { revalidate, tags: ["queridafila-partidas"] },
 		}
 	);
 

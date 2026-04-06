@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { RowDataPacket } from "mysql2";
 import { createMainConnection } from "@/lib/db";
+import {
+  calculateQueridaFilaPoints,
+  type QueridaFilaPointsProjection,
+} from "@/lib/queridafila-points";
 
 export const dynamic = "force-dynamic";
 
@@ -80,10 +85,6 @@ function toNumber(value: string | number | undefined | null): number {
   }
 
   return 0;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
@@ -228,47 +229,27 @@ function calculateWinnerPoints(details: MatchDetails, stats: MatchStatsResponse)
     return [];
   }
 
-  const buildNormalizedMap = (selector: (p: StatsProjection) => number) => {
-    const values = allPlayers.map(selector);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-
-    return new Map(
-      allPlayers.map((player) => {
-        if (max === min) {
-          return [player.playerId, 0.5] as const;
-        }
-
-        return [player.playerId, (selector(player) - min) / (max - min)] as const;
-      }),
-    );
-  };
-
-  const multiKillMap = buildNormalizedMap(
-    (p) => p.doubleKills + p.tripleKills * 2 + p.quadroKills * 3.5 + p.pentaKills * 5,
-  );
-  const adrMap = buildNormalizedMap((p) => p.adr);
-  const kdMap = buildNormalizedMap((p) => p.kd);
-  const krMap = buildNormalizedMap((p) => p.kr);
-  const assistsMap = buildNormalizedMap((p) => p.assists);
-  const hsMap = buildNormalizedMap((p) => p.hsPercent);
-  const mvpMap = buildNormalizedMap((p) => p.mvps);
+  const projections: QueridaFilaPointsProjection[] = allPlayers.map((player) => ({
+    playerId: player.playerId,
+    adr: player.adr,
+    kd: player.kd,
+    kr: player.kr,
+    assists: player.assists,
+    hsPercent: player.hsPercent,
+    mvps: player.mvps,
+    doubleKills: player.doubleKills,
+    tripleKills: player.tripleKills,
+    quadroKills: player.quadroKills,
+    pentaKills: player.pentaKills,
+  }));
+  const pointsMap = calculateQueridaFilaPoints(projections);
 
   return winnerPlayers
     .map((player) => {
-      const performanceScore =
-        (adrMap.get(player.playerId) ?? 0.5) * 0.3 +
-        (kdMap.get(player.playerId) ?? 0.5) * 0.25 +
-        (krMap.get(player.playerId) ?? 0.5) * 0.15 +
-        (mvpMap.get(player.playerId) ?? 0.5) * 0.1 +
-        (multiKillMap.get(player.playerId) ?? 0.5) * 0.1 +
-        (assistsMap.get(player.playerId) ?? 0.5) * 0.05 +
-        (hsMap.get(player.playerId) ?? 0.5) * 0.05;
-
       return {
         playerId: player.playerId,
         nickname: player.nickname,
-        points: Math.round(5 + clamp(performanceScore, 0, 1) * 25),
+        points: pointsMap.get(player.playerId) ?? 5,
       } satisfies WinnerPlayerScore;
     })
     .sort((a, b) => b.points - a.points);
@@ -489,6 +470,10 @@ export async function POST(req: Request) {
       updatedPlayers,
       notRegistered,
     });
+
+    revalidateTag("queridafila-partidas", "max");
+    revalidatePath("/queridafila/partidas", "page");
+    revalidatePath(`/queridafila/partidas/${matchId}`);
 
     return NextResponse.json({
       success: true,

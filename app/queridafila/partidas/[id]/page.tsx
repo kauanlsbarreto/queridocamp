@@ -4,6 +4,10 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, Shield, Swords } from "lucide-react";
 import PremiumCard from "@/components/premium-card";
 import SideAds from "@/components/side-ads";
+import {
+  calculateQueridaFilaPoints,
+  type QueridaFilaPointsProjection,
+} from "@/lib/queridafila-points";
 
 export const revalidate = 1800;
 
@@ -134,10 +138,6 @@ function roundValue(value: number, digits = 2) {
   return value.toFixed(digits);
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
 async function getMatchData(matchId: string) {
   const headers = { Authorization: `Bearer ${API_KEY_FACEIT}` };
 
@@ -254,49 +254,26 @@ function buildTeamSection(
 
 function assignMatchPoints(teamA: TeamSection, teamB: TeamSection) {
   const players = [...teamA.players, ...teamB.players];
-
-  const buildNormalizedMap = (selector: (player: PlayerRow) => number) => {
-    const values = players.map(selector);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-
-    return new Map(
-      players.map((player) => {
-        if (max === min) {
-          return [player.playerId, 0.5] as const;
-        }
-
-        return [player.playerId, (selector(player) - min) / (max - min)] as const;
-      }),
-    );
-  };
-
-  const multiKillMap = buildNormalizedMap(
-    (player) => player.doubleKills + player.tripleKills * 2 + player.quadroKills * 3.5 + player.pentaKills * 5,
-  );
-  const adrMap = buildNormalizedMap((player) => player.adr);
-  const kdMap = buildNormalizedMap((player) => player.kd);
-  const krMap = buildNormalizedMap((player) => player.kr);
-  const mvpMap = buildNormalizedMap((player) => player.mvps);
-  const assistsMap = buildNormalizedMap((player) => player.assists);
-  const hsMap = buildNormalizedMap((player) => player.hsPercent);
+  const projections: QueridaFilaPointsProjection[] = players.map((player) => ({
+    playerId: player.playerId,
+    adr: player.adr,
+    kd: player.kd,
+    kr: player.kr,
+    assists: player.assists,
+    hsPercent: player.hsPercent,
+    mvps: player.mvps,
+    doubleKills: player.doubleKills,
+    tripleKills: player.tripleKills,
+    quadroKills: player.quadroKills,
+    pentaKills: player.pentaKills,
+  }));
+  const pointsMap = calculateQueridaFilaPoints(projections);
 
   const applyPoints = (team: TeamSection) => {
     team.players = team.players.map((player) => {
-      const performanceScore =
-        (adrMap.get(player.playerId) ?? 0.5) * 0.3 +
-        (kdMap.get(player.playerId) ?? 0.5) * 0.25 +
-        (krMap.get(player.playerId) ?? 0.5) * 0.15 +
-        (mvpMap.get(player.playerId) ?? 0.5) * 0.1 +
-        (multiKillMap.get(player.playerId) ?? 0.5) * 0.1 +
-        (assistsMap.get(player.playerId) ?? 0.5) * 0.05 +
-        (hsMap.get(player.playerId) ?? 0.5) * 0.05;
-
-      const points = Math.round(5 + clamp(performanceScore, 0, 1) * 25);
-
       return {
         ...player,
-        points,
+        points: pointsMap.get(player.playerId) ?? 5,
       };
     });
   };

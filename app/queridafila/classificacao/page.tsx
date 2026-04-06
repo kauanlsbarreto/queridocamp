@@ -221,6 +221,7 @@ export default async function QueridaFilaClassificacaoPage() {
           players={rankingPlayers}
           pastLeaderboards={leaderboards}
           initialLeaderboardId={activeLeaderboard?.leaderboard_id || "geral"}
+          activeLeaderboardId={activeLeaderboard?.leaderboard_id}
         />
       </>
     );
