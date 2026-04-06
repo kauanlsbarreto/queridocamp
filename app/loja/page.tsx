@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PremiumCard from "@/components/premium-card";
 import TimeAdminGate from "@/components/time-admin-gate";
@@ -83,6 +84,7 @@ function resolveStoreImageSrc(imageUrl: string | null) {
 }
 
 export default function LojaPage() {
+	const router = useRouter();
 	const [user, setUser] = useState<FaceitUser | null>(null);
 	const [items, setItems] = useState<StoreItem[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -204,6 +206,16 @@ export default function LojaPage() {
 			error: "",
 			submitting: false,
 		});
+	};
+
+	const handleBuyItem = (item: StoreItem) => {
+		const isPricePayment = Number(item.preco || 0) > 0 && Number(item.moedas || 0) <= 0;
+		if (isPricePayment) {
+			router.push(`/loja/pagamento?item=${item.id}`);
+			return;
+		}
+
+		openPurchaseModal(item);
 	};
 
 	const closePurchaseModal = () => {
@@ -577,10 +589,12 @@ export default function LojaPage() {
 											)}
 											<button
 												type="button"
-												onClick={() => openPurchaseModal(item)}
+												onClick={() => handleBuyItem(item)}
 												className="flex-1 rounded-lg border border-gold bg-gold px-3 py-2 text-xs font-black uppercase text-black transition hover:opacity-90"
 											>
-												Comprar
+												{Number(item.preco || 0) > 0 && Number(item.moedas || 0) <= 0
+													? "Pagar"
+													: "Comprar"}
 											</button>
 										</div>
 									</div>
