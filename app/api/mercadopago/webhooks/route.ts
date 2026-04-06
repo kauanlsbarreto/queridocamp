@@ -15,6 +15,80 @@ import {
   sendMercadoPagoEventToDiscord,
   verifyMercadoPagoWebhookSignature,
 } from "@/lib/mercado-pago-webhook";
+import { sendStorePurchaseWebhook } from "@/lib/loja-purchase-webhook";
+
+async function sendApprovedStorePurchaseWebhook(connection: any, operationCode: string, request: Request) {
+  const [rows] = await connection.query(
+    `SELECT lp.id, lp.player_id, lp.faceit_guid, lp.estoque_id, lp.item_nome, lp.amount,
+            p.nickname AS player_nickname, p.avatar AS player_avatar, p.admin AS player_admin, p.points,
+            e.nome, e.preco, e.moedas, e.estoque, e.categoria, e.tipo_item, e.imagem_url
+     FROM loja_pagamentos_preco lp
+     INNER JOIN players p ON p.id = lp.player_id
+     INNER JOIN estoque e ON e.id = lp.estoque_id
+     WHERE lp.operation_code = ?
+     LIMIT 1`,
+    [operationCode],
+  );
+
+  const purchases = rows as Array<{
+    id: number;
+    player_id: number;
+    faceit_guid: string;
+    estoque_id: number;
+    item_nome: string;
+    amount: number;
+    player_nickname: string | null;
+    player_avatar: string | null;
+    player_admin: number | null;
+    points: number | null;
+    nome: string | null;
+    preco: number | null;
+    moedas: number | null;
+    estoque: number | null;
+    categoria: string | null;
+    tipo_item: string | null;
+    imagem_url: string | null;
+  }>;
+
+  const purchase = purchases[0];
+  if (!purchase) return;
+
+  const ip =
+    request.headers.get("cf-connecting-ip") ||
+    request.headers.get("x-forwarded-for") ||
+    request.headers.get("x-real-ip") ||
+    "";
+
+  await sendStorePurchaseWebhook({
+    purchaseId: purchase.id,
+    faceitGuid: String(purchase.faceit_guid || ""),
+    playerId: Number(purchase.player_id || 0),
+    playerNickname: String(purchase.player_nickname || ""),
+    playerAvatar: String(purchase.player_avatar || ""),
+    playerAdmin: Number(purchase.player_admin || 0),
+    itemId: Number(purchase.estoque_id || 0),
+    itemName: String(purchase.nome || purchase.item_nome || ""),
+    itemCategory: String(purchase.categoria || ""),
+    itemType: String(purchase.tipo_item || ""),
+    itemPreco: Number(purchase.preco || purchase.amount || 0),
+    itemMoedas: Number(purchase.moedas || 0),
+    estoqueBefore: Number(purchase.estoque || 0) + 1,
+    estoqueAfter: Number(purchase.estoque || 0),
+    requiredPoints: Number(purchase.moedas || 0),
+    pointsBefore: Number(purchase.points || 0),
+    pointsAfter: Number(purchase.points || 0),
+    labelText: String(purchase.nome || purchase.item_nome || ""),
+    imageUrl: String(purchase.imagem_url || ""),
+    imageName: String(purchase.nome || purchase.item_nome || ""),
+    imageSizeBytes: 0,
+    imageMimeType: "mercado-pago/approved",
+    requestUrl: request.url,
+    method: request.method,
+    ip,
+    userAgent: request.headers.get("user-agent") || "",
+    referer: request.headers.get("referer") || "",
+  });
+}
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +190,14 @@ export async function POST(request: Request) {
         mpPaymentId: paymentId || undefined,
       });
 
+      if (mappedStatus === "approved") {
+        try {
+          await sendApprovedStorePurchaseWebhook(connection, operationCode, request);
+        } catch (webhookError) {
+          console.error("[mercadopago/webhooks] falha ao enviar webhook de Nova Compra na Loja", webhookError);
+        }
+      }
+
       await sendMercadoPagoEventToDiscord({
         meta,
         operationCode,
@@ -184,6 +266,14 @@ export async function POST(request: Request) {
       cancelReason: mapClientPaymentFailureMessage(payment.status_detail, mappedStatus),
       mpPaymentId: normalizedPaymentId,
     });
+
+    if (mappedStatus === "approved") {
+      try {
+        await sendApprovedStorePurchaseWebhook(connection, operationCode, request);
+      } catch (webhookError) {
+        console.error("[mercadopago/webhooks] falha ao enviar webhook de Nova Compra na Loja", webhookError);
+      }
+    }
 
     await sendMercadoPagoEventToDiscord({
       meta,

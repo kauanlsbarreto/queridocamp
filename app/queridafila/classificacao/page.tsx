@@ -182,6 +182,21 @@ function getNextLeaderboard(items: LeaderboardItem[]) {
     .sort((a, b) => a.start_date - b.start_date)[0] || null;
 }
 
+function getActiveLeaderboard(items: LeaderboardItem[]) {
+  const now = Math.floor(Date.now() / 1000);
+
+  return (
+    [...items]
+      .filter((item) => {
+        const status = (item.status || "").toUpperCase();
+        const isOngoingByStatus = status === "ONGOING";
+        const isOngoingByDates = item.start_date <= now && item.end_date >= now;
+        return isOngoingByStatus || isOngoingByDates;
+      })
+      .sort((a, b) => b.start_date - a.start_date)[0] || null
+  );
+}
+
 export default async function QueridaFilaClassificacaoPage() {
   try {
     const [leaderboardsData, premiumGuids] = await Promise.all([
@@ -189,6 +204,7 @@ export default async function QueridaFilaClassificacaoPage() {
       fetchPremiumGuids(),
     ]);
     const leaderboards = Array.isArray(leaderboardsData.items) ? leaderboardsData.items : [];
+    const activeLeaderboard = getActiveLeaderboard(leaderboards);
     const nextLeaderboard = getNextLeaderboard(leaderboards);
 
     const rankingPlayersRaw = await fetchAllTimeRankingPlayers();
@@ -204,6 +220,7 @@ export default async function QueridaFilaClassificacaoPage() {
           nextLeaderboard={nextLeaderboard}
           players={rankingPlayers}
           pastLeaderboards={leaderboards}
+          initialLeaderboardId={activeLeaderboard?.leaderboard_id || "geral"}
         />
       </>
     );

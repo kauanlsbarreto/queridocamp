@@ -52,15 +52,17 @@ export default function QueridaFilaClassificacaoClient({
   players,
   showGeral = true,
   pastLeaderboards = [],
+  initialLeaderboardId = "geral",
 }: {
   nextLeaderboard: NextLeaderboard | null;
   players: RankingPlayer[];
   showGeral?: boolean;
   pastLeaderboards?: NextLeaderboard[];
+  initialLeaderboardId?: string;
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'premium'>('all');
-  const [selectedLeaderboard, setSelectedLeaderboard] = useState<'geral' | string>('geral');
+  const [selectedLeaderboard, setSelectedLeaderboard] = useState<'geral' | string>(initialLeaderboardId || 'geral');
   const [loading, setLoading] = useState(false);
   const [dynamicPlayers, setDynamicPlayers] = useState<RankingPlayer[] | null>(null);
 
