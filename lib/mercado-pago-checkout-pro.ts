@@ -151,6 +151,28 @@ export async function getCheckoutProPaymentById(
   return mpFetch<MpPaymentResponse>(`/v1/payments/${paymentId}`);
 }
 
+export type MpMerchantOrderPayment = {
+  id: number | null;
+  status: string | null;
+  status_detail: string | null;
+  [key: string]: unknown;
+};
+
+export type MpMerchantOrderResponse = {
+  id: number | null;
+  status: string | null;
+  order_status: string | null;
+  external_reference: string | null;
+  payments: MpMerchantOrderPayment[];
+  [key: string]: unknown;
+};
+
+export async function getMerchantOrderById(
+  orderId: string | number,
+): Promise<MpMerchantOrderResponse> {
+  return mpFetch<MpMerchantOrderResponse>(`/merchant_orders/${orderId}`);
+}
+
 export async function getCheckoutProPaymentMethods(): Promise<MpPaymentMethodItem[]> {
   return mpFetch<MpPaymentMethodItem[]>("/v1/payment_methods");
 }

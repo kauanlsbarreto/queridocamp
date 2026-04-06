@@ -9,7 +9,7 @@ import {
   readOperationByCode,
   touchPendingOperation,
 } from "@/lib/loja-pagamento";
-import { getCheckoutProPaymentById } from "@/lib/mercado-pago-checkout-pro";
+import { getCheckoutProPaymentById, getMerchantOrderById } from "@/lib/mercado-pago-checkout-pro";
 import {
   parseMercadoPagoWebhookMeta,
   sendMercadoPagoEventToDiscord,
@@ -50,6 +50,85 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, ignored: true }, { status: 200 });
     }
 
+    // merchant_order traz um ID de ordem comercial, não de pagamento.
+    // Precisamos buscar a ordem para obter o external_reference e o pagamento real.
+    const isMerchantOrder =
+      meta.topic === "merchant_order" || meta.topic === "topic_merchant_order_wh";
+
+    if (isMerchantOrder) {
+      const order = await getMerchantOrderById(meta.id);
+
+      const operationCode = String(order.external_reference || "").trim();
+      if (!operationCode) {
+        await sendMercadoPagoEventToDiscord({
+          meta,
+          operationStatus: "ignored",
+          paymentStatusDetail: `merchant_order sem external_reference (order_status=${order.order_status})`,
+        });
+        return NextResponse.json({ ok: true, ignored: true }, { status: 200 });
+      }
+
+      const ctx = await getCloudflareContext({ async: true });
+      const env = ctx.env as any;
+      connection = await createMainConnection(env);
+      await ensurePricePaymentsTable(connection);
+
+      const operation = await readOperationByCode(connection, operationCode);
+      if (!operation) {
+        await sendMercadoPagoEventToDiscord({
+          meta,
+          operationCode,
+          operationStatus: "ignored",
+          paymentStatusDetail: "Operacao nao encontrada no banco (merchant_order)",
+        });
+        return NextResponse.json({ ok: true, ignored: true }, { status: 200 });
+      }
+
+      // Encontra o pagamento mais relevante dentro da ordem (último com status real).
+      const payments = Array.isArray(order.payments) ? order.payments : [];
+      const latestPayment = payments
+        .filter((p) => p.status && p.status !== "cancelled")
+        .at(-1) ?? payments.at(-1);
+
+      const paymentStatus = latestPayment?.status ?? null;
+      const paymentStatusDetail = String(latestPayment?.status_detail ?? "");
+      const paymentId = String(latestPayment?.id || "");
+
+      const mappedStatus = mapMercadoPagoStatus(paymentStatus);
+
+      if (mappedStatus === "pending") {
+        await touchPendingOperation(connection, operationCode, {
+          mpPaymentId: paymentId || undefined,
+        });
+        await sendMercadoPagoEventToDiscord({
+          meta,
+          operationCode,
+          operationStatus: "pending",
+          paymentStatus: String(paymentStatus || ""),
+          paymentStatusDetail: `merchant_order order_status=${order.order_status}`,
+          checkoutUrl: operation.checkout_url || undefined,
+        });
+        return NextResponse.json({ ok: true, status: "pending" }, { status: 200 });
+      }
+
+      await finalizeOperationWithStockPolicy(connection, operationCode, mappedStatus, {
+        cancelReason: mapClientPaymentFailureMessage(paymentStatusDetail, mappedStatus),
+        mpPaymentId: paymentId || undefined,
+      });
+
+      await sendMercadoPagoEventToDiscord({
+        meta,
+        operationCode,
+        operationStatus: mappedStatus,
+        paymentStatus: String(paymentStatus || ""),
+        paymentStatusDetail: `merchant_order order_status=${order.order_status} | ${paymentStatusDetail}`,
+        checkoutUrl: operation.checkout_url || undefined,
+      });
+
+      return NextResponse.json({ ok: true, status: mappedStatus }, { status: 200 });
+    }
+
+    // Tópico de pagamento direto (payment / default).
     const payment = await getCheckoutProPaymentById(meta.id);
 
     const operationCode = String(payment.external_reference || "").trim();
