@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/queridafila/process-finished-matches",
+      "schedule": "*/10 * * * *"
+    },
+    {
       "path": "/api/admin/update-data",
       "schedule": "0 0 * * *"
     }

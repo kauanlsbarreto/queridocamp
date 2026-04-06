@@ -62,7 +62,7 @@ type PlayerDbRow = {
 type MatchPointsProcessParams = {
   matchId: string;
   queueIdHint?: string;
-  source?: "webhook" | "match-page-auto" | "match-page-manual";
+  source?: "webhook" | "match-page-auto" | "match-page-manual" | "cron";
 };
 
 export type MatchPointsProcessResult = {
