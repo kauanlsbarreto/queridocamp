@@ -191,6 +191,13 @@ export default function QueridaFilaClassificacaoClient({
                     >
                       Premium
                     </button>
+                    <a
+                      href="/regras.pdf"
+                      download
+                      className="px-4 py-2 rounded-lg text-sm font-bold border border-white/10 bg-black/40 text-white hover:border-gold transition-colors"
+                    >
+                      Regras
+                    </a>
                   </div>
                 </div>
               </div>

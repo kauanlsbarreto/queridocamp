@@ -126,7 +126,7 @@ function InscricaoForm() {
                       <span className="font-semibold">Chave PIX (CNPJ):</span> 63.790.373/0001-23
                     </p>
                     <p>
-                      <span className="font-semibold">Banco:</span> Inter
+                      <span className="font-semibold">Banco:</span> Mercado Pago
                     </p>
                     <p>
                       <span className="font-semibold">Nome Fantasia:</span> Querido Camp
