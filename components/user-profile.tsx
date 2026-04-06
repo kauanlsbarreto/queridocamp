@@ -97,42 +97,44 @@ export const UserProfile = ({
   return (
     <>
     <TooltipProvider delayDuration={150}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <div className="flex items-center gap-3 cursor-pointer">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 select-none"
-                  onContextMenu={(event) => event.preventDefault()}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="h-5 w-5 shrink-0 bg-contain bg-center bg-no-repeat"
-                    style={{ backgroundImage: "url('/moeda.png')" }}
-                  />
-                  <span className="text-sm font-semibold text-white">{userPoints}</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent
-                side="bottom"
-                className="max-w-64 rounded-xl border border-gold/20 bg-[#0b1118] px-4 py-3 text-sm leading-relaxed text-white shadow-2xl"
-              >
-                Os pontos são calculados apos o termino de uma partida podendo receber de 5 até 30 pontos.
-              </TooltipContent>
-            </Tooltip>
+      <div className="flex items-center gap-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href="/fac/pontos"
+              className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 select-none"
+              onContextMenu={(event) => event.preventDefault()}
+            >
+              <span
+                aria-hidden="true"
+                className="h-5 w-5 shrink-0 bg-contain bg-center bg-no-repeat"
+                style={{ backgroundImage: "url('/moeda.png')" }}
+              />
+              <span className="text-sm font-semibold text-white">{userPoints}</span>
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent
+            side="bottom"
+            className="max-w-64 rounded-xl border border-gold/20 bg-[#0b1118] px-4 py-3 text-sm leading-relaxed text-white shadow-2xl"
+          >
+            Os pontos sao calculados apos o termino da partida. Clique para entender todas as regras.
+          </TooltipContent>
+        </Tooltip>
 
-            <span className="text-white font-medium">{nickname}</span>
-            <Avatar className="h-9 w-9 border border-white/10">
-              <AvatarImage src={avatar} alt={nickname} />
-              <AvatarFallback className="bg-[#FF5500] text-white">
-                {(nickname ? nickname.slice(0, 2) : '??').toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-          </div>
-        </DropdownMenuTrigger>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <div className="flex items-center gap-3 cursor-pointer">
+              <span className="text-white font-medium">{nickname}</span>
+              <Avatar className="h-9 w-9 border border-white/10">
+                <AvatarImage src={avatar} alt={nickname} />
+                <AvatarFallback className="bg-[#FF5500] text-white">
+                  {(nickname ? nickname.slice(0, 2) : '??').toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+          </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" className="w-56 bg-[#121212] border-white/10 text-white">
+          <DropdownMenuContent align="end" className="w-56 bg-[#121212] border-white/10 text-white">
           <DropdownMenuLabel className="text-gray-400 font-normal">Minha Conta</DropdownMenuLabel>
           <DropdownMenuSeparator className="bg-white/10" />
         
@@ -180,8 +182,9 @@ export const UserProfile = ({
           >
             Sair
           </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </TooltipProvider>
 
     {/* ...existing code... */}

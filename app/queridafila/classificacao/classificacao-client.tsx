@@ -89,12 +89,27 @@ export default function QueridaFilaClassificacaoClient({
     return () => clearInterval(timer);
   }, [router]);
 
-  // O filtro premium é feito via API
   const filteredPlayers = useMemo(() => {
-    return dynamicPlayers !== null ? dynamicPlayers : players;
-  }, [players, dynamicPlayers]);
+    const sourcePlayers = dynamicPlayers !== null ? dynamicPlayers : players;
 
-  // Buscar ranking de leaderboard passada OU premium
+    if (filter === "all") {
+      return sourcePlayers;
+    }
+
+    // Premium: mostra somente premium e reordena dentro do grupo.
+    return sourcePlayers
+      .filter((row) => row.isPremium)
+      .sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        return a.position - b.position;
+      })
+      .map((row, index) => ({
+        ...row,
+        position: index + 1,
+      }));
+  }, [players, dynamicPlayers, filter]);
+
+  // Buscar ranking de leaderboard selecionada (exceto ranking geral, que ja vem do SSR)
 
   const fetchLeaderboardPlayers = useCallback(async (leaderboardId: string, premium: boolean) => {
     setLoading(true);
@@ -153,13 +168,13 @@ export default function QueridaFilaClassificacaoClient({
   }, []);
 
   useEffect(() => {
-    if (filter === 'all' && selectedLeaderboard === 'geral') {
+    if (selectedLeaderboard === 'geral') {
       setDynamicPlayers(null);
     } else {
-      fetchLeaderboardPlayers(selectedLeaderboard, filter === 'premium' || isLiveLeaderboard);
+      fetchLeaderboardPlayers(selectedLeaderboard, filter === 'premium');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLeaderboard, filter, isLiveLeaderboard]);
+  }, [selectedLeaderboard, filter]);
 
   return (
     <section className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black py-12">
@@ -209,14 +224,14 @@ export default function QueridaFilaClassificacaoClient({
                     >
                       Premium
                     </button>
-                    <a
-                      href="/regras.pdf"
-                      download
-                      className="px-4 py-2 rounded-lg text-sm font-bold border border-white/10 bg-black/40 text-white hover:border-gold transition-colors"
-                    >
-                      Regras
-                    </a>
                   </div>
+                  <a
+                    href="/HUB%20PREMIADA.pdf"
+                    download="HUB PREMIADA.pdf"
+                    className="mt-2 inline-flex w-full items-center justify-center self-center rounded-xl border border-gold/60 bg-gradient-to-r from-gold via-amber-300 to-gold px-5 py-2.5 text-center text-sm font-black uppercase tracking-wide text-black shadow-[0_0_22px_rgba(255,215,0,0.25)] transition-all hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(255,215,0,0.4)] md:mt-0 md:w-auto"
+                  >
+                    Baixar Regras
+                  </a>
                 </div>
               </div>
             </div>
