@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { ArrowLeft, ExternalLink, Shield, Swords } from "lucide-react";
 import PremiumCard from "@/components/premium-card";
 import SideAds from "@/components/side-ads";
@@ -8,6 +9,10 @@ import {
   calculateQueridaFilaPoints,
   type QueridaFilaPointsProjection,
 } from "@/lib/queridafila-points";
+import {
+  getQueridaFilaMatchProcessingStatus,
+  processQueridaFilaMatchPoints,
+} from "@/lib/queridafila-match-points-processor";
 
 export const revalidate = 1800;
 
@@ -16,6 +21,7 @@ const API_KEY_FACEIT = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
 type MatchDetails = {
   match_id: string;
   status: string;
+  competition_id?: string;
   best_of?: number;
   started_at?: number;
   finished_at?: number;
@@ -412,6 +418,37 @@ export default async function QueridaFilaMatchDetailPage({ params }: { params: P
   }
 
   const { details, stats } = matchData;
+  const isMatchFinished = (details.status || "").toLowerCase().includes("finished");
+
+  let processedState = await getQueridaFilaMatchProcessingStatus(id);
+  let autoProcessMessage = "";
+
+  if (isMatchFinished && !processedState.processed) {
+    const autoResult = await processQueridaFilaMatchPoints({
+      matchId: id,
+      queueIdHint: details.competition_id,
+      source: "match-page-auto",
+    });
+
+    processedState = { processed: autoResult.processed };
+    autoProcessMessage = autoResult.message;
+  }
+
+  const pointsWereComputed = processedState.processed;
+
+  async function addPointsManuallyAction() {
+    "use server";
+
+    await processQueridaFilaMatchPoints({
+      matchId: id,
+      queueIdHint: details.competition_id,
+      source: "match-page-manual",
+    });
+
+    revalidatePath(`/queridafila/partidas/${id}`);
+    redirect(`/queridafila/partidas/${id}`);
+  }
+
   const firstRound = stats.rounds?.[0];
 
   if (!firstRound || !details.teams?.faction1 || !details.teams?.faction2 || !firstRound.teams || firstRound.teams.length < 2) {
@@ -524,6 +561,29 @@ export default async function QueridaFilaMatchDetailPage({ params }: { params: P
                 </div>
               </div>
             </PremiumCard>
+
+            {isMatchFinished && !pointsWereComputed && (
+              <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+                <div className="font-bold">Pontos ainda nao computados para esta partida.</div>
+                <div className="mt-1 text-amber-200/90">
+                  {autoProcessMessage || "A tentativa automatica falhou. Clique no botao para tentar computar manualmente."}
+                </div>
+                <form action={addPointsManuallyAction} className="mt-3">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center rounded-lg border border-amber-300/40 bg-amber-400/20 px-4 py-2 font-semibold text-amber-50 transition-colors hover:bg-amber-400/30"
+                  >
+                    Adicionar pontos desta partida
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {isMatchFinished && pointsWereComputed && autoProcessMessage && (
+              <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+                {autoProcessMessage}
+              </div>
+            )}
 
             <div className="space-y-5">
               <TeamTable team={teamA} accent="blue" showPoints={teamAWon} />
