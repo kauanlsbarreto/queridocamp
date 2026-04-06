@@ -4,6 +4,7 @@ import { createMainConnection } from "@/lib/db";
 import {
   ensurePricePaymentsTable,
   finalizeOperationWithStockPolicy,
+  mapClientPaymentFailureMessage,
   mapMercadoPagoStatus,
   readOperationByCode,
   touchPendingOperation,
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
     }
 
     await finalizeOperationWithStockPolicy(connection, operationCode, mappedStatus, {
-      cancelReason: payment.status_detail ?? undefined,
+      cancelReason: mapClientPaymentFailureMessage(payment.status_detail, mappedStatus),
       mpPaymentId: normalizedPaymentId,
     });
 
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, status: mappedStatus }, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    console.error("[mercadopago/webhooks] erro no processamento do webhook", error);
 
     const metaFallback = {
       topic: "unknown",
@@ -122,10 +123,10 @@ export async function POST(request: Request) {
     await sendMercadoPagoEventToDiscord({
       meta: metaFallback,
       operationStatus: "error",
-      paymentStatusDetail: message,
+      paymentStatusDetail: "Erro interno ao processar webhook",
     });
 
-    return NextResponse.json({ ok: false, message }, { status: 500 });
+    return NextResponse.json({ ok: false, message: "Erro interno" }, { status: 500 });
   } finally {
     if (connection) {
       await connection.end();

@@ -5,6 +5,7 @@ import {
   ensurePricePaymentsTable,
   finalizeOperationWithStockPolicy,
   isExpired,
+  mapClientPaymentFailureMessage,
   mapMercadoPagoStatus,
   readOperationByCode,
   touchPendingOperation,
@@ -29,7 +30,7 @@ async function syncWithMercadoPago(connection: any, operationCode: string, payme
   }
 
   await finalizeOperationWithStockPolicy(connection, operationCode, mappedStatus, {
-    cancelReason: payment.status_detail || undefined,
+    cancelReason: mapClientPaymentFailureMessage(payment.status_detail, mappedStatus),
     mpPaymentId: normalizedPaymentId,
   });
 }
@@ -97,7 +98,7 @@ export async function GET(request: Request) {
           amount: Number(updatedOperation.amount || 0),
           checkoutUrl: updatedOperation.checkout_url,
           expiresAt: updatedOperation.expires_at,
-          cancelReason: updatedOperation.cancel_reason,
+          cancelReason: mapClientPaymentFailureMessage(updatedOperation.cancel_reason, updatedOperation.status),
           mpPreferenceId: updatedOperation.mp_preference_id,
           mpPaymentId: updatedOperation.mp_payment_id,
           createdAt: updatedOperation.created_at,
@@ -107,8 +108,8 @@ export async function GET(request: Request) {
       { status: 200 },
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
-    return NextResponse.json({ message }, { status: 500 });
+    console.error("[loja/pagamento/status] erro ao consultar status", error);
+    return NextResponse.json({ message: "Não foi possível consultar o status agora." }, { status: 500 });
   } finally {
     if (connection) {
       await connection.end();

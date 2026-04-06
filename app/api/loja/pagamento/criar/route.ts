@@ -166,15 +166,15 @@ export async function POST(request: Request) {
     if (connection && reservedOperationCode) {
       try {
         await finalizeOperationWithStockPolicy(connection, reservedOperationCode, "failed", {
-          cancelReason: "Erro ao criar checkout Mercado Pago.",
+          cancelReason: "Erro ao iniciar o pagamento.",
         });
       } catch {
         // no-op
       }
     }
 
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
-    return NextResponse.json({ message }, { status: 500 });
+    console.error("[loja/pagamento/criar] erro ao criar pagamento", error);
+    return NextResponse.json({ message: "Não foi possível iniciar o pagamento agora." }, { status: 500 });
   } finally {
     if (connection) {
       await connection.end();

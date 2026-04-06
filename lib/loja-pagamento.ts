@@ -129,6 +129,51 @@ export function mapMercadoPagoStatus(statusRaw: string | null | undefined): Oper
   return "failed";
 }
 
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+export function sanitizeMercadoPagoText(value: string | null | undefined) {
+  const text = normalizeWhitespace(String(value || ""));
+  if (!text) {
+    return "";
+  }
+
+  const lower = text.toLowerCase();
+  const blockedHints = [
+    "developers.mercadopago.com",
+    "sitio de desarrolladores",
+    "mercadolibre",
+    "si quieres conocer",
+    "recursos de la api",
+    "checkout",
+    "api.mercadopago.com",
+  ];
+
+  if (blockedHints.some((hint) => lower.includes(hint))) {
+    return "";
+  }
+
+  return text;
+}
+
+export function mapClientPaymentFailureMessage(rawReason: string | null | undefined, status?: OperationStatus) {
+  const reason = sanitizeMercadoPagoText(rawReason);
+
+  if (reason) {
+    return reason;
+  }
+
+  if (status === "expired") {
+    return "Tempo limite de pagamento expirado.";
+  }
+
+  if (status === "cancelled") {
+    return "Pagamento cancelado.";
+  }
+
+  return "Não foi possível confirmar o pagamento.";
+}
 
 
 export async function touchPendingOperation(

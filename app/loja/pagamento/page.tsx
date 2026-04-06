@@ -229,10 +229,10 @@ export default function LojaPagamentoPage() {
       <div className="container mx-auto max-w-4xl px-4">
         <PremiumCard>
           <div className="space-y-4 p-6 md:p-8">
-            <p className="text-xs uppercase tracking-[0.2em] text-gold/80">Mercado Pago Checkout Pro</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-gold/80">Pagamento Seguro</p>
             <h1 className="text-3xl font-black uppercase text-white">Pagamento da Loja</h1>
             <p className="text-sm text-zinc-300">
-              Esta área usa Checkout Pro para pagamentos em reais. A operação expira automaticamente em 5 minutos.
+              Finalize seu pagamento em reais com redirecionamento seguro. A operação expira automaticamente em 5 minutos.
             </p>
 
             {(loading || creating) && (
