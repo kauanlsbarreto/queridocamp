@@ -65,35 +65,57 @@ function parseSignatureHeader(signatureHeader: string) {
   return { ts, v1 };
 }
 
-export function verifyMercadoPagoWebhookSignature(request: Request, id: string) {
+export type SignatureCheckResult = {
+  valid: boolean;
+  reason: string;
+  ts: string;
+  receivedV1: string;
+  expectedHash: string;
+  requestId: string;
+};
+
+export function verifyMercadoPagoWebhookSignature(request: Request, id: string): SignatureCheckResult {
+  const blank: Omit<SignatureCheckResult, "valid" | "reason"> = { ts: "", receivedV1: "", expectedHash: "", requestId: "" };
+
   const secret = normalizeString(process.env.MERCADO_PAGO_WEBHOOK_SECRET);
   if (!secret) {
     // Se não houver segredo configurado, não bloqueia para manter compatibilidade.
-    return { valid: true, reason: "secret-not-configured" };
+    return { valid: true, reason: "secret-not-configured", ...blank };
   }
 
   const signatureHeader = normalizeString(request.headers.get("x-signature"));
   const requestId = normalizeString(request.headers.get("x-request-id"));
 
   if (!signatureHeader || !requestId || !id) {
-    return { valid: false, reason: "missing-signature-data" };
+    return { valid: false, reason: "missing-signature-data", ...blank, requestId };
   }
 
   const { ts, v1 } = parseSignatureHeader(signatureHeader);
   if (!ts || !v1) {
-    return { valid: false, reason: "invalid-signature-header" };
+    return { valid: false, reason: "invalid-signature-header", ts, receivedV1: v1, expectedHash: "", requestId };
   }
 
   const manifest = `id:${id};request-id:${requestId};ts:${ts};`;
-  const expected = createHmac("sha256", secret).update(manifest).digest("hex");
+  const expectedHash = createHmac("sha256", secret).update(manifest).digest("hex");
+
+  // Normaliza para minúsculas — MercadoPago pode enviar hex em maiúsculas.
+  const normalizedV1 = v1.toLowerCase().trim();
 
   try {
-    const left = Buffer.from(expected, "utf8");
-    const right = Buffer.from(v1, "utf8");
+    const left = Buffer.from(expectedHash, "utf8");
+    const right = Buffer.from(normalizedV1, "utf8");
     const valid = left.length === right.length && timingSafeEqual(left, right);
-    return { valid, reason: valid ? "ok" : "signature-mismatch" };
+    return {
+      valid,
+      reason: valid ? "ok" : "signature-mismatch",
+      ts,
+      receivedV1: normalizedV1,
+      // Exibe o hash esperado apenas em caso de falha, para diagnóstico no Discord.
+      expectedHash: valid ? "" : expectedHash,
+      requestId,
+    };
   } catch {
-    return { valid: false, reason: "signature-compare-failed" };
+    return { valid: false, reason: "signature-compare-failed", ts, receivedV1: normalizedV1, expectedHash: "", requestId };
   }
 }
 
@@ -104,6 +126,12 @@ export async function sendMercadoPagoEventToDiscord(payload: {
   paymentStatus?: string;
   paymentStatusDetail?: string;
   checkoutUrl?: string;
+  signatureDiag?: {
+    ts?: string;
+    receivedV1?: string;
+    expectedHash?: string;
+    requestId?: string;
+  };
 }) {
   const webhookUrl = normalizeString(process.env.MERCADO_PAGO_DISCORD_WEBHOOK_URL);
   if (!webhookUrl) {
@@ -123,6 +151,14 @@ export async function sendMercadoPagoEventToDiscord(payload: {
 
   if (payload.checkoutUrl) {
     fields.push({ name: "Checkout URL", value: payload.checkoutUrl, inline: false });
+  }
+
+  if (payload.signatureDiag) {
+    const d = payload.signatureDiag;
+    if (d.requestId) fields.push({ name: "X-Request-Id", value: d.requestId, inline: false });
+    if (d.ts) fields.push({ name: "Sig TS", value: d.ts, inline: true });
+    if (d.receivedV1) fields.push({ name: "Recebido (v1)", value: `\`${d.receivedV1}\``, inline: false });
+    if (d.expectedHash) fields.push({ name: "Esperado (servidor)", value: `\`${d.expectedHash}\``, inline: false });
   }
 
   const body = {

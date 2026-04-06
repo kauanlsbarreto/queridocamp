@@ -31,6 +31,12 @@ export async function POST(request: Request) {
         meta,
         operationStatus: "rejected",
         paymentStatusDetail: `Assinatura invalida (${signatureCheck.reason})`,
+        signatureDiag: {
+          ts: signatureCheck.ts,
+          receivedV1: signatureCheck.receivedV1,
+          expectedHash: signatureCheck.expectedHash,
+          requestId: signatureCheck.requestId,
+        },
       });
       return NextResponse.json({ ok: false, message: "Assinatura inválida" }, { status: 401 });
     }
