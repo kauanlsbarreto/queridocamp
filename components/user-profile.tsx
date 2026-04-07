@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -12,7 +12,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useToast } from '@/components/hooks/use-toast'
 
 
 export type UserProfile = {
@@ -43,11 +42,48 @@ export const UserProfile = ({
   faceit_guid,
   onLogout,
 }: UserProfileProps) => {
-  const { toast } = useToast();
   const profileId = (id === 0 && ID) ? ID : (id ?? ID);
   const [userAdminLevel, setUserAdminLevel] = useState(0);
   const [userPoints, setUserPoints] = useState(points ?? 0);
-  const [showPunishModal, setShowPunishModal] = useState(false);
+
+  const syncUserFromDatabase = useCallback(async () => {
+    if (!faceit_guid) return;
+
+    try {
+      const res = await fetch(`/api/admin/players?faceit_guid=${faceit_guid}`, { cache: 'no-store' });
+      if (!res.ok) return;
+
+      const data = await res.json();
+      if (!data || typeof data.admin !== 'number') return;
+
+      const nextPoints = typeof data.points === 'number' ? data.points : 0;
+      setUserAdminLevel(data.admin);
+      setUserPoints(nextPoints);
+
+      const storedSession = localStorage.getItem('faceit_user');
+      if (!storedSession) return;
+
+      try {
+        const currentUser = JSON.parse(storedSession);
+        if (currentUser.Admin !== data.admin || currentUser.id !== data.id || currentUser.points !== data.points) {
+          const updatedUser = {
+            ...currentUser,
+            Admin: data.admin,
+            id: data.id,
+            nickname: data.nickname,
+            avatar: data.avatar || currentUser.avatar,
+            points: nextPoints,
+          };
+          localStorage.setItem('faceit_user', JSON.stringify(updatedUser));
+          window.dispatchEvent(new Event('storage'));
+        }
+      } catch {
+        // silencioso por pedido: sem logs no polling
+      }
+    } catch {
+      // silencioso por pedido: sem logs no polling
+    }
+  }, [faceit_guid]);
 
   useEffect(() => {
     setUserPoints(points ?? 0);
@@ -60,39 +96,21 @@ export const UserProfile = ({
       return;
     }
 
-    if (faceit_guid) {
-      fetch(`/api/admin/players?faceit_guid=${faceit_guid}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && typeof data.admin === 'number') {
-            setUserAdminLevel(data.admin);
-            setUserPoints(typeof data.points === 'number' ? data.points : 0);
+    let isUnmounted = false;
 
-            const storedSession = localStorage.getItem("faceit_user");
-            if (storedSession) {
-              try {
-                const currentUser = JSON.parse(storedSession);
-                if (currentUser.Admin !== data.admin || currentUser.id !== data.id || currentUser.points !== data.points) {
-                  const updatedUser = {
-                    ...currentUser,
-                    Admin: data.admin,
-                    id: data.id,
-                    nickname: data.nickname,
-                    avatar: data.avatar || currentUser.avatar,
-                    points: typeof data.points === 'number' ? data.points : 0,
-                  };
-                  localStorage.setItem("faceit_user", JSON.stringify(updatedUser));
-                  window.dispatchEvent(new Event('storage'));
-                }
-              } catch (e) {
-                console.error("Failed to update user session in localStorage", e);
-              }
-            }
-          }
-        })
-        .catch((err) => console.error("Error fetching admin level:", err));
-    }
-  }, [Admin, admin, faceit_guid, points]);
+    const syncTick = async () => {
+      if (isUnmounted) return;
+      await syncUserFromDatabase();
+    };
+
+    syncTick();
+    const intervalId = window.setInterval(syncTick, 5000);
+
+    return () => {
+      isUnmounted = true;
+      window.clearInterval(intervalId);
+    };
+  }, [Admin, admin, points, syncUserFromDatabase]);
 
   return (
     <>
