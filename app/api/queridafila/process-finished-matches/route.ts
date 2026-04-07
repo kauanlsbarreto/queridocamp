@@ -19,8 +19,13 @@ const MAX_PAGES = 15;
 
 function isAuthorized(request: Request): boolean {
   const authHeader = request.headers.get("Authorization");
+  const botHeaderToken = request.headers.get("x-bot-sync-token");
   const cronSecret = process.env.CRON_SECRET;
+  const botSecret = process.env.DISCORD_BOT_SYNC_SECRET;
+
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true;
+  if (botSecret && authHeader === `Bearer ${botSecret}`) return true;
+  if (botSecret && botHeaderToken === botSecret) return true;
   return authHeader === "Bearer local-dev-token";
 }
 
