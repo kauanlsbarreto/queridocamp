@@ -31,6 +31,19 @@ interface UserProfileProps extends UserProfile {
   onLogout: () => void
 }
 
+function normalizePoints(value: unknown): number {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
 export const UserProfile = ({
   id,
   ID,
@@ -56,7 +69,7 @@ export const UserProfile = ({
       const data = await res.json();
       if (!data || typeof data.admin !== 'number') return;
 
-      const nextPoints = typeof data.points === 'number' ? data.points : 0;
+      const nextPoints = normalizePoints(data.points);
       setUserAdminLevel(data.admin);
       setUserPoints(nextPoints);
 
