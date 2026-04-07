@@ -8,7 +8,7 @@ import {
 export const TARGET_QUEUE_ID = "c23c971b-677a-4046-8203-26023e283529";
 const FACEIT_API_BASE = "https://open.faceit.com/data/v4";
 const FALLBACK_FACEIT_API_KEY = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
-const POINTS_START_DATE_UNIX = Math.floor(new Date("2026-04-06T00:00:00-03:00").getTime() / 1000);
+export const POINTS_START_DATE_UNIX = Math.floor(new Date("2026-04-06T00:00:00-03:00").getTime() / 1000);
 const DISCORD_POINTS_WEBHOOK_URL =
   "https://discord.com/api/webhooks/1490235360607998002/REUAB4jB7nFAiu-M3yQKKyxzNUFWWEN5wdez4jpm0AoWRuXmYG7tuxq3bLhsbcaFpWny";
 
@@ -317,6 +317,38 @@ export async function getQueridaFilaMatchProcessingStatus(matchId: string): Prom
     if (connection) {
       await connection.end();
     }
+  }
+}
+
+/**
+ * Recebe uma lista de match_ids e retorna apenas os que ainda NAO foram processados.
+ * Em caso de erro de DB, retorna todos como nao processados (o INSERT com PK vai proteger contra duplicata).
+ */
+export async function getUnprocessedMatchIds(matchIds: string[]): Promise<string[]> {
+  if (matchIds.length === 0) return [];
+
+  let connection: any;
+  try {
+    const ctx = await getCloudflareContext({ async: true });
+    const env = ctx.env as any;
+    connection = await createMainConnection(env);
+    await ensureProcessedTable(connection);
+
+    const placeholders = matchIds.map(() => "?").join(",");
+    const [rows] = await connection.query(
+      `SELECT match_id FROM processed_faceit_matches WHERE match_id IN (${placeholders})`,
+      matchIds,
+    );
+
+    const processedSet = new Set(
+      (rows as Array<{ match_id: string }>).map((r) => r.match_id),
+    );
+    return matchIds.filter((id) => !processedSet.has(id));
+  } catch (error) {
+    console.error("[faceit-webhook] erro ao verificar partidas em lote:", error);
+    return matchIds;
+  } finally {
+    if (connection) await connection.end();
   }
 }
 
