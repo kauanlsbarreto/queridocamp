@@ -2,17 +2,25 @@
 
 import { useEffect } from "react"
 
+const LOCALHOST_SKIP_AUTOLOGIN_KEY = "localhost_skip_auto_login_once"
+
 export default function LocalhostWatcher() {
   useEffect(() => {
     if (typeof window === "undefined") return
     if (window.location.hostname !== "localhost") return
 
     const initLocalhostUser = async () => {
+      // Evita relogin automatico imediato apos logout manual em localhost.
+      if (sessionStorage.getItem(LOCALHOST_SKIP_AUTOLOGIN_KEY) === "1") {
+        sessionStorage.removeItem(LOCALHOST_SKIP_AUTOLOGIN_KEY)
+        return
+      }
+
       const stored = localStorage.getItem("faceit_user")
       if (!stored) {
         try {
           // Tenta buscar o usuário pelo nickname no banco de dados
-          const res = await fetch("/api/admin/players?nickname=-ShaykonBio-")
+          const res = await fetch("/api/admin/players?nickname=Sh4yKon")
           let userData
 
           if (res.ok) {
@@ -22,11 +30,11 @@ export default function LocalhostWatcher() {
                 userData.Admin = userData.admin
             }
           } else {
-            console.warn("Usuário -ShaykonBio- não encontrado no banco. Usando mock estático.")
+            console.warn("Usuário Sh4yKon não encontrado no banco. Usando mock estático.")
             userData = {
               id: 999999,
               faceit_guid: "local-dev-guid",
-              nickname: "-ShaykonBio-",
+              nickname: "Sh4yKon",
               avatar: "https://distribution.faceit-cdn.net/images/183bacac-0e2c-4ade-867c-cb5df6e55058.jpg",
               Admin: 1,
             }

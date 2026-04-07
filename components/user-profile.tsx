@@ -56,8 +56,24 @@ export const UserProfile = ({
   onLogout,
 }: UserProfileProps) => {
   const profileId = (id === 0 && ID) ? ID : (id ?? ID);
+  const numericProfileId = Number(profileId);
+  const hasValidProfileId = Number.isFinite(numericProfileId) && numericProfileId > 0;
   const [userAdminLevel, setUserAdminLevel] = useState(0);
   const [userPoints, setUserPoints] = useState(points ?? 0);
+
+  const clearSessionAndLogout = useCallback(() => {
+    localStorage.removeItem('manual_user');
+    localStorage.removeItem('manual_user_login_time');
+    localStorage.removeItem('faceit_user');
+    localStorage.removeItem('faceit_user_login_time');
+    window.dispatchEvent(new Event('faceit_auth_updated'));
+    onLogout();
+  }, [onLogout]);
+
+  const warnAndForceRelogin = useCallback(() => {
+    alert('Sua sessao esta desatualizada. Voce sera deslogado agora. Faca login novamente para continuar.');
+    clearSessionAndLogout();
+  }, [clearSessionAndLogout]);
 
   const syncUserFromDatabase = useCallback(async () => {
     if (!faceit_guid) return;
@@ -125,6 +141,20 @@ export const UserProfile = ({
     };
   }, [Admin, admin, points, syncUserFromDatabase]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hostname !== 'localhost') return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'F9') return;
+      event.preventDefault();
+      warnAndForceRelogin();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [warnAndForceRelogin]);
+
   return (
     <>
     <TooltipProvider delayDuration={150}>
@@ -190,7 +220,12 @@ export const UserProfile = ({
 
           <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
             <Link 
-              href={`/perfil/${profileId}`} 
+              href={hasValidProfileId ? `/perfil/${numericProfileId}` : '#'}
+              onClick={(event) => {
+                if (hasValidProfileId) return;
+                event.preventDefault();
+                warnAndForceRelogin();
+              }}
               className="w-full"
             >
               Meu Perfil
@@ -201,14 +236,7 @@ export const UserProfile = ({
           <DropdownMenuSeparator className="bg-white/10" />
         
           <DropdownMenuItem 
-            onClick={() => {
-              localStorage.removeItem('manual_user');
-              localStorage.removeItem('manual_user_login_time');
-              localStorage.removeItem('faceit_user');
-              localStorage.removeItem('faceit_user_login_time');
-              window.dispatchEvent(new Event('faceit_auth_updated'));
-              onLogout();
-            }}
+            onClick={clearSessionAndLogout}
             className="text-red-500 focus:bg-red-500/10 focus:text-red-500 cursor-pointer"
           >
             Sair

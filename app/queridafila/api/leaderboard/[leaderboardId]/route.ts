@@ -35,6 +35,7 @@ type FaceitLeaderboardPlayer = {
 
 type FaceitLeaderboardResponse = {
   items?: FaceitLeaderboardPlayer[];
+  end?: number;
 };
 
 type MappedLeaderboardPlayer = {
@@ -96,7 +97,7 @@ async function fetchPremiumUserIdsFromHub(): Promise<Set<string>> {
   }
 
   const premiumUsers = new Set<string>();
-  const limit = 50;
+  const  limit = 50;
   let offset = 0;
   let keepFetching = true;
 
@@ -190,6 +191,75 @@ async function fetchGeneralLeaderboardItems(): Promise<FaceitLeaderboardPlayer[]
   return allItems;
 }
 
+async function fetchLeaderboardItemsById(leaderboardId: string): Promise<FaceitLeaderboardPlayer[]> {
+  const limit = 50;
+  const headers = {
+    Authorization: `Bearer ${FACEIT_API_KEY}`,
+  };
+
+  const pagedUrlBuilders = [
+    (offset: number) => `${FACEIT_API_BASE}/leaderboards/${leaderboardId}?offset=${offset}&limit=${limit}`,
+    (offset: number) => `${FACEIT_API_BASE}/leaderboards/${leaderboardId}/items?offset=${offset}&limit=${limit}`,
+  ];
+
+  for (const buildUrl of pagedUrlBuilders) {
+    try {
+      let offset = 0;
+      let pageCount = 0;
+      let keepFetching = true;
+      const allItems: FaceitLeaderboardPlayer[] = [];
+
+      while (keepFetching && pageCount < 500) {
+        pageCount += 1;
+        const faceitRes = await fetch(buildUrl(offset), { headers });
+        if (!faceitRes.ok) {
+          throw new Error(`status_${faceitRes.status}`);
+        }
+
+        const data = (await faceitRes.json()) as FaceitLeaderboardResponse;
+        const items = Array.isArray(data.items) ? data.items : [];
+
+        if (!items.length) {
+          break;
+        }
+
+        const endOffset = typeof data.end === "number" ? data.end : null;
+        if (endOffset !== null && endOffset <= offset) {
+          break;
+        }
+
+        allItems.push(...items);
+
+        if (endOffset !== null) {
+          offset = endOffset;
+          keepFetching = items.length > 0;
+        } else {
+          if (items.length < limit) {
+            keepFetching = false;
+          } else {
+            offset += limit;
+          }
+        }
+      }
+
+      if (allItems.length > 0) {
+        return allItems;
+      }
+    } catch {
+      // tenta proximo formato de endpoint
+    }
+  }
+
+  const legacyRes = await fetch(`${FACEIT_API_BASE}/leaderboards/${leaderboardId}`, { headers });
+  if (!legacyRes.ok) {
+    const errorData = await legacyRes.json().catch(() => ({}));
+    throw new Error(`Erro Faceit: ${legacyRes.status} - ${errorData.message || "Erro desconhecido"}`);
+  }
+
+  const legacyData = (await legacyRes.json()) as FaceitLeaderboardResponse;
+  return Array.isArray(legacyData.items) ? legacyData.items : [];
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ leaderboardId: string }> },
@@ -210,23 +280,7 @@ export async function GET(
       const items = await fetchGeneralLeaderboardItems();
       players = mapItemsToPlayers(items, premiumUserIds);
     } else {
-      const url = `${FACEIT_API_BASE}/leaderboards/${leaderboardId}`;
-      const faceitRes = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${FACEIT_API_KEY}`,
-        },
-      });
-
-      if (!faceitRes.ok) {
-        const errorData = await faceitRes.json();
-        return new Response(
-          JSON.stringify({ error: `Erro Faceit: ${faceitRes.status} - ${errorData.message || "Erro desconhecido"}` }),
-          { status: faceitRes.status },
-        );
-      }
-
-      const data = (await faceitRes.json()) as FaceitLeaderboardResponse;
-      const items = Array.isArray(data.items) ? data.items : [];
+      const items = await fetchLeaderboardItemsById(leaderboardId);
       players = mapItemsToPlayers(items, premiumUserIds);
     }
 
