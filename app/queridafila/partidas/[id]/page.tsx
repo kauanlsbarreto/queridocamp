@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, Shield, Swords } from "lucide-react";
 import PremiumCard from "@/components/premium-card";
 import SideAds from "@/components/side-ads";
+import PageAccessGate from "@/components/page-access-gate";
 import {
   calculateQueridaFilaPoints,
   type QueridaFilaPointsProjection,
@@ -455,85 +456,87 @@ export default async function QueridaFilaMatchDetailPage({ params }: { params: P
   const teamBWon = teamB.score > teamA.score;
 
   return (
-    <>
-      <SideAds />
-      <section className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black py-10">
-        <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-7xl space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <Link
-                href="/queridafila/partidas"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-300 transition-colors hover:text-gold"
-              >
-                <ArrowLeft size={16} />
-                Voltar para partidas
-              </Link>
+    <PageAccessGate level={1}>
+      <>
+        <SideAds />
+        <section className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black py-10">
+          <div className="container mx-auto px-4">
+            <div className="mx-auto max-w-7xl space-y-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Link
+                  href="/queridafila/partidas"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-300 transition-colors hover:text-gold"
+                >
+                  <ArrowLeft size={16} />
+                  Voltar para partidas
+                </Link>
 
-              <a
-                href={faceitUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-300 transition-colors hover:text-gold"
-              >
-                Abrir na FACEIT
-                <ExternalLink size={16} />
-              </a>
-            </div>
+                <a
+                  href={faceitUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-300 transition-colors hover:text-gold"
+                >
+                  Abrir na FACEIT
+                  <ExternalLink size={16} />
+                </a>
+              </div>
 
-            <PremiumCard>
-              <div className="p-6 md:p-8">
-                <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex-1">
-                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-gold/20 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-gold">
-                      <Shield size={14} />
-                      {details.competition_name || "Querida Fila"}
-                    </div>
-                    <h1 className="text-3xl font-black uppercase tracking-tight text-white md:text-4xl">
-                      {teamA.name} x {teamB.name}
-                    </h1>
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-zinc-400">
-                      <span>{playedAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" })}</span>
-                      <span>{mapName}</span>
-                      <span>MD{details.best_of || 1}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-4 md:gap-6">
-                    <div className="flex items-center gap-3">
-                      <div className="relative h-14 w-14 overflow-hidden rounded-full border border-white/10 bg-white/5 md:h-16 md:w-16">
-                        <Image src={teamA.avatar} alt={teamA.name} fill className="object-cover" unoptimized />
+              <PremiumCard>
+                <div className="p-6 md:p-8">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex-1">
+                      <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-gold/20 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-gold">
+                        <Shield size={14} />
+                        {details.competition_name || "Querida Fila"}
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm text-zinc-400">{teamA.name}</div>
-                        <div className="text-4xl font-black text-blue-400 md:text-5xl">{teamA.score}</div>
+                      <h1 className="text-3xl font-black uppercase tracking-tight text-white md:text-4xl">
+                        {teamA.name} x {teamB.name}
+                      </h1>
+                      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-zinc-400">
+                        <span>{playedAt.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" })}</span>
+                        <span>{mapName}</span>
+                        <span>MD{details.best_of || 1}</span>
                       </div>
                     </div>
 
-                    <div className="rounded-full border border-white/10 bg-white/5 p-3 text-zinc-400">
-                      <Swords size={18} />
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="text-left">
-                        <div className="text-sm text-zinc-400">{teamB.name}</div>
-                        <div className="text-4xl font-black text-emerald-400 md:text-5xl">{teamB.score}</div>
+                    <div className="flex items-center justify-center gap-4 md:gap-6">
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-14 w-14 overflow-hidden rounded-full border border-white/10 bg-white/5 md:h-16 md:w-16">
+                          <Image src={teamA.avatar} alt={teamA.name} fill className="object-cover" unoptimized />
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-zinc-400">{teamA.name}</div>
+                          <div className="text-4xl font-black text-blue-400 md:text-5xl">{teamA.score}</div>
+                        </div>
                       </div>
-                      <div className="relative h-14 w-14 overflow-hidden rounded-full border border-white/10 bg-white/5 md:h-16 md:w-16">
-                        <Image src={teamB.avatar} alt={teamB.name} fill className="object-cover" unoptimized />
+
+                      <div className="rounded-full border border-white/10 bg-white/5 p-3 text-zinc-400">
+                        <Swords size={18} />
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="text-left">
+                          <div className="text-sm text-zinc-400">{teamB.name}</div>
+                          <div className="text-4xl font-black text-emerald-400 md:text-5xl">{teamB.score}</div>
+                        </div>
+                        <div className="relative h-14 w-14 overflow-hidden rounded-full border border-white/10 bg-white/5 md:h-16 md:w-16">
+                          <Image src={teamB.avatar} alt={teamB.name} fill className="object-cover" unoptimized />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </PremiumCard>
+              </PremiumCard>
 
-            <div className="space-y-5">
-              <TeamTable team={teamA} accent="blue" showPoints={teamAWon} />
-              <TeamTable team={teamB} accent="green" showPoints={teamBWon} />
+              <div className="space-y-5">
+                <TeamTable team={teamA} accent="blue" showPoints={teamAWon} />
+                <TeamTable team={teamB} accent="green" showPoints={teamBWon} />
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-    </>
+        </section>
+      </>
+    </PageAccessGate>
   );
 }

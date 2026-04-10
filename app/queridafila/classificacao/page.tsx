@@ -1,4 +1,5 @@
 import SideAds from "@/components/side-ads";
+import PageAccessGate from "@/components/page-access-gate";
 import QueridaFilaClassificacaoClient from "./classificacao-client";
 
 export const revalidate = 30;
@@ -267,16 +268,18 @@ export default async function QueridaFilaClassificacaoPage() {
     }));
 
     return (
-      <>
-        <SideAds />
-        <QueridaFilaClassificacaoClient
-          nextLeaderboard={nextLeaderboard}
-          players={rankingPlayers}
-          pastLeaderboards={leaderboards}
-          initialLeaderboardId={activeLeaderboard?.leaderboard_id || "geral"}
-          activeLeaderboardId={activeLeaderboard?.leaderboard_id}
-        />
-      </>
+      <PageAccessGate level={1}>
+        <>
+          <SideAds />
+          <QueridaFilaClassificacaoClient
+            nextLeaderboard={nextLeaderboard}
+            players={rankingPlayers}
+            pastLeaderboards={leaderboards}
+            initialLeaderboardId={activeLeaderboard?.leaderboard_id || "geral"}
+            activeLeaderboardId={activeLeaderboard?.leaderboard_id}
+          />
+        </>
+      </PageAccessGate>
     );
   } catch (error) {
     console.error("Erro ao carregar classificacao da Querida Fila:", error);
