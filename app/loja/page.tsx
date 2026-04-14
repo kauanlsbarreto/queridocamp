@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PremiumCard from "@/components/premium-card";
 import TimeAdminGate from "@/components/time-admin-gate";
@@ -33,8 +32,6 @@ type AddItemForm = {
 	categoria: string;
 	tipo_item: string;
 	estoque: number;
-	modo_pagamento: "preco" | "moedas";
-	preco: number;
 	moedas: number;
 	ativo: boolean;
 };
@@ -62,8 +59,6 @@ const defaultForm: AddItemForm = {
 	categoria: "",
 	tipo_item: "",
 	estoque: 0,
-	modo_pagamento: "preco",
-	preco: 0,
 	moedas: 0,
 	ativo: true,
 };
@@ -93,7 +88,6 @@ function isWallpaperItem(item: Pick<StoreItem, "categoria"> | null | undefined) 
 }
 
 export default function LojaPage() {
-	const router = useRouter();
 	const [user, setUser] = useState<FaceitUser | null>(null);
 	const [items, setItems] = useState<StoreItem[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -199,8 +193,6 @@ export default function LojaPage() {
 			categoria: item.categoria || "",
 			tipo_item: item.tipo_item || "",
 			estoque: item.estoque,
-			modo_pagamento: item.moedas > 0 ? "moedas" : "preco",
-			preco: Number(item.preco || 0),
 			moedas: Number(item.moedas || 0),
 			ativo: item.ativo === 1,
 		});
@@ -232,9 +224,8 @@ export default function LojaPage() {
 			return;
 		}
 
-		const isPricePayment = Number(item.preco || 0) > 0 && Number(item.moedas || 0) <= 0;
-		if (isPricePayment) {
-			router.push(`/loja/pagamento?item=${item.id}`);
+		if (Number(item.moedas || 0) <= 0) {
+			setError("Este item está indisponível para compra no momento.");
 			return;
 		}
 
@@ -483,7 +474,7 @@ export default function LojaPage() {
 									<p className="text-xs uppercase tracking-[0.2em] text-gold/80">Querido Camp</p>
 									<h1 className="mt-1 text-3xl font-black uppercase text-white md:text-4xl">Loja</h1>
 									<p className="mt-2 text-sm text-zinc-400">
-										Itens exclusivos para compra com moeda do site ou preco em reais.
+										Itens exclusivos para compra com moeda do site.
 									</p>
 								</div>
 
@@ -548,42 +539,15 @@ export default function LojaPage() {
 									onChange={(e) => setForm((prev) => ({ ...prev, estoque: Number(e.target.value) }))}
 								/>
 
-								<select
-									value={form.modo_pagamento}
-									onChange={(e) =>
-										setForm((prev) => ({
-											...prev,
-											modo_pagamento: e.target.value as "preco" | "moedas",
-										}))
-									}
+								<input
+									type="number"
+									min={0}
 									className="rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-white outline-none focus:border-gold"
-								>
-									<option value="preco">Compra por preco (R$)</option>
-									<option value="moedas">Compra por moedas</option>
-								</select>
-
-								{form.modo_pagamento === "preco" ? (
-									<input
-										type="number"
-										min={0}
-										step="0.01"
-										className="rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-white outline-none focus:border-gold"
-										placeholder="Preco em R$"
-										value={form.preco}
-										onChange={(e) => setForm((prev) => ({ ...prev, preco: Number(e.target.value) }))}
-										required
-									/>
-								) : (
-									<input
-										type="number"
-										min={0}
-										className="rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-white outline-none focus:border-gold"
-										placeholder="Valor em moedas"
-										value={form.moedas}
-										onChange={(e) => setForm((prev) => ({ ...prev, moedas: Number(e.target.value) }))}
-										required
-									/>
-								)}
+									placeholder="Valor em moedas"
+									value={form.moedas}
+									onChange={(e) => setForm((prev) => ({ ...prev, moedas: Number(e.target.value) }))}
+									required
+								/>
 
 								<label className="flex items-center gap-2 text-sm text-zinc-300">
 									<input
@@ -652,16 +616,10 @@ export default function LojaPage() {
 										</div>
 
 										<div className="mt-4 flex items-center justify-between gap-2">
-											{item.moedas > 0 ? (
-												<div className="flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-sm font-black text-gold">
-													<Image src="/moeda.png" alt="Moeda" width={18} height={18} />
-													{item.moedas} moedas
-												</div>
-											) : (
-												<div className="rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm font-black text-green-400">
-													R$ {Number(item.preco || 0).toFixed(2)}
-												</div>
-											)}
+													<div className="flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-sm font-black text-gold">
+														<Image src="/moeda.png" alt="Moeda" width={18} height={18} />
+														{item.moedas} moedas
+													</div>
 										</div>
 
 										<div className="mt-3 flex gap-2">
@@ -679,9 +637,7 @@ export default function LojaPage() {
 												onClick={() => handleBuyItem(item)}
 												className="flex-1 rounded-lg border border-gold bg-gold px-3 py-2 text-xs font-black uppercase text-black transition hover:opacity-90"
 											>
-												{!isWallpaperItem(item) && Number(item.preco || 0) > 0 && Number(item.moedas || 0) <= 0
-													? "Pagar"
-													: "Comprar"}
+													Comprar
 											</button>
 										</div>
 									</div>

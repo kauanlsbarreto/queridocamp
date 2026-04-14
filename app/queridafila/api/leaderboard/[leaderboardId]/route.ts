@@ -35,6 +35,27 @@ type FaceitLeaderboardPlayer = {
 
 type FaceitLeaderboardResponse = {
   items?: FaceitLeaderboardPlayer[];
+  end?: number;
+};
+
+type MappedLeaderboardPlayer = {
+  position: number;
+  points: number;
+  played: number;
+  won: number;
+  lost: number;
+  draw: number;
+  win_rate: number;
+  current_streak: number;
+  player: {
+    user_id: string;
+    nickname: string;
+    avatar: string;
+    country: string;
+    skill_level?: number;
+    faceit_url?: string;
+  };
+  isPremium: boolean;
 };
 
 type FaceitHubRole = {
@@ -76,7 +97,7 @@ async function fetchPremiumUserIdsFromHub(): Promise<Set<string>> {
   }
 
   const premiumUsers = new Set<string>();
-  const limit = 50;
+  const  limit = 50;
   let offset = 0;
   let keepFetching = true;
 
@@ -112,6 +133,133 @@ async function fetchPremiumUserIdsFromHub(): Promise<Set<string>> {
   return premiumUsers;
 }
 
+function mapItemsToPlayers(
+  items: FaceitLeaderboardPlayer[],
+  premiumUserIds: Set<string>,
+): MappedLeaderboardPlayer[] {
+  return items.map((item, idx) => ({
+    position: item.position || item.rank || idx + 1,
+    points: item.points ?? item.score ?? 0,
+    played: item.played ?? item.stats?.played ?? 0,
+    won: item.won ?? item.stats?.won ?? 0,
+    lost: item.lost ?? item.stats?.lost ?? 0,
+    draw: item.draw ?? item.stats?.draw ?? 0,
+    win_rate: item.win_rate ?? item.stats?.win_rate ?? 0,
+    current_streak: item.current_streak ?? item.stats?.current_streak ?? 0,
+    player: {
+      user_id: item.player?.user_id || "",
+      nickname: item.player?.nickname || "",
+      avatar: item.player?.avatar || "",
+      country: item.player?.country || "",
+      skill_level: item.player?.skill_level,
+      faceit_url: item.player?.faceit_url,
+    },
+    isPremium: premiumUserIds.has(item.player?.user_id || ""),
+  }));
+}
+
+async function fetchGeneralLeaderboardItems(): Promise<FaceitLeaderboardPlayer[]> {
+  const limit = 25;
+  let offset = 0;
+  let keepFetching = true;
+  const allItems: FaceitLeaderboardPlayer[] = [];
+
+  while (keepFetching) {
+    const response = await fetch(
+      `${FACEIT_API_BASE}/leaderboards/hubs/${HUB_ID}/general?offset=${offset}&limit=${limit}`,
+      {
+        headers: { Authorization: `Bearer ${FACEIT_API_KEY}` },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Erro ao buscar ranking geral do hub: ${response.status}`);
+    }
+
+    const data = (await response.json()) as FaceitLeaderboardResponse;
+    const items = Array.isArray(data.items) ? data.items : [];
+
+    allItems.push(...items);
+
+    if (items.length < limit) {
+      keepFetching = false;
+    } else {
+      offset += limit;
+    }
+  }
+
+  return allItems;
+}
+
+async function fetchLeaderboardItemsById(leaderboardId: string): Promise<FaceitLeaderboardPlayer[]> {
+  const limit = 50;
+  const headers = {
+    Authorization: `Bearer ${FACEIT_API_KEY}`,
+  };
+
+  const pagedUrlBuilders = [
+    (offset: number) => `${FACEIT_API_BASE}/leaderboards/${leaderboardId}?offset=${offset}&limit=${limit}`,
+    (offset: number) => `${FACEIT_API_BASE}/leaderboards/${leaderboardId}/items?offset=${offset}&limit=${limit}`,
+  ];
+
+  for (const buildUrl of pagedUrlBuilders) {
+    try {
+      let offset = 0;
+      let pageCount = 0;
+      let keepFetching = true;
+      const allItems: FaceitLeaderboardPlayer[] = [];
+
+      while (keepFetching && pageCount < 500) {
+        pageCount += 1;
+        const faceitRes = await fetch(buildUrl(offset), { headers });
+        if (!faceitRes.ok) {
+          throw new Error(`status_${faceitRes.status}`);
+        }
+
+        const data = (await faceitRes.json()) as FaceitLeaderboardResponse;
+        const items = Array.isArray(data.items) ? data.items : [];
+
+        if (!items.length) {
+          break;
+        }
+
+        const endOffset = typeof data.end === "number" ? data.end : null;
+        if (endOffset !== null && endOffset <= offset) {
+          break;
+        }
+
+        allItems.push(...items);
+
+        if (endOffset !== null) {
+          offset = endOffset;
+          keepFetching = items.length > 0;
+        } else {
+          if (items.length < limit) {
+            keepFetching = false;
+          } else {
+            offset += limit;
+          }
+        }
+      }
+
+      if (allItems.length > 0) {
+        return allItems;
+      }
+    } catch {
+      // tenta proximo formato de endpoint
+    }
+  }
+
+  const legacyRes = await fetch(`${FACEIT_API_BASE}/leaderboards/${leaderboardId}`, { headers });
+  if (!legacyRes.ok) {
+    const errorData = await legacyRes.json().catch(() => ({}));
+    throw new Error(`Erro Faceit: ${legacyRes.status} - ${errorData.message || "Erro desconhecido"}`);
+  }
+
+  const legacyData = (await legacyRes.json()) as FaceitLeaderboardResponse;
+  return Array.isArray(legacyData.items) ? legacyData.items : [];
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ leaderboardId: string }> },
@@ -125,60 +273,25 @@ export async function GET(
   }
 
   try {
-    // Constroi a URL para a API da Faceit
-    const url = `${FACEIT_API_BASE}/leaderboards/${leaderboardId}`;
-    
-    // Faz a requisição para a Faceit API
-    const faceitRes = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${FACEIT_API_KEY}`,
-      },
-    });
-
-    // Verifica se a resposta da Faceit API foi bem-sucedida
-    if (!faceitRes.ok) {
-      // Se não for bem-sucedida, captura a mensagem de erro
-      const errorData = await faceitRes.json();
-      return new Response(
-        JSON.stringify({ error: `Erro Faceit: ${faceitRes.status} - ${errorData.message || 'Erro desconhecido'}` }),
-        { status: faceitRes.status }
-      );
-    }
-
-    // Parseia a resposta JSON da API
-    const data = (await faceitRes.json()) as FaceitLeaderboardResponse;
-
     const premiumUserIds = await fetchPremiumUserIdsFromHub();
+    let players: MappedLeaderboardPlayer[] = [];
 
-    // Verifica se o campo 'items' está presente na resposta
-    let players: Array<Record<string, unknown>> = [];
-    if (Array.isArray(data.items)) {
-      players = data.items.map((item: FaceitLeaderboardPlayer, idx: number) => ({
-        position: item.position || item.rank || idx + 1, // Rank ou posição no leaderboard
-        points: item.points ?? item.score ?? 0, // Pontuação do jogador
-        played: item.played ?? item.stats?.played ?? 0, // Número de jogos jogados
-        won: item.won ?? item.stats?.won ?? 0, // Número de vitórias
-        lost: item.lost ?? item.stats?.lost ?? 0, // Número de derrotas
-        draw: item.draw ?? item.stats?.draw ?? 0, // Número de empates
-        win_rate: item.win_rate ?? item.stats?.win_rate ?? 0, // Taxa de vitórias
-        current_streak: item.current_streak ?? item.stats?.current_streak ?? 0, // Sequência atual
-        player: {
-          user_id: item.player?.user_id || '', // ID do jogador
-          nickname: item.player?.nickname || '', // Nome do jogador
-          avatar: item.player?.avatar || '', // URL do avatar do jogador
-          country: item.player?.country || '', // País do jogador
-          skill_level: item.player?.skill_level, // Nível de habilidade
-          faceit_url: item.player?.faceit_url, // URL do Faceit do jogador
-        },
-        isPremium: premiumUserIds.has(item.player?.user_id || ""),
-      }));
+    if (leaderboardId === "geral") {
+      const items = await fetchGeneralLeaderboardItems();
+      players = mapItemsToPlayers(items, premiumUserIds);
+    } else {
+      const items = await fetchLeaderboardItemsById(leaderboardId);
+      players = mapItemsToPlayers(items, premiumUserIds);
     }
 
     if (premiumOnly) {
       players = players.filter((row) => Boolean(row.isPremium));
+      players = players.map((row, index) => ({
+        ...row,
+        position: index + 1,
+      }));
     }
 
-    // Retorna a lista de jogadores com sucesso
     return new Response(JSON.stringify({ players }), { status: 200 });
 
   } catch (error: unknown) {

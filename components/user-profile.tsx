@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -12,7 +12,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useToast } from '@/components/hooks/use-toast'
 
 
 export type UserProfile = {
@@ -32,6 +31,19 @@ interface UserProfileProps extends UserProfile {
   onLogout: () => void
 }
 
+function normalizePoints(value: unknown): number {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
 export const UserProfile = ({
   id,
   ID,
@@ -43,11 +55,64 @@ export const UserProfile = ({
   faceit_guid,
   onLogout,
 }: UserProfileProps) => {
-  const { toast } = useToast();
   const profileId = (id === 0 && ID) ? ID : (id ?? ID);
+  const numericProfileId = Number(profileId);
+  const hasValidProfileId = Number.isFinite(numericProfileId) && numericProfileId > 0;
   const [userAdminLevel, setUserAdminLevel] = useState(0);
   const [userPoints, setUserPoints] = useState(points ?? 0);
-  const [showPunishModal, setShowPunishModal] = useState(false);
+
+  const clearSessionAndLogout = useCallback(() => {
+    localStorage.removeItem('manual_user');
+    localStorage.removeItem('manual_user_login_time');
+    localStorage.removeItem('faceit_user');
+    localStorage.removeItem('faceit_user_login_time');
+    window.dispatchEvent(new Event('faceit_auth_updated'));
+    onLogout();
+  }, [onLogout]);
+
+  const warnAndForceRelogin = useCallback(() => {
+    alert('Sua sessao esta desatualizada. Voce sera deslogado agora. Faca login novamente para continuar.');
+    clearSessionAndLogout();
+  }, [clearSessionAndLogout]);
+
+  const syncUserFromDatabase = useCallback(async () => {
+    if (!faceit_guid) return;
+
+    try {
+      const res = await fetch(`/api/admin/players?faceit_guid=${faceit_guid}`, { cache: 'no-store' });
+      if (!res.ok) return;
+
+      const data = await res.json();
+      if (!data || typeof data.admin !== 'number') return;
+
+      const nextPoints = normalizePoints(data.points);
+      setUserAdminLevel(data.admin);
+      setUserPoints(nextPoints);
+
+      const storedSession = localStorage.getItem('faceit_user');
+      if (!storedSession) return;
+
+      try {
+        const currentUser = JSON.parse(storedSession);
+        if (currentUser.Admin !== data.admin || currentUser.id !== data.id || currentUser.points !== data.points) {
+          const updatedUser = {
+            ...currentUser,
+            Admin: data.admin,
+            id: data.id,
+            nickname: data.nickname,
+            avatar: data.avatar || currentUser.avatar,
+            points: nextPoints,
+          };
+          localStorage.setItem('faceit_user', JSON.stringify(updatedUser));
+          window.dispatchEvent(new Event('storage'));
+        }
+      } catch {
+        // silencioso por pedido: sem logs no polling
+      }
+    } catch {
+      // silencioso por pedido: sem logs no polling
+    }
+  }, [faceit_guid]);
 
   useEffect(() => {
     setUserPoints(points ?? 0);
@@ -60,79 +125,77 @@ export const UserProfile = ({
       return;
     }
 
-    if (faceit_guid) {
-      fetch(`/api/admin/players?faceit_guid=${faceit_guid}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && typeof data.admin === 'number') {
-            setUserAdminLevel(data.admin);
-            setUserPoints(typeof data.points === 'number' ? data.points : 0);
+    let isUnmounted = false;
 
-            const storedSession = localStorage.getItem("faceit_user");
-            if (storedSession) {
-              try {
-                const currentUser = JSON.parse(storedSession);
-                if (currentUser.Admin !== data.admin || currentUser.id !== data.id || currentUser.points !== data.points) {
-                  const updatedUser = {
-                    ...currentUser,
-                    Admin: data.admin,
-                    id: data.id,
-                    nickname: data.nickname,
-                    avatar: data.avatar || currentUser.avatar,
-                    points: typeof data.points === 'number' ? data.points : 0,
-                  };
-                  localStorage.setItem("faceit_user", JSON.stringify(updatedUser));
-                  window.dispatchEvent(new Event('storage'));
-                }
-              } catch (e) {
-                console.error("Failed to update user session in localStorage", e);
-              }
-            }
-          }
-        })
-        .catch((err) => console.error("Error fetching admin level:", err));
-    }
-  }, [Admin, admin, faceit_guid, points]);
+    const syncTick = async () => {
+      if (isUnmounted) return;
+      await syncUserFromDatabase();
+    };
+
+    syncTick();
+    const intervalId = window.setInterval(syncTick, 5000);
+
+    return () => {
+      isUnmounted = true;
+      window.clearInterval(intervalId);
+    };
+  }, [Admin, admin, points, syncUserFromDatabase]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hostname !== 'localhost') return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'F9') return;
+      event.preventDefault();
+      warnAndForceRelogin();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [warnAndForceRelogin]);
 
   return (
     <>
     <TooltipProvider delayDuration={150}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <div className="flex items-center gap-3 cursor-pointer">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 select-none"
-                  onContextMenu={(event) => event.preventDefault()}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="h-5 w-5 shrink-0 bg-contain bg-center bg-no-repeat"
-                    style={{ backgroundImage: "url('/moeda.png')" }}
-                  />
-                  <span className="text-sm font-semibold text-white">{userPoints}</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent
-                side="bottom"
-                className="max-w-64 rounded-xl border border-gold/20 bg-[#0b1118] px-4 py-3 text-sm leading-relaxed text-white shadow-2xl"
-              >
-                Os pontos são calculados apos o termino de uma partida podendo receber de 5 até 30 pontos.
-              </TooltipContent>
-            </Tooltip>
+      <div className="flex items-center gap-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href="/fac/pontos"
+              className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 select-none"
+              onContextMenu={(event) => event.preventDefault()}
+            >
+              <span
+                aria-hidden="true"
+                className="h-5 w-5 shrink-0 bg-contain bg-center bg-no-repeat"
+                style={{ backgroundImage: "url('/moeda.png')" }}
+              />
+              <span className="text-sm font-semibold text-white">{userPoints}</span>
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent
+            side="bottom"
+            className="max-w-64 rounded-xl border border-gold/20 bg-[#0b1118] px-4 py-3 text-sm leading-relaxed text-white shadow-2xl"
+          >
+            Os pontos sao calculados apos o termino da partida. Clique para entender todas as regras.
+          </TooltipContent>
+        </Tooltip>
 
-            <span className="text-white font-medium">{nickname}</span>
-            <Avatar className="h-9 w-9 border border-white/10">
-              <AvatarImage src={avatar} alt={nickname} />
-              <AvatarFallback className="bg-[#FF5500] text-white">
-                {(nickname ? nickname.slice(0, 2) : '??').toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-          </div>
-        </DropdownMenuTrigger>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <div className="flex items-center gap-3 cursor-pointer">
+              <span className="text-white font-medium">{nickname}</span>
+              <Avatar className="h-9 w-9 border border-white/10">
+                <AvatarImage src={avatar} alt={nickname} />
+                <AvatarFallback className="bg-[#FF5500] text-white">
+                  {(nickname ? nickname.slice(0, 2) : '??').toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+          </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" className="w-56 bg-[#121212] border-white/10 text-white">
+          <DropdownMenuContent align="end" className="w-56 bg-[#121212] border-white/10 text-white">
           <DropdownMenuLabel className="text-gray-400 font-normal">Minha Conta</DropdownMenuLabel>
           <DropdownMenuSeparator className="bg-white/10" />
         
@@ -157,7 +220,12 @@ export const UserProfile = ({
 
           <DropdownMenuItem asChild className="focus:bg-white/5 cursor-pointer">
             <Link 
-              href={`/perfil/${profileId}`} 
+              href={hasValidProfileId ? `/perfil/${numericProfileId}` : '#'}
+              onClick={(event) => {
+                if (hasValidProfileId) return;
+                event.preventDefault();
+                warnAndForceRelogin();
+              }}
               className="w-full"
             >
               Meu Perfil
@@ -168,20 +236,14 @@ export const UserProfile = ({
           <DropdownMenuSeparator className="bg-white/10" />
         
           <DropdownMenuItem 
-            onClick={() => {
-              localStorage.removeItem('manual_user');
-              localStorage.removeItem('manual_user_login_time');
-              localStorage.removeItem('faceit_user');
-              localStorage.removeItem('faceit_user_login_time');
-              window.dispatchEvent(new Event('faceit_auth_updated'));
-              onLogout();
-            }}
+            onClick={clearSessionAndLogout}
             className="text-red-500 focus:bg-red-500/10 focus:text-red-500 cursor-pointer"
           >
             Sair
           </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </TooltipProvider>
 
     {/* ...existing code... */}

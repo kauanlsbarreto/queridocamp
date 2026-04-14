@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import PremiumCard from "@/components/premium-card";
+
+const DEFAULT_PAGE_SIZE = 25;
 
 type NextLeaderboard = {
   leaderboard_id: string;
@@ -47,22 +48,60 @@ function formatDate(unixSeconds: number) {
   });
 }
 
+const PRIZES = [
+  { pos: "1°", prize: "R$ 300,00", colorClass: "text-yellow-400", borderClass: "border-yellow-400/40 bg-yellow-400/5" },
+  { pos: "2°", prize: "R$ 150,00", colorClass: "text-zinc-300", borderClass: "border-zinc-400/30 bg-zinc-400/5" },
+  { pos: "3°", prize: "R$ 100,00", colorClass: "text-orange-400", borderClass: "border-orange-400/30 bg-orange-400/5" },
+  { pos: "4°", prize: "R$ 60,00\nvoucher", colorClass: "text-blue-300", borderClass: "border-blue-400/30 bg-blue-400/5" },
+  { pos: "5°", prize: "Skin", colorClass: "text-purple-300", borderClass: "border-purple-400/30 bg-purple-400/5" },
+];
+
 export default function QueridaFilaClassificacaoClient({
   nextLeaderboard,
   players,
   showGeral = true,
   pastLeaderboards = [],
+  initialLeaderboardId = "geral",
+  activeLeaderboardId,
 }: {
   nextLeaderboard: NextLeaderboard | null;
   players: RankingPlayer[];
   showGeral?: boolean;
   pastLeaderboards?: NextLeaderboard[];
+  initialLeaderboardId?: string;
+  activeLeaderboardId?: string;
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'premium'>('all');
-  const [selectedLeaderboard, setSelectedLeaderboard] = useState<'geral' | string>('geral');
+  const [selectedLeaderboard, setSelectedLeaderboard] = useState<'geral' | string>(initialLeaderboardId || 'geral');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [loggedUserId, setLoggedUserId] = useState("");
+
+  const isLiveLeaderboard = Boolean(
+    activeLeaderboardId &&
+    selectedLeaderboard !== 'geral' &&
+    selectedLeaderboard === activeLeaderboardId
+  );
   const [loading, setLoading] = useState(false);
   const [dynamicPlayers, setDynamicPlayers] = useState<RankingPlayer[] | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const raw = localStorage.getItem("faceit_user");
+      if (!raw) {
+        setLoggedUserId("");
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as { faceit_guid?: string; user_id?: string };
+      setLoggedUserId(String(parsed.faceit_guid || parsed.user_id || "").trim());
+    } catch {
+      setLoggedUserId("");
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -71,12 +110,67 @@ export default function QueridaFilaClassificacaoClient({
     return () => clearInterval(timer);
   }, [router]);
 
-  // O filtro premium é feito via API
-  const filteredPlayers = useMemo(() => {
-    return dynamicPlayers !== null ? dynamicPlayers : players;
-  }, [players, dynamicPlayers]);
+  const sourcePlayers = useMemo(
+    () => (dynamicPlayers !== null ? dynamicPlayers : players),
+    [dynamicPlayers, players],
+  );
 
-  // Buscar ranking de leaderboard passada OU premium
+  const filteredPlayers = useMemo(() => {
+
+    if (filter === "all") {
+      return sourcePlayers;
+    }
+
+    // Premium: mostra somente premium e reordena dentro do grupo.
+    return sourcePlayers
+      .filter((row) => row.isPremium)
+      .sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        return a.position - b.position;
+      })
+      .map((row, index) => ({
+        ...row,
+        position: index + 1,
+      }));
+  }, [sourcePlayers, filter]);
+
+  const loggedPlayerInSource = useMemo(
+    () => sourcePlayers.find((row) => row.player.user_id === loggedUserId) || null,
+    [sourcePlayers, loggedUserId],
+  );
+
+  const loggedPlayerInFilter = useMemo(
+    () => filteredPlayers.find((row) => row.player.user_id === loggedUserId) || null,
+    [filteredPlayers, loggedUserId],
+  );
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredPlayers.length / pageSize)),
+    [filteredPlayers.length, pageSize],
+  );
+
+  const paginatedPlayers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredPlayers.slice(start, end);
+  }, [filteredPlayers, currentPage, pageSize]);
+
+  const isLoggedPlayerOnCurrentPage = useMemo(
+    () => paginatedPlayers.some((row) => row.player.user_id === loggedUserId),
+    [paginatedPlayers, loggedUserId],
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedLeaderboard, filter, pageSize]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  // Buscar ranking de leaderboard selecionada (exceto ranking geral, que ja vem do SSR)
 
   const fetchLeaderboardPlayers = useCallback(async (leaderboardId: string, premium: boolean) => {
     setLoading(true);
@@ -135,7 +229,7 @@ export default function QueridaFilaClassificacaoClient({
   }, []);
 
   useEffect(() => {
-    if (filter === 'all' && selectedLeaderboard === 'geral') {
+    if (selectedLeaderboard === 'geral') {
       setDynamicPlayers(null);
     } else {
       fetchLeaderboardPlayers(selectedLeaderboard, filter === 'premium');
@@ -191,14 +285,14 @@ export default function QueridaFilaClassificacaoClient({
                     >
                       Premium
                     </button>
-                    <a
-                      href="/regras.pdf"
-                      download
-                      className="px-4 py-2 rounded-lg text-sm font-bold border border-white/10 bg-black/40 text-white hover:border-gold transition-colors"
-                    >
-                      Regras
-                    </a>
                   </div>
+                  <a
+                    href="/HUB%20PREMIADA.pdf"
+                    download="HUB PREMIADA.pdf"
+                    className="mt-2 inline-flex w-full items-center justify-center self-center rounded-xl border border-gold/60 bg-gradient-to-r from-gold via-amber-300 to-gold px-5 py-2.5 text-center text-sm font-black uppercase tracking-wide text-black shadow-[0_0_22px_rgba(255,215,0,0.25)] transition-all hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(255,215,0,0.4)] md:mt-0 md:w-auto"
+                  >
+                    Baixar Regras
+                  </a>
                 </div>
               </div>
             </div>
@@ -235,13 +329,64 @@ export default function QueridaFilaClassificacaoClient({
             </PremiumCard>
           )}
 
+          {isLiveLeaderboard && (
+            <PremiumCard>
+              <div className="p-6 md:p-8">
+                <h2 className="text-lg font-black uppercase text-white mb-4">🏆 Premiação</h2>
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-5">
+                  {PRIZES.map(({ pos, prize, colorClass, borderClass }) => (
+                    <div key={pos} className={`rounded-xl border ${borderClass} p-4 text-center`}>
+                      <p className={`text-2xl font-black ${colorClass}`}>{pos}</p>
+                      <p className="mt-1 text-sm font-bold text-white whitespace-pre-line">{prize}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </PremiumCard>
+          )}
+
           {showGeral ? (
             <PremiumCard>
               <div className="p-0">
-                <div className="border-b border-white/10 px-6 py-4">
+                <div className="border-b border-white/10 px-6 py-4 space-y-3">
                   <h3 className="text-lg font-black uppercase text-white">
                     {selectedLeaderboard === 'geral' ? 'Jogadores do ranking geral' : 'Jogadores da leaderboard selecionada'} ({filteredPlayers.length})
                   </h3>
+
+                  {loggedUserId && loggedPlayerInSource && !isLoggedPlayerOnCurrentPage && (
+                    <div className="rounded-xl border border-gold/40 bg-gold/10 px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.15em] text-gold/90">Sua Posição</p>
+                      <p className="mt-1 text-sm text-white">
+                        <span className="font-black text-gold">#{loggedPlayerInSource.position}</span>
+                        {" - "}
+                        <span className="font-bold">{loggedPlayerInSource.player.nickname}</span>
+                        {" - "}
+                        <span className="font-black text-gold">{loggedPlayerInSource.points} pontos</span>
+                      </p>
+                      {!loggedPlayerInFilter && (
+                        <p className="mt-1 text-xs text-zinc-300">
+                          Você não aparece no filtro atual.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label htmlFor="page-size" className="text-xs uppercase tracking-[0.15em] text-zinc-400">
+                      Itens por página
+                    </label>
+                    <select
+                      id="page-size"
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value))}
+                      className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs text-white outline-none focus:border-gold"
+                    >
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                    <span className="text-xs text-zinc-400">Página {currentPage} de {totalPages}</span>
+                  </div>
                 </div>
                 {loading ? (
                   <div className="p-8 text-center text-zinc-400">Carregando...</div>
@@ -262,8 +407,14 @@ export default function QueridaFilaClassificacaoClient({
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredPlayers.map((row) => (
-                          <tr key={row.player.user_id} className="border-t border-white/5 bg-black/20 text-zinc-200 hover:bg-white/5">
+                        {paginatedPlayers.map((row) => {
+                          const isLoggedPlayer = Boolean(loggedUserId && row.player.user_id === loggedUserId);
+
+                          return (
+                          <tr
+                            key={row.player.user_id}
+                            className={`border-t border-white/5 text-zinc-200 hover:bg-white/5 ${isLoggedPlayer ? "bg-gold/10 ring-1 ring-inset ring-gold/40" : "bg-black/20"}`}
+                          >
                             <td className="px-4 py-3 font-bold text-white">{row.position}</td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
@@ -296,9 +447,33 @@ export default function QueridaFilaClassificacaoClient({
                               )}
                             </td>
                           </tr>
-                        ))}
+                        )})}
                       </tbody>
                     </table>
+                  </div>
+                )}
+
+                {!loading && totalPages > 1 && (
+                  <div className="border-t border-white/10 px-6 py-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="rounded-lg border border-white/15 bg-white/5 px-3 py-1 text-xs font-bold uppercase text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Anterior
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="rounded-lg border border-white/15 bg-white/5 px-3 py-1 text-xs font-bold uppercase text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Próxima
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect } from 'react'
 import Navbar from './navbar'
 import type { UserProfile } from './user-profile'
 
+const LOCALHOST_SKIP_AUTOLOGIN_KEY = 'localhost_skip_auto_login_once'
+
 export default function NavbarClient() {
   const [user, setUser] = useState<UserProfile | null>(null)
 
@@ -23,7 +25,19 @@ export default function NavbarClient() {
   useEffect(() => {
     syncUserFromStorage()
 
-    const handler = () => syncUserFromStorage()
+    const handler = () => {
+      syncUserFromStorage()
+
+      // Qualquer logout que limpar faceit_user e disparar faceit_auth_updated
+      // deve forcar um refresh completo para evitar UI stale na pagina atual.
+      const hasSession = Boolean(localStorage.getItem('faceit_user'))
+      if (!hasSession) {
+        if (window.location.hostname === 'localhost') {
+          sessionStorage.setItem(LOCALHOST_SKIP_AUTOLOGIN_KEY, '1')
+        }
+        window.location.reload()
+      }
+    }
     window.addEventListener('faceit_auth_updated', handler)
     window.addEventListener('storage', handler)
 

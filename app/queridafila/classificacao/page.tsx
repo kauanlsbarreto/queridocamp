@@ -1,4 +1,5 @@
 import SideAds from "@/components/side-ads";
+import PageAccessGate from "@/components/page-access-gate";
 import QueridaFilaClassificacaoClient from "./classificacao-client";
 
 export const revalidate = 30;
@@ -61,50 +62,100 @@ type FaceitHubMembersResponse = {
   items?: FaceitHubMember[];
 };
 
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(url: string, init: RequestInit, retries = 2) {
+  let lastStatus = 0;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await fetch(url, init);
+      if (response.ok) {
+        return response;
+      }
+
+      lastStatus = response.status;
+
+      // Erros 4xx tendem a ser definitivos para a request atual.
+      if (response.status >= 400 && response.status < 500) {
+        return response;
+      }
+    } catch {
+      // tenta novamente abaixo
+    }
+
+    if (attempt < retries) {
+      await delay(300 * (attempt + 1));
+    }
+  }
+
+  return new Response(null, { status: lastStatus || 503 });
+}
+
 async function fetchHubLeaderboards() {
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `${FACEIT_API_BASE}/leaderboards/hubs/${QUEUE_ID}?offset=0&limit=100`,
     {
       headers: { Authorization: `Bearer ${FACEIT_API_KEY}` },
       next: { revalidate },
     },
+    2,
   );
 
   if (!response.ok) {
-    throw new Error(`Erro ao buscar leaderboards do hub: ${response.status}`);
+    console.error(`Erro ao buscar leaderboards do hub: ${response.status}`);
+    return { items: [] } as LeaderboardsResponse;
   }
 
   return (await response.json()) as LeaderboardsResponse;
 }
 
 async function fetchAllTimeRankingPlayers() {
-  const limit = 25;
+  const limit = 20;
   let offset = 0;
+  let pageCount = 0;
   let keepFetching = true;
   const allItems: RankingItem[] = [];
 
-  while (keepFetching) {
-    const response = await fetch(
+  while (keepFetching && pageCount < 500) {
+    pageCount += 1;
+    const response = await fetchWithRetry(
       `${FACEIT_API_BASE}/leaderboards/hubs/${QUEUE_ID}/general?offset=${offset}&limit=${limit}`,
       {
         headers: { Authorization: `Bearer ${FACEIT_API_KEY}` },
         next: { revalidate },
       },
+      2,
     );
 
     if (!response.ok) {
-      throw new Error(`Erro ao buscar ranking geral do hub: ${response.status}`);
+      console.error(`Erro ao buscar ranking geral do hub: ${response.status}`);
+      break;
     }
 
     const data = (await response.json()) as RankingResponse;
     const items = Array.isArray(data.items) ? data.items : [];
 
+    if (!items.length) {
+      break;
+    }
+
     allItems.push(...items);
 
-    if (items.length < limit) {
-      keepFetching = false;
+    const endOffset = typeof data.end === "number" ? data.end : null;
+    if (endOffset !== null) {
+      if (endOffset <= offset) {
+        break;
+      }
+      offset = endOffset;
     } else {
-      offset += limit;
+      if (items.length < limit) {
+        keepFetching = false;
+      } else {
+        offset += limit;
+      }
     }
   }
 
@@ -113,9 +164,10 @@ async function fetchAllTimeRankingPlayers() {
 
 async function fetchPremiumGuids() {
   try {
-    const rolesRes = await fetch(
+    const rolesRes = await fetchWithRetry(
       `${FACEIT_API_BASE}/hubs/${QUEUE_ID}/roles?offset=0&limit=50`,
       { headers: { Authorization: `Bearer ${FACEIT_API_KEY}` }, next: { revalidate } },
+      2,
     );
 
     if (!rolesRes.ok) {
@@ -139,13 +191,15 @@ async function fetchPremiumGuids() {
     let keepFetching = true;
 
     while (keepFetching) {
-      const membersRes = await fetch(
+      const membersRes = await fetchWithRetry(
         `${FACEIT_API_BASE}/hubs/${QUEUE_ID}/members?offset=${offset}&limit=${limit}`,
         { headers: { Authorization: `Bearer ${FACEIT_API_KEY}` }, next: { revalidate } },
+        2,
       );
 
       if (!membersRes.ok) {
-        throw new Error(`Erro ao buscar membros do hub: ${membersRes.status}`);
+        console.error(`Erro ao buscar membros do hub: ${membersRes.status}`);
+        break;
       }
 
       const membersData = (await membersRes.json()) as FaceitHubMembersResponse;
@@ -182,6 +236,21 @@ function getNextLeaderboard(items: LeaderboardItem[]) {
     .sort((a, b) => a.start_date - b.start_date)[0] || null;
 }
 
+function getActiveLeaderboard(items: LeaderboardItem[]) {
+  const now = Math.floor(Date.now() / 1000);
+
+  return (
+    [...items]
+      .filter((item) => {
+        const status = (item.status || "").toUpperCase();
+        const isOngoingByStatus = status === "ONGOING";
+        const isOngoingByDates = item.start_date <= now && item.end_date >= now;
+        return isOngoingByStatus || isOngoingByDates;
+      })
+      .sort((a, b) => b.start_date - a.start_date)[0] || null
+  );
+}
+
 export default async function QueridaFilaClassificacaoPage() {
   try {
     const [leaderboardsData, premiumGuids] = await Promise.all([
@@ -189,6 +258,7 @@ export default async function QueridaFilaClassificacaoPage() {
       fetchPremiumGuids(),
     ]);
     const leaderboards = Array.isArray(leaderboardsData.items) ? leaderboardsData.items : [];
+    const activeLeaderboard = getActiveLeaderboard(leaderboards);
     const nextLeaderboard = getNextLeaderboard(leaderboards);
 
     const rankingPlayersRaw = await fetchAllTimeRankingPlayers();
@@ -198,14 +268,18 @@ export default async function QueridaFilaClassificacaoPage() {
     }));
 
     return (
-      <>
-        <SideAds />
-        <QueridaFilaClassificacaoClient
-          nextLeaderboard={nextLeaderboard}
-          players={rankingPlayers}
-          pastLeaderboards={leaderboards}
-        />
-      </>
+      <PageAccessGate level={1}>
+        <>
+          <SideAds />
+          <QueridaFilaClassificacaoClient
+            nextLeaderboard={nextLeaderboard}
+            players={rankingPlayers}
+            pastLeaderboards={leaderboards}
+            initialLeaderboardId={activeLeaderboard?.leaderboard_id || "geral"}
+            activeLeaderboardId={activeLeaderboard?.leaderboard_id}
+          />
+        </>
+      </PageAccessGate>
     );
   } catch (error) {
     console.error("Erro ao carregar classificacao da Querida Fila:", error);

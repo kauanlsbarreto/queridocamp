@@ -1,4 +1,5 @@
 import SideAds from "@/components/side-ads";
+import PageAccessGate from "@/components/page-access-gate";
 import QueridaFilaPartidasClient, { type FaceitQueueMatch } from "./partidas-cliente";
 
 export const revalidate = 1800;
@@ -11,7 +12,7 @@ async function getQueueMatches(): Promise<FaceitQueueMatch[]> {
 		`https://open.faceit.com/data/v4/hubs/${QUEUE_ID}/matches?type=past&offset=0&limit=100`,
 		{
 			headers: { Authorization: `Bearer ${API_KEY_FACEIT}` },
-			next: { revalidate },
+			next: { revalidate, tags: ["queridafila-partidas"] },
 		}
 	);
 
@@ -36,10 +37,12 @@ export default async function QueridaFilaPartidasPage() {
 		const matches = await getQueueMatches();
 
 		return (
-			<>
-				<SideAds />
-				<QueridaFilaPartidasClient matchesData={matches} />
-			</>
+			<PageAccessGate level={1}>
+				<>
+					<SideAds />
+					<QueridaFilaPartidasClient matchesData={matches} />
+				</>
+			</PageAccessGate>
 		);
 	} catch (error) {
 		console.error("Erro ao carregar partidas da Querida Fila:", error);

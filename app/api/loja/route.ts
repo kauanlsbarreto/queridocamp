@@ -57,14 +57,12 @@ function parseStorePayload(body: Record<string, unknown>) {
   const {
     nome,
     descricao,
-    preco,
     moedas,
     estoque,
     imagem_url,
     categoria,
     tipo_item,
     ativo,
-    modo_pagamento,
   } = body;
 
   const itemName = String(nome || "").trim();
@@ -72,8 +70,6 @@ function parseStorePayload(body: Record<string, unknown>) {
     return { error: "Nome do item é obrigatório." } as const;
   }
 
-  const paymentMode = String(modo_pagamento || "preco").toLowerCase();
-  const itemPreco = Number(preco || 0);
   const itemMoedas = Number(moedas || 0);
   const itemEstoque = Number(estoque || 0);
 
@@ -81,23 +77,15 @@ function parseStorePayload(body: Record<string, unknown>) {
     return { error: "Estoque inválido." } as const;
   }
 
-  if (paymentMode === "preco") {
-    if (!Number.isFinite(itemPreco) || itemPreco <= 0) {
-      return { error: "Preço em reais inválido." } as const;
-    }
-  } else if (paymentMode === "moedas") {
-    if (!Number.isFinite(itemMoedas) || itemMoedas <= 0) {
-      return { error: "Valor em moedas inválido." } as const;
-    }
-  } else {
-    return { error: "Modo de pagamento inválido." } as const;
+  if (!Number.isFinite(itemMoedas) || itemMoedas <= 0) {
+    return { error: "Valor em moedas inválido." } as const;
   }
 
   const payload: StorePayload = {
     nome: itemName,
     descricao: String(descricao || "").trim() || null,
-    preco: paymentMode === "preco" ? itemPreco : 0,
-    moedas: paymentMode === "moedas" ? Math.floor(itemMoedas) : 0,
+    preco: 0,
+    moedas: Math.floor(itemMoedas),
     estoque: Math.floor(itemEstoque),
     imagem_url: normalizeImageUrl(String(imagem_url || "")),
     categoria: String(categoria || "").trim() || null,
@@ -167,7 +155,7 @@ export async function GET(request: Request) {
     const [rows] = await connection.query(
       `SELECT id, nome, descricao, preco, moedas, estoque, imagem_url, categoria, data_adicionado, ativo, tipo_item
        FROM estoque
-       WHERE ativo = 1
+       WHERE ativo = 1 AND moedas > 0
        ORDER BY data_adicionado DESC`,
     );
 
