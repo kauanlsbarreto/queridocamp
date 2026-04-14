@@ -17,7 +17,10 @@ function InscricaoForm() {
   const [formData, setFormData] = useState({
     nomeCompleto: "",
     faceitLink: "",
+    gcLink: "",
+    steamLink: "",
     telefone: "",
+    jogouOutrosDrafts: false,
   })
   const [comprovante, setComprovante] = useState<File | null>(null)
   const [submitted, setSubmitted] = useState(false)
@@ -44,7 +47,7 @@ function InscricaoForm() {
       setError("Por favor, anexe o comprovante de pagamento.");
       return;
     }
-    if (!formData.nomeCompleto.trim() || !formData.faceitLink.trim() || !formData.telefone.trim()) {
+    if (!formData.nomeCompleto.trim() || !formData.faceitLink.trim() || !formData.gcLink.trim() || !formData.steamLink.trim() || !formData.telefone.trim()) {
       setError("Preencha todos os campos obrigatórios.");
       return;
     }
@@ -62,7 +65,7 @@ function InscricaoForm() {
     data.append("comprovante", comprovante);
 
     try {
-      const response = await fetch("/queridafila/inscricao/api", { method: "POST", body: data });
+      const response = await fetch("/queridodraft/inscricao/api", { method: "POST", body: data });
       if (!response.ok) throw new Error("Falha ao enviar inscrição.");
       setSubmitted(true);
     } catch (err) {
@@ -104,7 +107,7 @@ function InscricaoForm() {
 
   return (
     <div>
-      <HeroBanner title="INSCRIÇÃO" subtitle="Faça sua inscrição na Querida Fila" />
+      <HeroBanner title="INSCRIÇÃO" subtitle="Faça sua inscrição no Querido Draft" />
       <section className="py-16 bg-gradient-to-b from-dark to-dark/80 min-h-screen">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
@@ -134,7 +137,7 @@ function InscricaoForm() {
                     <p>
                       <span className="font-semibold">Titular:</span> Denis Lima
                     </p>
-                    <p className="text-xl font-bold text-primary mt-2">Valor: R$ 30,00</p>
+                    <p className="text-xl font-bold text-primary mt-2">Valor: R$ 80,00</p>
                   </div>
                 </div>
               </PremiumCard>
@@ -191,6 +194,71 @@ function InscricaoForm() {
                       className="w-full px-4 py-3 bg-dark/50 border border-primary/30 rounded-lg text-light focus:outline-none focus:border-primary transition-colors"
                       placeholder="(79) 99999-9999"
                     />
+                  </div>
+                  <div>
+                    <label htmlFor="gcLink" className="block text-light font-semibold mb-2">
+                      Link do perfil Gc *
+                    </label>
+                    <input
+                      type="url"
+                      id="gcLink"
+                      name="gcLink"
+                      required
+                      value={formData.gcLink}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-dark/50 border border-primary/30 rounded-lg text-light focus:outline-none focus:border-primary transition-colors"
+                      placeholder="Link do seu perfil Gc"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="steamLink" className="block text-light font-semibold mb-2">
+                      Link da steam *
+                    </label>
+                    <input
+                      type="url"
+                      id="steamLink"
+                      name="steamLink"
+                      required
+                      value={formData.steamLink}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-dark/50 border border-primary/30 rounded-lg text-light focus:outline-none focus:border-primary transition-colors"
+                      placeholder="Link do seu perfil Steam"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-light font-semibold mb-2">
+                      Já jogou outros drafts?
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="jogouSim"
+                          name="jogouOutrosDrafts"
+                          value="true"
+                          checked={formData.jogouOutrosDrafts === true}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, jogouOutrosDrafts: e.target.value === "true" }))}
+                          className="mr-2"
+                        />
+                        <label htmlFor="jogouSim" className="text-light">
+                          Sim
+                        </label>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="jogouNao"
+                          name="jogouOutrosDrafts"
+                          value="false"
+                          checked={formData.jogouOutrosDrafts === false}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, jogouOutrosDrafts: e.target.value === "true" }))}
+                          className="mr-2"
+                        />
+                        <label htmlFor="jogouNao" className="text-light">
+                          Não
+                        </label>
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-light font-semibold mb-2">Comprovante de Pagamento *</label>

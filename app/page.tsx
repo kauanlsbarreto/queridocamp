@@ -13,7 +13,7 @@ import AdPropaganda from "@/components/ad-propaganda"
 
 
 export default function Home() {
-  const startDate = new Date("2026-01-19T00:00:00")
+  const startDate = new Date("2026-05-11T00:00:00")
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [currentImage, setCurrentImage] = useState({ src: "", alt: "" })
@@ -128,7 +128,7 @@ export default function Home() {
 
       <section className="py-20 bg-gradient-to-b from-black via-gray-900 to-black">
         <div className="container mx-auto px-4">
-          <SectionTitle title="O Campeonato Começa Em" subtitle="Contagem Regressiva" />
+          <SectionTitle title="A copa do mundo vem ai" subtitle="Contagem Regressiva" />
           <CountdownTimer targetDate={startDate} />
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -139,8 +139,7 @@ export default function Home() {
           >
             <div className="inline-block bg-black/50 backdrop-blur-sm px-6 py-3 rounded-lg border border-gold/10">
               <p className="text-white">
-                <span className="font-bold text-gold">Início:</span> 19 de Janeiro de 2026 |
-                <span className="font-bold text-gold"> Inscrições até:</span> 10 de Janeiro de 2026
+                <span className="font-bold text-gold">Inscrições abertas:</span> 20 de Abril até 4 de Maio
               </p>
             </div>
           </motion.div>
@@ -160,7 +159,7 @@ export default function Home() {
               <div className="p-8 text-center">
                 <div className="text-5xl font-bold text-gold mb-4">1º Lugar</div>
                 <div className="text-3xl font-bold text-white mb-6">R$ 1.000,00</div>
-                <div className="bg-gold/20 p-4 rounded-full inline-block flex items-center justify-center">
+                <div className="bg-gold/20 p-4 rounded-full flex items-center justify-center">
                   <Trophy className="text-gold h-16 w-16" />
                 </div>
                 <p className="text-gray-300 mt-4">Troféu de Campeão + Premiação</p>
@@ -180,7 +179,7 @@ export default function Home() {
                       <p className="text-sm text-gray-400">Troféu + Skin no valor de</p>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-gold">R$ 250,00</div>
+                  <div className="text-2xl font-bold text-gold">R$ 200,00</div>
                 </div>
               </div>
             </PremiumCard>

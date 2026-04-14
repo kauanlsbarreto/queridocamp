@@ -154,7 +154,6 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
                   Querida Fila <ChevronDown size={14} />
                 </button>
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#060D15]/95 backdrop-blur-xl border border-gold/20 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top flex flex-col p-1">
-                  <DropdownLink href="/queridafila/inscricao">Inscrição</DropdownLink>
                   <DropdownLink href="/queridafila/classificacao">Classificação</DropdownLink>
                   <DropdownLink href="/queridafila/partidas">Partidas</DropdownLink>
                 </div>
@@ -165,6 +164,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
                   Querido Draft <ChevronDown size={14} />
                 </button>
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#060D15]/95 backdrop-blur-xl border border-gold/20 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top flex flex-col p-1">
+                  <DropdownLink href="/queridodraft/inscricao">Inscrição</DropdownLink>
                   <DropdownLink href="/demos">Demos</DropdownLink>
                   <DropdownLink href="/times">Times</DropdownLink>
                   <DropdownLink href="/stats">Estatísticas</DropdownLink>
@@ -229,7 +229,6 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
             <div className="my-2 border-t border-white/10 pt-4 pb-2 bg-white/5 rounded-xl px-2">
               <p className="px-2 text-xs font-bold text-gold uppercase tracking-widest mb-2 text-center">Querida Fila</p>
               <div className="grid grid-cols-2 gap-2 mb-4">
-                <MobileGridLink href="/queridafila/inscricao">Inscrição</MobileGridLink>
                 <MobileGridLink href="/queridafila/classificacao">Classificação</MobileGridLink>
                 <MobileGridLink href="/queridafila/partidas">Partidas</MobileGridLink>
               </div>
@@ -238,6 +237,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
             <div className="my-2 border-t border-white/10 pt-4 pb-2 bg-white/5 rounded-xl px-2">
               <p className="px-2 text-xs font-bold text-gold uppercase tracking-widest mb-2 text-center">Querido Draft</p>
               <div className="grid grid-cols-2 gap-2">
+                <MobileGridLink href="/queridodraft/inscricao">Inscrição</MobileGridLink>
                 <MobileGridLink href="/times">Times</MobileGridLink>
                 <MobileGridLink href="/stats">Estatísticas</MobileGridLink>
                 <MobileGridLink href="/classificacao">Classificação</MobileGridLink>

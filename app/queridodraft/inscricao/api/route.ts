@@ -11,7 +11,10 @@ export async function POST(req: Request) {
 
   const nomeCompleto = String(data.get("nomeCompleto") || "");
   const faceitLink = String(data.get("faceitLink") || "");
+  const gcLink = String(data.get("gcLink") || "");
+  const steamLink = String(data.get("steamLink") || "");
   const telefone = String(data.get("telefone") || "");
+  const jogouOutrosDrafts = String(data.get("jogouOutrosDrafts") || "false");
 
   let faceitGuid = null;
   const match = faceitLink.match(/faceit.com\/(?:[a-z]{2}\/)?players\/([^/?#]+)/i);
@@ -30,7 +33,10 @@ export async function POST(req: Request) {
   const embedFields = [
     { name: "Nome Completo", value: nomeCompleto, inline: false },
     { name: "Link do Faceit", value: faceitLink, inline: false },
+    { name: "Link do perfil Gc", value: gcLink, inline: false },
+    { name: "Link da Steam", value: steamLink, inline: false },
     { name: "Telefone", value: telefone, inline: false },
+    { name: "Já jogou outros drafts?", value: jogouOutrosDrafts === "true" ? "Sim" : "Não", inline: false },
     faceitGuid !== null ? { name: "faceit_guid", value: faceitGuid, inline: false } : null,
   ].filter(Boolean);
 
@@ -58,7 +64,7 @@ export async function POST(req: Request) {
     JSON.stringify({
       embeds: [
         {
-          title: "Nova inscrição Querida Fila",
+          title: "Nova inscrição Querido Draft",
           color: 0x2e8bff, // azul
           fields: embedFields,
           image: file && !file.type.includes("pdf") ? { url: "attachment://" + file.name } : undefined,
