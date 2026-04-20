@@ -160,27 +160,11 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
               </div>
 
               <div className="relative group">
-                <button className="flex items-center gap-1 text-gold font-bold px-4 py-2 rounded-xl border border-gold/50 hover:bg-gold/10 transition-all whitespace-nowrap text-sm xl:text-base">
-                  Querido Draft <ChevronDown size={14} />
-                </button>
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#060D15]/95 backdrop-blur-xl border border-gold/20 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top flex flex-col p-1">
-                  <DropdownLink href="/queridodraft/inscricao">Inscrição</DropdownLink>
-                  <DropdownLink href="/demos">Demos</DropdownLink>
-                  <DropdownLink href="/times">Times</DropdownLink>
-                  <DropdownLink href="/stats">Estatísticas</DropdownLink>
-                  <DropdownLink href="/classificacao">Classificação</DropdownLink>
-                  <DropdownLink href="/rodadas">Rodadas</DropdownLink>
-                  <DropdownLink href="/redondo">Redondo</DropdownLink>
-                  <DropdownLink href="/premiacao">Premiação</DropdownLink>
-                </div>
-              </div>
-
-              <div className="relative group">
                 <button className="flex items-center gap-1 text-gold font-bold px-4 py-2 rounded-xl border border-gold/50 hover:bg-gold/10 transition-all whitespace-nowrap text-sm xl:text-base cursor-default">
-                  Em Breve <ChevronDown size={14} />
+                  Copa Draft <ChevronDown size={14} />
                 </button>
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#060D15]/95 backdrop-blur-xl border border-gold/20 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top flex flex-col p-4 text-center">
-                  <div className="text-gold text-xs font-bold uppercase tracking-widest">Calma pequeno gafanhoto</div>
+                  <DropdownLink href="/copadraft/inscricao">Inscrição</DropdownLink>
                 </div>
               </div>
             </div>
@@ -235,22 +219,9 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
             </div>
 
             <div className="my-2 border-t border-white/10 pt-4 pb-2 bg-white/5 rounded-xl px-2">
-              <p className="px-2 text-xs font-bold text-gold uppercase tracking-widest mb-2 text-center">Querido Draft</p>
-              <div className="grid grid-cols-2 gap-2">
-                <MobileGridLink href="/queridodraft/inscricao">Inscrição</MobileGridLink>
-                <MobileGridLink href="/times">Times</MobileGridLink>
-                <MobileGridLink href="/stats">Estatísticas</MobileGridLink>
-                <MobileGridLink href="/classificacao">Classificação</MobileGridLink>
-                <MobileGridLink href="/rodadas">Rodadas</MobileGridLink>
-                <MobileGridLink href="/redondo">Redondo</MobileGridLink>
-                <MobileGridLink href="/premiacao">Premiação</MobileGridLink>
-              </div>
-            </div>
-
-            <div className="my-2 border-t border-white/10 pt-4 pb-2 bg-white/5 rounded-xl px-2">
-              <p className="px-2 text-xs font-bold text-gold uppercase tracking-widest mb-2 text-center">Em Breve</p>
-              <div className="flex items-center justify-center bg-black/40 text-gold/50 py-4 rounded-lg border border-gold/20 italic text-xs">
-                Novas funcionalidades em breve...
+              <p className="px-2 text-xs font-bold text-gold uppercase tracking-widest mb-2 text-center">Copa Draft</p>
+              <div className="grid grid-cols-1 gap-2">
+                <MobileGridLink href="/copadraft/inscricao">Inscrição</MobileGridLink>
               </div>
             </div>
 

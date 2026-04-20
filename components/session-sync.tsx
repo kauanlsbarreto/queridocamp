@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-const SESSION_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+const SESSION_SYNC_INTERVAL_MS = 10 * 1000;
 
 export default function SessionSync() {
   const isSyncingRef = useRef(false);
@@ -18,53 +18,52 @@ export default function SessionSync() {
         isSyncingRef.current = true;
 
         const user = JSON.parse(storedUser);
-        if (!user.id) return;
+        if (!user.faceit_guid) return;
 
-      const res = await fetch(`/api/admin/players?id=${user.id}`, { cache: 'no-store' });
-      if (res.ok) {
-        const updatedData = await res.json();
-
-        let newUser: any = {
-          ...user,
-          ...updatedData,
-          Admin: updatedData.admin,
-          nickname: updatedData.nickname,
-          faceit_guid: updatedData.faceit_guid,
-          avatar: updatedData.avatar || user.avatar,
-        };
-
-        if (user.accessToken && user.faceit_guid) {
-          try {
-            const faceitRes = await fetch('https://api.faceit.com/auth/v1/resources/userinfo', {
-              headers: { Authorization: `Bearer ${user.accessToken}` },
+        let updatedNickname = user.nickname;
+        let updatedAvatar = user.avatar;
+        try {
+          if (user.faceit_guid) {
+            const apiKey = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
+            const res = await fetch(`https://open.faceit.com/data/v4/players/${user.faceit_guid}`, {
+              headers: { 'Authorization': `Bearer ${apiKey}` }
             });
-            if (faceitRes.ok) {
-              const faceitData = await faceitRes.json();
-              if (faceitData.picture && faceitData.picture !== newUser.avatar) {
-                newUser.avatar = faceitData.picture;
-                await fetch('/api/players', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    guid: user.faceit_guid,
-                    nickname: user.nickname,
-                    avatar: faceitData.picture,
-                  }),
-                });
-              }
+            if (res.ok) {
+              const data = await res.json();
+              if (data.nickname) updatedNickname = data.nickname;
+              if (data.avatar) updatedAvatar = data.avatar;
             }
-          } catch (e) {
-            console.error('Failed to refresh Faceit profile:', e);
           }
+        } catch (e) {
+          console.error('Failed to refresh Faceit profile:', e);
         }
 
-        if ('admin' in newUser) delete newUser.admin;
+        // Atualiza localStorage e banco se mudou
+        let changed = false;
+        let newUser: any = { ...user };
+        if (user.nickname !== updatedNickname) {
+          newUser.nickname = updatedNickname;
+          changed = true;
+        }
+        if (user.avatar !== updatedAvatar) {
+          newUser.avatar = updatedAvatar;
+          changed = true;
+        }
 
-        if (JSON.stringify(user) !== JSON.stringify(newUser)) {
+        await fetch('/api/players', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            guid: user.faceit_guid,
+            nickname: updatedNickname,
+            avatar: updatedAvatar,
+          }),
+        });
+
+        if (changed) {
           localStorage.setItem('faceit_user', JSON.stringify(newUser));
           window.dispatchEvent(new Event('storage'));
         }
-      }
       } catch (error) {
       } finally {
         isSyncingRef.current = false;
@@ -80,9 +79,10 @@ export default function SessionSync() {
     window.addEventListener('focus', syncSession);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    const interval = setInterval(syncSession, SESSION_SYNC_INTERVAL_MS);
-
+    // Executa imediatamente ao entrar
     syncSession();
+    // Executa a cada 10 segundos
+    const interval = setInterval(syncSession, SESSION_SYNC_INTERVAL_MS);
 
     return () => {
       clearInterval(interval);

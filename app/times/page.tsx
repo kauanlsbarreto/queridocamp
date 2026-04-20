@@ -5,6 +5,7 @@ import { createMainConnection, createJogadoresConnection } from '@/lib/db';
 import { getDatabaseLastUpdate } from '@/lib/last-update';
 import UpdateTimer from '@/components/update-timer';
 import { unstable_cache } from 'next/cache';
+import PageAccessGate from '@/components/page-access-gate';
 
 export const revalidate = 86400;
 
@@ -152,20 +153,22 @@ export default async function TimesPage() {
   }
 
   return (
-    <div>
-      <SideAds />
-      <section className="py-16 bg-gradient-to-b from-black to-gray-900">
-        <div className="container mx-auto px-4">
-          <UpdateTimer lastUpdate={lastUpdate} />
-          {teams.length > 0 ? (
-            <TeamsList teams={teams} />
-          ) : (
-            <div className="text-center text-gray-400 py-12">
-              <p>Nenhum time encontrado ou erro ao carregar dados do banco.</p>
-            </div>
-          )}
-        </div>
-      </section>
-    </div>
+    <PageAccessGate level={2}>
+      <div>
+        <SideAds />
+        <section className="py-16 bg-gradient-to-b from-black to-gray-900">
+          <div className="container mx-auto px-4">
+            <UpdateTimer lastUpdate={lastUpdate} />
+            {teams.length > 0 ? (
+              <TeamsList teams={teams} />
+            ) : (
+              <div className="text-center text-gray-400 py-12">
+                <p>Nenhum time encontrado ou erro ao carregar dados do banco.</p>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    </PageAccessGate>
   );
 }

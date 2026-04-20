@@ -1,5 +1,4 @@
 import PickEmClient from './pick-em-client';
-import AdPropaganda from '@/components/ad-propaganda';
 import UpdateTimer from '@/components/update-timer';
 import { createMainConnection, Env } from '@/lib/db';
 import { getDatabaseLastUpdate } from '@/lib/last-update';
@@ -104,7 +103,6 @@ export default async function RedondoPage() {
             />
           ) : (
             <div className="text-center p-20 border border-dashed border-zinc-800 rounded-2xl">
-              <AdPropaganda 
                 videoSrc="/videosad/radiante.mp4" 
                 redirectUrl="https://industriaradiante.com.br/" 
               />

@@ -1,9 +1,9 @@
 import RodadasClient from "./rodadas-cliente";
 import SideAds from "@/components/side-ads";
-import AdPropaganda from '@/components/ad-propaganda';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
 import { getDatabaseLastUpdate } from '@/lib/last-update';
+import PageAccessGate from '@/components/page-access-gate';
 
 export const revalidate = 86400; 
 
@@ -32,19 +32,17 @@ export default async function Rodadas() {
     );
 
     return (
-      <>
-        <SideAds />
-        <RodadasClient teams={teamRows} matchesData={filteredMatches} lastUpdate={lastUpdate} />
-      </>
+      <PageAccessGate level={2}>
+        <>
+          <SideAds />
+          <RodadasClient teams={teamRows} matchesData={filteredMatches} lastUpdate={lastUpdate} />
+        </>
+      </PageAccessGate>
     );
   } catch (error) {
     console.error("Erro ao buscar dados:", error);
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <AdPropaganda 
-            videoSrc="/videosad/radiante.mp4" 
-            redirectUrl="https://industriaradiante.com.br/" 
-        />
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-500 mb-4">Erro ao carregar rodadas</h1>
           <p className="text-gray-400">Não foi possível conectar ao banco de dados.</p>

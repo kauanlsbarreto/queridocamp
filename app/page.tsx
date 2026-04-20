@@ -9,7 +9,8 @@ import PremiumCard from "@/components/premium-card"
 import HeroBanner from "@/components/hero-banner"
 import ImageModal from "@/components/image-modal"
 import { Trophy, Award } from "lucide-react"
-import AdPropaganda from "@/components/ad-propaganda"
+
+import InscricoesModal from "@/components/InscricoesModal"
 
 
 export default function Home() {
@@ -90,10 +91,7 @@ export default function Home() {
 
   return (
     <div>
-      <AdPropaganda 
-        videoSrc="/videosad/neshastore.mp4" 
-        redirectUrl="https://neshastore.com" 
-      />
+      <InscricoesModal alwaysShow />
       <HeroBanner title="" subtitle="O maior campeonato de Counter-Strike 2 de Sergipe" />
 
       <section className="py-12 bg-black">

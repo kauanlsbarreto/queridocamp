@@ -1,11 +1,11 @@
 import StatsList from './stats-list';
 import SideAds from '@/components/side-ads';
 import UpdateTimer from '@/components/update-timer';
-import AdPropaganda from '@/components/ad-propaganda';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, createJogadoresConnection } from '@/lib/db';
 import { getDatabaseLastUpdate } from '@/lib/last-update';
 import type { Env } from '@/lib/db';
+import PageAccessGate from '@/components/page-access-gate';
 
 export const revalidate = 86400;
 
@@ -109,27 +109,30 @@ export default async function StatsPage() {
 
   if (allStats.length === 0) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <h1 className="text-xl text-red-500">Erro: Tabela de estatísticas vazia ou erro no banco.</h1>
-      </div>
+      <PageAccessGate level={2}>
+        <div className="min-h-screen bg-black text-white flex items-center justify-center">
+          <h1 className="text-xl text-red-500">Erro: Tabela de estatísticas vazia ou erro no banco.</h1>
+        </div>
+      </PageAccessGate>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black">
-      <SideAds />
-      <AdPropaganda videoSrc="/videosad/radiante.mp4" redirectUrl="https://industriaradiante.com.br/" />
-      <section className="py-12 bg-gradient-to-b from-black to-gray-900">
-        <div className="container mx-auto px-4">
-          <UpdateTimer lastUpdate={lastUpdate} />
-          <div className="text-center mb-8">
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">
-              Critérios para MVP: <span className="text-gold">K/D</span> &gt; ADR &gt; K/R &gt; Kills
-            </p>
+    <PageAccessGate level={2}>
+      <div className="min-h-screen bg-black">
+        <SideAds />
+        <section className="py-12 bg-gradient-to-b from-black to-gray-900">
+          <div className="container mx-auto px-4">
+            <UpdateTimer lastUpdate={lastUpdate} />
+            <div className="text-center mb-8">
+              <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">
+                Critérios para MVP: <span className="text-gold">K/D</span> &gt; ADR &gt; K/R &gt; Kills
+              </p>
+            </div>
+            <StatsList allStats={allStats} />
           </div>
-          <StatsList allStats={allStats} />
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </PageAccessGate>
   );
 }

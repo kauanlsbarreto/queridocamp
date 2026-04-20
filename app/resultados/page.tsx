@@ -3,6 +3,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
 import SideAds from "@/components/side-ads";
 import ResultadosClient from './resultados-cliente';
 import HeroBanner from '@/components/hero-banner';
+import PageAccessGate from '@/components/page-access-gate';
 
 export const revalidate = 3600; 
 
@@ -29,10 +30,12 @@ export default async function Resultados() {
     );
 
     return (
-      <>
-        <SideAds />
-        <ResultadosClient teams={teamRows} matchesData={filteredMatches} />
-      </>
+      <PageAccessGate level={2}>
+        <>
+          <SideAds />
+          <ResultadosClient teams={teamRows} matchesData={filteredMatches} />
+        </>
+      </PageAccessGate>
     );
   } catch (error) {
     console.error("Erro ao buscar dados para resultados:", error);
