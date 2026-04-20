@@ -30,23 +30,51 @@ function InscricaoForm() {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [banMessage, setBanMessage] = useState<string | null>(null);
 
-  // Preenche automaticamente o link do perfil Faceit ao entrar
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const raw = localStorage.getItem("faceit_user");
-        if (raw) {
-          const user = JSON.parse(raw);
-          if (user && user.nickname) {
-            setFormData((prev) => ({
-              ...prev,
-              faceitLink: `https://www.faceit.com/pt/players/${user.nickname}`,
-            }));
+    let interval: NodeJS.Timeout | null = null;
+    async function checkBan() {
+      if (typeof window !== "undefined") {
+        try {
+          const raw = localStorage.getItem("faceit_user");
+          if (raw) {
+            const user = JSON.parse(raw);
+            if (user && user.nickname) {
+              setFormData((prev) => ({
+                ...prev,
+                faceitLink: `https://www.faceit.com/pt/players/${user.nickname}`,
+              }));
+            }
+            if (user && user.faceit_guid) {
+              // Consulta diretamente a API de players
+              const res = await fetch(`/api/admin/players?faceit_guid=${user.faceit_guid}`);
+              if (res.ok) {
+                const player = await res.json();
+                if (player && player.ban === 1) {
+                  setBanMessage("Você está banido de 1 Campeonato Draft. Se achar que é um erro, fale com a Administração.");
+                } else {
+                  setBanMessage(null);
+                }
+              } else {
+                setBanMessage(null);
+              }
+            } else {
+              setBanMessage(null);
+            }
+          } else {
+            setBanMessage(null);
           }
+        } catch {
+          setBanMessage(null);
         }
-      } catch {}
+      }
     }
+    checkBan();
+    interval = setInterval(checkBan, 5000);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,6 +137,37 @@ function InscricaoForm() {
     } finally {
       setLoading(false);
     }
+  }
+
+
+  if (banMessage) {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        background: 'rgba(20, 0, 0, 0.98)',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <PremiumCard>
+          <div className="p-8 text-center">
+            <h2 className="text-2xl font-bold text-red-400 mb-4">Acesso Bloqueado</h2>
+            <p className="text-light mb-6">{banMessage}</p>
+            <a
+              href="/"
+              className="inline-block bg-primary text-dark font-bold py-3 px-8 rounded-md hover:bg-primary/90 transition-colors"
+            >
+              Voltar para Home
+            </a>
+          </div>
+        </PremiumCard>
+      </div>
+    );
   }
 
   if (submitted) {
