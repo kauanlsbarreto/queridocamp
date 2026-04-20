@@ -50,17 +50,16 @@ export default function SessionSync() {
           changed = true;
         }
 
-        await fetch('/api/players', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            guid: user.faceit_guid,
-            nickname: updatedNickname,
-            avatar: updatedAvatar,
-          }),
-        });
-
         if (changed) {
+          await fetch('/api/players', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              guid: user.faceit_guid,
+              nickname: updatedNickname,
+              avatar: updatedAvatar,
+            }),
+          });
           localStorage.setItem('faceit_user', JSON.stringify(newUser));
           window.dispatchEvent(new Event('storage'));
         }
