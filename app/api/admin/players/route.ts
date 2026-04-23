@@ -30,6 +30,7 @@ type PlayerRow = RowDataPacket & {
   avatar: string;
   adicionados: number;
   points: number;
+  ban?: number;
 };
 
 export async function GET(req: Request) {
@@ -43,7 +44,7 @@ export async function GET(req: Request) {
     const faceit_guid = searchParams.get("faceit_guid");
     const nickname = searchParams.get("nickname");
 
-    let query = "SELECT id, nickname, admin, faceit_guid, avatar, adicionados, points FROM players";
+    let query = "SELECT id, nickname, admin, faceit_guid, avatar, adicionados, points, ban FROM players";
     let params: any[] = [];
 
     if (id) {

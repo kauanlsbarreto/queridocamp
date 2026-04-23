@@ -59,6 +59,7 @@ function parseStorePayload(body: Record<string, unknown>) {
     descricao,
     moedas,
     estoque,
+    preco,
     imagem_url,
     categoria,
     tipo_item,
@@ -72,19 +73,31 @@ function parseStorePayload(body: Record<string, unknown>) {
 
   const itemMoedas = Number(moedas || 0);
   const itemEstoque = Number(estoque || 0);
+  const itemPreco = Number(preco || 0);
 
   if (!Number.isFinite(itemEstoque) || itemEstoque < 0) {
     return { error: "Estoque inválido." } as const;
   }
 
-  if (!Number.isFinite(itemMoedas) || itemMoedas <= 0) {
-    return { error: "Valor em moedas inválido." } as const;
+  const hasMoedas = Number.isFinite(itemMoedas) && itemMoedas > 0;
+  const hasPreco = Number.isFinite(itemPreco) && itemPreco > 0;
+
+  if (!hasMoedas && !hasPreco) {
+    return { error: "Preencha Moedas do site OU Preço em BRL. Item precisa ter um tipo de pagamento." } as const;
+  }
+
+  if (hasMoedas && !Number.isInteger(itemMoedas)) {
+    return { error: "Moedas deve ser um número inteiro sem decimais." } as const;
+  }
+
+  if (!Number.isFinite(itemPreco) || itemPreco < 0) {
+    return { error: "Preço inválido." } as const;
   }
 
   const payload: StorePayload = {
     nome: itemName,
     descricao: String(descricao || "").trim() || null,
-    preco: 0,
+    preco: Number(itemPreco.toFixed(2)),
     moedas: Math.floor(itemMoedas),
     estoque: Math.floor(itemEstoque),
     imagem_url: normalizeImageUrl(String(imagem_url || "")),
@@ -155,7 +168,7 @@ export async function GET(request: Request) {
     const [rows] = await connection.query(
       `SELECT id, nome, descricao, preco, moedas, estoque, imagem_url, categoria, data_adicionado, ativo, tipo_item
        FROM estoque
-       WHERE ativo = 1 AND moedas > 0
+       WHERE ativo = 1 AND (moedas > 0 OR preco > 0)
        ORDER BY data_adicionado DESC`,
     );
 

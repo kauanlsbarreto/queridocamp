@@ -6,55 +6,11 @@ import Image from "next/image"
 import { Instagram, Twitch } from "lucide-react"
 import { motion } from "framer-motion"
 
-const sponsors = [
-  { name: "NeshaStore", href: "https://neshastore.com/" },
-  { name: "Contabilize", href: "https://www.instagram.com/contabilize.se/" },
-  { name: "Lafise", href: "#" },
-  { name: "União", href: "https://uniaoconstrucoes.com.br/" },
-  { name: "Querida Pizza", href: "https://queridapizza.com.br/queridapizzadelivery/se" },
-  { name: "Eco A", href: "https://www.instagram.com/ecoa.arquitetos/" },
-  { name: "Componentes EXE", href: "https://www.instagram.com/componenttes.exe/" },
-  { name: "Boxx", href: "http://www.boxxaju.com" },
-  { name: "La Fab", href: "https://www.instagram.com/lafabrica.fdm/" },
-  { name: "22Cão Na Chapa", href: "https://www.instagram.com/22caonachapa/" },
-  { name: "Radiante", href: "https://industriaradiante.com.br/" },
-]
-
 const Footer = () => {
   return (
     <footer className="bg-gradient-to-t from-black to-gray-900 pt-16 pb-8 border-t border-gold/10">
       <div className="container mx-auto px-4">
-        
-        <section className="mb-20">
-          <motion.h3 
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            className="text-center text-gray-500 text-xs font-bold uppercase tracking-[0.4em] mb-12"
-          >
-            Patrocinadores & Parceiros
-          </motion.h3>
-          
-          <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-8 max-w-6xl mx-auto">
-            {sponsors.map((sponsor, index) => (
-              <motion.a
-                key={sponsor.name}
-                href={sponsor.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 0.6, y: 0 }}
-                whileHover={{ opacity: 1, scale: 1.05 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.05 }}
-                className="group relative"
-              >
-                <span className="text-gray-400 text-sm font-medium border border-white/5 px-4 py-2 rounded-sm bg-white/5 group-hover:border-gold/30 group-hover:text-gold transition-all duration-300 block">
-                  {sponsor.name}
-                </span>
-              </motion.a>
-            ))}
-          </div>
-        </section>
+        {/* Sponsors removidos */}
 
         <div className="h-px bg-gradient-to-r from-transparent via-gold/10 to-transparent mb-16" />
 

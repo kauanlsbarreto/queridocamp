@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Cartao de debito">
+  <rect width="128" height="128" rx="20" fill="#111827"/>
+  <rect x="16" y="30" width="96" height="68" rx="10" fill="#0ea5e9"/>
+  <rect x="16" y="44" width="96" height="10" fill="#0369a1"/>
+  <circle cx="36" cy="75" r="9" fill="#fcd34d"/>
+  <circle cx="47" cy="75" r="9" fill="#f59e0b" opacity="0.9"/>
+  <rect x="62" y="72" width="34" height="6" rx="3" fill="#e0f2fe"/>
+</svg>

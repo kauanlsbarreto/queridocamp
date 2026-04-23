@@ -1,10 +1,10 @@
-import AdPropaganda from "@/components/ad-propaganda";
 import SideAds from "@/components/side-ads";
 import ClassificacaoLive from "./classificacao-live";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
 import { getDatabaseLastUpdate } from "@/lib/last-update";
 import type { RowDataPacket } from "mysql2";
+import PageAccessGate from '@/components/page-access-gate';
 
 export const revalidate = 86400; 
 
@@ -48,20 +48,18 @@ export default async function Classificacao() {
     ]);
 
     return (
-      <div>
-        <SideAds />
-        <AdPropaganda
-          videoSrc="/videosad/radiante.mp4"
-          redirectUrl="https://industriaradiante.com.br/"
-        />
-        <section className="py-16 bg-gradient-to-b from-black to-gray-900">
-          <div className="container mx-auto px-4">
-            <div className="max-w-6xl mx-auto">
-              <ClassificacaoLive initialTeams={teams} initialLastUpdate={lastUpdate} />
+      <PageAccessGate level={2}>
+        <div>
+          <SideAds />
+          <section className="py-16 bg-gradient-to-b from-black to-gray-900">
+            <div className="container mx-auto px-4">
+              <div className="max-w-6xl mx-auto">
+                <ClassificacaoLive initialTeams={teams} initialLastUpdate={lastUpdate} />
+              </div>
             </div>
-          </div>
-        </section>
-      </div>
+          </section>
+        </div>
+      </PageAccessGate>
     );
   } catch (error) {
     console.error("Erro ao renderizar classificação:", error);

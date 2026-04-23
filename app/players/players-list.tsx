@@ -6,7 +6,6 @@ import Image from "next/image";
 import { Search, ChevronLeft, ChevronRight, Crown, Medal } from "lucide-react";
 import PremiumCard from "@/components/premium-card";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import AdPropaganda from "@/components/ad-propaganda";
 import UpdateTimer from "@/components/update-timer";
 
 const SPECIAL_ROLES: Record<string, { label: string; emoji: string; cardGlow: string; shimmer: string; badgeClass: string }> = {
@@ -143,7 +142,6 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
 
   return (
     <div className="container mx-auto px-4 py-8">
-       <AdPropaganda videoSrc="/videosad/radiante.mp4" redirectUrl="https://industriaradiante.com.br/" />
        
        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
           <div>
