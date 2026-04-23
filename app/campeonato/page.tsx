@@ -153,19 +153,19 @@ export default function Campeonato() {
           </motion.h2>
           <div className="max-w-3xl mx-auto">
             <div className="relative border-l-2 border-gold pl-8 space-y-10">
-              <TimelineItem date="Até 5 de maio" title="Inscrições">
+              <TimelineItem date="Até 5 de Maio" title="Inscrições">
                 Período de inscrições para equipes e jogadores individuais.
               </TimelineItem>
-              <TimelineItem date="8 de maio  de 2026" title="Início do Campeonato">
+              <TimelineItem date="8 de Maio  de 2026" title="Início do Campeonato">
                 Draft acontece
               </TimelineItem>
-              <TimelineItem date="11 maio " title="Fase de Grupos">
+              <TimelineItem date="11 Maio " title="Fase de Grupos">
                 Partidas da fase de grupos, com jogos de ida e volta. Todos jogam contra todos.
               </TimelineItem>
               
         
             
-              <TimelineItem date="29 de Março" title="Semis e Final Presencial">
+              <TimelineItem date="6 e 7 de Junho" title="Semis e Final Presencial na arena Hitech">
                Fase  presencial em LAN e cerimônia de premiação.
               </TimelineItem>
             </div>
