@@ -1,5 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { createMainConnection, createJogadoresConnection } from "./db";
+import { createMainConnection } from "./db";
 
 function calculateSimilarity(str1: string, str2: string): number {
   const s1 = (str1 || "").toLowerCase().trim();
@@ -24,8 +24,7 @@ function calculateSimilarity(str1: string, str2: string): number {
 
 export async function getStatsData() {
   let env: any = {};
-  let mainConnection: any;
-  let jogadoresConnection: any;
+  let connection: any;
 
   try {
     try {
@@ -33,31 +32,15 @@ export async function getStatsData() {
       env = ctx.env;
     } catch (e) {
       // Fallback for local development or build environments where Cloudflare context is missing
-      env = {
-        DB_PRINCIPAL: {
-          host: "127.0.0.1",
-          user: "root",
-          password: "senha",
-          database: "meu_db",
-          port: 3306,
-        },
-        DB_JOGADORES: {
-          host: "127.0.0.1",
-          user: "root",
-          password: "senha",
-          database: "meu_db",
-          port: 3306,
-        },
-      };
+      env = {};
     }
 
-    mainConnection = await createMainConnection(env);
-    jogadoresConnection = await createJogadoresConnection(env);
+    connection = await createMainConnection(env);
 
     const [statsResult, playersResult, faceitResult] = await Promise.all([
-      mainConnection.execute('SELECT * FROM top90_stats') as [any[], any],
-      jogadoresConnection.execute('SELECT * FROM jogadores') as [any[], any],
-      jogadoresConnection.execute('SELECT * FROM faceit_players') as [any[], any],
+      connection.execute('SELECT * FROM top90_stats') as [any[], any],
+      connection.execute('SELECT * FROM jogadores') as [any[], any],
+      connection.execute('SELECT * FROM faceit_players') as [any[], any],
     ]);
 
     const statsRows = statsResult[0];
@@ -146,7 +129,6 @@ export async function getStatsData() {
     console.error("Erro ao carregar stats:", error);
     return [];
   } finally {
-    if (mainConnection) await mainConnection.end();
-    if (jogadoresConnection) await jogadoresConnection.end();
+    if (connection) await connection.end();
   }
 }

@@ -68,6 +68,7 @@ export function isFinalStatus(statusRaw: unknown) {
   return ["PAID", "DECLINED", "CANCELED", "EXPIRED", "FAILED"].includes(status);
 }
 
+
 async function pagBankFetch(path: string, init?: RequestInit) {
   const token = getPagBankToken();
   if (!token) {
@@ -82,7 +83,6 @@ async function pagBankFetch(path: string, init?: RequestInit) {
     headers.set("Content-Type", "application/json");
   }
 
-  // Log de request para crédito e PIX em arquivo
   const fs = await import('fs');
   const logFile = 'pagbank-logs.txt';
   if (
@@ -115,6 +115,23 @@ async function pagBankFetch(path: string, init?: RequestInit) {
   return { response, data };
 }
 
+export async function getOrder(orderId: string) {
+  const fs = await import('fs');
+  const logFile = 'pagbank-logs.txt';
+  const path = `/orders/${encodeURIComponent(orderId)}`;
+  const result = await pagBankFetch(path, {
+    method: "GET",
+  });
+  // Só loga se status final
+  const status = extractOrderChargeStatus(result.data);
+  if (isFinalStatus(status)) {
+    try {
+      fs.appendFileSync(logFile, `\n[PAGBANK][RESPONSE] ${path}\n${JSON.stringify(result.data, null, 2)}\n`);
+    } catch {}
+  }
+  return result;
+}
+
 export async function createCheckout(payload: Record<string, unknown>) {
   const idempotencyKey = randomUUID();
   return pagBankFetch("/checkouts", {
@@ -126,11 +143,6 @@ export async function createCheckout(payload: Record<string, unknown>) {
   });
 }
 
-export async function getCheckout(checkoutId: string) {
-  return pagBankFetch(`/checkouts/${encodeURIComponent(checkoutId)}`, {
-    method: "GET",
-  });
-}
 
 export async function createOrder(payload: Record<string, unknown>) {
   const idempotencyKey = randomUUID();
@@ -143,11 +155,6 @@ export async function createOrder(payload: Record<string, unknown>) {
   });
 }
 
-export async function getOrder(orderId: string) {
-  return pagBankFetch(`/orders/${encodeURIComponent(orderId)}`, {
-    method: "GET",
-  });
-}
 
 export function extractPixData(orderData: any) {
   const qrCode = Array.isArray(orderData?.qr_codes) ? orderData.qr_codes[0] : null;
