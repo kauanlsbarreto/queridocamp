@@ -714,11 +714,14 @@
 		const isSkinAlreadySaved = useMemo(() => {
 			if (!configSkin || !loadout) return false;
 			const def = Number(configSkin.weapon_defindex ?? -1);
-			const paint = Number(configSkin.paint ?? -1);
+			const activeTeam = selectedTeam === "both" ? 0 : Number(selectedTeam);
+			
+			// Verifica se já existe QUALQUER pintura para esta arma neste time
+			// Se activeTeam for 0 (ambos), verificamos se existe em qualquer um dos dois
 			return loadout.loadout.skins.some(
-				(s) => s.weapon_defindex === def && s.weapon_paint_id === paint,
+				(s) => s.weapon_defindex === def && (activeTeam === 0 || s.weapon_team === activeTeam)
 			);
-		}, [configSkin, loadout]);
+		}, [configSkin, loadout, selectedTeam]);
 
 		const buttonText = useMemo(() => {
 			if (saving) return "Salvando...";
