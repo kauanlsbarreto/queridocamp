@@ -391,6 +391,18 @@ export async function POST(request: Request) {
       };
 
       const { response, data } = await createOrder(pixPayload);
+      // LOG PAGBANK: salva request/response PIX
+      try {
+        const fs = await import("fs");
+        const path = require("path");
+        const logPath = path.resolve(process.cwd(), "pagbank-logs.txt");
+        const now = new Date().toISOString();
+        fs.appendFileSync(
+          logPath,
+          `\n[PAGBANK][REQUEST] /orders\n${JSON.stringify(pixPayload, null, 2)}\n` +
+          `[PAGBANK][RESPONSE] /orders\n${JSON.stringify(data, null, 2)}\n`
+        );
+      } catch {}
       if (!response.ok) {
         const providerError = getProviderErrorMessage(data);
         await createPaymentLog(connection, {
@@ -437,6 +449,29 @@ export async function POST(request: Request) {
       };
 
       const { response, data } = await createCheckout(checkoutPayload);
+      // LOG PAGBANK: salva request/response CHECKOUT (cartão de crédito)
+      let orderResponse = null;
+      try {
+        const fs = await import("fs");
+        const path = require("path");
+        const logPath = path.resolve(process.cwd(), "pagbank-logs.txt");
+        const now = new Date().toISOString();
+        fs.appendFileSync(
+          logPath,
+          `\n[PAGBANK][REQUEST] /checkouts\n${JSON.stringify(checkoutPayload, null, 2)}\n` +
+          `[PAGBANK][RESPONSE] /checkouts\n${JSON.stringify(data, null, 2)}\n`
+        );
+        // Se houver ID de order, busca o objeto completo da order para logar igual documentação
+        if (data?.id) {
+          const { getOrder } = await import("@/lib/pagbank-loja");
+          const orderResult = await getOrder(data.id);
+          orderResponse = orderResult?.data;
+          fs.appendFileSync(
+            logPath,
+            `\n[PAGBANK][RESPONSE] /orders\n${JSON.stringify(orderResponse, null, 2)}\n`
+          );
+        }
+      } catch {}
       if (!response.ok) {
         const providerError = getProviderErrorMessage(data);
         await createPaymentLog(connection, {

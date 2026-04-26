@@ -268,69 +268,78 @@ return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
 export default function LojaPage() {
-const paymentPopupRef = useRef<Window | null>(null);
-const paymentPollRef = useRef<number | null>(null);
-const billingCepLookupTimerRef = useRef<number | null>(null);
-const billingCepLastLookupRef = useRef("");
+	// Estado para controlar quais pagamentos estão expandidos
+	const [expandedPayments, setExpandedPayments] = useState<{ [id: number]: boolean }>({});
+	// Data de lançamento da loja (igual backend)
+	const LOJA_RELEASE_AT_ISO = "2026-04-25T00:00:00.000Z"; // ajuste conforme backend
+	const LOJA_RELEASE_DATE = new Date(LOJA_RELEASE_AT_ISO);
+	const now = new Date();
 
-const [user, setUser] = useState<FaceitUser | null>(null);
-const [items, setItems] = useState<StoreItem[]>([]);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState<string>("");
-const [showForm, setShowForm] = useState(false);
-const [submitting, setSubmitting] = useState(false);
-const [canViewStore, setCanViewStore] = useState(false);
-const [form, setForm] = useState<AddItemForm>(defaultForm);
-const [formMode, setFormMode] = useState<StoreActionMode>("create");
-const [editingItemId, setEditingItemId] = useState<number | null>(null);
-const [purchaseModal, setPurchaseModal] = useState<PurchaseModalState>({
-open: false,
-item: null,
-label: "",
-file: null,
-error: "",
-submitting: false,
-});
-const [wallpaperSuccessModal, setWallpaperSuccessModal] = useState<WallpaperSuccessModalState>({
-open: false,
-itemName: "",
-});
-const [paymentMethodModal, setPaymentMethodModal] = useState<PaymentMethodModalState>({
-open: false,
-item: null,
-error: "",
-submittingMethod: null,
-});
-const [billingModal, setBillingModal] = useState<BillingModalState>({
-open: false,
-item: null,
-profile: EMPTY_BILLING_PROFILE,
-mode: "edit",
-loading: false,
-saving: false,
-error: "",
-});
-const [pixModal, setPixModal] = useState<PixModalState>({
-open: false,
-itemName: "",
-paymentId: null,
-qrCodeImageUrl: "",
-qrCodeText: "",
-expiresAt: "",
-});
-const [pixCopied, setPixCopied] = useState(false);
-const [pixRemainingSeconds, setPixRemainingSeconds] = useState<number | null>(null);
-const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryEntry[]>([]);
-const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
-const [paymentHistoryError, setPaymentHistoryError] = useState("");
-const [deletingPendingPaymentId, setDeletingPendingPaymentId] = useState<number | null>(null);
-const [paymentFeedbackModal, setPaymentFeedbackModal] = useState<PaymentFeedbackModalState>({
-open: false,
-title: "",
-message: "",
-isError: false,
-});
-const [billingCepLoading, setBillingCepLoading] = useState(false);
+	const paymentPopupRef = useRef<Window | null>(null);
+	const paymentPollRef = useRef<number | null>(null);
+	const billingCepLookupTimerRef = useRef<number | null>(null);
+	const billingCepLastLookupRef = useRef("");
+
+	const [user, setUser] = useState<FaceitUser | null>(null);
+	const [items, setItems] = useState<StoreItem[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string>("");
+	const [showForm, setShowForm] = useState(false);
+	const [submitting, setSubmitting] = useState(false);
+	const [canViewStore, setCanViewStore] = useState(false);
+	const [form, setForm] = useState<AddItemForm>(defaultForm);
+	const [formMode, setFormMode] = useState<StoreActionMode>("create");
+	const [editingItemId, setEditingItemId] = useState<number | null>(null);
+	const [purchaseModal, setPurchaseModal] = useState<PurchaseModalState>({
+		open: false,
+		item: null,
+		label: "",
+		file: null,
+		error: "",
+		submitting: false,
+	});
+	const [wallpaperSuccessModal, setWallpaperSuccessModal] = useState<WallpaperSuccessModalState>({
+		open: false,
+		itemName: "",
+	});
+	const [paymentMethodModal, setPaymentMethodModal] = useState<PaymentMethodModalState>({
+		open: false,
+		item: null,
+		error: "",
+		submittingMethod: null,
+	});
+	const [billingModal, setBillingModal] = useState<BillingModalState>({
+		open: false,
+		item: null,
+		profile: EMPTY_BILLING_PROFILE,
+		mode: "edit",
+		loading: false,
+		saving: false,
+		error: "",
+	});
+	const [pixModal, setPixModal] = useState<PixModalState>({
+		open: false,
+		itemName: "",
+		paymentId: null,
+		qrCodeImageUrl: "",
+		qrCodeText: "",
+		expiresAt: "",
+	});
+	const [pixCopied, setPixCopied] = useState(false);
+	const [pixRemainingSeconds, setPixRemainingSeconds] = useState<number | null>(null);
+	const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryEntry[]>([]);
+	const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
+	const [paymentHistoryError, setPaymentHistoryError] = useState("");
+	const [deletingPendingPaymentId, setDeletingPendingPaymentId] = useState<number | null>(null);
+	const [paymentFeedbackModal, setPaymentFeedbackModal] = useState<PaymentFeedbackModalState>({
+		open: false,
+		title: "",
+		message: "",
+		isError: false,
+	});
+	const [billingCepLoading, setBillingCepLoading] = useState(false);
+
+	//
 
 const adminLevel = useMemo(() => {
 if (!user) return null;
@@ -388,29 +397,29 @@ setLoading(true);
 }
 setError("");
 
-try {
-const res = await fetch("/api/loja", {
-headers: guid ? { "x-faceit-guid": guid } : {},
-});
+		try {
+			const res = await fetch("/api/loja", {
+				headers: guid ? { "x-faceit-guid": guid } : {},
+			});
 
-const data = await res.json().catch(() => ({}));
+			const data = await res.json().catch(() => ({}));
 
-if (!res.ok) {
-setItems([]);
-setError(data?.message || "Nao foi possivel carregar a loja.");
-return;
-}
+			if (!res.ok) {
+				setItems([]);
+				setError(data?.message || "Nao foi possivel carregar a loja.");
+				return;
+			}
 
-setItems(Array.isArray(data.items) ? data.items : []);
-} catch {
-setItems([]);
-setError("Erro ao carregar itens da loja.");
-} finally {
-if (!options?.silent) {
-setLoading(false);
-}
-}
-}, []);
+			setItems(Array.isArray(data.items) ? data.items : []);
+		} catch {
+			setItems([]);
+			setError("Erro ao carregar itens da loja.");
+		} finally {
+			if (!options?.silent) {
+				setLoading(false);
+			}
+		}
+	}, []);
 
 const loadPaymentHistory = useCallback(async (guid: string) => {
 if (!guid) {
@@ -486,7 +495,7 @@ await loadPaymentHistory(faceitGuid);
 setPaymentFeedbackModal({
 open: true,
 title: "Pagamento confirmado",
-message: `Pagamento de ${itemName} confirmado e estoque atualizado.`,
+message: `Pagamento de ${itemName} confirmado.`,
 isError: false,
 });
 return;
@@ -530,41 +539,40 @@ await loadPaymentHistory(faceitGuid);
 );
 
 useEffect(() => {
-if (typeof window === "undefined") return;
+		if (typeof window === "undefined") return;
 
-const stored = localStorage.getItem("faceit_user");
-if (!stored) {
-setUser(null);
-setPaymentHistory([]);
-if (canViewStore) {
-loadItems("");
-} else {
-setLoading(false);
-}
-return;
-}
+		const stored = localStorage.getItem("faceit_user");
+		let isAdmin = false;
+		if (stored) {
+			try {
+				const parsed = JSON.parse(stored) as FaceitUser;
+				setUser(parsed);
+				const adminLevel = parsed.Admin ?? parsed.admin;
+				isAdmin = adminLevel === 1 || adminLevel === 2;
+			} catch {}
+		}
 
-try {
-const parsed = JSON.parse(stored) as FaceitUser;
-setUser(parsed);
+		// Permite visualizar se for admin OU se já passou da data de lançamento
+		const podeVer = isAdmin || now >= LOJA_RELEASE_DATE;
+		setCanViewStore(podeVer);
 
-if (canViewStore) {
-const guid = String(parsed.faceit_guid || "");
-loadItems(guid);
-void loadPaymentHistory(guid);
-} else {
-setLoading(false);
-}
-} catch {
-setUser(null);
-setPaymentHistory([]);
-if (canViewStore) {
-loadItems("");
-} else {
-setLoading(false);
-}
-}
-}, [canViewStore, loadItems, loadPaymentHistory]);
+		if (podeVer) {
+			if (stored) {
+				try {
+					const parsed = JSON.parse(stored) as FaceitUser;
+					const guid = String(parsed.faceit_guid || "");
+					loadItems(guid);
+					void loadPaymentHistory(guid);
+				} catch {
+					loadItems("");
+				}
+			} else {
+				loadItems("");
+			}
+		} else {
+			setLoading(false);
+		}
+	}, [loadItems, loadPaymentHistory]);
 
 const continuePendingPayment = async (entry: PaymentHistoryEntry) => {
 const faceitGuid = String(user?.faceit_guid || "");
@@ -1593,9 +1601,7 @@ Atualizar
 )}
 
 <div className="mt-4 space-y-3">
-{paymentHistory.map((entry) => {
-	const [expanded, setExpanded] = useState(false);
-	return (
+	{paymentHistory.map((entry) => (
 		<div key={entry.id} className="rounded-xl border border-white/10 bg-black/30 p-4">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div>
@@ -1633,12 +1639,17 @@ Atualizar
 				<div className="mt-3">
 					<button
 						type="button"
-						onClick={() => setExpanded((v) => !v)}
+						onClick={() =>
+							setExpandedPayments((prev) => ({
+								...prev,
+								[entry.id]: !prev[entry.id],
+							}))
+						}
 						className="rounded border border-white/20 bg-white/5 px-3 py-1 text-xs font-bold uppercase text-zinc-200 mb-2"
 					>
-						{expanded ? "Fechar detalhes" : "Expandir detalhes"}
+						{expandedPayments[entry.id] ? "Fechar detalhes" : "Expandir detalhes"}
 					</button>
-					{expanded && (
+					{expandedPayments[entry.id] && (
 						<div className="rounded-lg border border-white/10 bg-black/40 p-3">
 							<div className="space-y-2">
 								{entry.logs.map((log) => (
@@ -1654,8 +1665,7 @@ Atualizar
 				</div>
 			)}
 		</div>
-	);
-})}
+	))}
 </div>
 </div>
 </PremiumCard>

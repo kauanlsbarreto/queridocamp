@@ -165,10 +165,12 @@ export async function GET(request: Request) {
       }
     }
 
+
+
     const [rows] = await connection.query(
       `SELECT id, nome, descricao, preco, moedas, estoque, imagem_url, categoria, data_adicionado, ativo, tipo_item
        FROM estoque
-       WHERE ativo = 1 AND (moedas > 0 OR preco > 0)
+       WHERE ativo = 1
        ORDER BY data_adicionado DESC`,
     );
 
