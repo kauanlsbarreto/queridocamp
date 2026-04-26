@@ -978,8 +978,8 @@
 											   <div className="px-5 pb-3 text-center text-base font-bold text-white">
 												   {configSkin.paint_name}
 											   </div>
-											   {!isKnifeConfigSkin && (
-											   <div className="grid grid-cols-5 gap-3 px-5 pb-3">
+											   {tab === "skins" && (
+											   <div className="grid grid-cols-4 gap-3 px-5 pb-3">
 												   {[0, 1, 2, 3].map((i) => (
 													   <button
 														   key={i}
@@ -1101,7 +1101,7 @@
 												   )}
 												   {modalInnerTab === "config" && tab !== "gloves" && (
 													   <div className="space-y-5">
-														   {isKnifeConfigSkin && (
+														   {tab === "skins" && (
 															   <>
 																   <div>
 																	   <div className="mb-2 text-xs uppercase tracking-wider text-zinc-500">Lado</div>
@@ -1194,7 +1194,7 @@
 													   </div>
 												   )}
 												   {/* — Adesivos — */}
-												   {modalInnerTab === "stickers" && !isKnifeConfigSkin && (
+												   {modalInnerTab === "stickers" && tab === "skins" && (
 													   <div>
 														   <div className="mb-4 flex gap-2">
 															   {[0, 1, 2, 3].map((i) => (
@@ -1265,9 +1265,9 @@
 																			   .toLowerCase()
 																			   .includes(stickerSearch.toLowerCase()),
 																	   )
-																	   .map((s, idx) => (
+																	   .map((s) => (
 																		   <button
-																			   key={idx}
+																			   key={s.id || s.name}
 																			   type="button"
 																			   className="rounded-md border border-zinc-700 bg-zinc-800 p-2 text-center transition hover:border-orange-500"
 																			   onClick={() => {
@@ -1280,6 +1280,7 @@
 																				   src={s.image}
 																				   alt={s.paint_name || s.name}
 																				   className="mx-auto h-16 w-16 object-contain"
+																				   loading="lazy"
 																			   />
 																			   <div className="truncate text-xs text-zinc-300">{s.paint_name || s.name}</div>
 																		   </button>
@@ -1289,7 +1290,7 @@
 													   </div>
 												   )}
 												   {/* — Chaveiros — */}
-												   {modalInnerTab === "keychains" && !isKnifeConfigSkin && (
+												   {modalInnerTab === "keychains" && tab === "skins" && (
 													   <div>
 														   <div className="mb-4 flex items-center gap-3">
 															   <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800">
@@ -1338,9 +1339,9 @@
 																			   .toLowerCase()
 																			   .includes(keychainSearch.toLowerCase()),
 																	   )
-																	   .map((k, idx) => (
+																	   .map((k) => (
 																		   <button
-																			   key={idx}
+																			   key={k.id || k.name}
 																			   type="button"
 																			   className={`rounded-md border p-2 text-center transition ${
 																				   skinKeychain === k
@@ -1353,6 +1354,7 @@
 																				   src={k.image}
 																				   alt={k.paint_name || k.name}
 																				   className="mx-auto h-16 w-16 object-contain"
+																				   loading="lazy"
 																			   />
 																			   <div className="truncate text-xs text-zinc-300">{k.paint_name || k.name}</div>
 																		   </button>
