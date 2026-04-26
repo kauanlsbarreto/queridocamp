@@ -164,8 +164,8 @@
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						tab: selectedTab,
-						faceit_guid: resolvedUser.faceit_guid,
 						steamid: resolvedUser.steam_id_64,
+						faceit_guid: resolvedUser.steam_id_64 ? undefined : resolvedUser.faceit_guid,
 						item: selectedItem,
 						settings: {
 							   wear: Number.isFinite(wear) ? wear : 0.000001,
@@ -231,7 +231,7 @@
 				const resolvedUser = await syncSteamIdIfNeeded(user);
 				const query = new URLSearchParams();
 				if (resolvedUser.steam_id_64) query.set("steamid", resolvedUser.steam_id_64);
-				if (resolvedUser.faceit_guid) query.set("faceit_guid", resolvedUser.faceit_guid);
+				if (!resolvedUser.steam_id_64 && resolvedUser.faceit_guid) query.set("faceit_guid", resolvedUser.faceit_guid);
 
 				const response = await fetch(`/api/weaponpaints/loadout?${query.toString()}`, {
 					cache: "no-store",

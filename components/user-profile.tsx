@@ -53,6 +53,7 @@ export const UserProfile = ({
   Admin,
   admin,
   faceit_guid,
+  steam_id_64,
   onLogout,
 }: UserProfileProps) => {
   const profileId = (id === 0 && ID) ? ID : (id ?? ID);
@@ -76,10 +77,19 @@ export const UserProfile = ({
   }, [clearSessionAndLogout]);
 
   const syncUserFromDatabase = useCallback(async () => {
-    if (!faceit_guid) return;
+    const steamId = typeof steam_id_64 === 'string' ? steam_id_64.trim() : '';
+    const guid = typeof faceit_guid === 'string' ? faceit_guid.trim() : '';
+    if (!steamId && !guid) return;
 
     try {
-      const res = await fetch(`/api/admin/players?faceit_guid=${faceit_guid}`, { cache: 'no-store' });
+      const query = new URLSearchParams();
+      if (steamId) {
+        query.set('steamid', steamId);
+      } else if (guid) {
+        query.set('faceit_guid', guid);
+      }
+
+      const res = await fetch(`/api/admin/players?${query.toString()}`, { cache: 'no-store' });
       if (!res.ok) return;
 
       const data = await res.json();
@@ -112,7 +122,7 @@ export const UserProfile = ({
     } catch {
       // silencioso por pedido: sem logs no polling
     }
-  }, [faceit_guid]);
+  }, [faceit_guid, steam_id_64]);
 
   useEffect(() => {
     setUserPoints(points ?? 0);

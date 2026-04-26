@@ -20,6 +20,9 @@ async function resolveSteamId(
   steamid?: string | null,
   faceitGuid?: string | null,
 ): Promise<string | null> {
+  const trimmedSteamId = steamid?.trim();
+  if (trimmedSteamId) return trimmedSteamId;
+
   const guid = faceitGuid?.trim();
   if (guid) {
     const [rows] = await connection.query<RowDataPacket[]>(
@@ -31,8 +34,7 @@ async function resolveSteamId(
     if (dbSteamId) return String(dbSteamId).trim();
   }
 
-  const trimmedSteamId = steamid?.trim();
-  return trimmedSteamId || null;
+  return null;
 }
 
 export async function GET(req: Request) {

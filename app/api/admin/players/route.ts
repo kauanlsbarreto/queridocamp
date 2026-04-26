@@ -27,6 +27,7 @@ type PlayerRow = RowDataPacket & {
   nickname: string;
   admin: number;
   faceit_guid: string;
+  steamid?: string;
   avatar: string;
   adicionados: number;
   points: number;
@@ -68,9 +69,10 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     const faceit_guid = searchParams.get("faceit_guid");
+    const steamid = searchParams.get("steamid");
     const nickname = searchParams.get("nickname");
 
-    let query = "SELECT id, nickname, admin, faceit_guid, avatar, adicionados, points, ban FROM players";
+    let query = "SELECT id, nickname, admin, faceit_guid, steamid, avatar, adicionados, points, ban FROM players";
     let params: any[] = [];
 
     if (id) {
@@ -82,6 +84,9 @@ export async function GET(req: Request) {
     } else if (faceit_guid) {
       query += " WHERE faceit_guid = ?";
       params.push(faceit_guid);
+    } else if (steamid) {
+      query += " WHERE steamid = ?";
+      params.push(steamid);
     } else {
       query += " ORDER BY nickname ASC";
     }
@@ -101,10 +106,10 @@ export async function GET(req: Request) {
       rows = retryRows;
     }
 
-    if ((id || nickname || faceit_guid) && rows.length === 0)
+    if ((id || nickname || faceit_guid || steamid) && rows.length === 0)
       return NextResponse.json({ message: "Player not found" }, { status: 404 });
 
-    return NextResponse.json((id || nickname || faceit_guid) ? rows[0] : rows);
+    return NextResponse.json((id || nickname || faceit_guid || steamid) ? rows[0] : rows);
   } catch (err) {
     console.error(err);
     return NextResponse.json({ message: "Erro interno do servidor" }, { status: 500 });

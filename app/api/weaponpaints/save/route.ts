@@ -114,6 +114,10 @@ async function resolveSteamId(
   connection: Connection,
   body: SaveBody,
 ): Promise<string | null> {
+  if (body.steamid && String(body.steamid).trim()) {
+    return String(body.steamid).trim();
+  }
+
   const guid = body.faceit_guid?.trim();
   if (guid) {
     const [rows] = await connection.query<any[]>(
@@ -123,10 +127,6 @@ async function resolveSteamId(
 
     const steamid = rows?.[0]?.steamid;
     if (steamid) return String(steamid).trim();
-  }
-
-  if (body.steamid && String(body.steamid).trim()) {
-    return String(body.steamid).trim();
   }
 
   return null;
