@@ -33,11 +33,37 @@ type PlayerRow = RowDataPacket & {
   ban?: number;
 };
 
+function isTransientConnectionError(error: unknown) {
+  const err = error as { code?: string; message?: string } | null;
+  const code = String(err?.code || "").toUpperCase();
+  const message = String(err?.message || "").toLowerCase();
+
+  if (["PROTOCOL_CONNECTION_LOST", "ECONNRESET", "EPIPE", "ETIMEDOUT"].includes(code)) {
+    return true;
+  }
+
+  return (
+    message.includes("connection lost") ||
+    message.includes("server closed the connection") ||
+    message.includes("can't add new command when connection is in closed state")
+  );
+}
+
+async function closeQuietly(connection: { end: () => Promise<void> } | null) {
+  if (!connection) return;
+  try {
+    await connection.end();
+  } catch {
+    // Ignore close errors to preserve primary API response.
+  }
+}
+
 export async function GET(req: Request) {
+  let connection: Awaited<ReturnType<typeof createMainConnection>> | null = null;
   try {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
-    const connection = await createMainConnection(env);
+    connection = await createMainConnection(env);
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
@@ -60,8 +86,20 @@ export async function GET(req: Request) {
       query += " ORDER BY nickname ASC";
     }
 
-    const [rows] = await connection.query<PlayerRow[]>(query, params);
-    await connection.end();
+    let rows: PlayerRow[];
+    try {
+      const [result] = await connection.query<PlayerRow[]>(query, params);
+      rows = result;
+    } catch (error) {
+      if (!isTransientConnectionError(error)) {
+        throw error;
+      }
+
+      await closeQuietly(connection);
+      connection = await createMainConnection(env);
+      const [retryRows] = await connection.query<PlayerRow[]>(query, params);
+      rows = retryRows;
+    }
 
     if ((id || nickname || faceit_guid) && rows.length === 0)
       return NextResponse.json({ message: "Player not found" }, { status: 404 });
@@ -70,19 +108,21 @@ export async function GET(req: Request) {
   } catch (err) {
     console.error(err);
     return NextResponse.json({ message: "Erro interno do servidor" }, { status: 500 });
+  } finally {
+    await closeQuietly(connection);
   }
 }
 
 export async function POST(req: Request) {
+  let connection: Awaited<ReturnType<typeof createMainConnection>> | null = null;
   try {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
-    const connection = await createMainConnection(env);
+    connection = await createMainConnection(env);
 
     const { identifier, adminLevel } = await req.json();
 
     if (!identifier || adminLevel === undefined) {
-      await connection.end();
       return NextResponse.json(
         { message: "Identifier and admin level are required." },
         { status: 400 }
@@ -98,7 +138,6 @@ export async function POST(req: Request) {
     }
 
     const [result] = await connection.query<ResultSetHeader>(query, params);
-    await connection.end();
 
     if (result.affectedRows === 0)
       return NextResponse.json({ message: "Player not found." }, { status: 404 });
@@ -107,19 +146,21 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error(err);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  } finally {
+    await closeQuietly(connection);
   }
 }
 
 export async function PUT(req: Request) {
+  let connection: Awaited<ReturnType<typeof createMainConnection>> | null = null;
   try {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
-    const connection = await createMainConnection(env);
+    connection = await createMainConnection(env);
 
     const { userId, adminLevel, adicionados } = await req.json();
 
     if (!userId) {
-      await connection.end();
       return NextResponse.json({ message: "User ID is required." }, { status: 400 });
     }
 
@@ -137,20 +178,21 @@ export async function PUT(req: Request) {
       ]);
     }
 
-    await connection.end();
-
     return NextResponse.json({ message: "Player updated successfully." });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  } finally {
+    await closeQuietly(connection);
   }
 }
 
 export async function PATCH(req: Request) {
+  let connection: Awaited<ReturnType<typeof createMainConnection>> | null = null;
   try {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
-    const connection = await createMainConnection(env);
+    connection = await createMainConnection(env);
 
     const body = await req.json();
 
@@ -171,8 +213,6 @@ export async function PATCH(req: Request) {
 
       await connection.query("SET FOREIGN_KEY_CHECKS=1");
 
-      await connection.end();
-
       return NextResponse.json({ message: "Player ID updated successfully." });
     }
 
@@ -184,11 +224,9 @@ export async function PATCH(req: Request) {
         userId,
       ]);
 
-      await connection.end();
       return NextResponse.json({ message: "Faceit GUID updated successfully." });
     }
 
-    await connection.end();
     return NextResponse.json(
       {
         message:
@@ -199,5 +237,7 @@ export async function PATCH(req: Request) {
   } catch (err) {
     console.error(err);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  } finally {
+    await closeQuietly(connection);
   }
 }
