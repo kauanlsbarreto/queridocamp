@@ -153,24 +153,20 @@ export default function Campeonato() {
           </motion.h2>
           <div className="max-w-3xl mx-auto">
             <div className="relative border-l-2 border-gold pl-8 space-y-10">
-              <TimelineItem date="Até 15 de Janeiro" title="Inscrições">
+              <TimelineItem date="Até 5 de Maio" title="Inscrições">
                 Período de inscrições para equipes e jogadores individuais.
               </TimelineItem>
-              <TimelineItem date="19 de Janeiro de 2026" title="Início do Campeonato">
-                Cerimônia de abertura e primeiras partidas da fase de grupos.
+              <TimelineItem date="8 de Maio  de 2026" title="Início do Campeonato">
+                Draft acontece
               </TimelineItem>
-              <TimelineItem date="19 de Janeiro a 13 de Fevereiro" title="Fase de Grupos">
+              <TimelineItem date="11 Maio " title="Fase de Grupos">
                 Partidas da fase de grupos, com jogos de ida e volta. Todos jogam contra todos.
               </TimelineItem>
-              <TimelineItem date="14 de Fevereiro a 23 de Fevereiro" title="Pausa - Carnaval">
-                Pausa no campeonato devido ao período de carnaval.
-              </TimelineItem>
-              <TimelineItem date="28 de Março" title="Quartas Presenciais">
-                Confrontos eliminatórios entre os 8 melhores times nas quartas de final, seguido pelas semifinais entre
-                os 4 times restantes.
-              </TimelineItem>
-              <TimelineItem date="29 de Março" title="Semis e Final Presencial">
-                Grande final presencial em LAN e cerimônia de premiação.
+              
+        
+            
+              <TimelineItem date="6 e 7 de Junho" title="Semis e Final Presencial na arena Hitech">
+               Fase  presencial em LAN e cerimônia de premiação.
               </TimelineItem>
             </div>
           </div>
