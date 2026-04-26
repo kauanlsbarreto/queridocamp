@@ -13,236 +13,144 @@ type Env = {
     database: string;
     port: number;
   };
-  DB_JOGADORES: {
-    host: string;
-    user: string;
-    password: string;
-    database: string;
-    port: number;
-  };
 };
 
 type PlayerRow = RowDataPacket & {
   id: number;
-  nickname: string;
-  admin: number;
   faceit_guid: string;
-  steamid?: string;
+  nickname: string;
   avatar: string;
-  adicionados: number;
-  points: number;
-  ban?: number;
+  email?: string;
+  senha?: string;
+  created_at: string;
+  updated_at: string;
 };
 
-function isTransientConnectionError(error: unknown) {
-  const err = error as { code?: string; message?: string } | null;
-  const code = String(err?.code || "").toUpperCase();
-  const message = String(err?.message || "").toLowerCase();
-
-  if (["PROTOCOL_CONNECTION_LOST", "ECONNRESET", "EPIPE", "ETIMEDOUT"].includes(code)) {
-    return true;
-  }
-
-  return (
-    message.includes("connection lost") ||
-    message.includes("server closed the connection") ||
-    message.includes("can't add new command when connection is in closed state")
-  );
-}
-
-async function closeQuietly(connection: { end: () => Promise<void> } | null) {
-  if (!connection) return;
-  try {
-    await connection.end();
-  } catch {
-    // Ignore close errors to preserve primary API response.
-  }
-}
-
+// Handler para GET (conforme indicado no erro do log)
 export async function GET(req: Request) {
-  let connection: Awaited<ReturnType<typeof createMainConnection>> | null = null;
+  const ctx = await getCloudflareContext({ async: true });
+  const env = ctx.env as unknown as Env;
+  const connection = await createMainConnection(env);
+
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
-    connection = await createMainConnection(env);
-
     const { searchParams } = new URL(req.url);
-    const id = searchParams.get("id");
-    const faceit_guid = searchParams.get("faceit_guid");
-    const steamid = searchParams.get("steamid");
-    const nickname = searchParams.get("nickname");
+    const guid = searchParams.get("faceit_guid");
 
-    let query = "SELECT id, nickname, admin, faceit_guid, steamid, avatar, adicionados, points, ban FROM players";
-    let params: any[] = [];
-
-    if (id) {
-      query += " WHERE id = ?";
-      params.push(id);
-    } else if (nickname) {
-      query += " WHERE nickname = ?";
-      params.push(nickname);
-    } else if (faceit_guid) {
-      query += " WHERE faceit_guid = ?";
-      params.push(faceit_guid);
-    } else if (steamid) {
-      query += " WHERE steamid = ?";
-      params.push(steamid);
-    } else {
-      query += " ORDER BY nickname ASC";
+    if (!guid) {
+      return NextResponse.json({ message: "GUID é obrigatório." }, { status: 400 });
     }
 
-    let rows: PlayerRow[];
-    try {
-      const [result] = await connection.query<PlayerRow[]>(query, params);
-      rows = result;
-    } catch (error) {
-      if (!isTransientConnectionError(error)) {
-        throw error;
-      }
+    const [rows] = await connection.query<PlayerRow[]>(
+      "SELECT * FROM players WHERE faceit_guid = ?",
+      [guid]
+    );
 
-      await closeQuietly(connection);
-      connection = await createMainConnection(env);
-      const [retryRows] = await connection.query<PlayerRow[]>(query, params);
-      rows = retryRows;
-    }
-
-    if ((id || nickname || faceit_guid || steamid) && rows.length === 0)
-      return NextResponse.json({ message: "Player not found" }, { status: 404 });
-
-    return NextResponse.json((id || nickname || faceit_guid || steamid) ? rows[0] : rows);
-  } catch (err) {
-    console.error(err);
+    return NextResponse.json(rows[0] || { message: "Jogador não encontrado" }, { status: rows[0] ? 200 : 404 });
+  } catch (error) {
+    console.error("GET Error:", error);
     return NextResponse.json({ message: "Erro interno do servidor" }, { status: 500 });
   } finally {
-    await closeQuietly(connection);
+    await connection.end(); // Garante que a conexão feche e o Worker não trave
   }
 }
 
+// Handler para POST
 export async function POST(req: Request) {
-  let connection: Awaited<ReturnType<typeof createMainConnection>> | null = null;
+  const ctx = await getCloudflareContext({ async: true });
+  const env = ctx.env as unknown as Env;
+  const connection = await createMainConnection(env);
+
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
-    connection = await createMainConnection(env);
+    const { guid, nickname, avatar, linkPlayerId } = await req.json();
 
-    const { identifier, adminLevel } = await req.json();
-
-    if (!identifier || adminLevel === undefined) {
+    if (!guid || !nickname) {
       return NextResponse.json(
-        { message: "Identifier and admin level are required." },
+        { message: "GUID e nickname são obrigatórios." },
         { status: 400 }
       );
     }
 
-    let query = "UPDATE players SET admin = ? WHERE faceit_guid = ? OR nickname = ?";
-    let params: any[] = [adminLevel, identifier, identifier];
+    // Nota: Remova as queries de "CREATE TABLE" e "ALTER TABLE" daqui e execute-as 
+    // diretamente no seu gerenciador de banco de dados para evitar latência e erros de timeout.
 
-    if (/^\d+$/.test(identifier)) {
-      query = "UPDATE players SET admin = ? WHERE id = ?";
-      params = [adminLevel, identifier];
-    }
+    const [rows] = await connection.query<PlayerRow[]>(
+      "SELECT * FROM players WHERE faceit_guid = ?",
+      [guid]
+    );
 
-    const [result] = await connection.query<ResultSetHeader>(query, params);
+    let user = rows[0];
 
-    if (result.affectedRows === 0)
-      return NextResponse.json({ message: "Player not found." }, { status: 404 });
+    if (linkPlayerId !== undefined && linkPlayerId !== null) {
+      const targetId = Number(linkPlayerId);
+      if (!Number.isFinite(targetId) || targetId <= 0) {
+        return NextResponse.json({ message: "ID inválido." }, { status: 400 });
+      }
 
-    return NextResponse.json({ message: "Admin level updated successfully." });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
-  } finally {
-    await closeQuietly(connection);
-  }
-}
+      const [targetRows] = await connection.query<PlayerRow[]>(
+        "SELECT * FROM players WHERE id = ?",
+        [targetId]
+      );
+      
+      if (!targetRows[0]) {
+        return NextResponse.json({ message: "Jogador não encontrado." }, { status: 404 });
+      }
 
-export async function PUT(req: Request) {
-  let connection: Awaited<ReturnType<typeof createMainConnection>> | null = null;
-  try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
-    connection = await createMainConnection(env);
+      if (user && user.id !== targetId) {
+        return NextResponse.json({ message: "GUID já vinculado a outro usuário." }, { status: 409 });
+      }
 
-    const { userId, adminLevel, adicionados } = await req.json();
-
-    if (!userId) {
-      return NextResponse.json({ message: "User ID is required." }, { status: 400 });
-    }
-
-    if (adminLevel !== undefined) {
-      await connection.query<ResultSetHeader>("UPDATE players SET admin = ? WHERE id = ?", [
-        adminLevel,
-        userId,
-      ]);
-    }
-
-    if (adicionados !== undefined) {
-      await connection.query<ResultSetHeader>("UPDATE players SET adicionados = ? WHERE id = ?", [
-        adicionados,
-        userId,
-      ]);
-    }
-
-    return NextResponse.json({ message: "Player updated successfully." });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
-  } finally {
-    await closeQuietly(connection);
-  }
-}
-
-export async function PATCH(req: Request) {
-  let connection: Awaited<ReturnType<typeof createMainConnection>> | null = null;
-  try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
-    connection = await createMainConnection(env);
-
-    const body = await req.json();
-
-    if (body.originalId !== undefined && body.newId !== undefined) {
-      const { originalId, newId } = body;
-
-      await connection.query("SET FOREIGN_KEY_CHECKS=0");
-
-      await connection.query<ResultSetHeader>("UPDATE players SET id = ? WHERE id = ?", [
-        newId,
-        originalId,
-      ]);
-
-      await connection.query<ResultSetHeader>(
-        "UPDATE codigos_conquistas SET resgatado_por = ? WHERE resgatado_por = ?",
-        [newId, originalId]
+      await connection.query(
+        "UPDATE players SET faceit_guid = ?, nickname = ?, avatar = ? WHERE id = ?",
+        [guid, nickname, avatar || "", targetId]
       );
 
-      await connection.query("SET FOREIGN_KEY_CHECKS=1");
-
-      return NextResponse.json({ message: "Player ID updated successfully." });
+      const [updated] = await connection.query<PlayerRow[]>("SELECT * FROM players WHERE id = ?", [targetId]);
+      user = updated[0];
+    } else {
+      if (!user) {
+        const [insert] = await connection.query<ResultSetHeader>(
+          "INSERT INTO players (faceit_guid, nickname, avatar) VALUES (?, ?, ?)",
+          [guid, nickname, avatar || ""]
+        );
+        const [newRows] = await connection.query<PlayerRow[]>("SELECT * FROM players WHERE id = ?", [insert.insertId]);
+        user = newRows[0];
+      } else if (user.nickname !== nickname || user.avatar !== (avatar || "")) {
+        await connection.query(
+          "UPDATE players SET nickname = ?, avatar = ? WHERE faceit_guid = ?",
+          [nickname, avatar || "", guid]
+        );
+        user = { ...user, nickname, avatar: avatar || "" };
+      }
     }
 
-    const { userId, faceitGuid } = body;
+    // Logs e Webhook
+    try {
+      const ip = (req.headers.get("x-forwarded-for") || "127.0.0.1").split(",")[0].trim();
+      await connection.query(
+        "INSERT INTO logs_logins (nickname, faceit_guid, ip, success) VALUES (?, ?, ?, 1)",
+        [nickname, guid, ip]
+      );
 
-    if (userId && faceitGuid) {
-      await connection.query<ResultSetHeader>("UPDATE players SET faceit_guid = ? WHERE id = ?", [
-        faceitGuid,
-        userId,
-      ]);
-
-      return NextResponse.json({ message: "Faceit GUID updated successfully." });
+      // Lógica de disparo de Webhook simplificada
+      if (!rows[0] || (linkPlayerId !== null && linkPlayerId !== undefined)) {
+        const webhookUrl = "https://discord.com/api/webhooks/1481113334760734886/vG1Hfh5hB6Tix0yDiRmkqvuJ0Wx91s6MhUrGw5BdRjF9QtXzWAVWyQK79diiUi1Mv9YE";
+        await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            content: `**Login/Link**\nNickname: ${nickname}\nGUID: ${guid}\nIP: ${ip}` 
+          }),
+        });
+      }
+    } catch (logError) {
+      console.error("Logging failed", logError);
     }
 
-    return NextResponse.json(
-      {
-        message:
-          "Invalid parameters. Required: (originalId, newId) or (userId, faceitGuid).",
-      },
-      { status: 400 }
-    );
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    return NextResponse.json(user);
+  } catch (error) {
+    console.error("POST Error:", error);
+    return NextResponse.json({ message: "Erro interno" }, { status: 500 });
   } finally {
-    await closeQuietly(connection);
+    await connection.end(); // Crucial para não deixar o Worker pendurado
   }
 }
