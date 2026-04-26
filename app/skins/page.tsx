@@ -175,7 +175,8 @@
 							   teams: teamsToSave,
 							stickers:
 								selectedTab === "skins"
-									? skinStickers.map((s) => {
+									// Inverte para weapon_sticker_0 ser o 4º slot (index 3)
+									? [...skinStickers].reverse().map((s) => {
 											if (!s) return "0;0;0;0;0;0;0";
 											const id = Number(s.weapon_defindex ?? s.id ?? 0);
 											return id > 0 ? `${id};0;0;0;0;0;0` : "0;0;0;0;0;0;0";
@@ -430,7 +431,7 @@
 				setStattrak(false);
 				setStattrakCount(0);
 				setNameTag("");
-				setSkinStickers([null, null, null, null, null]);
+				setSkinStickers([null, null, null, null]);
 				setSkinKeychain(null);
 				return;
 			}
@@ -455,7 +456,7 @@
 				setStattrak(false);
 				setStattrakCount(0);
 				setNameTag("");
-				setSkinStickers([null, null, null, null, null]);
+				setSkinStickers([null, null, null, null]);
 				setSkinKeychain(null);
 				return;
 			}
@@ -472,15 +473,15 @@
 				"weapon_sticker_1",
 				"weapon_sticker_2",
 				"weapon_sticker_3",
-				"weapon_sticker_4",
 			] as const;
-			const newStickers: Array<Skin | null> = [null, null, null, null, null];
-			for (let i = 0; i < 5; i++) {
+			const newStickers: Array<Skin | null> = [null, null, null, null];
+			for (let i = 0; i < 4; i++) {
 				const val = selected[stickerKeys[i]];
 				if (val) {
 					const stickerId = Number(val.split(";")[0]);
 					if (stickerId > 0) {
-						newStickers[i] =
+						// Mapeamento inverso: sticker_0 -> slot 4 (index 3)
+						newStickers[3 - i] =
 							catalog.stickers.find(
 								(s) => Number(s.weapon_defindex ?? s.id ?? -1) === stickerId,
 							) ?? null;
@@ -719,6 +720,16 @@
 			);
 		}, [configSkin, loadout]);
 
+		const buttonText = useMemo(() => {
+			if (saving) return "Salvando...";
+			
+			// Se a skin já existe no loadout ou se o usuário configurou algo (adesivos/chaveiro)
+			const hasAdditions = skinStickers.some(s => s !== null) || skinKeychain !== null;
+			
+			if (isSkinAlreadySaved || hasAdditions) return "✎  Editar";
+			return "+ Adicionar";
+		}, [saving, isSkinAlreadySaved, skinStickers, skinKeychain]);
+
 		return (
 			<div className="w-full min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
 				<div className="container mx-auto py-8">
@@ -748,7 +759,7 @@
 												✕
 											</button>
 											{card.image ? (
-												<img src={card.image} alt={card.title} className="mx-auto mb-2 h-14 w-14 object-contain" loading="lazy" />
+												<img src={card.image} alt={card.title} className="mx-auto mb-2 h-14 w-14 object-contain" />
 											) : (
 												<div className="mx-auto mb-2 h-14 w-14 rounded bg-zinc-900" />
 											)}
@@ -969,7 +980,7 @@
 											   </div>
 											   {!isKnifeConfigSkin && (
 											   <div className="grid grid-cols-5 gap-3 px-5 pb-3">
-												   {[0, 1, 2, 3, 4].map((i) => (
+												   {[0, 1, 2, 3].map((i) => (
 													   <button
 														   key={i}
 														   type="button"
@@ -1018,11 +1029,7 @@
 												   }}
 												   disabled={saving}
 											   >
-												   {saving
-													   ? "Salvando..."
-													   : isSkinAlreadySaved
-													   ? "✎  Editar"
-													   : "+ Adicionar"}
+												   {buttonText}
 											   </button>
 										   </div>
 										   {/* RIGHT: Config panel */}
@@ -1190,7 +1197,7 @@
 												   {modalInnerTab === "stickers" && !isKnifeConfigSkin && (
 													   <div>
 														   <div className="mb-4 flex gap-2">
-															   {[0, 1, 2, 3, 4].map((i) => (
+															   {[0, 1, 2, 3].map((i) => (
 																   <button
 																	   key={i}
 																	   type="button"
@@ -1220,7 +1227,7 @@
 														   </div>
 														   {/* Botão X para remover adesivo do slot ativo */}
 														   <div className="relative grid grid-cols-5 gap-3 mb-3">
-															   {[0, 1, 2, 3, 4].map((i) => (
+															   {[0, 1, 2, 3].map((i) => (
 																   <div key={i} className="relative flex flex-col items-center">
 																	   {skinStickers[i] && activeStickerSlot === i && (
 																		   <button

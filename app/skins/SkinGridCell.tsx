@@ -63,7 +63,6 @@ export function SkinGridCell(
 				src={item.image}
 				alt={item.paint_name || item.agent_name || item.name || ""}
 				className="w-32 h-32 object-contain mb-2 rounded-lg bg-zinc-900 mx-auto"
-				loading="lazy"
 			/>
 			<div className="w-full font-semibold text-center mb-2 text-orange-200">
 				{item.paint_name || item.agent_name || item.name}
