@@ -132,6 +132,24 @@ export async function getOrder(orderId: string) {
   return result;
 }
 
+export async function getCheckout(checkoutId: string) {
+  const fs = await import('fs');
+  const logFile = 'pagbank-logs.txt';
+  const path = `/checkouts/${encodeURIComponent(checkoutId)}`;
+  const result = await pagBankFetch(path, {
+    method: "GET",
+  });
+
+  const status = extractCheckoutStatus(result.data);
+  if (isFinalStatus(status)) {
+    try {
+      fs.appendFileSync(logFile, `\n[PAGBANK][RESPONSE] ${path}\n${JSON.stringify(result.data, null, 2)}\n`);
+    } catch {}
+  }
+
+  return result;
+}
+
 export async function createCheckout(payload: Record<string, unknown>) {
   const idempotencyKey = randomUUID();
   return pagBankFetch("/checkouts", {
