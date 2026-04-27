@@ -36,6 +36,16 @@
 
 		const KNIFE_DEFINDEXES = [500, 503, 505, 506, 507, 508, 509, 512, 514, 515, 516, 517, 518, 519, 520, 521, 522, 523, 525, 526];
 
+		type SaveSettingsPayload = {
+			wear: number;
+			seed: number;
+			stattrak: boolean;
+			nametag: string;
+			teams?: number[];
+			stickers?: string[];
+			keychain?: string;
+		};
+
 		const getFloatTier = (value: number): string => {
 			if (value < 0.07) return "FN";
 			if (value < 0.15) return "MW";
@@ -159,6 +169,31 @@
 							: undefined
 					);
 
+				const settingsPayload: SaveSettingsPayload = {
+					wear: Number.isFinite(wear) ? wear : 0.000001,
+					seed: Number.isFinite(seed) ? seed : 0,
+					stattrak,
+					nametag: nameTag,
+					teams: teamsToSave,
+					stickers:
+						selectedTab === "skins"
+							// Inverte para weapon_sticker_0 ser o 4o slot (index 3)
+							? [...skinStickers].reverse().map((s) => {
+									if (!s) return "0;0;0;0;0;0;0";
+									const id = Number(s.weapon_defindex ?? s.id ?? 0);
+									return id > 0 ? `${id};0;0;0;0;0;0` : "0;0;0;0;0;0;0";
+							  })
+							: undefined,
+					keychain:
+						selectedTab === "skins"
+							? (() => {
+									if (!skinKeychain) return "0;0;0;0;0";
+									const id = Number(skinKeychain.weapon_defindex ?? skinKeychain.id ?? 0);
+									return id > 0 ? `${id};0;0;0;0` : "0;0;0;0;0";
+							  })()
+							: undefined,
+				};
+
 				const response = await fetch("/api/weaponpaints/save", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -167,36 +202,62 @@
 						steamid: resolvedUser.steam_id_64,
 						faceit_guid: resolvedUser.steam_id_64 ? undefined : resolvedUser.faceit_guid,
 						item: selectedItem,
-						settings: {
-							   wear: Number.isFinite(wear) ? wear : 0.000001,
-							   seed: Number.isFinite(seed) ? seed : 0,
-							   stattrak,
-							   nametag: nameTag,
-							   teams: teamsToSave,
-							stickers:
-								selectedTab === "skins"
-									// Inverte para weapon_sticker_0 ser o 4º slot (index 3)
-									? [...skinStickers].reverse().map((s) => {
-											if (!s) return "0;0;0;0;0;0;0";
-											const id = Number(s.weapon_defindex ?? s.id ?? 0);
-											return id > 0 ? `${id};0;0;0;0;0;0` : "0;0;0;0;0;0;0";
-										})
-									: undefined,
-							keychain:
-								selectedTab === "skins"
-									? (() => {
-											if (!skinKeychain) return "0;0;0;0;0";
-											const id = Number(skinKeychain.weapon_defindex ?? skinKeychain.id ?? 0);
-											return id > 0 ? `${id};0;0;0;0` : "0;0;0;0;0";
-										})()
-									: undefined,
-						},
+						settings: settingsPayload,
 					}),
 				});
 
 				if (!response.ok) {
 					const err = (await response.json().catch(() => ({}))) as { message?: string };
 					throw new Error(err.message || "Falha ao salvar seleção.");
+				}
+
+				if (teamsToSave && teamsToSave.length > 0) {
+					setLoadout((prev) => {
+						if (!prev) return prev;
+
+						const weaponDefindex = Number(selectedItem.weapon_defindex ?? -1);
+						const weaponPaintId = Number(selectedItem.paint ?? -1);
+						if (weaponDefindex <= 0 || weaponPaintId < 0) return prev;
+
+						const mergedSkins = [
+							...prev.loadout.skins.filter(
+								(s) => !(s.weapon_defindex === weaponDefindex && teamsToSave.includes(s.weapon_team)),
+							),
+							...teamsToSave.map((team) => ({
+								weapon_team: team,
+								weapon_defindex: weaponDefindex,
+								weapon_paint_id: weaponPaintId,
+								weapon_wear: settingsPayload.wear,
+								weapon_seed: settingsPayload.seed,
+								weapon_stattrak: settingsPayload.stattrak ? 1 : 0,
+								weapon_stattrak_count: stattrakCount,
+								weapon_nametag: settingsPayload.nametag || null,
+								weapon_sticker_0: settingsPayload.stickers?.[0] ?? null,
+								weapon_sticker_1: settingsPayload.stickers?.[1] ?? null,
+								weapon_sticker_2: settingsPayload.stickers?.[2] ?? null,
+								weapon_sticker_3: settingsPayload.stickers?.[3] ?? null,
+								weapon_sticker_4: null,
+								weapon_keychain: settingsPayload.keychain ?? null,
+							})),
+						];
+
+						const mergedGloves =
+							selectedTab === "gloves"
+								? [
+									...prev.loadout.gloves.filter((g) => !teamsToSave.includes(g.weapon_team)),
+									...teamsToSave.map((team) => ({ weapon_team: team, weapon_defindex: weaponDefindex })),
+								]
+								: prev.loadout.gloves;
+
+						return {
+							...prev,
+							loadout: {
+								...prev.loadout,
+								skins: mergedSkins,
+								gloves: mergedGloves,
+							},
+						};
+					});
 				}
 
 				if (selectedTab === "skins") {
@@ -212,7 +273,7 @@
 					setSelectedGlove(null);
 					setGloveTeamSelection(null);
 				}
-				await fetchLoadout();
+				void fetchLoadout();
 			} catch (error) {
 				alert(error instanceof Error ? error.message : "Erro ao salvar seleção.");
 			} finally {
