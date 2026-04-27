@@ -98,6 +98,63 @@ async function applyServerSettingsPreset(serverId: string, mode: ModePreset) {
   return result;
 }
 
+async function sendConsoleLine(serverId: string, line: string) {
+  const command = line.trim();
+  if (!command) return { ok: true, line: command, skipped: true as const };
+
+  const formData = new FormData();
+  formData.append("line", command);
+
+  const result = await dathostRequest(`/game-servers/${serverId}/console`, {
+    method: "POST",
+    body: formData,
+  });
+
+  return {
+    ok: result.ok,
+    line: command,
+    status: result.status,
+    details: result.ok ? null : result.data || result.raw,
+  };
+}
+
+function getPostPresetConsoleLines(mode: ModePreset): string[] {
+  if (mode === "1v1") {
+    return [
+      "mp_death_drop_gun 0",
+      "mp_death_drop_grenade 0",
+      "mp_death_drop_defuser 0",
+      "mp_restartgame 1",
+    ];
+  }
+
+  return [
+    "mp_death_drop_gun 1",
+    "mp_death_drop_grenade 1",
+    "mp_death_drop_defuser 1",
+    "mp_restartgame 1",
+  ];
+}
+
+async function applyPostPresetConsoleCleanup(serverId: string, mode: ModePreset) {
+  const lines = getPostPresetConsoleLines(mode);
+  const results: Array<{
+    ok: boolean;
+    line: string;
+    status?: number;
+    details?: JsonValue | string | null;
+    skipped?: true;
+  }> = [];
+
+  for (const line of lines) {
+    // Send sequentially so mp_restartgame runs after cvars are set.
+    // eslint-disable-next-line no-await-in-loop
+    results.push(await sendConsoleLine(serverId, line));
+  }
+
+  return results;
+}
+
 async function moveFolderIfNeeded(client: Client, folderName: string, fromPath: string, toPath: string) {
   const fromEntries = await client.list(fromPath);
   const toEntries = await client.list(toPath);
@@ -388,6 +445,7 @@ export async function POST(req: NextRequest) {
 
       const ftpResult = await applyFtpPreset(preset);
       const settingsResult = await applyServerSettingsPreset(serverId, preset);
+      const consoleCleanup = await applyPostPresetConsoleCleanup(serverId, preset);
 
       return NextResponse.json({
         ok: true,
@@ -396,6 +454,7 @@ export async function POST(req: NextRequest) {
         serverId,
         ftp: ftpResult,
         settingsStatus: settingsResult.status,
+        consoleCleanup,
       });
     }
 

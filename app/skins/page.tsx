@@ -388,6 +388,13 @@
 			if (!user) return;
 			void syncSteamIdIfNeeded(user);
 			void fetchLoadout();
+
+			// Auto-refresh loadout a cada 30 segundos
+			const interval = setInterval(() => {
+				void fetchLoadout();
+			}, 10000);
+
+			return () => clearInterval(interval);
 		}, []);
 
 		const selectedSkinKeys = useMemo(
@@ -711,12 +718,18 @@
 		let filtered = data;
 		if (tab === "skins") {
 			if (categoryFilter) {
-				filtered = filtered.filter((s) => WEAPON_CATEGORIES[s.weapon_name ?? ""] === categoryFilter);
+				// Filtra skins que pertencem à categoria selecionada
+				filtered = filtered.filter((s) => {
+					const weaponCategory = weaponToCategoryMap.get(s.weapon_name ?? "") || "Outros";
+					return weaponCategory === categoryFilter;
+				});
 			}
 			if (weaponFilter) {
+				// Filtra pelo nome da arma específico
 				filtered = filtered.filter((s) => s.weapon_name === weaponFilter);
 			}
 			if (weaponSearch) {
+				// Busca textual no nome da pintura
 				filtered = filtered.filter((s) =>
 					(s.paint_name || "").toLowerCase().includes(weaponSearch.toLowerCase()),
 				);
@@ -724,7 +737,21 @@
 		}
 		if (tab === "gloves") {
 			if (gloveCategoryFilter) {
-				filtered = filtered.filter((s) => s.weapon_name === gloveCategoryFilter);
+				// Mapeamento de tipo de luva para weapon_defindex
+				const gloveTypeMap: Record<string, number> = {
+					"Sport Gloves": 5030,
+					"Driver Gloves": 5031,
+					"Hand Wraps": 5032,
+					"Moto Gloves": 5033,
+					"Specialist Gloves": 5034,
+					"Hydra Gloves": 5035,
+					"Bloodhound Gloves": 5027,
+					"Broken Fang Gloves": 4725,
+				};
+				const targetDefindex = gloveTypeMap[gloveCategoryFilter];
+				if (targetDefindex) {
+					filtered = filtered.filter((s) => Number(s.weapon_defindex ?? -1) === targetDefindex);
+				}
 			}
 			if (gloveSearch) {
 				filtered = filtered.filter((s) =>
@@ -733,7 +760,22 @@
 			}
 		}
 
-		const allWeapons = Array.from(new Set(data.map((s) => s.weapon_name))).filter(Boolean) as string[];
+		// Extrai weapons únicos do JSON diretamente
+		const allWeapons = useMemo(
+			() => Array.from(new Set(data.map((s) => s.weapon_name))).filter(Boolean) as string[],
+			[data],
+		);
+
+		// Cria mapa dinâmico weapon_name -> categoria baseado nos dados reais
+		const weaponToCategoryMap = useMemo(() => {
+			const map = new Map<string, string>();
+			allWeapons.forEach((weapon) => {
+				const category = WEAPON_CATEGORIES[weapon] || "Outros";
+				map.set(weapon, category);
+			});
+			return map;
+		}, [allWeapons]);
+
 		const KNIFE_LABELS: Record<string, { en: string; pt: string }> = {
 			weapon_knife_karambit: { en: "★ Karambit", pt: "★ Karambit" },
 			weapon_knife_m9_bayonet: { en: "★ M9 Bayonet", pt: "★ Baioneta M9" },
@@ -761,7 +803,11 @@
 			if (knifeLabel) return lang === "pt-BR" ? knifeLabel.pt : knifeLabel.en;
 			return weaponName.replace("weapon_", "").toUpperCase();
 		};
-		const allCategories = Array.from(new Set(allWeapons.map((w) => WEAPON_CATEGORIES[w] || "Outros")));
+		// Agrupa categorias únicas pelos weapons que existem nos dados
+		const allCategories = useMemo(
+			() => Array.from(new Set(allWeapons.map((w) => weaponToCategoryMap.get(w) || "Outros"))),
+			[allWeapons, weaponToCategoryMap],
+		);
 
 		const gridRows = Math.ceil(filtered.length / 4);
 		const floatValue = Number(float);
