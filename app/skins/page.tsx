@@ -840,9 +840,41 @@
 			return "+ Adicionar";
 		}, [saving, isSkinAlreadySaved, skinStickers, skinKeychain]);
 
+		const serverIp = "169.150.198.104:25527";
+		const serverPassword = "skn123";
+		const connectCommand = `connect ${serverIp}; password ${serverPassword}`;
+		const steamConnectUrl = `steam://run/730//+connect ${serverIp}`;
+
 		return (
 			<div className="w-full min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 text-zinc-100">
 				<div className="container mx-auto py-8">
+					<div className="mb-6 rounded-xl border border-orange-900/40 bg-zinc-900/70 p-4">
+						<div className="mb-2 flex items-center justify-between gap-4">
+							<div>
+								<h2 className="text-lg font-semibold text-orange-300">Servidor Querido Camp</h2>
+								<p className="text-xs text-zinc-400">1x1 / Treino / Mix / Testar Skin</p>
+							</div>
+							<a
+								href={steamConnectUrl}
+								className="rounded border border-orange-500/60 bg-orange-600/20 px-3 py-1.5 text-xs font-semibold text-orange-200 transition hover:bg-orange-600/40"
+							>
+								Conectar via Steam
+							</a>
+						</div>
+						<div className="rounded-md border border-zinc-800 bg-zinc-950 p-3">
+							<div className="text-[11px] uppercase tracking-wide text-zinc-500">Comando no console</div>
+							<div className="mt-1 font-mono text-sm text-zinc-200 break-all">{connectCommand}</div>
+						</div>
+						<div className="mt-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3 text-xs text-zinc-300">
+							<p>
+								Use <span className="font-mono text-orange-300">!testarskin</span> no chat para entrar em uma arena solo e testar skins.
+							</p>
+							<p className="mt-1">
+								Para desabilitar, use <span className="font-mono text-orange-300">o mesmo comando</span>.
+							</p>
+						</div>
+					</div>
+
 					<div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
 						<div className="mb-2 flex items-center justify-between">
 							<h2 className="text-lg font-semibold text-orange-300">Meu Loadout</h2>

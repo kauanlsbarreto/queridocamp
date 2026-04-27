@@ -16,6 +16,10 @@ import PremiumCard from "@/components/premium-card";
 import SectionTitle from "@/components/section-title";
 
 const SERVER_ID = "69e25c29817337ed7e1ff91c";
+const SERVER_IP = "169.150.198.104:25527";
+const SERVER_PASSWORD = "skn123";
+const STEAM_CONNECT_URL = `steam://run/730//+connect ${SERVER_IP}`;
+const CONSOLE_CONNECT_COMMAND = `connect ${SERVER_IP}; password ${SERVER_PASSWORD}`;
 
 type GameMode = "competitive" | "casual" | "arms_race" | "ffa_deathmatch" | "retakes" | "wingman" | "custom";
 type MapsSource = "mapgroup" | "workshop_collection" | "workshop_single_map";
@@ -454,6 +458,28 @@ export default function ServidorPage() {
 						title="Painel do Servidor CS2"
 						description="Configurar o servidor"
 					/>
+
+					<PremiumCard className="mb-8 border-gold/20 bg-[#08111b]/95">
+						<div className="p-5">
+							<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+								<div>
+									<p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold/80">Servidor Querido Camp</p>
+									<p className="mt-1 text-sm text-gray-300">1x1 / Treino / Mix / Testar Skin</p>
+								</div>
+								<a
+									href={STEAM_CONNECT_URL}
+									className="inline-flex items-center justify-center rounded-xl bg-gold px-4 py-2 text-sm font-bold text-black transition hover:bg-gold/90"
+								>
+									Conectar via Steam
+								</a>
+							</div>
+
+							<div className="rounded-xl border border-white/10 bg-black/40 p-3">
+								<p className="text-xs uppercase tracking-[0.14em] text-gold/75">Comando no console</p>
+								<p className="mt-1 break-all font-mono text-sm text-gray-200">{CONSOLE_CONNECT_COMMAND}</p>
+							</div>
+						</div>
+					</PremiumCard>
 
 					<div className="mb-8 grid gap-4 md:grid-cols-2">
 						<PremiumCard>
