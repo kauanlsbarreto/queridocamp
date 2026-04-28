@@ -148,7 +148,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
               <NavLink href="/loja">Loja</NavLink>
               <NavLink href="/players">Jogadores</NavLink>
               <NavLink href="/skins">Skins</NavLink>
-              <NavLink href="/servidor">Servidor</NavLink>
+              <NavLink href="/alugar-servidor">Servidor</NavLink>
 
 
               <div className="relative group">
@@ -214,7 +214,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
             <NavLink href="/loja">Loja</NavLink>
             <NavLink href="/players">Jogadores</NavLink>
             <NavLink href="/skins">Skins</NavLink>
-            <NavLink href="/servidor">Servidor</NavLink>
+            <NavLink href="/alugar-servidor">Servidor</NavLink>
             
             <div className="my-2 border-t border-white/10 pt-4 pb-2 bg-white/5 rounded-xl px-2">
               <p className="px-2 text-xs font-bold text-gold uppercase tracking-widest mb-2 text-center">Querida Fila</p>
