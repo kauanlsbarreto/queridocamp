@@ -558,7 +558,7 @@ export async function GET(req: NextRequest) {
         action,
         fetchedAt: new Date().toISOString(),
         settings: {
-          password: String(payload.password || ""),
+          password: String(cs2Settings.password || payload.password || ""),
           game_mode: String(cs2Settings.game_mode || "custom"),
           maps_source: String(cs2Settings.maps_source || "mapgroup"),
           mapgroup: String(cs2Settings.mapgroup || ""),
@@ -1002,6 +1002,7 @@ export async function PUT(req: NextRequest) {
 
     const gameMode = String(body?.game_mode || "").trim() as Cs2GameMode;
     const mapsSource = String(body?.maps_source || "").trim() as Cs2MapsSource;
+    const hasPasswordField = Object.prototype.hasOwnProperty.call(body || {}, "password");
     const password = String(body?.password || "").trim();
     const mapgroup = String(body?.mapgroup || "").trim();
     const startMap = String(body?.mapgroup_start_map || body?.start_map || "").trim();
@@ -1023,7 +1024,9 @@ export async function PUT(req: NextRequest) {
     }
 
     const formData = new FormData();
-    formData.append("password", password);
+    if (hasPasswordField && password.length > 0) {
+      formData.append("cs2_settings.password", password);
+    }
     formData.append("cs2_settings.game_mode", gameMode);
     formData.append("cs2_settings.maps_source", mapsSource);
     formData.append("cs2_settings.mapgroup", mapgroup);

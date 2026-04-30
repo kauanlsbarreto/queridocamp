@@ -874,6 +874,7 @@ export default function ServidorPage() {
 											className="w-full rounded-xl border border-white/15 bg-[#0f1823] px-4 py-3 text-sm text-white outline-none transition focus:border-gold/50"
 											disabled={!canUseRestrictedAreas || loadingConfig || savingConfig}
 										/>
+										<p className="text-[11px] text-gray-500">Se este campo vier vazio, mantenha vazio para nao sobrescrever a senha atual.</p>
 									</div>
 
 									<div className="space-y-2">
