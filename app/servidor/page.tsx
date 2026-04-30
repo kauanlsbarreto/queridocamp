@@ -25,6 +25,7 @@ type GameMode = "competitive" | "casual" | "arms_race" | "ffa_deathmatch" | "ret
 type MapsSource = "mapgroup" | "workshop_collection" | "workshop_single_map";
 
 type ServerConfigForm = {
+	password: string;
 	game_mode: GameMode;
 	maps_source: MapsSource;
 	mapgroup: string;
@@ -184,6 +185,7 @@ export default function ServidorPage() {
 	const [lastStatusCommandAt, setLastStatusCommandAt] = useState<string>("");
 	const [autoScrollToBottom, setAutoScrollToBottom] = useState(true);
 	const [configForm, setConfigForm] = useState<ServerConfigForm>({
+		password: "",
 		game_mode: "custom",
 		maps_source: "mapgroup",
 		mapgroup: "",
@@ -380,6 +382,7 @@ export default function ServidorPage() {
 				: settings.workshop_collection_start_map_id || "";
 
 			setConfigForm({
+				password: settings.password || "",
 				game_mode: ((settings.game_mode as GameMode) || "custom"),
 				maps_source: mapsSource,
 				mapgroup: settings.mapgroup || "",
@@ -860,6 +863,19 @@ export default function ServidorPage() {
 								</div>
 
 								<form onSubmit={saveServerSettings} className="grid gap-4 md:grid-cols-2">
+									<div className="space-y-2">
+										<label className="text-xs font-bold uppercase tracking-[0.16em] text-gold/80">Password</label>
+										<input
+											type="password"
+											value={configForm.password}
+											onChange={(event) => setConfigForm((prev) => ({ ...prev, password: event.target.value }))}
+											placeholder="Senha do servidor"
+											autoComplete="new-password"
+											className="w-full rounded-xl border border-white/15 bg-[#0f1823] px-4 py-3 text-sm text-white outline-none transition focus:border-gold/50"
+											disabled={!canUseRestrictedAreas || loadingConfig || savingConfig}
+										/>
+									</div>
+
 									<div className="space-y-2">
 										<label className="text-xs font-bold uppercase tracking-[0.16em] text-gold/80">Game Mode</label>
 										<select
