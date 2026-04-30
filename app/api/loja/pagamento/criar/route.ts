@@ -32,6 +32,9 @@ type PendingPaymentRow = {
   id: number;
   status: string;
   expires_at: string | null;
+  provider_checkout_url: string | null;
+  provider_qr_code_url: string | null;
+  provider_qr_code_text: string | null;
 };
 
 async function ensurePaymentsTable(connection: any) {
@@ -277,7 +280,7 @@ export async function POST(request: Request) {
     }
 
     const [pendingRows] = await connection.query(
-      `SELECT id, status, expires_at
+      `SELECT id, status, expires_at, provider_checkout_url, provider_qr_code_url, provider_qr_code_text
        FROM loja_pagamentos
        WHERE faceit_guid = ?
          AND estoque_id = ?
@@ -310,6 +313,12 @@ export async function POST(request: Request) {
           message: "Voce ja possui um pagamento pendente para este item. Finalize ou aguarde expirar.",
           existingPaymentId: existing.id,
           existingStatus: existing.status,
+          checkoutUrl: String(existing.provider_checkout_url || ""),
+          pix: {
+            qrCodeImageUrl: String(existing.provider_qr_code_url || ""),
+            qrCodeText: String(existing.provider_qr_code_text || ""),
+          },
+          expiresAt: existing.expires_at,
         },
         { status: 409 },
       );
@@ -450,27 +459,15 @@ export async function POST(request: Request) {
 
       const { response, data } = await createCheckout(checkoutPayload);
       // LOG PAGBANK: salva request/response CHECKOUT (cartão de crédito)
-      let orderResponse = null;
       try {
         const fs = await import("fs");
         const path = require("path");
         const logPath = path.resolve(process.cwd(), "pagbank-logs.txt");
-        const now = new Date().toISOString();
         fs.appendFileSync(
           logPath,
           `\n[PAGBANK][REQUEST] /checkouts\n${JSON.stringify(checkoutPayload, null, 2)}\n` +
           `[PAGBANK][RESPONSE] /checkouts\n${JSON.stringify(data, null, 2)}\n`
         );
-        // Se houver ID de order, busca o objeto completo da order para logar igual documentação
-        if (data?.id) {
-          const { getOrder } = await import("@/lib/pagbank-loja");
-          const orderResult = await getOrder(data.id);
-          orderResponse = orderResult?.data;
-          fs.appendFileSync(
-            logPath,
-            `\n[PAGBANK][RESPONSE] /orders\n${JSON.stringify(orderResponse, null, 2)}\n`
-          );
-        }
       } catch {}
       if (!response.ok) {
         const providerError = getProviderErrorMessage(data);

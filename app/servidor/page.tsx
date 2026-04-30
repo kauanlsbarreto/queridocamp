@@ -32,6 +32,58 @@ type ServerConfigForm = {
 	workshop_map_id: string;
 };
 
+type CommandLogEntry = {
+	id: number;
+	usuario: string;
+	comando: string;
+	data: string;
+	hora: string;
+	nickname: string | null;
+	avatar: string | null;
+};
+
+type AdminCandidate = {
+	id: number;
+	nickname: string;
+	faceit_guid: string | null;
+	steamid: string | null;
+	avatar: string | null;
+	is_admin: boolean;
+};
+
+const LOGS_PAGE_SIZE = 5;
+const DEFAULT_AVATAR = "https://cdn.faceit.com/static/stats/avatar/default_user_blue.png";
+
+const IN_GAME_LEVEL_1_TO_5_COMMANDS = [
+	{ command: ".ready / .r / .pronto", description: "marca time como pronto" },
+	{ command: ".stay / .ficar", description: "manter lado apos faca" },
+	{ command: ".switch / .trocar", description: "trocar lado apos faca" },
+	{ command: ".tac / .timeout", description: "pedir pausa tatica" },
+	{ command: ".tec / .tech", description: "ligar/desligar pausa tecnica" },
+	{ command: ".config", description: "mostra status da partida" },
+	{ command: ".backups", description: "lista backups de round" },
+	{ command: ".readyrr", description: "confirma pronto apos restore" },
+	{ command: ".map <mapa>", description: "troca mapa imediatamente" },
+	{ command: ".start / .comecar", description: "forca inicio da partida" },
+	{ command: ".restart / .recomecar", description: "volta para warmup" },
+	{ command: ".restore <round>", description: "restaura round do backup" },
+	{ command: ".backups", description: "lista backups" },
+	{ command: ".tec / .tech", description: "pausa tecnica" },
+	{ command: ".nobots", description: "remove bots" },
+	{ command: ".bots", description: "completa times com bots" },
+	{ command: ".skinsperso", description: "liga/desliga bloqueio de skin personalizada" },
+	{ command: ".adm <mensagem>", description: "mensagem global de admin" },
+	{ command: ".rk", description: "liga/desliga round de faca no mapa atual" },
+];
+
+const CONSOLE_LEVEL_1_TO_5_COMMANDS = [
+	{ command: ".map <mapa>", description: "troca mapa imediatamente", console: "css_map" },
+	{ command: ".start / .comecar", description: "forca inicio da partida", console: "css_start" },
+	{ command: ".restart / .recomecar", description: "volta para warmup", console: "css_restart" },
+	{ command: ".restore <round>", description: "restaura round do backup", console: "css_restore" },
+	{ command: ".rk", description: "liga/desliga round de faca no mapa atual", console: "css_rk" },
+];
+
 function normalizeConsoleLines(payload: unknown): string[] {
 	if (!payload) return [];
 
@@ -142,14 +194,36 @@ export default function ServidorPage() {
 	const [savingConfig, setSavingConfig] = useState(false);
 	const [configError, setConfigError] = useState("");
 	const [configSuccess, setConfigSuccess] = useState("");
+	const [adminSearch, setAdminSearch] = useState("");
+	const [adminPlayers, setAdminPlayers] = useState<AdminCandidate[]>([]);
+	const [loadingAdminPlayers, setLoadingAdminPlayers] = useState(false);
+	const [adminPlayersError, setAdminPlayersError] = useState("");
+	const [selectedAdminPlayerIds, setSelectedAdminPlayerIds] = useState<number[]>([]);
+	const [managingAdmins, setManagingAdmins] = useState(false);
+	const [adminManageMessage, setAdminManageMessage] = useState("");
 	const [faceitGuid, setFaceitGuid] = useState("");
 	const [lvlServidor, setLvlServidor] = useState(0);
 	const [accessResolved, setAccessResolved] = useState(false);
 	const [applyingPreset, setApplyingPreset] = useState<"1v1" | "mix" | null>(null);
+	const [commandLogs, setCommandLogs] = useState<CommandLogEntry[]>([]);
+	const [loadingCommandLogs, setLoadingCommandLogs] = useState(true);
+	const [loadingOlderLogs, setLoadingOlderLogs] = useState(false);
+	const [loadingNewerLogs, setLoadingNewerLogs] = useState(false);
+	const [commandLogsError, setCommandLogsError] = useState("");
+	const [hasMoreOlderLogs, setHasMoreOlderLogs] = useState(false);
+	const [hasMoreNewerLogs, setHasMoreNewerLogs] = useState(false);
+	const [lastLogsRefresh, setLastLogsRefresh] = useState("");
+	const [showCommandsModal, setShowCommandsModal] = useState(false);
 
 	const consoleRef = useRef<HTMLPreElement | null>(null);
+	const logsListRef = useRef<HTMLDivElement | null>(null);
+	const commandLogsRef = useRef<CommandLogEntry[]>([]);
+	const loadingOlderLogsRef = useRef(false);
+	const loadingNewerLogsRef = useRef(false);
 	const canUseRestrictedAreas = lvlServidor === 1 || lvlServidor === 2;
 	const canUseLevel1Preset = lvlServidor === 1;
+	const canSendConsoleCommands = lvlServidor >= 1 && lvlServidor <= 5;
+	const selectedAdminIdSet = useMemo(() => new Set(selectedAdminPlayerIds), [selectedAdminPlayerIds]);
 
 	const fetchConsole = useCallback(async () => {
 		try {
@@ -174,16 +248,19 @@ export default function ServidorPage() {
 		}
 	}, []);
 
-	const postConsoleCommand = useCallback(async (line: string, silent = false) => {
+	const postConsoleCommand = useCallback(async (line: string, silent = false, logCommand = true) => {
 		try {
 			const response = await fetch("/api/servidor/dathost", {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
+					...(faceitGuid ? { "x-faceit-guid": faceitGuid } : {}),
 				},
 				body: JSON.stringify({
 					server_id: SERVER_ID,
 					line,
+					faceit_guid: faceitGuid,
+					log_command: logCommand,
 				}),
 			});
 
@@ -204,7 +281,86 @@ export default function ServidorPage() {
 			}
 			return false;
 		}
+	}, [faceitGuid]);
+
+	const mergeLogs = useCallback((current: CommandLogEntry[], incoming: CommandLogEntry[]) => {
+		const byId = new Map<number, CommandLogEntry>();
+		for (const item of current) byId.set(item.id, item);
+		for (const item of incoming) byId.set(item.id, item);
+		return Array.from(byId.values()).sort((a, b) => b.id - a.id);
 	}, []);
+
+	const fetchCommandLogs = useCallback(async (direction: "initial" | "older" | "newer" = "initial") => {
+		let resolvedDirection = direction;
+		const currentLogs = commandLogsRef.current;
+		const minId = currentLogs.length > 0 ? Math.min(...currentLogs.map((item) => item.id)) : null;
+		const maxId = currentLogs.length > 0 ? Math.max(...currentLogs.map((item) => item.id)) : null;
+
+		if ((direction === "older" && minId === null) || (direction === "newer" && maxId === null)) {
+			resolvedDirection = "initial";
+		}
+
+		if (resolvedDirection === "initial") setLoadingCommandLogs(true);
+		if (resolvedDirection === "older") setLoadingOlderLogs(true);
+		if (resolvedDirection === "newer") setLoadingNewerLogs(true);
+
+		try {
+			const query = new URLSearchParams({
+				action: "command-logs",
+				limit: String(LOGS_PAGE_SIZE),
+				direction: resolvedDirection,
+			});
+
+			if (resolvedDirection === "older" && minId !== null) {
+				query.set("cursor_id", String(minId));
+			}
+
+			if (resolvedDirection === "newer" && maxId !== null) {
+				query.set("cursor_id", String(maxId));
+			}
+
+			const response = await fetch(`/api/servidor/dathost?${query.toString()}`, { cache: "no-store" });
+			const data = await response.json().catch(() => ({}));
+
+			if (!response.ok) {
+				throw new Error(data?.error || "Falha ao carregar logs de comandos.");
+			}
+
+			const fetched = Array.isArray(data?.logs)
+				? data.logs.map((row: any): CommandLogEntry => ({
+					id: Number(row?.id || 0),
+					usuario: String(row?.usuario || ""),
+					comando: String(row?.comando || ""),
+					data: String(row?.data || ""),
+					hora: String(row?.hora || ""),
+					nickname: row?.nickname ? String(row.nickname) : null,
+					avatar: row?.avatar ? String(row.avatar) : null,
+				}))
+				: [];
+
+			if (resolvedDirection === "initial") {
+				setCommandLogs(fetched);
+			} else {
+				setCommandLogs((prev) => mergeLogs(prev, fetched));
+			}
+
+			setHasMoreOlderLogs(Boolean(data?.hasMoreOlder));
+			setHasMoreNewerLogs(Boolean(data?.hasMoreNewer));
+			setCommandLogsError("");
+			setLastLogsRefresh(new Date().toLocaleTimeString("pt-BR"));
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Erro ao atualizar logs de comandos.";
+			setCommandLogsError(message);
+		} finally {
+			setLoadingCommandLogs(false);
+			setLoadingOlderLogs(false);
+			setLoadingNewerLogs(false);
+		}
+	}, [mergeLogs]);
+
+	useEffect(() => {
+		commandLogsRef.current = commandLogs;
+	}, [commandLogs]);
 
 	const fetchServerSettings = useCallback(async () => {
 		try {
@@ -303,6 +459,106 @@ export default function ServidorPage() {
 		}
 	}, [configForm]);
 
+	const fetchAdminPlayers = useCallback(async (searchTerm = "") => {
+		if (!canUseLevel1Preset) return;
+
+		try {
+			setLoadingAdminPlayers(true);
+			setAdminPlayersError("");
+
+			const params = new URLSearchParams({
+				action: "admin-players",
+				limit: "120",
+			});
+
+			const query = searchTerm.trim();
+			if (query) {
+				params.set("query", query);
+			}
+
+			const response = await fetch(`/api/servidor/dathost?${params.toString()}`, {
+				cache: "no-store",
+				headers: {
+					...(faceitGuid ? { "x-faceit-guid": faceitGuid } : {}),
+				},
+			});
+
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(data?.error || "Falha ao carregar jogadores.");
+			}
+
+			const players: AdminCandidate[] = Array.isArray(data?.players)
+				? data.players.map((row: any): AdminCandidate => ({
+					id: Number(row?.id || 0),
+					nickname: String(row?.nickname || ""),
+					faceit_guid: row?.faceit_guid ? String(row.faceit_guid) : null,
+					steamid: row?.steamid ? String(row.steamid) : null,
+					avatar: row?.avatar ? String(row.avatar) : null,
+					is_admin: Boolean(row?.is_admin),
+				}))
+				: [];
+
+			setAdminPlayers(players.filter((player) => player.id > 0));
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Erro ao carregar jogadores.";
+			setAdminPlayersError(message);
+		} finally {
+			setLoadingAdminPlayers(false);
+		}
+	}, [canUseLevel1Preset, faceitGuid]);
+
+	const toggleAdminSelection = useCallback((playerId: number) => {
+		setSelectedAdminPlayerIds((prev) => (
+			prev.includes(playerId) ? prev.filter((id) => id !== playerId) : [...prev, playerId]
+		));
+	}, []);
+
+	const submitAdminAction = useCallback(async (action: "admin-add" | "admin-remove") => {
+		if (!canUseLevel1Preset || selectedAdminPlayerIds.length === 0) return;
+
+		try {
+			setManagingAdmins(true);
+			setAdminManageMessage("");
+
+			const response = await fetch("/api/servidor/dathost", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					...(faceitGuid ? { "x-faceit-guid": faceitGuid } : {}),
+				},
+				body: JSON.stringify({
+					action,
+					faceit_guid: faceitGuid,
+					player_ids: selectedAdminPlayerIds,
+				}),
+			});
+
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(data?.error || "Falha ao atualizar admins.");
+			}
+
+			const changed = Number(data?.changed || 0);
+			const skippedList = Array.isArray(data?.skipped) ? data.skipped : [];
+			const skipped = skippedList.length;
+			const firstReasons = skippedList
+				.slice(0, 3)
+				.map((item: any) => `${String(item?.nickname || "sem-nick")}: ${String(item?.reason || "ignorado")}`)
+				.join(" | ");
+			setAdminManageMessage(
+				`${action === "admin-add" ? "Admin adicionado" : "Admin removido"}: ${changed}. Ignorados: ${skipped}.${firstReasons ? ` Motivos: ${firstReasons}` : ""}`,
+			);
+			setSelectedAdminPlayerIds([]);
+			await fetchAdminPlayers(adminSearch);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Erro ao atualizar admins.";
+			setAdminManageMessage(message);
+		} finally {
+			setManagingAdmins(false);
+		}
+	}, [adminSearch, canUseLevel1Preset, faceitGuid, fetchAdminPlayers, selectedAdminPlayerIds]);
+
 	const applyModePreset = useCallback(async (mode: "1v1" | "mix") => {
 		if (!canUseLevel1Preset) return;
 
@@ -377,13 +633,24 @@ export default function ServidorPage() {
 	}, [accessResolved, canUseRestrictedAreas, fetchServerSettings]);
 
 	useEffect(() => {
+		if (!accessResolved || !canUseLevel1Preset) {
+			setAdminPlayers([]);
+			setSelectedAdminPlayerIds([]);
+			setAdminManageMessage("");
+			return;
+		}
+
+		void fetchAdminPlayers("");
+	}, [accessResolved, canUseLevel1Preset, fetchAdminPlayers]);
+
+	useEffect(() => {
 		if (!accessResolved) return;
 
 		fetchConsole();
 
-		if (canUseRestrictedAreas) {
+			if (canSendConsoleCommands) {
 			void (async () => {
-				const ok = await postConsoleCommand("status", true);
+					const ok = await postConsoleCommand("status", true, false);
 				if (ok) {
 					window.setTimeout(() => {
 						void fetchConsole();
@@ -396,10 +663,10 @@ export default function ServidorPage() {
 		const consoleTimer = window.setInterval(fetchConsole, consolePollMs);
 
 		let statusTimer: number | null = null;
-		if (canUseRestrictedAreas) {
+		if (canSendConsoleCommands) {
 			statusTimer = window.setInterval(() => {
 				void (async () => {
-					const ok = await postConsoleCommand("status", true);
+					const ok = await postConsoleCommand("status", true, false);
 					if (ok) {
 						window.setTimeout(() => {
 							void fetchConsole();
@@ -413,7 +680,26 @@ export default function ServidorPage() {
 			window.clearInterval(consoleTimer);
 			if (statusTimer) window.clearInterval(statusTimer);
 		};
-	}, [accessResolved, canUseRestrictedAreas, fetchConsole, postConsoleCommand]);
+	}, [accessResolved, canSendConsoleCommands, canUseRestrictedAreas, fetchConsole, postConsoleCommand]);
+
+	useEffect(() => {
+		loadingOlderLogsRef.current = loadingOlderLogs;
+	}, [loadingOlderLogs]);
+
+	useEffect(() => {
+		loadingNewerLogsRef.current = loadingNewerLogs;
+	}, [loadingNewerLogs]);
+
+	useEffect(() => {
+		void fetchCommandLogs("initial");
+		const timer = window.setInterval(() => {
+			void fetchCommandLogs("newer");
+		}, 12000);
+
+		return () => {
+			window.clearInterval(timer);
+		};
+	}, [fetchCommandLogs]);
 
 	useEffect(() => {
 		if (!autoScrollToBottom) return;
@@ -425,17 +711,19 @@ export default function ServidorPage() {
 	const sendConsoleCommand = useCallback(
 		async (event: FormEvent<HTMLFormElement>) => {
 			event.preventDefault();
+			if (!canSendConsoleCommands) return;
 			const line = consoleCommand.trim();
 			if (!line) return;
 
 			try {
 				setSendingCommand(true);
-				const ok = await postConsoleCommand(line);
+				const ok = await postConsoleCommand(line, false, true);
 				if (!ok) return;
 
 				setConsoleCommand("");
 				setConsoleError("");
 				await fetchConsole();
+				void fetchCommandLogs("newer");
 			} catch (error) {
 				const message = error instanceof Error ? error.message : "Erro ao enviar comando.";
 				setConsoleError(message);
@@ -443,8 +731,25 @@ export default function ServidorPage() {
 				setSendingCommand(false);
 			}
 		},
-		[consoleCommand, fetchConsole, postConsoleCommand],
+		[canSendConsoleCommands, consoleCommand, fetchCommandLogs, fetchConsole, postConsoleCommand],
 	);
+
+	const onLogsScroll = useCallback(() => {
+		const container = logsListRef.current;
+		if (!container) return;
+
+		const threshold = 36;
+		const nearTop = container.scrollTop <= threshold;
+		const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
+
+		if (nearTop && hasMoreNewerLogs && !loadingNewerLogsRef.current) {
+			void fetchCommandLogs("newer");
+		}
+
+		if (nearBottom && hasMoreOlderLogs && !loadingOlderLogsRef.current) {
+			void fetchCommandLogs("older");
+		}
+	}, [fetchCommandLogs, hasMoreNewerLogs, hasMoreOlderLogs]);
 
 	const playersOnlineNow = useMemo(() => parsePlayersFromStatus(consoleLines), [consoleLines]);
 
@@ -637,6 +942,114 @@ export default function ServidorPage() {
 										{!!configError && <span className="text-sm text-red-300">{configError}</span>}
 									</div>
 								</form>
+
+								{canUseLevel1Preset && (
+								<div className="mt-8 rounded-2xl border border-white/10 bg-black/30 p-4 md:p-5">
+									<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+										<p className="text-sm font-black uppercase tracking-[0.14em] text-gold">Admins</p>
+										<div className="flex flex-wrap items-center gap-2">
+											<button
+												type="button"
+												onClick={() => {
+													void fetchAdminPlayers(adminSearch);
+												}}
+												disabled={!canUseLevel1Preset || loadingAdminPlayers || managingAdmins}
+												className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-60"
+											>
+												<RefreshCw className="h-4 w-4" /> Recarregar lista
+											</button>
+										</div>
+									</div>
+
+									<div className="mb-4 grid gap-3 md:grid-cols-[1fr_auto]">
+										<input
+											type="text"
+											value={adminSearch}
+											onChange={(event) => setAdminSearch(event.target.value)}
+											placeholder="Pesquisar nickname"
+											className="w-full rounded-xl border border-white/15 bg-[#0f1823] px-4 py-3 text-sm text-white outline-none transition focus:border-gold/50"
+											disabled={!canUseLevel1Preset || loadingAdminPlayers || managingAdmins}
+										/>
+										<button
+											type="button"
+											onClick={() => {
+												void fetchAdminPlayers(adminSearch);
+											}}
+											disabled={!canUseLevel1Preset || loadingAdminPlayers || managingAdmins}
+											className="inline-flex items-center justify-center rounded-xl border border-gold bg-transparent px-5 py-3 text-sm font-bold text-gold transition hover:bg-gold/10 disabled:cursor-not-allowed disabled:opacity-60"
+										>
+											Buscar
+										</button>
+									</div>
+
+									<div className="mb-4 max-h-[320px] space-y-2 overflow-y-auto rounded-xl border border-white/10 bg-[#0b1320] p-3">
+										{loadingAdminPlayers ? (
+											<p className="text-sm text-gray-400">Carregando jogadores...</p>
+										) : adminPlayersError ? (
+											<p className="text-sm text-red-300">{adminPlayersError}</p>
+										) : adminPlayers.length === 0 ? (
+											<p className="text-sm text-gray-400">Nenhum jogador encontrado.</p>
+										) : (
+											adminPlayers.map((player) => (
+												<label key={player.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-black/35 px-3 py-2">
+													<input
+														type="checkbox"
+														checked={selectedAdminIdSet.has(player.id)}
+														onChange={() => toggleAdminSelection(player.id)}
+														disabled={!canUseLevel1Preset || managingAdmins}
+														className="h-4 w-4 rounded border-white/30 bg-transparent text-gold"
+													/>
+													<img
+														src={player.avatar || DEFAULT_AVATAR}
+														alt={player.nickname || "Player"}
+														className="h-9 w-9 rounded-full border border-white/10 object-cover"
+														loading="lazy"
+													/>
+													<div className="min-w-0 flex-1">
+														<div className="flex items-center gap-2">
+															<p className="truncate text-sm font-bold text-white">{player.nickname || "Sem nickname"}</p>
+															{player.is_admin && (
+																<span className="rounded border border-emerald-400/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-300">
+																Admin
+															</span>
+															)}
+														</div>
+														<p className="truncate text-xs text-gray-400">SteamID: {player.steamid || "sera sincronizado via FACEIT"}</p>
+													</div>
+												</label>
+											))
+										)}
+									</div>
+
+									<div className="flex flex-wrap items-center gap-3">
+										<button
+											type="button"
+											onClick={() => {
+												void submitAdminAction("admin-add");
+											}}
+											disabled={!canUseLevel1Preset || managingAdmins || selectedAdminPlayerIds.length === 0}
+											className="inline-flex items-center justify-center rounded-xl bg-gold px-5 py-3 text-sm font-bold text-black transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-60"
+										>
+											{managingAdmins ? "Processando..." : "Colocar Admin"}
+										</button>
+										<button
+											type="button"
+											onClick={() => {
+												void submitAdminAction("admin-remove");
+											}}
+											disabled={!canUseLevel1Preset || managingAdmins || selectedAdminPlayerIds.length === 0}
+											className="inline-flex items-center justify-center rounded-xl border border-gold bg-transparent px-5 py-3 text-sm font-bold text-gold transition hover:bg-gold/10 disabled:cursor-not-allowed disabled:opacity-60"
+										>
+											{managingAdmins ? "Processando..." : "Remover Admin"}
+										</button>
+										<span className="text-xs text-gray-400">Selecionados: {selectedAdminPlayerIds.length}</span>
+									</div>
+
+									{!!adminManageMessage && (
+										<p className="mt-3 text-sm text-gray-300">{adminManageMessage}</p>
+									)}
+								</div>
+								)}
 							</div>
 						</PremiumCard>
 
@@ -647,6 +1060,7 @@ export default function ServidorPage() {
 										<TerminalSquare className="h-6 w-6 text-gold" />
 										Console ao vivo
 									</h2>
+							
 
 									<div className="flex flex-wrap gap-2">
 										<button
@@ -655,14 +1069,21 @@ export default function ServidorPage() {
 												void fetchConsole();
 											}}
 											className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20"
-											disabled={!canUseRestrictedAreas}
+											disabled={false}
 										>
 											<RefreshCw className="h-4 w-4" /> Atualizar
+										</button>
+																				<button
+											type="button"
+											onClick={() => setShowCommandsModal(true)}
+											className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20"
+										>
+											Comandos
 										</button>
 										<button
 											type="button"
 											onClick={() => {
-												if (!canUseRestrictedAreas) return;
+												if (!canSendConsoleCommands) return;
 												void (async () => {
 													const ok = await postConsoleCommand("status");
 													if (ok) {
@@ -673,7 +1094,7 @@ export default function ServidorPage() {
 												})();
 											}}
 											className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20"
-											disabled={!canUseRestrictedAreas}
+											disabled={!canSendConsoleCommands}
 										>
 											Status
 										</button>
@@ -681,7 +1102,7 @@ export default function ServidorPage() {
 											type="button"
 											onClick={() => setAutoScrollToBottom((prev) => !prev)}
 											className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20"
-											disabled={!canUseRestrictedAreas}
+											disabled={false}
 										>
 											Auto-scroll: {autoScrollToBottom ? "ON" : "OFF"}
 										</button>
@@ -717,18 +1138,140 @@ export default function ServidorPage() {
 										onChange={(event) => setConsoleCommand(event.target.value)}
 										placeholder="Ex: status, changelevel, sv_cheats 0"
 										className="w-full rounded-xl border border-white/15 bg-[#0f1823] px-4 py-3 text-sm text-white outline-none transition focus:border-gold/50"
-										disabled={!canUseRestrictedAreas}
+										disabled={!canSendConsoleCommands}
 									/>
 
 									<button
 										type="submit"
-										disabled={!canUseRestrictedAreas || sendingCommand || !consoleCommand.trim()}
+										disabled={!canSendConsoleCommands || sendingCommand || !consoleCommand.trim()}
 										className="inline-flex items-center justify-center gap-2 rounded-xl bg-gold px-5 py-3 text-sm font-bold text-black transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-60"
 									>
 										<Send className="h-4 w-4" />
 										{sendingCommand ? "Enviando..." : "Enviar comando"}
 									</button>
 								</form>
+
+								<p className="mt-3 text-xs text-gray-500">
+									Permissao de comandos no console: niveis 1 a 5.
+								</p>
+							</div>
+						</PremiumCard>
+
+						{showCommandsModal && (
+							<div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4">
+								<div className="w-full max-w-5xl rounded-2xl border border-gold/30 bg-[#08111b] shadow-2xl">
+									<div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+										<h3 className="text-lg font-black uppercase text-white">Lista de comandos</h3>
+										<button
+											type="button"
+											onClick={() => setShowCommandsModal(false)}
+											className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-bold uppercase text-gray-200 transition hover:bg-white/10"
+										>
+											Fechar
+										</button>
+									</div>
+
+									<div className="grid max-h-[74vh] gap-6 overflow-y-auto p-5 md:grid-cols-2">
+										<div className="rounded-xl border border-white/10 bg-black/35 p-4">
+											<p className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gold">Comandos in-game</p>
+											<div className="space-y-2">
+												{IN_GAME_LEVEL_1_TO_5_COMMANDS.map((item, index) => (
+													<div key={`ingame-${index}`} className="rounded-lg border border-white/10 bg-[#0d1624] px-3 py-2">
+														<p className="font-mono text-xs text-white">{item.command}</p>
+														<p className="mt-1 text-xs text-gray-400">{item.description}</p>
+													</div>
+												))}
+											</div>
+										</div>
+
+										<div className="rounded-xl border border-white/10 bg-black/35 p-4">
+											<p className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gold">Comandos console</p>
+											<div className="mb-3 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs text-gold">
+												Use no console: <span className="font-mono font-bold">css_comando</span>
+											</div>
+											<div className="space-y-2">
+												{CONSOLE_LEVEL_1_TO_5_COMMANDS.map((item, index) => (
+													<div key={`console-${index}`} className="rounded-lg border border-white/10 bg-[#0d1624] px-3 py-2">
+														<div className="flex flex-wrap items-center justify-between gap-2">
+															<p className="font-mono text-xs text-white">{item.command}</p>
+															<span className="rounded border border-gold/40 bg-gold/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-gold">
+																{item.console}
+															</span>
+														</div>
+														<p className="mt-1 text-xs text-gray-400">{item.description}</p>
+													</div>
+												))}
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						)}
+
+						<PremiumCard className="border-gold/20 bg-[#08111b]/95">
+							<div className="p-6 md:p-7">
+								<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+									<h2 className="flex items-center gap-2 text-2xl font-black text-white">
+										<TerminalSquare className="h-6 w-6 text-gold" />
+										Logs de comandos
+									</h2>
+									<button
+										type="button"
+										onClick={() => {
+											void fetchCommandLogs("initial");
+										}}
+										className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20"
+									>
+										<RefreshCw className="h-4 w-4" /> Recarregar
+									</button>
+								</div>
+
+								<p className="mb-4 text-sm text-gray-400">
+									Atualizado em: <span className="font-semibold text-gray-300">{lastLogsRefresh || "-"}</span>
+								</p>
+
+								<div
+									ref={logsListRef}
+									onScroll={onLogsScroll}
+									className="max-h-[420px] space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/70 p-4"
+								>
+									{loadingCommandLogs ? (
+										<p className="text-sm text-gray-400">Carregando logs...</p>
+									) : commandLogsError ? (
+										<div className="flex items-start gap-2 text-sm text-red-300">
+											<AlertTriangle className="mt-0.5 h-4 w-4" />
+											<p>{commandLogsError}</p>
+										</div>
+									) : commandLogs.length === 0 ? (
+										<p className="text-sm text-gray-400">Nenhum comando registrado ainda.</p>
+									) : (
+										commandLogs.map((entry) => (
+											<div key={entry.id} className="rounded-xl border border-white/10 bg-[#0b1320] p-3">
+												<div className="flex items-start gap-3">
+													<img
+														src={entry.avatar || DEFAULT_AVATAR}
+														alt={entry.usuario}
+														className="h-10 w-10 rounded-full border border-white/10 object-cover"
+														loading="lazy"
+													/>
+													<div className="min-w-0 flex-1">
+														<div className="flex flex-wrap items-center justify-between gap-2">
+																<p className="text-sm font-bold text-white break-all">{entry.nickname ? `${entry.nickname} - ${entry.usuario}` : entry.usuario}</p>
+															<p className="text-xs text-gray-400">{entry.data} as {entry.hora}</p>
+														</div>
+														<p className="mt-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs text-gray-200 break-all">
+															{entry.comando}
+														</p>
+													</div>
+												</div>
+											</div>
+										))
+									)}
+
+									{loadingNewerLogs && <p className="text-xs text-gray-500">Carregando logs mais novos...</p>}
+									{loadingOlderLogs && <p className="text-xs text-gray-500">Carregando logs mais antigos...</p>}
+								</div>
+
 							</div>
 						</PremiumCard>
 					</div>

@@ -112,34 +112,6 @@ message: string;
 isError: boolean;
 };
 
-type PaymentTimelineEntry = {
-	id: number;
-	eventName: string;
-	statusBefore: string | null;
-	statusAfter: string | null;
-	source: string;
-	message: string | null;
-	createdAt: string;
-};
-
-type PaymentHistoryEntry = {
-	id: number;
-	itemName: string;
-	method: PaymentMethodId;
-	amountCents: number;
-	status: string;
-	isPending: boolean;
-	isFinal: boolean;
-	checkoutUrl: string;
-	pix: {
-		qrCodeImageUrl: string;
-		qrCodeText: string;
-	};
-	expiresAt: string | null;
-	createdAt: string;
-	logs: PaymentTimelineEntry[];
-};
-
 const PAYMENT_METHODS: PaymentMethodOption[] = [
 { id: "PIX", label: "PIX", image: "/images/payments/pix.svg", opensExternalPage: false },
 { id: "CREDIT_CARD", label: "Credito", image: "/images/payments/credit-card.svg", opensExternalPage: true },
@@ -268,8 +240,6 @@ return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
 export default function LojaPage() {
-	// Estado para controlar quais pagamentos estão expandidos
-	const [expandedPayments, setExpandedPayments] = useState<{ [id: number]: boolean }>({});
 	// Data de lançamento da loja (igual backend)
 	const LOJA_RELEASE_AT_ISO = "2026-04-25T00:00:00.000Z"; // ajuste conforme backend
 	const LOJA_RELEASE_DATE = new Date(LOJA_RELEASE_AT_ISO);
@@ -327,10 +297,6 @@ export default function LojaPage() {
 	});
 	const [pixCopied, setPixCopied] = useState(false);
 	const [pixRemainingSeconds, setPixRemainingSeconds] = useState<number | null>(null);
-	const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryEntry[]>([]);
-	const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
-	const [paymentHistoryError, setPaymentHistoryError] = useState("");
-	const [deletingPendingPaymentId, setDeletingPendingPaymentId] = useState<number | null>(null);
 	const [paymentFeedbackModal, setPaymentFeedbackModal] = useState<PaymentFeedbackModalState>({
 		open: false,
 		title: "",
@@ -369,28 +335,6 @@ const hasRealPricePayment = useCallback((item: StoreItem | null | undefined) => 
 return Number(item?.preco || 0) > 0;
 }, []);
 
-const formatPaymentStatusLabel = useCallback((statusRaw: string) => {
-const status = String(statusRaw || "").toUpperCase();
-if (status === "PAID") return "Pago";
-if (status === "PENDING") return "Pendente";
-if (status === "WAITING") return "Aguardando";
-if (status === "IN_ANALYSIS") return "Em analise";
-if (status === "DECLINED") return "Recusado";
-if (status === "CANCELED") return "Cancelado";
-if (status === "EXPIRED") return "Expirado";
-if (status === "FAILED") return "Falhou";
-return status || "Desconhecido";
-}, []);
-
-const paymentStatusClass = useCallback((statusRaw: string) => {
-const status = String(statusRaw || "").toUpperCase();
-if (status === "PAID") return "border-emerald-400/30 bg-emerald-500/10 text-emerald-300";
-if (["PENDING", "WAITING", "IN_ANALYSIS"].includes(status)) {
-return "border-amber-400/30 bg-amber-500/10 text-amber-300";
-}
-return "border-red-400/30 bg-red-500/10 text-red-300";
-}, []);
-
 const loadItems = useCallback(async (guid: string, options?: { silent?: boolean }) => {
 if (!options?.silent) {
 setLoading(true);
@@ -420,35 +364,6 @@ setError("");
 			}
 		}
 	}, []);
-
-const loadPaymentHistory = useCallback(async (guid: string) => {
-if (!guid) {
-setPaymentHistory([]);
-setPaymentHistoryError("");
-return;
-}
-
-setLoadingPaymentHistory(true);
-setPaymentHistoryError("");
-
-try {
-const res = await fetch(`/api/loja/pagamento/minhas?faceit_guid=${encodeURIComponent(guid)}`);
-const data = await res.json().catch(() => ({}));
-
-if (!res.ok) {
-setPaymentHistory([]);
-setPaymentHistoryError(data?.message || "Nao foi possivel carregar suas transacoes.");
-return;
-}
-
-setPaymentHistory(Array.isArray(data?.payments) ? data.payments : []);
-} catch {
-setPaymentHistory([]);
-setPaymentHistoryError("Erro ao carregar historico de pagamentos.");
-} finally {
-setLoadingPaymentHistory(false);
-}
-}, []);
 
 const startPaymentStatusPolling = useCallback(
 (paymentId: number, itemName: string, faceitGuid: string) => {
@@ -491,7 +406,6 @@ closePixModal();
 
 if (status === "PAID") {
 await loadItems(faceitGuid, { silent: true });
-await loadPaymentHistory(faceitGuid);
 setPaymentFeedbackModal({
 open: true,
 title: "Pagamento confirmado",
@@ -502,7 +416,6 @@ return;
 }
 
 if (status === "EXPIRED") {
-await loadPaymentHistory(faceitGuid);
 setPaymentFeedbackModal({
 open: true,
 title: "Tempo expirado",
@@ -513,12 +426,11 @@ return;
 }
 
 if (!isFinal && shouldFinalizeByClosedPopup) {
-await loadPaymentHistory(faceitGuid);
 setPaymentFeedbackModal({
 open: true,
 title: "Pagamento em processamento",
 message:
-"A janela foi fechada antes da confirmacao final. O pagamento pode levar alguns segundos para atualizar no historico.",
+							"A janela foi fechada antes da confirmacao final. O pagamento pode levar alguns segundos para atualizar.",
 isError: false,
 });
 return;
@@ -530,12 +442,11 @@ title: "Pagamento nao concluido",
 message: "O PagBank informou que o pagamento nao foi concluido.",
 isError: true,
 });
-await loadPaymentHistory(faceitGuid);
 } catch {
 }
 }, 5000);
 },
-[clearPaymentPolling, loadItems, loadPaymentHistory],
+	[clearPaymentPolling, loadItems],
 );
 
 useEffect(() => {
@@ -562,7 +473,6 @@ useEffect(() => {
 					const parsed = JSON.parse(stored) as FaceitUser;
 					const guid = String(parsed.faceit_guid || "");
 					loadItems(guid);
-					void loadPaymentHistory(guid);
 				} catch {
 					loadItems("");
 				}
@@ -572,137 +482,7 @@ useEffect(() => {
 		} else {
 			setLoading(false);
 		}
-	}, [loadItems, loadPaymentHistory]);
-
-const continuePendingPayment = async (entry: PaymentHistoryEntry) => {
-const faceitGuid = String(user?.faceit_guid || "");
-if (!faceitGuid) {
-setPaymentFeedbackModal({
-open: true,
-title: "Login necessario",
-message: "Voce precisa estar logado para continuar um pagamento.",
-isError: true,
-});
-return;
-}
-
-if (entry.method === "PIX") {
-setPixModal({
-open: true,
-itemName: entry.itemName,
-paymentId: entry.id,
-qrCodeImageUrl: String(entry.pix?.qrCodeImageUrl || ""),
-qrCodeText: String(entry.pix?.qrCodeText || ""),
-expiresAt: String(entry.expiresAt || ""),
-});
-startPaymentStatusPolling(entry.id, entry.itemName, faceitGuid);
-return;
-}
-
-if (!entry.checkoutUrl) {
-setPaymentFeedbackModal({
-open: true,
-title: "Link indisponivel",
-message: "Nao encontramos o link do checkout para continuar este pagamento.",
-isError: true,
-});
-return;
-}
-
-const popup = window.open(entry.checkoutUrl, "pagbank-payment", "width=520,height=760");
-if (!popup) {
-setPaymentFeedbackModal({
-open: true,
-title: "Janela bloqueada",
-message: "Seu navegador bloqueou a janela de pagamento.",
-isError: true,
-});
-return;
-}
-
-paymentPopupRef.current = popup;
-startPaymentStatusPolling(entry.id, entry.itemName, faceitGuid);
-};
-
-const deletePendingPayment = async (entry: PaymentHistoryEntry) => {
-const faceitGuid = String(user?.faceit_guid || "");
-if (!faceitGuid) {
-setPaymentFeedbackModal({
-open: true,
-title: "Login necessario",
-message: "Voce precisa estar logado para excluir um pagamento pendente.",
-isError: true,
-});
-return;
-}
-
-if (!entry.isPending) {
-setPaymentFeedbackModal({
-open: true,
-title: "Nao permitido",
-message: "Apenas pagamentos pendentes podem ser excluidos.",
-isError: true,
-});
-return;
-}
-
-setDeletingPendingPaymentId(entry.id);
-const previousHistory = paymentHistory;
-setPaymentHistory((prev) => prev.filter((payment) => payment.id !== entry.id));
-try {
-const res = await fetch("/api/loja/pagamento/excluir-pendente", {
-method: "POST",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-payment_id: entry.id,
-faceit_guid: faceitGuid,
-}),
-});
-
-const data = await res.json().catch(() => ({}));
-if (!res.ok) {
-if (res.status === 404) {
-setPaymentFeedbackModal({
-open: true,
-title: "Pendente excluido",
-message: `O pagamento pendente de ${entry.itemName} ja nao estava mais disponivel.`,
-isError: false,
-});
-return;
-}
-setPaymentHistory(previousHistory);
-setPaymentFeedbackModal({
-open: true,
-title: "Falha ao excluir",
-message: data?.message || "Nao foi possivel excluir o pagamento pendente.",
-isError: true,
-});
-return;
-}
-
-if (pixModal.open && pixModal.paymentId === entry.id) {
-clearPaymentPolling();
-closePixModal();
-}
-
-setPaymentFeedbackModal({
-open: true,
-title: "Pendente excluido",
-message: `Pagamento pendente de ${entry.itemName} excluido com sucesso.`,
-isError: false,
-});
-} catch {
-setPaymentHistory(previousHistory);
-setPaymentFeedbackModal({
-open: true,
-title: "Erro inesperado",
-message: "Erro ao excluir pagamento pendente.",
-isError: true,
-});
-} finally {
-setDeletingPendingPaymentId(null);
-}
-};
+	}, [loadItems]);
 
 useEffect(() => {
 return () => {
@@ -1117,6 +897,28 @@ return;
 
 if (res.status === 409 && Number(data?.existingPaymentId || 0) > 0) {
 const existingPaymentId = Number(data.existingPaymentId);
+
+		if (method === "PIX") {
+			setPixModal({
+				open: true,
+				itemName: item.nome,
+				paymentId: existingPaymentId,
+				qrCodeImageUrl: String(data?.pix?.qrCodeImageUrl || ""),
+				qrCodeText: String(data?.pix?.qrCodeText || ""),
+				expiresAt: String(data?.expiresAt || ""),
+			});
+			closePaymentMethodModal();
+			startPaymentStatusPolling(existingPaymentId, item.nome, faceitGuid);
+			return;
+		}
+
+		const existingCheckoutUrl = String(data?.checkoutUrl || "");
+		if (existingCheckoutUrl) {
+			closePaymentMethodModal();
+			window.location.assign(existingCheckoutUrl);
+			return;
+		}
+
 closePaymentMethodModal();
 startPaymentStatusPolling(existingPaymentId, item.nome, faceitGuid);
 setPaymentFeedbackModal({
@@ -1172,19 +974,8 @@ error: "Checkout nao retornou URL de pagamento.",
 return;
 }
 
-const popup = window.open(checkoutUrl, "pagbank-payment", "width=520,height=760");
-if (!popup) {
-setPaymentMethodModal((prev) => ({
-...prev,
-submittingMethod: null,
-error: "Seu navegador bloqueou a janela de pagamento.",
-}));
-return;
-}
-
-paymentPopupRef.current = popup;
 closePaymentMethodModal();
-startPaymentStatusPolling(paymentId, item.nome, faceitGuid);
+window.location.assign(checkoutUrl);
 } catch {
 setPaymentMethodModal((prev) => ({
 ...prev,
@@ -1573,101 +1364,6 @@ className="rounded-lg border border-gold bg-gold px-4 py-2 text-sm font-black up
 {loading && (
 <PremiumCard>
 <div className="p-6 text-sm text-zinc-300">Carregando itens da loja...</div>
-</PremiumCard>
-)}
-
-{canViewStore && (
-<PremiumCard>
-<div className="p-6 md:p-8">
-<div className="flex items-center justify-between gap-3">
-<h2 className="text-lg font-black uppercase text-white">Minhas transacoes</h2>
-<button
-type="button"
-onClick={() => {
-const faceitGuid = String(user?.faceit_guid || "");
-void loadPaymentHistory(faceitGuid);
-}}
-className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-black uppercase text-zinc-200"
->
-Atualizar
-</button>
-</div>
-
-{loadingPaymentHistory && <p className="mt-4 text-sm text-zinc-300">Carregando historico...</p>}
-{paymentHistoryError && <p className="mt-4 text-sm font-semibold text-red-400">{paymentHistoryError}</p>}
-
-{!loadingPaymentHistory && !paymentHistoryError && paymentHistory.length === 0 && (
-<p className="mt-4 text-sm text-zinc-400">Nenhuma transacao registrada ainda.</p>
-)}
-
-<div className="mt-4 space-y-3">
-	{paymentHistory.map((entry) => (
-		<div key={entry.id} className="rounded-xl border border-white/10 bg-black/30 p-4">
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<div>
-					<p className="text-sm font-black uppercase text-white">{entry.itemName}</p>
-					<p className="text-xs text-zinc-400">
-						ID #{entry.id} • {entry.method} • {formatCurrencyBRL(entry.amountCents / 100)}
-					</p>
-				</div>
-				<span className={`rounded-full border px-2 py-1 text-xs font-black uppercase ${paymentStatusClass(entry.status)}`}>
-					{formatPaymentStatusLabel(entry.status)}
-				</span>
-			</div>
-
-			{entry.isPending && (
-				<div className="mt-3 flex flex-wrap gap-2">
-					<button
-						type="button"
-						onClick={() => continuePendingPayment(entry)}
-						className="rounded-lg border border-gold bg-gold px-3 py-2 text-xs font-black uppercase text-black"
-					>
-						Continuar pagamento
-					</button>
-					<button
-						type="button"
-						onClick={() => void deletePendingPayment(entry)}
-						disabled={deletingPendingPaymentId === entry.id}
-						className="rounded-lg border border-red-500/70 bg-red-500/20 px-3 py-2 text-xs font-black uppercase text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{deletingPendingPaymentId === entry.id ? "Excluindo..." : "Excluir pendente"}
-					</button>
-				</div>
-			)}
-
-			{entry.logs.length > 0 && (
-				<div className="mt-3">
-					<button
-						type="button"
-						onClick={() =>
-							setExpandedPayments((prev) => ({
-								...prev,
-								[entry.id]: !prev[entry.id],
-							}))
-						}
-						className="rounded border border-white/20 bg-white/5 px-3 py-1 text-xs font-bold uppercase text-zinc-200 mb-2"
-					>
-						{expandedPayments[entry.id] ? "Fechar detalhes" : "Expandir detalhes"}
-					</button>
-					{expandedPayments[entry.id] && (
-						<div className="rounded-lg border border-white/10 bg-black/40 p-3">
-							<div className="space-y-2">
-								{entry.logs.map((log) => (
-									<div key={log.id} className="text-xs text-zinc-300">
-										<span className="font-semibold text-zinc-200">{log.eventName}</span>
-										<span className="text-zinc-500"> • {new Date(log.createdAt).toLocaleString("pt-BR")}</span>
-										{log.message ? <span className="block text-zinc-400">{log.message}</span> : null}
-									</div>
-								))}
-							</div>
-						</div>
-					)}
-				</div>
-			)}
-		</div>
-	))}
-</div>
-</div>
 </PremiumCard>
 )}
 

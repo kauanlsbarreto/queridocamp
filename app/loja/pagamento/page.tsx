@@ -36,7 +36,7 @@ function getMessage(status: string, loading: boolean, error: string | null, hasP
     return "Estamos consultando o status no PagBank. Isso pode levar alguns segundos.";
   }
   if (status === "PAID") {
-    return "Seu pagamento foi confirmado. Se esta pagina abriu em popup, ela pode ser fechada agora.";
+    return "Seu pagamento foi confirmado. Se voce foi redirecionado pelo PagBank, pode voltar para a loja agora.";
   }
   if (status === "EXPIRED") {
     return "O tempo para concluir o pagamento expirou. Gere um novo pagamento na loja.";
@@ -50,7 +50,7 @@ function getMessage(status: string, loading: boolean, error: string | null, hasP
   if (status === "FAILED") {
     return "Nao foi possivel confirmar este pagamento.";
   }
-  return "Pagamento ainda em processamento. Aguarde ou acompanhe pelo historico na loja.";
+  return "Pagamento ainda em processamento. Aguarde alguns segundos ou volte para a loja para tentar novamente.";
 }
 
 export default function LojaPagamentoPage() {

@@ -3,6 +3,9 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection, type Env } from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
 import { Client } from "basic-ftp";
+import { promises as fs } from "fs";
+import { tmpdir } from "os";
+import path from "path";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,6 +30,32 @@ type AccessRow = RowDataPacket & {
   lvlservidor: number | null;
 };
 
+type CommandLogRow = RowDataPacket & {
+  id: number;
+  usuario: string;
+  comando: string;
+  data: string | Date;
+  hora: string | Date;
+  nickname: string | null;
+  avatar: string | null;
+};
+
+type AdminPlayerRow = RowDataPacket & {
+  id: number;
+  nickname: string | null;
+  faceit_guid: string | null;
+  steamid: string | null;
+  avatar: string | null;
+};
+
+type AdminConfigEntry = {
+  identity?: string;
+  groups?: string[];
+  [key: string]: unknown;
+};
+
+type AdminConfigMap = Record<string, AdminConfigEntry>;
+
 const FTP_HOST = process.env.DATHOST_FTP_HOST || "loboda.dathost.net";
 const FTP_PORT = Number(process.env.DATHOST_FTP_PORT || 21);
 const FTP_USER = process.env.DATHOST_FTP_USER || "69e25c29817337ed7e1ff91c";
@@ -34,6 +63,10 @@ const FTP_PASSWORD = process.env.DATHOST_FTP_PASSWORD || "I2ISJT5UK3A";
 
 const FTP_PLUGINS_PATH = "/addons/counterstrikesharp/plugins";
 const FTP_DISABLED_PATH = "/addons/counterstrikesharp/plugins/Disabled";
+const FTP_ADMINS_JSON_PATH = "/addons/counterstrikesharp/configs/admins.json";
+
+const FACEIT_API_BASE = "https://open.faceit.com/data/v4";
+const FALLBACK_FACEIT_API_KEY = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
 
 function toModePreset(value: unknown): ModePreset | null {
   const normalized = String(value || "").trim().toLowerCase();
@@ -63,6 +96,158 @@ async function loadLvlServidor(faceitGuid: string): Promise<number> {
   } finally {
     await connection.end();
   }
+}
+
+
+
+function canSendConsoleByLevel(level: number) {
+  return level >= 1 && level <= 5;
+}
+
+function canManageServerSettings(level: number) {
+  return level === 1 || level === 2;
+}
+
+function extractSteamId(faceitPayload: unknown): string | null {
+  if (!faceitPayload || typeof faceitPayload !== "object") return null;
+  const payload = faceitPayload as Record<string, any>;
+
+  const raw =
+    payload?.steam_id_64 ||
+    payload?.games?.cs2?.game_player_id ||
+    payload?.games?.csgo?.game_player_id ||
+    payload?.platforms?.steam?.id ||
+    null;
+
+  if (!raw) return null;
+  const steamId = String(raw).trim();
+  return steamId.length > 0 ? steamId : null;
+}
+
+async function fetchFaceitSteamId(faceitGuid: string): Promise<string | null> {
+  const guid = String(faceitGuid || "").trim();
+  if (!guid) return null;
+
+  const apiKey = process.env.FACEIT_API_KEY || FALLBACK_FACEIT_API_KEY;
+  const response = await fetch(`${FACEIT_API_BASE}/players/${encodeURIComponent(guid)}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    cache: "no-store",
+  });
+
+  if (!response.ok) return null;
+
+  const payload = await response.json().catch(() => null);
+  return extractSteamId(payload);
+}
+
+async function ensurePlayersSteamIds(connection: Awaited<ReturnType<typeof createMainConnection>>, players: AdminPlayerRow[]) {
+  const normalized = players.map((player) => ({
+    id: Number(player.id || 0),
+    nickname: String(player.nickname || "").trim(),
+    faceit_guid: String(player.faceit_guid || "").trim(),
+    steamid: String(player.steamid || "").trim(),
+    avatar: String(player.avatar || "").trim() || null,
+  }));
+
+  const syncResults: Array<{ id: number; nickname: string; steamid: string | null; synced: boolean }> = [];
+
+  for (const player of normalized) {
+    let steamid = player.steamid;
+    let synced = false;
+
+    if (!steamid && player.faceit_guid) {
+      const fetchedSteamId = await fetchFaceitSteamId(player.faceit_guid);
+      if (fetchedSteamId) {
+        steamid = fetchedSteamId;
+        synced = true;
+        await connection.query("UPDATE players SET steamid = ? WHERE id = ?", [steamid, player.id]);
+      }
+    }
+
+    syncResults.push({
+      id: player.id,
+      nickname: player.nickname,
+      steamid: steamid || null,
+      synced,
+    });
+  }
+
+  return syncResults;
+}
+
+async function downloadRemoteFile(client: Client, remotePath: string): Promise<string> {
+  const tempPath = path.join(tmpdir(), `dathost-${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`);
+  try {
+    await client.downloadTo(tempPath, remotePath);
+    return await fs.readFile(tempPath, "utf8");
+  } finally {
+    await fs.unlink(tempPath).catch(() => undefined);
+  }
+}
+
+async function uploadRemoteFile(client: Client, remotePath: string, content: string) {
+  const tempPath = path.join(tmpdir(), `dathost-${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`);
+  try {
+    await fs.writeFile(tempPath, content, "utf8");
+    await client.uploadFrom(tempPath, remotePath);
+  } finally {
+    await fs.unlink(tempPath).catch(() => undefined);
+  }
+}
+
+async function readAdminsConfig(client: Client): Promise<AdminConfigMap> {
+  const raw = await downloadRemoteFile(client, FTP_ADMINS_JSON_PATH).catch((error) => {
+    const message = error instanceof Error ? error.message : String(error || "");
+    // If the file does not exist yet on FTP, start with an empty object.
+    if (message.includes("550")) {
+      return "{}";
+    }
+
+    throw error;
+  });
+  const parsed = JSON.parse(raw || "{}") as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+  return parsed as AdminConfigMap;
+}
+
+async function writeAdminsConfig(client: Client, config: AdminConfigMap) {
+  await client.ensureDir("/addons/counterstrikesharp/configs");
+  await client.cd("/");
+  const serialized = `${JSON.stringify(config, null, 2)}\n`;
+  await uploadRemoteFile(client, FTP_ADMINS_JSON_PATH, serialized);
+}
+
+async function withFtpClient<T>(fn: (client: Client) => Promise<T>): Promise<T> {
+  const client = new Client();
+  client.ftp.verbose = false;
+
+  try {
+    await client.access({
+      host: FTP_HOST,
+      port: FTP_PORT,
+      user: FTP_USER,
+      password: FTP_PASSWORD,
+      secure: false,
+    });
+
+    await client.cd("/");
+    return await fn(client);
+  } finally {
+    client.close();
+  }
+}
+
+function formatDbDate(value: string | Date | null | undefined) {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  const raw = String(value).trim();
+  return raw.includes("T") ? raw.slice(0, 10) : raw;
+}
+
+function formatDbTime(value: string | Date | null | undefined) {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString().slice(11, 19);
+  return String(value).trim().slice(0, 8);
 }
 
 async function applyServerSettingsPreset(serverId: string, mode: ModePreset) {
@@ -147,8 +332,6 @@ async function applyPostPresetConsoleCleanup(serverId: string, mode: ModePreset)
   }> = [];
 
   for (const line of lines) {
-    // Send sequentially so mp_restartgame runs after cvars are set.
-    // eslint-disable-next-line no-await-in-loop
     results.push(await sendConsoleLine(serverId, line));
   }
 
@@ -403,18 +586,202 @@ export async function GET(req: NextRequest) {
 
         const lvlservidor = Number(rows?.[0]?.lvlservidor ?? 0);
         const canUseRestrictedAreas = lvlservidor === 1 || lvlservidor === 2;
+        const canSendConsoleCommands = canSendConsoleByLevel(lvlservidor);
 
         return NextResponse.json({
           ok: true,
           lvlservidor,
           canUseRestrictedAreas,
+          canSendConsoleCommands,
         });
       } finally {
         await connection.end();
       }
     }
 
-    return jsonError("action invalida. Use action=console, action=metrics, action=server-settings ou action=access.", 400);
+    if (action === "command-logs") {
+      const rawLimit = Number(searchParams.get("limit") || 5);
+      const limit = Math.min(Math.max(rawLimit, 1), 50);
+      const direction = String(searchParams.get("direction") || "initial").trim().toLowerCase();
+      const cursorId = Number(searchParams.get("cursor_id") || 0);
+
+      const ctx = await getCloudflareContext({ async: true });
+      const env = ctx.env as unknown as Env;
+      const connection = await createMainConnection(env);
+
+      try {
+        let logs: CommandLogRow[] = [];
+        if (direction === "older" && Number.isFinite(cursorId) && cursorId > 0) {
+          const [rows] = await connection.query<CommandLogRow[]>(
+            `SELECT lc.id, lc.usuario, lc.comando, lc.data, lc.hora, p.nickname, p.avatar
+             FROM logs_comandos lc
+             LEFT JOIN players p ON p.faceit_guid = lc.usuario
+             WHERE lc.id < ?
+             ORDER BY lc.id DESC
+             LIMIT ?`,
+            [cursorId, limit],
+          );
+          logs = rows;
+        } else if (direction === "newer" && Number.isFinite(cursorId) && cursorId > 0) {
+          const [rows] = await connection.query<CommandLogRow[]>(
+            `SELECT lc.id, lc.usuario, lc.comando, lc.data, lc.hora, p.nickname, p.avatar
+             FROM logs_comandos lc
+             LEFT JOIN players p ON p.faceit_guid = lc.usuario
+             WHERE lc.id > ?
+             ORDER BY lc.id ASC
+             LIMIT ?`,
+            [cursorId, limit],
+          );
+          logs = rows.reverse();
+        } else {
+          const [rows] = await connection.query<CommandLogRow[]>(
+            `SELECT lc.id, lc.usuario, lc.comando, lc.data, lc.hora, p.nickname, p.avatar
+             FROM logs_comandos lc
+             LEFT JOIN players p ON p.faceit_guid = lc.usuario
+             ORDER BY lc.id DESC
+             LIMIT ?`,
+            [limit],
+          );
+          logs = rows;
+        }
+
+        const normalized = logs.map((row) => ({
+          id: Number(row.id),
+          usuario: String(row.usuario || ""),
+          comando: String(row.comando || ""),
+          data: formatDbDate(row.data),
+          hora: formatDbTime(row.hora),
+          nickname: String(row.nickname || "").trim() || null,
+          avatar: String(row.avatar || "").trim() || null,
+        }));
+
+        const minId = normalized.length > 0 ? Math.min(...normalized.map((item) => item.id)) : null;
+        const maxId = normalized.length > 0 ? Math.max(...normalized.map((item) => item.id)) : null;
+
+        let hasMoreOlder = false;
+        let hasMoreNewer = false;
+
+        if (minId !== null) {
+          const [olderRows] = await connection.query<Array<RowDataPacket & { total: number }>>(
+            "SELECT COUNT(*) AS total FROM logs_comandos WHERE id < ?",
+            [minId],
+          );
+          hasMoreOlder = Number(olderRows?.[0]?.total || 0) > 0;
+        }
+
+        if (maxId !== null) {
+          const [newerRows] = await connection.query<Array<RowDataPacket & { total: number }>>(
+            "SELECT COUNT(*) AS total FROM logs_comandos WHERE id > ?",
+            [maxId],
+          );
+          hasMoreNewer = Number(newerRows?.[0]?.total || 0) > 0;
+        }
+
+        return NextResponse.json({
+          ok: true,
+          logs: normalized,
+          hasMoreOlder,
+          hasMoreNewer,
+          limit,
+          direction,
+        });
+      } finally {
+        await connection.end();
+      }
+    }
+
+    if (action === "admin-players") {
+      const faceitGuid = (searchParams.get("faceit_guid") || req.headers.get("x-faceit-guid") || "").trim();
+      const lvlServidor = await loadLvlServidor(faceitGuid);
+      if (!canManageServerSettings(lvlServidor)) {
+        return jsonError("Sem permissao para gerenciar admins.", 403, { lvlservidor: lvlServidor });
+      }
+
+      const query = String(searchParams.get("query") || "").trim();
+      const rawLimit = Number(searchParams.get("limit") || 80);
+      const limit = Math.min(Math.max(rawLimit, 1), 200);
+
+      const ctx = await getCloudflareContext({ async: true });
+      const env = ctx.env as unknown as Env;
+      const connection = await createMainConnection(env);
+
+      try {
+        let rows: AdminPlayerRow[] = [];
+
+        if (query) {
+          const [queryRows] = await connection.query<AdminPlayerRow[]>(
+            `SELECT id, nickname, faceit_guid, steamid, avatar
+             FROM players
+             WHERE nickname LIKE ?
+             ORDER BY nickname ASC
+             LIMIT ?`,
+            [`%${query}%`, limit],
+          );
+          rows = queryRows;
+        } else {
+          const [queryRows] = await connection.query<AdminPlayerRow[]>(
+            `SELECT id, nickname, faceit_guid, steamid, avatar
+             FROM players
+             ORDER BY id DESC
+             LIMIT ?`,
+            [limit],
+          );
+          rows = queryRows;
+        }
+
+        let adminNicknames = new Set<string>();
+        let adminIdentities = new Set<string>();
+        let adminConfigWarning: string | null = null;
+
+        try {
+          const adminConfig = await withFtpClient(async (client) => readAdminsConfig(client));
+          adminNicknames = new Set(
+            Object.keys(adminConfig)
+              .map((key) => String(key || "").trim().toLowerCase())
+              .filter(Boolean),
+          );
+
+          adminIdentities = new Set(
+            Object.values(adminConfig)
+              .map((entry) => String(entry?.identity || "").trim())
+              .filter(Boolean),
+          );
+        } catch (error) {
+          adminConfigWarning = error instanceof Error ? error.message : "Falha ao ler admins.json";
+        }
+
+        const players = rows.map((row) => {
+          const nickname = String(row.nickname || "").trim();
+          const steamid = String(row.steamid || "").trim() || null;
+          const isAdmin = (nickname && adminNicknames.has(nickname.toLowerCase()))
+            || (!!steamid && adminIdentities.has(steamid));
+
+          return {
+            id: Number(row.id || 0),
+            nickname,
+            faceit_guid: String(row.faceit_guid || "").trim() || null,
+            steamid,
+            avatar: String(row.avatar || "").trim() || null,
+            is_admin: isAdmin,
+          };
+        });
+
+        players.sort((a, b) => {
+          if (a.is_admin !== b.is_admin) return a.is_admin ? -1 : 1;
+          return a.nickname.localeCompare(b.nickname, "pt-BR", { sensitivity: "base" });
+        });
+
+        return NextResponse.json({
+          ok: true,
+          players,
+          adminConfigWarning,
+        });
+      } finally {
+        await connection.end();
+      }
+    }
+
+    return jsonError("action invalida. Use action=console, action=metrics, action=server-settings, action=access, action=command-logs ou action=admin-players.", 400);
   } catch (error) {
     return jsonError("Erro interno ao processar requisicao Dathost.", 500, error instanceof Error ? error.message : error);
   }
@@ -458,6 +825,125 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    if (action === "admin-add" || action === "admin-remove") {
+      const selectedIdsRaw = Array.isArray(body?.player_ids) ? body.player_ids : [];
+      const selectedIds = selectedIdsRaw
+        .map((value: unknown) => Number(value))
+        .filter((value: number) => Number.isFinite(value) && value > 0);
+
+      if (selectedIds.length === 0) {
+        return jsonError("Selecione ao menos um jogador.", 400);
+      }
+
+      const lvlServidor = await loadLvlServidor(faceitGuid);
+      if (!canManageServerSettings(lvlServidor)) {
+        return jsonError("Sem permissao para gerenciar admins.", 403, { lvlservidor: lvlServidor });
+      }
+
+      const ctx = await getCloudflareContext({ async: true });
+      const env = ctx.env as unknown as Env;
+      const connection = await createMainConnection(env);
+
+      try {
+        const placeholders = selectedIds.map(() => "?").join(", ");
+        const [rows] = await connection.query<AdminPlayerRow[]>(
+          `SELECT id, nickname, faceit_guid, steamid, avatar
+           FROM players
+           WHERE id IN (${placeholders})`,
+          selectedIds,
+        );
+
+        if (!rows.length) {
+          return jsonError("Nenhum jogador encontrado com os IDs selecionados.", 404);
+        }
+
+        const resolvedPlayers = await ensurePlayersSteamIds(connection, rows);
+
+        const ftpResult = await withFtpClient(async (client) => {
+          const config = await readAdminsConfig(client);
+          let changed = 0;
+          const applied: Array<{ id: number; nickname: string; steamid: string }> = [];
+          const skipped: Array<{ id: number; nickname: string; reason: string }> = [];
+
+          if (action === "admin-add") {
+            for (const player of resolvedPlayers) {
+              if (!player.nickname) {
+                skipped.push({ id: player.id, nickname: "", reason: "nickname vazio" });
+                continue;
+              }
+
+              if (!player.steamid) {
+                skipped.push({ id: player.id, nickname: player.nickname, reason: "steamid nao encontrado" });
+                continue;
+              }
+
+              config[player.nickname] = {
+                identity: player.steamid,
+                groups: ["#css/admin"],
+              };
+              changed += 1;
+              applied.push({ id: player.id, nickname: player.nickname, steamid: player.steamid });
+            }
+          }
+
+          if (action === "admin-remove") {
+            for (const player of resolvedPlayers) {
+              const nickname = String(player.nickname || "").trim();
+              const steamid = String(player.steamid || "").trim();
+
+              let removedThisPlayer = false;
+
+              if (nickname && config[nickname]) {
+                delete config[nickname];
+                removedThisPlayer = true;
+              }
+
+              if (steamid) {
+                for (const key of Object.keys(config)) {
+                  if (String(config[key]?.identity || "").trim() === steamid) {
+                    delete config[key];
+                    removedThisPlayer = true;
+                  }
+                }
+              }
+
+              if (removedThisPlayer) {
+                changed += 1;
+                applied.push({ id: player.id, nickname, steamid });
+              } else {
+                skipped.push({ id: player.id, nickname, reason: "admin nao encontrado no arquivo" });
+              }
+            }
+          }
+
+          if (changed > 0) {
+            await writeAdminsConfig(client, config);
+          }
+
+          return { changed, applied, skipped };
+        }).catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          throw new Error(`Falha ao editar admins.json via FTP: ${message}`);
+        });
+
+        return NextResponse.json({
+          ok: true,
+          action,
+          changed: ftpResult.changed,
+          applied: ftpResult.applied,
+          skipped: ftpResult.skipped,
+          steamSync: resolvedPlayers.map((player) => ({
+            id: player.id,
+            nickname: player.nickname,
+            steamid: player.steamid,
+            synced: player.synced,
+          })),
+        });
+      } finally {
+        await connection.end();
+      }
+    }
+
     const line = String(body?.line || "").trim();
     const serverId = String(body?.server_id || process.env.DATHOST_SERVER_ID || DEFAULT_SERVER_ID).trim();
 
@@ -467,6 +953,11 @@ export async function POST(req: NextRequest) {
 
     if (!serverId) {
       return jsonError("server_id nao informado.", 400);
+    }
+
+    const lvlServidor = await loadLvlServidor(faceitGuid);
+    if (!canSendConsoleByLevel(lvlServidor)) {
+      return jsonError("Sem permissao para enviar comandos no console.", 403, { lvlservidor: lvlServidor });
     }
 
     const formData = new FormData();
@@ -479,6 +970,22 @@ export async function POST(req: NextRequest) {
 
     if (!result.ok) {
       return jsonError("Falha ao enviar comando para o console.", result.status, result.data || result.raw);
+    }
+
+    const shouldLogCommand = body?.log_command !== false;
+    if (shouldLogCommand) {
+      const ctx = await getCloudflareContext({ async: true });
+      const env = ctx.env as unknown as Env;
+      const connection = await createMainConnection(env);
+
+      try {
+        await connection.query(
+          "INSERT INTO logs_comandos (usuario, comando, data, hora) VALUES (?, ?, CURDATE(), CURTIME())",
+          [faceitGuid || "desconhecido", line],
+        );
+      } finally {
+        await connection.end();
+      }
     }
 
     return NextResponse.json({ ok: true, serverId, line, response: result.data, raw: result.raw });
