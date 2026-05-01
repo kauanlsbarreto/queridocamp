@@ -558,7 +558,7 @@ export async function GET(req: NextRequest) {
         action,
         fetchedAt: new Date().toISOString(),
         settings: {
-          password: String(cs2Settings.password || payload.password || ""),
+           password: String(cs2Settings.password || payload.password || ""),
           game_mode: String(cs2Settings.game_mode || "custom"),
           maps_source: String(cs2Settings.maps_source || "mapgroup"),
           mapgroup: String(cs2Settings.mapgroup || ""),

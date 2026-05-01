@@ -21,6 +21,13 @@ type EstoqueRow = {
   tipo_item: string | null;
 };
 
+type TopPlayerRow = {
+  id: number;
+  nickname: string | null;
+  avatar: string | null;
+  points: number | null;
+};
+
 type StorePayload = {
   nome: string;
   descricao: string | null;
@@ -174,7 +181,22 @@ export async function GET(request: Request) {
        ORDER BY data_adicionado DESC`,
     );
 
-    return NextResponse.json({ items: rows as EstoqueRow[] }, { status: 200 });
+    const [topPlayersRows] = await connection.query(
+      `SELECT id, nickname, avatar, points
+       FROM players
+       WHERE points IS NOT NULL
+       ORDER BY points DESC, id ASC
+       LIMIT 5`,
+    );
+
+    const topPlayers = (topPlayersRows as TopPlayerRow[]).map((player) => ({
+      id: Number(player.id || 0),
+      nickname: String(player.nickname || "Jogador"),
+      avatar: String(player.avatar || ""),
+      points: Math.max(0, Number(player.points || 0)),
+    }));
+
+    return NextResponse.json({ items: rows as EstoqueRow[], topPlayers }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro desconhecido";
     return NextResponse.json({ message }, { status: 500 });

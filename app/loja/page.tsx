@@ -84,6 +84,13 @@ billing_country: string;
 billing_phone: string;
 };
 
+type TopPlayer = {
+id: number;
+nickname: string;
+avatar: string;
+points: number;
+};
+
 type BillingModalMode = "summary" | "edit";
 
 type BillingModalState = {
@@ -239,6 +246,14 @@ if (digits.length <= 5) return digits;
 return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
+function resolveAvatarSrc(avatar: string | null | undefined) {
+const value = String(avatar || "").trim();
+if (!value) return "/images/cs2-player.png";
+if (/^https?:\/\//i.test(value)) return value;
+if (value.startsWith("/")) return value;
+return `/${value}`;
+}
+
 export default function LojaPage() {
 	// Data de lançamento da loja (igual backend)
 	const LOJA_RELEASE_AT_ISO = "2026-04-25T00:00:00.000Z"; // ajuste conforme backend
@@ -252,6 +267,7 @@ export default function LojaPage() {
 
 	const [user, setUser] = useState<FaceitUser | null>(null);
 	const [items, setItems] = useState<StoreItem[]>([]);
+	const [topPlayers, setTopPlayers] = useState<TopPlayer[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string>("");
 	const [showForm, setShowForm] = useState(false);
@@ -350,13 +366,30 @@ setError("");
 
 			if (!res.ok) {
 				setItems([]);
+				setTopPlayers([]);
 				setError(data?.message || "Nao foi possivel carregar a loja.");
 				return;
 			}
 
 			setItems(Array.isArray(data.items) ? data.items : []);
+			setTopPlayers(
+				Array.isArray(data.topPlayers)
+					? data.topPlayers
+							.map((player: unknown) => {
+								const candidate = player as Partial<TopPlayer>;
+								return {
+									id: Number(candidate.id || 0),
+									nickname: String(candidate.nickname || "Jogador"),
+									avatar: String(candidate.avatar || ""),
+									points: Math.max(0, Number(candidate.points || 0)),
+								};
+							})
+							.filter((player: TopPlayer) => player.id > 0)
+					: [],
+			);
 		} catch {
 			setItems([]);
+			setTopPlayers([]);
 			setError("Erro ao carregar itens da loja.");
 		} finally {
 			if (!options?.silent) {
@@ -1361,6 +1394,8 @@ className="rounded-lg border border-gold bg-gold px-4 py-2 text-sm font-black up
 </PremiumCard>
 )}
 
+<div>
+<div>
 {loading && (
 <PremiumCard>
 <div className="p-6 text-sm text-zinc-300">Carregando itens da loja...</div>
@@ -1444,6 +1479,48 @@ className="flex-1 rounded-lg border border-gold bg-gold px-3 py-2 text-xs font-b
 )}
 </div>
 )}
+</div>
+
+<aside className="mt-6 xl:hidden">
+<PremiumCard className="h-fit">
+<div className="p-5">
+<p className="text-xs uppercase tracking-[0.18em] text-gold/80">Ranking</p>
+<h3 className="mt-1 text-lg font-black uppercase text-white">Top 5 moedas</h3>
+<p className="mt-1 text-xs text-zinc-400">Jogadores com maior saldo de moedas no site.</p>
+
+<div className="mt-4 space-y-2">
+{topPlayers.length > 0 ? (
+topPlayers.map((player, index) => (
+<div key={player.id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+<span className="w-5 text-center text-xs font-black text-gold">#{index + 1}</span>
+<div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/15 bg-black/40">
+<Image
+src={resolveAvatarSrc(player.avatar)}
+alt={player.nickname}
+fill
+className="object-cover"
+unoptimized
+/>
+</div>
+<div className="min-w-0 flex-1">
+<p className="truncate text-sm font-bold text-white">{player.nickname}</p>
+</div>
+<div className="flex items-center gap-1 rounded-md border border-gold/25 bg-gold/10 px-2 py-1">
+<Image src="/moeda.png" alt="Moeda" width={14} height={14} />
+<span className="text-xs font-black text-gold">{player.points}</span>
+</div>
+</div>
+))
+) : (
+<div className="rounded-lg border border-white/10 bg-black/30 px-3 py-3 text-xs text-zinc-400">
+Nenhum jogador com moedas encontrado.
+</div>
+)}
+</div>
+</div>
+</PremiumCard>
+</aside>
+</div>
 
 {billingModal.open && billingModal.item && (
 <div className="fixed inset-0 z-[125] flex items-center justify-center bg-black/85 px-4 py-6">
@@ -1787,6 +1864,46 @@ Fechar
 </div>
 )}
 			</div>
+
+			<aside className="fixed top-36 z-[40] hidden w-[300px] xl:right-[8vw] xl:block 2xl:right-[10vw]">
+				<PremiumCard className="h-fit">
+					<div className="p-5">
+						<p className="text-xs uppercase tracking-[0.18em] text-gold/80">Ranking</p>
+						<h3 className="mt-1 text-lg font-black uppercase text-white">Top 5</h3>
+						<p className="mt-1 text-xs text-zinc-400">Jogadores com maior saldo de moedas no site.</p>
+
+						<div className="mt-4 space-y-2">
+							{topPlayers.length > 0 ? (
+								topPlayers.map((player, index) => (
+									<div key={player.id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+										<span className="w-5 text-center text-xs font-black text-gold">#{index + 1}</span>
+										<div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/15 bg-black/40">
+											<Image
+												src={resolveAvatarSrc(player.avatar)}
+												alt={player.nickname}
+												fill
+												className="object-cover"
+												unoptimized
+											/>
+										</div>
+										<div className="min-w-0 flex-1">
+											<p className="truncate text-sm font-bold text-white">{player.nickname}</p>
+										</div>
+										<div className="flex items-center gap-1 rounded-md border border-gold/25 bg-gold/10 px-2 py-1">
+											<Image src="/moeda.png" alt="Moeda" width={14} height={14} />
+											<span className="text-xs font-black text-gold">{player.points}</span>
+										</div>
+									</div>
+								))
+							) : (
+								<div className="rounded-lg border border-white/10 bg-black/30 px-3 py-3 text-xs text-zinc-400">
+									Nenhum jogador com moedas encontrado.
+								</div>
+							)}
+						</div>
+					</div>
+				</PremiumCard>
+			</aside>
 		</div>
 	</section>
 </PageAccessGate>

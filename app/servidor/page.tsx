@@ -33,6 +33,8 @@ type ServerConfigForm = {
 	workshop_map_id: string;
 };
 
+type ModePreset = "1v1" | "mix";
+
 type CommandLogEntry = {
 	id: number;
 	usuario: string;
@@ -175,6 +177,37 @@ function formatNumber(value: number | null | undefined, suffix = "") {
 	return `${value.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}${suffix}`;
 }
 
+function detectActiveModePreset(config: ServerConfigForm): ModePreset | null {
+	const gameMode = String(config.game_mode || "").trim().toLowerCase();
+	const mapsSource = String(config.maps_source || "").trim().toLowerCase();
+	const mapgroup = String(config.mapgroup || "").trim().toLowerCase();
+	const startMap = String(config.mapgroup_start_map || "").trim().toLowerCase();
+	const workshopMapId = String(config.workshop_map_id || "").trim();
+
+	const is1v1 = gameMode === "custom"
+		&& mapsSource === "workshop_collection"
+		&& workshopMapId === "3715378702";
+
+	if (is1v1) return "1v1";
+
+	const isMix = gameMode === "competitive"
+		&& mapsSource === "mapgroup"
+		&& mapgroup === "mg_active"
+		&& startMap === "de_mirage";
+
+	if (isMix) return "mix";
+
+	return null;
+}
+
+const SERVER_PAGE_SECTIONS = [
+	{ id: "topo-servidor", label: "Topo" },
+	{ id: "modo-rapido", label: "Config do Server" },
+	{ id: "config-servidor", label: "Configuracao" },
+	{ id: "console-servidor", label: "Console" },
+	{ id: "logs-comandos", label: "Logs de comandos" },
+] as const;
+
 export default function ServidorPage() {
 	const [consoleLines, setConsoleLines] = useState<string[]>([]);
 	const [loadingConsole, setLoadingConsole] = useState(true);
@@ -216,6 +249,7 @@ export default function ServidorPage() {
 	const [hasMoreNewerLogs, setHasMoreNewerLogs] = useState(false);
 	const [lastLogsRefresh, setLastLogsRefresh] = useState("");
 	const [showCommandsModal, setShowCommandsModal] = useState(false);
+	const [activeSectionId, setActiveSectionId] = useState<string>(SERVER_PAGE_SECTIONS[0].id);
 
 	const consoleRef = useRef<HTMLPreElement | null>(null);
 	const logsListRef = useRef<HTMLDivElement | null>(null);
@@ -226,6 +260,7 @@ export default function ServidorPage() {
 	const canUseLevel1Preset = lvlServidor === 1;
 	const canSendConsoleCommands = lvlServidor >= 1 && lvlServidor <= 5;
 	const selectedAdminIdSet = useMemo(() => new Set(selectedAdminPlayerIds), [selectedAdminPlayerIds]);
+	const activeModePreset = useMemo(() => detectActiveModePreset(configForm), [configForm]);
 
 	const fetchConsole = useCallback(async () => {
 		try {
@@ -756,12 +791,49 @@ export default function ServidorPage() {
 
 	const playersOnlineNow = useMemo(() => parsePlayersFromStatus(consoleLines), [consoleLines]);
 
+	const scrollToSection = useCallback((sectionId: string) => {
+		if (typeof window === "undefined") return;
+		const target = document.getElementById(sectionId);
+		if (!target) return;
+		setActiveSectionId(sectionId);
+		target.scrollIntoView({ behavior: "smooth", block: "start" });
+	}, []);
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+
+		const updateActiveSection = () => {
+			const threshold = 220;
+			let current: string = SERVER_PAGE_SECTIONS[0].id;
+
+			for (const section of SERVER_PAGE_SECTIONS) {
+				const el = document.getElementById(section.id);
+				if (!el) continue;
+				const top = el.getBoundingClientRect().top;
+				if (top <= threshold) current = section.id;
+			}
+
+			setActiveSectionId(current);
+		};
+
+		updateActiveSection();
+		window.addEventListener("scroll", updateActiveSection, { passive: true });
+		window.addEventListener("resize", updateActiveSection);
+
+		return () => {
+			window.removeEventListener("scroll", updateActiveSection);
+			window.removeEventListener("resize", updateActiveSection);
+		};
+	}, []);
+
 	return (
 		<PageAccessGate level={1} restrictedTitle="Acesso restrito">
 			<main className="relative overflow-hidden py-14 md:py-20">
 				<div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(236,161,73,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(231,106,33,0.14),transparent_28%)]" />
 
 				<section className="container">
+					<div>
+							<div id="topo-servidor" className="scroll-mt-28" />
 					<SectionTitle
 						title="Painel do Servidor CS2"
 						description="Configurar o servidor"
@@ -809,11 +881,12 @@ export default function ServidorPage() {
 					</div>
 
 					<div className="grid gap-8">
+						<div id="modo-rapido" className="scroll-mt-28">
 						<PremiumCard className="border-gold/20 bg-[#08111b]/95">
 							<div className="p-6 md:p-7">
 								<div className="mb-5 flex items-center gap-2 text-2xl font-black text-white">
 									<Swords className="h-6 w-6 text-gold" />
-									Modo rapido (nivel 1)
+									Config do Server
 								</div>
 
 								<div className="grid gap-3 md:grid-cols-2">
@@ -823,9 +896,13 @@ export default function ServidorPage() {
 											void applyModePreset("1v1");
 										}}
 										disabled={!canUseLevel1Preset || applyingPreset !== null}
-										className="inline-flex items-center justify-center rounded-xl bg-gold px-5 py-3 text-sm font-bold text-black transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-60"
+										className={`inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+											activeModePreset === "1v1"
+												? "bg-gold text-black hover:bg-gold/90"
+												: "border border-gold bg-transparent text-gold hover:bg-gold/10"
+										}`}
 									>
-										{applyingPreset === "1v1" ? "Aplicando 1v1..." : "1v1"}
+										{applyingPreset === "1v1" ? "Aplicando 1v1..." : activeModePreset === "1v1" ? "1v1 (ativo)" : "1v1"}
 									</button>
 
 									<button
@@ -834,14 +911,21 @@ export default function ServidorPage() {
 											void applyModePreset("mix");
 										}}
 										disabled={!canUseLevel1Preset || applyingPreset !== null}
-										className="inline-flex items-center justify-center rounded-xl border border-gold bg-transparent px-5 py-3 text-sm font-bold text-gold transition hover:bg-gold/10 disabled:cursor-not-allowed disabled:opacity-60"
+										className={`inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+											activeModePreset === "mix"
+												? "bg-gold text-black hover:bg-gold/90"
+												: "border border-gold bg-transparent text-gold hover:bg-gold/10"
+										}`}
 									>
-										{applyingPreset === "mix" ? "Aplicando Mix..." : "Mix"}
+										{applyingPreset === "mix" ? "Aplicando Mix..." : activeModePreset === "mix" ? "Mix (ativo)" : "Mix"}
 									</button>
 								</div>
+
 							</div>
 						</PremiumCard>
+						</div>
 
+						<div id="config-servidor" className="scroll-mt-28">
 						<PremiumCard className="border-gold/20 bg-[#08111b]/95">
 							<div className="p-6 md:p-7">
 								<div className="mb-5 flex items-center justify-between gap-3">
@@ -1069,7 +1153,9 @@ export default function ServidorPage() {
 								)}
 							</div>
 						</PremiumCard>
+						</div>
 
+						<div id="console-servidor" className="scroll-mt-28">
 						<PremiumCard className="border-gold/20 bg-[#08111b]/95">
 							<div className="p-6 md:p-7">
 								<div className="flex flex-wrap items-center justify-between gap-3">
@@ -1173,6 +1259,7 @@ export default function ServidorPage() {
 								</p>
 							</div>
 						</PremiumCard>
+						</div>
 
 						{showCommandsModal && (
 							<div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4">
@@ -1225,6 +1312,7 @@ export default function ServidorPage() {
 							</div>
 						)}
 
+						<div id="logs-comandos" className="scroll-mt-28">
 						<PremiumCard className="border-gold/20 bg-[#08111b]/95">
 							<div className="p-6 md:p-7">
 								<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -1291,7 +1379,40 @@ export default function ServidorPage() {
 
 							</div>
 						</PremiumCard>
+						</div>
 					</div>
+					</div>
+
+					<aside className="fixed right-10 top-1/2 z-[75] hidden w-[260px] -translate-y-1/2 xl:block 2xl:right-16">
+						<PremiumCard className="border-white/15 bg-[#0b1320]/90 shadow-[0_16px_40px_rgba(0,0,0,0.45)] backdrop-blur-md">
+							<div className="p-4">
+								<p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gold/85">Navegacao rapida</p>
+								<p className="mt-1 text-xs text-zinc-400">Acesse cada bloco desta pagina.</p>
+								<div className="mt-3 space-y-2">
+									{SERVER_PAGE_SECTIONS.map((section, index) => {
+										const isActive = activeSectionId === section.id;
+										return (
+											<button
+												key={section.id}
+												type="button"
+												onClick={() => scrollToSection(section.id)}
+												className={`group flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.08em] transition ${
+													isActive
+														? "border-gold/60 bg-gold/15 text-gold"
+														: "border-white/15 bg-black/30 text-zinc-200 hover:border-gold/40 hover:text-gold"
+												}`}
+											>
+												<span className="truncate">{section.label}</span>
+												<span className={`rounded-md border px-2 py-0.5 text-[10px] ${isActive ? "border-gold/50 bg-gold/15 text-gold" : "border-white/20 text-zinc-400 group-hover:border-gold/30 group-hover:text-gold"}`}>
+													{index + 1}
+												</span>
+											</button>
+										);
+									})}
+								</div>
+							</div>
+						</PremiumCard>
+					</aside>
 				</section>
 			</main>
 		</PageAccessGate>
