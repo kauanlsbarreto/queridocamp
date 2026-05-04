@@ -489,7 +489,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		const removingPote = Boolean(removingPoteById[jogadorId]);
 		const removingFromTime = Boolean(removingFromTimeById[jogadorId]);
 		const hasTop90Stats = Boolean(jogador?.top90Stats);
-		const canOpenStatsModal = hasTop90Stats && !podeEscolherPote;
+		const canOpenStatsModal = hasTop90Stats;
 
 		const borderColor = hasTop90Stats ? 'border-zinc-700' : 'border-gray-400';
 		const bgColor = hasTop90Stats ? 'bg-[#060c14]' : 'bg-white/10';
@@ -517,14 +517,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
                         Ja participou
 					</div>
 				)}
-				<div
-					onClick={() => {
-						if (!canOpenStatsModal) return;
-						setTop90Modal({ open: true, jogador });
-					}}
-					className={`relative mb-2 w-20 h-20 rounded-full border-2 border-white shadow overflow-hidden ${canOpenStatsModal ? 'cursor-pointer' : ''}`}
-					title={canOpenStatsModal ? 'Clique no avatar para ver estatisticas' : undefined}
-				>
+				<div className="relative mb-2 w-20 h-20 rounded-full border-2 border-white shadow overflow-hidden">
 					<Image src={jogador.faceit_image || '/images/cs2-player.png'} fill alt={jogador.nick} className="object-cover" />
 				</div>
 				<div className="font-extrabold text-lg text-white drop-shadow-lg text-center">{jogador.nick}</div>
@@ -577,6 +570,18 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 						   </>
 					   )}
 				   </div>
+				{canOpenStatsModal && (
+					<button
+						type="button"
+						onClick={(e) => {
+							e.stopPropagation();
+							setTop90Modal({ open: true, jogador });
+						}}
+						className="mt-1 rounded-md border border-zinc-500/70 bg-zinc-900/80 px-3 py-1 text-xs font-semibold text-zinc-100 hover:bg-zinc-800 transition"
+					>
+						Ver stats
+					</button>
+				)}
 				{podeEscolherPote && admin && (
 					<div className="w-full mt-2 flex flex-col gap-2">
 						<select
@@ -706,9 +711,9 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 								return (
 									<div key={j.id} className="relative">
 										<JogadorCard jogador={j} />
-										<div className="absolute top-0 left-0 right-0 flex flex-col gap-2 p-2">
+										<div className="pointer-events-none absolute top-0 left-0 right-0 flex flex-col gap-2 p-2">
 											<select
-												className="flex-1 rounded-md border border-gold/30 bg-[#101826] text-white text-xs px-2 py-1 outline-none focus:border-gold"
+												className="pointer-events-auto flex-1 rounded-md border border-gold/30 bg-[#101826] text-white text-xs px-2 py-1 outline-none focus:border-gold"
 												value={pote}
 												disabled={savingPoteById[Number(j.id)] || removingPoteById[Number(j.id)]}
 												onChange={(e) => {
@@ -725,7 +730,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 												type="button"
 												onClick={() => handleRemoveFromPote(Number(j.id))}
 												disabled={savingPoteById[Number(j.id)] || removingPoteById[Number(j.id)]}
-												className="rounded-md border border-red-400/60 bg-red-500/20 text-red-200 text-[11px] font-semibold px-2 py-1 hover:bg-red-500/30 transition disabled:opacity-60"
+												className="pointer-events-auto rounded-md border border-red-400/60 bg-red-500/20 text-red-200 text-[11px] font-semibold px-2 py-1 hover:bg-red-500/30 transition disabled:opacity-60"
 											>
 												{removingPoteById[Number(j.id)] ? 'Removendo...' : 'Sem pote'}
 											</button>
