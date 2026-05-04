@@ -33,15 +33,8 @@ export default function InscricoesModal({ alwaysShow = false }: InscricoesModalP
           ×
         </button>
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gold mb-2">Inscrições abertas!</h2>
-          <p className="text-white mb-4">20 de Abril até 4 de Maio</p>
-          <p className="text-gray-300 mb-4">Garanta sua vaga no maior campeonato de Counter-Strike 2 de Sergipe!</p>
-          <a
-            href="/copadraft/inscricao"
-            className="inline-block bg-gold text-black font-bold py-2 px-6 rounded-md hover:bg-gold/80 transition-colors mt-2"
-          >
-            Inscreva-se agora
-          </a>
+          <h2 className="text-2xl font-bold text-gold mb-2">Inscrições fechadas!</h2>
+          <p className="text-white mb-4">As inscrições para o Copa Draft estão encerradas.</p>
         </div>
       </div>
     </div>
