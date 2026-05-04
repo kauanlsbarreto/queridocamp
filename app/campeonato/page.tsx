@@ -162,12 +162,13 @@ export default function Campeonato() {
               <TimelineItem date="11 Maio " title="Fase de Grupos">
                 Partidas da fase de grupos, com jogos de ida e volta. Todos jogam contra todos.
               </TimelineItem>
+              <TimelineItem date="MATA - MATA " title="Playoffs">
+                2 Grupos com 5 times, 4 passam para o mata mata todo online
+              </TimelineItem>
               
         
             
-              <TimelineItem date="6 e 7 de Junho" title="Semis e Final Presencial na arena Hitech">
-               Fase  presencial em LAN e cerimônia de premiação.
-              </TimelineItem>
+              
             </div>
           </div>
         </div>
