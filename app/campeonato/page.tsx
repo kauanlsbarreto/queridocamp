@@ -163,7 +163,7 @@ export default function Campeonato() {
                 Partidas da fase de grupos, com jogos de ida e volta. Todos jogam contra todos.
               </TimelineItem>
               <TimelineItem date="MATA - MATA " title="Playoffs">
-                2 Grupos com 5 times, 4 passam para o mata mata
+                2 Grupos com 5 times, 4 passam para o mata mata todo online
               </TimelineItem>
               
         
