@@ -10,7 +10,8 @@ type FaceitPlayerPayload = {
 };
 
 function getFaceitApiKey() {
-  return process.env.FACEIT_API_KEY?.trim() || FALLBACK_FACEIT_API_KEY;
+  const envKey = typeof process !== 'undefined' ? process.env.FACEIT_API_KEY?.trim() : '';
+  return envKey || FALLBACK_FACEIT_API_KEY;
 }
 
 function getAvatarFromPayload(payload: FaceitPlayerPayload | null) {

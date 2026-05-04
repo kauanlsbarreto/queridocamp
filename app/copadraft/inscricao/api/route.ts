@@ -29,7 +29,7 @@ const FACEIT_API_BASE = "https://open.faceit.com/data/v4";
 const FALLBACK_FACEIT_API_KEY = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
 
 function getFaceitApiKey() {
-  const envKey = process.env.FACEIT_API_KEY?.trim();
+  const envKey = typeof process !== "undefined" ? process.env.FACEIT_API_KEY?.trim() : "";
   return envKey || FALLBACK_FACEIT_API_KEY;
 }
 
@@ -71,11 +71,6 @@ async function fetchFaceitPlayerByGuid(faceitGuid: string): Promise<FaceitPlayer
 export async function POST(req: Request) {
   const data = await req.formData();
   const file = data.get("comprovante") as File | null;
-  let fileBuffer = null;
-  if (file) {
-    const arrayBuffer = await file.arrayBuffer();
-    fileBuffer = Buffer.from(arrayBuffer);
-  }
 
   const nomeCompleto = String(data.get("nomeCompleto") || "");
   const faceitLink = String(data.get("faceitLink") || "");
@@ -149,14 +144,8 @@ export async function POST(req: Request) {
   ].filter(Boolean);
 
   const form = new FormData();
-  if (fileBuffer) {
-    if (file) {
-      form.append(
-        "files[0]",
-        new Blob([fileBuffer], { type: file.type }),
-        file.name
-      );
-    }
+  if (file) {
+    form.append("files[0]", file, file.name);
   }
 
   form.append(

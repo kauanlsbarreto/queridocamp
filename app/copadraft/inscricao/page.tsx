@@ -39,7 +39,6 @@ function InscricaoForm() {
   const [modalSuccess, setModalSuccess] = useState(false);
 
   useEffect(() => {
-    // Detect admin level from localStorage
     try {
       const raw = localStorage.getItem("faceit_user");
       if (raw) {
