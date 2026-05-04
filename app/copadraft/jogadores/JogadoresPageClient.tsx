@@ -497,12 +497,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		// Cor de fundo e borda fixa, tamanho da foto padronizado
 		return (
 			<div
-				onClick={() => {
-					if (!canOpenStatsModal) return;
-					setTop90Modal({ open: true, jogador });
-				}}
-				className={`relative ${bgColor} border-2 ${borderColor} rounded-xl shadow-xl p-4 flex flex-col items-center gap-3 transition-transform hover:scale-105 ${canOpenStatsModal ? 'cursor-pointer' : ''}`}
-				title={canOpenStatsModal ? 'Clique para ver estatisticas' : undefined}
+				className={`relative ${bgColor} border-2 ${borderColor} rounded-xl shadow-xl p-4 flex flex-col items-center gap-3 transition-transform hover:scale-105`}
 			>
 				{podeRemoverDoTime && admin && (
 					<button
@@ -522,7 +517,14 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
                         Ja participou
 					</div>
 				)}
-				<div className="relative mb-2 w-20 h-20 rounded-full border-2 border-white shadow overflow-hidden">
+				<div
+					onClick={() => {
+						if (!canOpenStatsModal) return;
+						setTop90Modal({ open: true, jogador });
+					}}
+					className={`relative mb-2 w-20 h-20 rounded-full border-2 border-white shadow overflow-hidden ${canOpenStatsModal ? 'cursor-pointer' : ''}`}
+					title={canOpenStatsModal ? 'Clique no avatar para ver estatisticas' : undefined}
+				>
 					<Image src={jogador.faceit_image || '/images/cs2-player.png'} fill alt={jogador.nick} className="object-cover" />
 				</div>
 				<div className="font-extrabold text-lg text-white drop-shadow-lg text-center">{jogador.nick}</div>
