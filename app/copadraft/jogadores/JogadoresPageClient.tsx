@@ -932,7 +932,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 				<div className="w-full max-w-md rounded-2xl border border-zinc-500/40 bg-[#0A0F17] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.55)]" onClick={(e) => e.stopPropagation()}>
 					<div className="flex items-center justify-between mb-4">
 						<div>
-							<div className="text-lg font-black text-white">Estatisticas Top90</div>
+							<div className="text-lg font-black text-white">Estatisticas</div>
 							<div className="text-xs text-zinc-300 mt-1">{top90Modal.jogador.nick}</div>
 						</div>
 						<button onClick={() => setTop90Modal({ open: false, jogador: null })} className="text-zinc-400 hover:text-white text-xl">✕</button>
