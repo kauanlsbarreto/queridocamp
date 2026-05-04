@@ -1,4 +1,72 @@
 import { NextResponse } from "next/server"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
+import { createMainConnection } from "@/lib/db"
+import type { RowDataPacket } from "mysql2"
+
+type Env = {
+  DB_PRINCIPAL: {
+    host: string;
+    user: string;
+    password: string;
+    database: string;
+    port: number;
+  };
+};
+
+type FaceitPlayerPayload = {
+  player_id?: string;
+  nickname?: string;
+  avatar?: string;
+  avatar_url?: string;
+};
+
+type PlayerLookupRow = RowDataPacket & {
+  nickname: string | null;
+  avatar: string | null;
+};
+
+const FACEIT_API_BASE = "https://open.faceit.com/data/v4";
+const FALLBACK_FACEIT_API_KEY = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
+
+function getFaceitApiKey() {
+  const envKey = process.env.FACEIT_API_KEY?.trim();
+  return envKey || FALLBACK_FACEIT_API_KEY;
+}
+
+function getFaceitAvatarUrl(payload: FaceitPlayerPayload | null) {
+  if (!payload) return "";
+  if (typeof payload.avatar === "string" && payload.avatar.trim()) return payload.avatar.trim();
+  if (typeof payload.avatar_url === "string" && payload.avatar_url.trim()) return payload.avatar_url.trim();
+  return "";
+}
+
+async function fetchFaceitPlayerByNickname(nickname: string): Promise<FaceitPlayerPayload | null> {
+  try {
+    const res = await fetch(
+      `${FACEIT_API_BASE}/players?nickname=${encodeURIComponent(nickname)}`,
+      { headers: { Authorization: `Bearer ${getFaceitApiKey()}` } }
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as FaceitPlayerPayload;
+    return json || null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchFaceitPlayerByGuid(faceitGuid: string): Promise<FaceitPlayerPayload | null> {
+  try {
+    const res = await fetch(
+      `${FACEIT_API_BASE}/players/${encodeURIComponent(faceitGuid)}`,
+      { headers: { Authorization: `Bearer ${getFaceitApiKey()}` } }
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as FaceitPlayerPayload;
+    return json || null;
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(req: Request) {
   const data = await req.formData();
@@ -15,33 +83,64 @@ export async function POST(req: Request) {
   const steamLink = String(data.get("steamLink") || "");
   const telefone = String(data.get("telefone") || "");
   const jogouOutrosDrafts = String(data.get("jogouOutrosDrafts") || "false");
+  const nicknameMatch = faceitLink.match(/faceit.com\/(?:[a-z]{2}\/)?players\/([^/?#]+)/i);
+  const faceitNickname = nicknameMatch?.[1] || "";
 
   // Prioriza o faceit_guid enviado pelo frontend, se existir
   let faceitGuid: string | null = data.get("faceit_guid") as string | null;
+  let faceitProfile: FaceitPlayerPayload | null = null;
+
   if (!faceitGuid) {
-    const match = faceitLink.match(/faceit.com\/(?:[a-z]{2}\/)?players\/([^/?#]+)/i);
-    if (match && match[1]) {
-      const nickname = match[1];
-      try {
-        const apiKey = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
-        const res = await fetch(
-          `https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(nickname)}`,
-          { headers: { Authorization: `Bearer ${apiKey}` } }
-        );
-        if (res.ok) {
-          const json = await res.json();
-          if (json && typeof json.player_id === "string" && json.player_id) {
-            faceitGuid = json.player_id;
-          }
-        }
-      } catch (e) {}
+    if (faceitNickname) {
+      faceitProfile = await fetchFaceitPlayerByNickname(faceitNickname);
+      if (faceitProfile && typeof faceitProfile.player_id === "string" && faceitProfile.player_id) {
+        faceitGuid = faceitProfile.player_id;
+      }
     }
   }
+
+  let dbNickname = "";
+  let dbAvatar = "";
+  if (faceitGuid) {
+    let connection: Awaited<ReturnType<typeof createMainConnection>> | null = null;
+    try {
+      const ctx = await getCloudflareContext({ async: true });
+      const env = ctx.env as unknown as Env;
+      connection = await createMainConnection(env);
+
+      const [rows] = await connection.query<PlayerLookupRow[]>(
+        "SELECT nickname, avatar FROM players WHERE faceit_guid = ? LIMIT 1",
+        [faceitGuid]
+      );
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        dbNickname = String(rows[0]?.nickname || "").trim();
+        dbAvatar = String(rows[0]?.avatar || "").trim();
+      }
+    } catch {}
+    finally {
+      if (connection) await connection.end().catch(() => {});
+    }
+  }
+
+  // Fallback: se nao encontrou nome/foto na tabela players, busca na API da FACEIT.
+  if (faceitGuid && (!dbNickname || !dbAvatar)) {
+    if (!faceitProfile) {
+      faceitProfile = await fetchFaceitPlayerByGuid(faceitGuid);
+    }
+  }
+
+  const resolvedFaceitNickname = dbNickname
+    || String(faceitProfile?.nickname || "").trim()
+    || faceitNickname
+    || "Nao encontrado";
+  const resolvedFaceitAvatar = dbAvatar || getFaceitAvatarUrl(faceitProfile);
 
   const embedFields = [
     { name: "Nome Completo", value: nomeCompleto, inline: false },
     { name: "Link do Faceit", value: faceitLink, inline: false },
     { name: "faceit_guid", value: faceitGuid || "", inline: false },
+    { name: "Nickname FACEIT", value: resolvedFaceitNickname, inline: false },
     { name: "Link do perfil GC", value: gcLink, inline: false },
     { name: "Link da Steam", value: steamLink, inline: false },
     { name: "Telefone", value: telefone, inline: false },
@@ -68,6 +167,7 @@ export async function POST(req: Request) {
           title: "Nova inscrição Querido Draft",
           color: 0x00ff00, // verde
           fields: embedFields,
+          thumbnail: resolvedFaceitAvatar ? { url: resolvedFaceitAvatar } : undefined,
           image: file && !file.type.includes("pdf") ? { url: "attachment://" + file.name } : undefined,
           timestamp: new Date().toISOString(),
         },
