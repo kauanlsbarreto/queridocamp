@@ -17,17 +17,23 @@ export async function POST(req: Request) {
   const jogouOutrosDrafts = String(data.get("jogouOutrosDrafts") || "false");
 
   // Prioriza o faceit_guid enviado pelo frontend, se existir
-  let faceitGuid = data.get("faceit_guid") || null;
+  let faceitGuid: string | null = data.get("faceit_guid") as string | null;
   if (!faceitGuid) {
     const match = faceitLink.match(/faceit.com\/(?:[a-z]{2}\/)?players\/([^/?#]+)/i);
     if (match && match[1]) {
-      faceitGuid = match[1];
+      const nickname = match[1];
       try {
         const apiKey = "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
-        const res = await fetch(`https://open.faceit.com/data/v4/players/${faceitGuid}`, {
-          headers: { 'Authorization': `Bearer ${apiKey}` }
-        });
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const res = await fetch(
+          `https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(nickname)}`,
+          { headers: { Authorization: `Bearer ${apiKey}` } }
+        );
+        if (res.ok) {
+          const json = await res.json();
+          if (json && typeof json.player_id === "string" && json.player_id) {
+            faceitGuid = json.player_id;
+          }
+        }
       } catch (e) {}
     }
   }

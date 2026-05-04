@@ -1,11 +1,37 @@
 
-
-[PAGBANK][RESPONSE] /checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699
+[PAGBANK][REQUEST] /checkouts
 {
-  "id": "CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
-  "reference_id": "LOJA_PAY_48_92e2cb76",
-  "expiration_date": "2026-04-23T22:53:24.682-03:00",
-  "created_at": "2026-04-23T22:23:25-03:00",
+  "reference_id": "LOJA_PAY_57_3f0d10cf",
+  "expiration_date": "2026-05-04T20:44:19.637Z",
+  "items": [
+    {
+      "reference_id": "7",
+      "name": "Teste",
+      "quantity": 1,
+      "unit_amount": 100
+    }
+  ],
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=57",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=57",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+
+[PAGBANK][RESPONSE] /checkouts
+{
+  "id": "CHEC_23EA2C82-F5D8-4EB8-B3E1-DEA658E5E69E",
+  "reference_id": "LOJA_PAY_57_3f0d10cf",
+  "expiration_date": "2026-05-04T20:44:19.637Z",
+  "created_at": "2026-05-04T17:14:19-03:00",
   "status": "ACTIVE",
   "customer_modifiable": true,
   "items": [
@@ -23,8 +49,8 @@
       "type": "CREDIT_CARD"
     }
   ],
-  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
-  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=57",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=57",
   "notification_urls": [
     "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
   ],
@@ -34,29 +60,55 @@
   "links": [
     {
       "rel": "SELF",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_23EA2C82-F5D8-4EB8-B3E1-DEA658E5E69E",
       "method": "GET"
     },
     {
       "rel": "PAY",
-      "href": "https://pagamento.sandbox.pagbank.com.br/pagamento?code=bf3d3d06-1def-4e95-8f4c-a3deb828f699",
+      "href": "https://pagamento.pagbank.com.br/pagamento?code=23ea2c82-f5d8-4eb8-b3e1-dea658e5e69e",
       "method": "GET"
     },
     {
       "rel": "INACTIVATE",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699/inactivate",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_23EA2C82-F5D8-4EB8-B3E1-DEA658E5E69E/inactivate",
       "method": "POST"
     }
   ],
   "origin": "CHECKOUT_WEB"
 }
 
-[PAGBANK][RESPONSE] /checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699
+[PAGBANK][REQUEST] /checkouts
 {
-  "id": "CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
-  "reference_id": "LOJA_PAY_48_92e2cb76",
-  "expiration_date": "2026-04-23T22:53:24.682-03:00",
-  "created_at": "2026-04-23T22:23:25-03:00",
+  "reference_id": "LOJA_PAY_57_3f0d10cf",
+  "expiration_date": "2026-05-04T20:44:19.637Z",
+  "items": [
+    {
+      "reference_id": "7",
+      "name": "Teste",
+      "quantity": 1,
+      "unit_amount": 100
+    }
+  ],
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=57",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=57",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+[PAGBANK][RESPONSE] /checkouts
+{
+  "id": "CHEC_23EA2C82-F5D8-4EB8-B3E1-DEA658E5E69E",
+  "reference_id": "LOJA_PAY_57_3f0d10cf",
+  "expiration_date": "2026-05-04T20:44:19.637Z",
+  "created_at": "2026-05-04T17:14:19-03:00",
   "status": "ACTIVE",
   "customer_modifiable": true,
   "items": [
@@ -74,8 +126,8 @@
       "type": "CREDIT_CARD"
     }
   ],
-  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
-  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=57",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=57",
   "notification_urls": [
     "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
   ],
@@ -85,29 +137,56 @@
   "links": [
     {
       "rel": "SELF",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_23EA2C82-F5D8-4EB8-B3E1-DEA658E5E69E",
       "method": "GET"
     },
     {
       "rel": "PAY",
-      "href": "https://pagamento.sandbox.pagbank.com.br/pagamento?code=bf3d3d06-1def-4e95-8f4c-a3deb828f699",
+      "href": "https://pagamento.pagbank.com.br/pagamento?code=23ea2c82-f5d8-4eb8-b3e1-dea658e5e69e",
       "method": "GET"
     },
     {
       "rel": "INACTIVATE",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699/inactivate",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_23EA2C82-F5D8-4EB8-B3E1-DEA658E5E69E/inactivate",
       "method": "POST"
     }
   ],
   "origin": "CHECKOUT_WEB"
 }
 
-[PAGBANK][RESPONSE] /checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699
+[PAGBANK][REQUEST] /checkouts
 {
-  "id": "CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
-  "reference_id": "LOJA_PAY_48_92e2cb76",
-  "expiration_date": "2026-04-23T22:53:24.682-03:00",
-  "created_at": "2026-04-23T22:23:25-03:00",
+  "reference_id": "LOJA_PAY_58_1d653803",
+  "expiration_date": "2026-05-04T20:47:31.006Z",
+  "items": [
+    {
+      "reference_id": "7",
+      "name": "Teste",
+      "quantity": 1,
+      "unit_amount": 100
+    }
+  ],
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=58",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=58",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+
+[PAGBANK][RESPONSE] /checkouts
+{
+  "id": "CHEC_E94F3EB6-CAF6-4DEF-A890-9E8F4ECB4201",
+  "reference_id": "LOJA_PAY_58_1d653803",
+  "expiration_date": "2026-05-04T20:47:31.006Z",
+  "created_at": "2026-05-04T17:17:31-03:00",
   "status": "ACTIVE",
   "customer_modifiable": true,
   "items": [
@@ -125,8 +204,8 @@
       "type": "CREDIT_CARD"
     }
   ],
-  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
-  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=58",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=58",
   "notification_urls": [
     "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
   ],
@@ -136,31 +215,27 @@
   "links": [
     {
       "rel": "SELF",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_E94F3EB6-CAF6-4DEF-A890-9E8F4ECB4201",
       "method": "GET"
     },
     {
       "rel": "PAY",
-      "href": "https://pagamento.sandbox.pagbank.com.br/pagamento?code=bf3d3d06-1def-4e95-8f4c-a3deb828f699",
+      "href": "https://pagamento.pagbank.com.br/pagamento?code=e94f3eb6-caf6-4def-a890-9e8f4ecb4201",
       "method": "GET"
     },
     {
       "rel": "INACTIVATE",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699/inactivate",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_E94F3EB6-CAF6-4DEF-A890-9E8F4ECB4201/inactivate",
       "method": "POST"
     }
   ],
   "origin": "CHECKOUT_WEB"
 }
 
-[PAGBANK][RESPONSE] /checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699
+[PAGBANK][REQUEST] /checkouts
 {
-  "id": "CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
-  "reference_id": "LOJA_PAY_48_92e2cb76",
-  "expiration_date": "2026-04-23T22:53:24.682-03:00",
-  "created_at": "2026-04-23T22:23:25-03:00",
-  "status": "ACTIVE",
-  "customer_modifiable": true,
+  "reference_id": "LOJA_PAY_58_1d653803",
+  "expiration_date": "2026-05-04T20:47:31.006Z",
   "items": [
     {
       "reference_id": "7",
@@ -169,47 +244,26 @@
       "unit_amount": 100
     }
   ],
-  "additional_amount": 0,
-  "discount_amount": 0,
   "payment_methods": [
     {
       "type": "CREDIT_CARD"
     }
   ],
-  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
-  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=58",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=58",
   "notification_urls": [
     "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
   ],
   "payment_notification_urls": [
     "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
-  ],
-  "links": [
-    {
-      "rel": "SELF",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
-      "method": "GET"
-    },
-    {
-      "rel": "PAY",
-      "href": "https://pagamento.sandbox.pagbank.com.br/pagamento?code=bf3d3d06-1def-4e95-8f4c-a3deb828f699",
-      "method": "GET"
-    },
-    {
-      "rel": "INACTIVATE",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699/inactivate",
-      "method": "POST"
-    }
-  ],
-  "origin": "CHECKOUT_WEB"
+  ]
 }
-
-[PAGBANK][RESPONSE] /checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699
+[PAGBANK][RESPONSE] /checkouts
 {
-  "id": "CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
-  "reference_id": "LOJA_PAY_48_92e2cb76",
-  "expiration_date": "2026-04-23T22:53:24.682-03:00",
-  "created_at": "2026-04-23T22:23:25-03:00",
+  "id": "CHEC_E94F3EB6-CAF6-4DEF-A890-9E8F4ECB4201",
+  "reference_id": "LOJA_PAY_58_1d653803",
+  "expiration_date": "2026-05-04T20:47:31.006Z",
+  "created_at": "2026-05-04T17:17:31-03:00",
   "status": "ACTIVE",
   "customer_modifiable": true,
   "items": [
@@ -227,8 +281,8 @@
       "type": "CREDIT_CARD"
     }
   ],
-  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
-  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=58",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=58",
   "notification_urls": [
     "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
   ],
@@ -238,170 +292,17 @@
   "links": [
     {
       "rel": "SELF",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_E94F3EB6-CAF6-4DEF-A890-9E8F4ECB4201",
       "method": "GET"
     },
     {
       "rel": "PAY",
-      "href": "https://pagamento.sandbox.pagbank.com.br/pagamento?code=bf3d3d06-1def-4e95-8f4c-a3deb828f699",
+      "href": "https://pagamento.pagbank.com.br/pagamento?code=e94f3eb6-caf6-4def-a890-9e8f4ecb4201",
       "method": "GET"
     },
     {
       "rel": "INACTIVATE",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699/inactivate",
-      "method": "POST"
-    }
-  ],
-  "origin": "CHECKOUT_WEB"
-}
-
-[PAGBANK][RESPONSE] /checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699
-{
-  "id": "CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
-  "reference_id": "LOJA_PAY_48_92e2cb76",
-  "expiration_date": "2026-04-23T22:53:24.682-03:00",
-  "created_at": "2026-04-23T22:23:25-03:00",
-  "status": "ACTIVE",
-  "customer_modifiable": true,
-  "items": [
-    {
-      "reference_id": "7",
-      "name": "Teste",
-      "quantity": 1,
-      "unit_amount": 100
-    }
-  ],
-  "additional_amount": 0,
-  "discount_amount": 0,
-  "payment_methods": [
-    {
-      "type": "CREDIT_CARD"
-    }
-  ],
-  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
-  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
-  "notification_urls": [
-    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
-  ],
-  "payment_notification_urls": [
-    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
-  ],
-  "links": [
-    {
-      "rel": "SELF",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
-      "method": "GET"
-    },
-    {
-      "rel": "PAY",
-      "href": "https://pagamento.sandbox.pagbank.com.br/pagamento?code=bf3d3d06-1def-4e95-8f4c-a3deb828f699",
-      "method": "GET"
-    },
-    {
-      "rel": "INACTIVATE",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699/inactivate",
-      "method": "POST"
-    }
-  ],
-  "origin": "CHECKOUT_WEB"
-}
-
-[PAGBANK][RESPONSE] /checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699
-{
-  "id": "CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
-  "reference_id": "LOJA_PAY_48_92e2cb76",
-  "expiration_date": "2026-04-23T22:53:24.682-03:00",
-  "created_at": "2026-04-23T22:23:25-03:00",
-  "status": "ACTIVE",
-  "customer_modifiable": true,
-  "items": [
-    {
-      "reference_id": "7",
-      "name": "Teste",
-      "quantity": 1,
-      "unit_amount": 100
-    }
-  ],
-  "additional_amount": 0,
-  "discount_amount": 0,
-  "payment_methods": [
-    {
-      "type": "CREDIT_CARD"
-    }
-  ],
-  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
-  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
-  "notification_urls": [
-    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
-  ],
-  "payment_notification_urls": [
-    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
-  ],
-  "links": [
-    {
-      "rel": "SELF",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
-      "method": "GET"
-    },
-    {
-      "rel": "PAY",
-      "href": "https://pagamento.sandbox.pagbank.com.br/pagamento?code=bf3d3d06-1def-4e95-8f4c-a3deb828f699",
-      "method": "GET"
-    },
-    {
-      "rel": "INACTIVATE",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699/inactivate",
-      "method": "POST"
-    }
-  ],
-  "origin": "CHECKOUT_WEB"
-}
-
-[PAGBANK][RESPONSE] /checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699
-{
-  "id": "CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
-  "reference_id": "LOJA_PAY_48_92e2cb76",
-  "expiration_date": "2026-04-23T22:53:24.682-03:00",
-  "created_at": "2026-04-23T22:23:25-03:00",
-  "status": "ACTIVE",
-  "customer_modifiable": true,
-  "items": [
-    {
-      "reference_id": "7",
-      "name": "Teste",
-      "quantity": 1,
-      "unit_amount": 100
-    }
-  ],
-  "additional_amount": 0,
-  "discount_amount": 0,
-  "payment_methods": [
-    {
-      "type": "CREDIT_CARD"
-    }
-  ],
-  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
-  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=48",
-  "notification_urls": [
-    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
-  ],
-  "payment_notification_urls": [
-    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
-  ],
-  "links": [
-    {
-      "rel": "SELF",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699",
-      "method": "GET"
-    },
-    {
-      "rel": "PAY",
-      "href": "https://pagamento.sandbox.pagbank.com.br/pagamento?code=bf3d3d06-1def-4e95-8f4c-a3deb828f699",
-      "method": "GET"
-    },
-    {
-      "rel": "INACTIVATE",
-      "href": "https://sandbox.api.pagseguro.com/checkouts/CHEC_BF3D3D06-1DEF-4E95-8F4C-A3DEB828F699/inactivate",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_E94F3EB6-CAF6-4DEF-A890-9E8F4ECB4201/inactivate",
       "method": "POST"
     }
   ],

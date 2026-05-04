@@ -1,0 +1,36 @@
+import { NextResponse } from 'next/server';
+import { createJogadoresConnection } from '@/lib/db';
+
+export async function PUT(req: Request) {
+  let conn: any;
+
+  try {
+    const body = await req.json();
+    const jogadorId = Number(body?.jogadorId);
+    const pote = Number(body?.pote);
+
+    if (!Number.isInteger(jogadorId) || jogadorId <= 0) {
+      return NextResponse.json({ error: 'jogadorId invalido.' }, { status: 400 });
+    }
+
+    if (!Number.isInteger(pote) || pote < 1 || pote > 5) {
+      return NextResponse.json({ error: 'pote invalido. Use 1 a 5.' }, { status: 400 });
+    }
+
+    conn = await createJogadoresConnection({});
+    const [result]: any = await conn.query(
+      'UPDATE jogadores SET pote = ?, dinheiro = CASE WHEN ? = 1 THEN 500000 ELSE dinheiro END WHERE id = ? LIMIT 1',
+      [pote, pote, jogadorId]
+    );
+
+    if (!result || result.affectedRows === 0) {
+      return NextResponse.json({ error: 'Jogador nao encontrado.' }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, jogadorId, pote });
+  } catch {
+    return NextResponse.json({ error: 'Erro ao atualizar pote.' }, { status: 500 });
+  } finally {
+    if (conn) await conn.end().catch(() => {});
+  }
+}
