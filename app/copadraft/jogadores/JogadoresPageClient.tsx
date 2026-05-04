@@ -489,6 +489,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		const removingPote = Boolean(removingPoteById[jogadorId]);
 		const removingFromTime = Boolean(removingFromTimeById[jogadorId]);
 		const hasTop90Stats = Boolean(jogador?.top90Stats);
+		const canOpenStatsModal = hasTop90Stats && !podeEscolherPote;
 
 		const borderColor = hasTop90Stats ? 'border-zinc-700' : 'border-gray-400';
 		const bgColor = hasTop90Stats ? 'bg-[#060c14]' : 'bg-white/10';
@@ -497,11 +498,11 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		return (
 			<div
 				onClick={() => {
-					if (!hasTop90Stats) return;
+					if (!canOpenStatsModal) return;
 					setTop90Modal({ open: true, jogador });
 				}}
-				className={`relative ${bgColor} border-2 ${borderColor} rounded-xl shadow-xl p-4 flex flex-col items-center gap-3 transition-transform hover:scale-105 ${hasTop90Stats ? 'cursor-pointer' : ''}`}
-				title={hasTop90Stats ? 'Clique para ver estatisticas' : undefined}
+				className={`relative ${bgColor} border-2 ${borderColor} rounded-xl shadow-xl p-4 flex flex-col items-center gap-3 transition-transform hover:scale-105 ${canOpenStatsModal ? 'cursor-pointer' : ''}`}
+				title={canOpenStatsModal ? 'Clique para ver estatisticas' : undefined}
 			>
 				{podeRemoverDoTime && admin && (
 					<button
@@ -580,6 +581,9 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 							className="w-full rounded-lg border border-gold/30 bg-[#101826] text-white text-sm px-3 py-2 outline-none focus:border-gold"
 							value={currentPote || ''}
 							disabled={savingPote || removingPote}
+							onClick={(e) => {
+								e.stopPropagation();
+							}}
 							onChange={(e) => {
 								e.stopPropagation();
 								const nextPote = Number(e.target.value);
