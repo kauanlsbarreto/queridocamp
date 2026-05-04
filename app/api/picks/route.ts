@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { createMainConnection, createJogadoresConnection } from "@/lib/db";
+import { createMainConnection } from "@/lib/db";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export const dynamic = "force-dynamic";
@@ -361,13 +361,13 @@ export async function POST(request: Request) {
       let jogadoresConn: any = null;
       let faceitPlayers: { faceit_nickname: string; faceit_guid: string }[] = [];
       try {
-        jogadoresConn = await createJogadoresConnection(ctx.env as any);
+        jogadoresConn = await createMainConnection(ctx.env as any);
         const [fpRows]: any = await jogadoresConn.query(
           `SELECT faceit_nickname, faceit_guid FROM faceit_players WHERE faceit_guid IS NOT NULL AND faceit_guid != ''`
         );
         faceitPlayers = fpRows as { faceit_nickname: string; faceit_guid: string }[];
       } catch (e) {
-        console.error("Erro ao conectar DB_JOGADORES:", e);
+        console.error("Erro ao conectar banco de dados:", e);
       }
 
       let updated = 0;

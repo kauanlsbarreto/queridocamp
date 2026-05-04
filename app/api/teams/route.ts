@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { createMainConnection, createJogadoresConnection, Env } from '@/lib/db';
+import { createMainConnection, Env } from '@/lib/db';
 import { unstable_cache } from 'next/cache';
 
 export interface Player {
@@ -29,14 +29,14 @@ const normalizeText = (str: string | null | undefined): string => {
       .replace(/[^a-z0-9]/g, '');
 };
 
-const getTeamsData = unstable_cache(async (mainConnection: any, jogadoresConnection: any): Promise<TeamData[]> => {
+const getTeamsData = unstable_cache(async (connection: any): Promise<TeamData[]> => {
     try {
       const [
         [teamsResult],
         [playersResult],
       ] = await Promise.all([
-        mainConnection.query('SELECT * FROM team_config') as Promise<[any[], any]>,
-        jogadoresConnection.query('SELECT * FROM jogadores') as Promise<[any[], any]>,
+        connection.query('SELECT * FROM team_config') as Promise<[any[], any]>,
+        connection.query('SELECT * FROM jogadores') as Promise<[any[], any]>,
       ]);
   
       const playersMap = new Map<string, Player>();
@@ -91,20 +91,17 @@ const getTeamsData = unstable_cache(async (mainConnection: any, jogadoresConnect
   }, ['teams-data-api'], { revalidate: 3600 });
 
 export async function GET() {
-    let mainConnection;
-    let jogadoresConnection;
+    let connection;
     try {
         const ctx = getCloudflareContext();
         const env = ctx.env as unknown as Env;
-        mainConnection = await createMainConnection(env);
-        jogadoresConnection = await createJogadoresConnection(env);
-        const teams = await getTeamsData(mainConnection, jogadoresConnection);
+        connection = await createMainConnection(env);
+        const teams = await getTeamsData(connection);
         return NextResponse.json(teams);
     } catch (error) {
         console.error('API /api/teams error:', error);
         return NextResponse.json({ message: 'Error fetching teams', error }, { status: 500 });
     } finally {
-        if (mainConnection) await mainConnection.end();
-        if (jogadoresConnection) await jogadoresConnection.end();
+        if (connection) await connection.end();
     }
 }

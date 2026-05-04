@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { createMainConnection, createJogadoresConnection } from '@/lib/db';
+import { createMainConnection } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,26 +63,24 @@ export async function GET(request: Request) {
   const id = searchParams.get('id');
   const q = searchParams.get('q');
 
-  let mainConnection;
-  let jogadoresConnection;
+  let connection;
 
   try {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as any;
 
-    mainConnection = await createMainConnection(env);
-    jogadoresConnection = await createJogadoresConnection(env);
+    connection = await createMainConnection(env);
 
     // MODO 1: LISTA DE JOGADORES (Se não tiver ID)
     if (!id) {
         // Buscar todos os jogadores do campeonato (tabela jogadores)
-        const [jogadoresRows]: any = await jogadoresConnection.query('SELECT id, nick FROM jogadores ORDER BY nick ASC');
+        const [jogadoresRows]: any = await connection.query('SELECT id, nick FROM jogadores ORDER BY nick ASC');
         
         // Buscar dados do Faceit para avatares
-        const [faceitRows]: any = await jogadoresConnection.query('SELECT faceit_nickname, fotoperfil FROM faceit_players');
+        const [faceitRows]: any = await connection.query('SELECT faceit_nickname, fotoperfil FROM faceit_players');
         
         // Buscar jogadores registrados para vincular
-        const [registeredRows]: any = await mainConnection.query('SELECT id, nickname, avatar FROM players');
+        const [registeredRows]: any = await connection.query('SELECT id, nickname, avatar FROM players');
 
         const faceitMap = new Map();
         faceitRows.forEach((f: any) => faceitMap.set(f.faceit_nickname.toLowerCase(), f));
@@ -123,12 +121,12 @@ export async function GET(request: Request) {
 
     if (id.startsWith('real_')) {
         const realId = id.replace('real_', '');
-        const [rows]: any = await mainConnection.query('SELECT * FROM players WHERE id = ?', [realId]);
+        const [rows]: any = await connection.query('SELECT * FROM players WHERE id = ?', [realId]);
         if (rows.length) {
             updatedPlayer = rows[0];
             // Tentar buscar foto atualizada do Faceit mesmo para player registrado
             try {
-                const [fRows]: any = await jogadoresConnection.query('SELECT fotoperfil FROM faceit_players WHERE faceit_nickname = ?', [updatedPlayer.nickname]);
+                const [fRows]: any = await connection.query('SELECT fotoperfil FROM faceit_players WHERE faceit_nickname = ?', [updatedPlayer.nickname]);
                 if (fRows.length && fRows[0].fotoperfil) {
                     updatedPlayer.avatar = fRows[0].fotoperfil;
                 }
@@ -136,10 +134,10 @@ export async function GET(request: Request) {
         }
     } else if (id.startsWith('sim_')) {
         const simId = id.replace('sim_', '');
-        const [rows]: any = await jogadoresConnection.query('SELECT * FROM jogadores WHERE id = ?', [simId]);
+        const [rows]: any = await connection.query('SELECT * FROM jogadores WHERE id = ?', [simId]);
         if (rows.length) {
             const j = rows[0];
-            const [fRows]: any = await jogadoresConnection.query('SELECT * FROM faceit_players WHERE faceit_nickname = ?', [j.nick]);
+            const [fRows]: any = await connection.query('SELECT * FROM faceit_players WHERE faceit_nickname = ?', [j.nick]);
             const f = fRows[0] || {};
             
             updatedPlayer = {
@@ -164,13 +162,13 @@ export async function GET(request: Request) {
     let conquistas = [];
     if (updatedPlayer.id !== 0) {
         try {
-            const [cRows]: any = await mainConnection.query(
+            const [cRows]: any = await connection.query(
                 'SELECT codigo, tipo, nome FROM codigos_conquistas WHERE resgatado_por = ? ORDER BY id DESC',
                 [updatedPlayer.id]
             );
             conquistas = cRows;
         } catch (e) {
-            const [cRows]: any = await mainConnection.query(
+            const [cRows]: any = await connection.query(
                 'SELECT codigo, tipo, nome FROM codigos_conquistas WHERE player_id = ? ORDER BY id DESC',
                 [updatedPlayer.id]
             ).catch(() => [[]]);
@@ -178,9 +176,9 @@ export async function GET(request: Request) {
         }
     }
 
-    const [teamsResult]: any = await mainConnection.query('SELECT * FROM team_config ORDER BY team_name ASC');
-    const [jogadoresResult]: any = await jogadoresConnection.query('SELECT * FROM jogadores');
-    const [playedMatchesResult]: any = await mainConnection.query('SELECT time1, time2 FROM jogos');
+    const [teamsResult]: any = await connection.query('SELECT * FROM team_config ORDER BY team_name ASC');
+    const [jogadoresResult]: any = await connection.query('SELECT * FROM jogadores');
+    const [playedMatchesResult]: any = await connection.query('SELECT time1, time2 FROM jogos');
 
     const teamsConfig = teamsResult;
     const jogadores = jogadoresResult;
@@ -244,7 +242,7 @@ let playerStatsList: any[] = [];
     try {
         if (updatedPlayer.faceit_guid) {
             try {
-                const [statsRows]: any = await mainConnection.query(
+                const [statsRows]: any = await connection.query(
                     'SELECT * FROM top90_stats WHERE nick = ? OR faceit_guid = ?',
                     [updatedPlayer.nickname, updatedPlayer.faceit_guid]
                 );
@@ -254,7 +252,7 @@ let playerStatsList: any[] = [];
             }
         }
         if (playerStatsList.length === 0) {
-            const [statsRows]: any = await mainConnection.query('SELECT * FROM top90_stats WHERE nick = ?', [updatedPlayer.nickname]);
+            const [statsRows]: any = await connection.query('SELECT * FROM top90_stats WHERE nick = ?', [updatedPlayer.nickname]);
             playerStatsList = statsRows || [];
         }
         // apply cutoff
@@ -292,7 +290,6 @@ let playerStatsList: any[] = [];
     console.error("Erro API player-profile:", error);
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   } finally {
-    if (mainConnection) await mainConnection.end().catch(() => {});
-    if (jogadoresConnection) await jogadoresConnection.end().catch(() => {});
+    if (connection) await connection.end().catch(() => {});
   }
 }

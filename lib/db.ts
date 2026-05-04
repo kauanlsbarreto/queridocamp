@@ -1,6 +1,7 @@
 import { createConnection, Connection } from "mysql2/promise";
 
 export type HyperdriveBinding = {
+  connectionString?: string;
   host: string;
   user: string;
   password: string;
@@ -9,8 +10,10 @@ export type HyperdriveBinding = {
 };
 
 export type Env = {
+  hostinger?: HyperdriveBinding;
   DB_PRINCIPAL?: HyperdriveBinding;
   DB_JOGADORES?: HyperdriveBinding;
+  DATABASE_URL?: string;
 };
 
 async function sendDiscordEmbed(payload: any) {
@@ -52,7 +55,7 @@ function guessPageFromStack(): string {
   return "<unknown>";
 }
 
-function wrapConnection(conn: Connection, dbLabel: string): Connection {
+function wrapConnection(conn: Connection, dbLabel: string = "DATABASE"): Connection {
   let pageOverride: string | undefined;
 
   const handler: ProxyHandler<any> = {
@@ -62,19 +65,16 @@ function wrapConnection(conn: Connection, dbLabel: string): Connection {
           const sql = args[0];
           const start = Date.now();
           try {
-            // @ts-ignore
             return await target[prop](...args);
           } finally {
             const duration = Date.now() - start;
             const page = pageOverride ?? guessPageFromStack();
-            const isPrincipal = dbLabel === "DB_PRINCIPAL";
             const embed: any = {
               embeds: [
                 {
                   title: "DB query",
-                  color: isPrincipal ? 0x00ff00 : 0x0000ff,
+                  color: 0x0000ff,
                   fields: [
-                    { name: "database", value: dbLabel, inline: true },
                     { name: "page", value: page, inline: true },
                     {
                       name: "duration",
@@ -105,39 +105,130 @@ function wrapConnection(conn: Connection, dbLabel: string): Connection {
   return proxy;
 }
 
-export async function connectToDB(
-  binding: HyperdriveBinding,
-  label?: string
-): Promise<Connection> {
-  if (!binding) {
-    throw new Error("Binding para conexão MySQL não foi definido");
+function isHyperdriveBinding(value: unknown): value is HyperdriveBinding {
+  if (!value || typeof value !== "object") {
+    return false;
   }
 
-  const { host, user, password, database, port } = binding;
+  const binding = value as Record<string, unknown>;
+  return (
+    typeof binding.host === "string" &&
+    typeof binding.user === "string" &&
+    typeof binding.password === "string" &&
+    typeof binding.database === "string" &&
+    typeof binding.port === "number"
+  );
+}
 
-  const conn = await createConnection({
+function parseDatabaseUrl(databaseUrl: string) {
+  const parsedUrl = new URL(databaseUrl);
+  const user = decodeURIComponent(parsedUrl.username);
+  const password = decodeURIComponent(parsedUrl.password);
+  const host = parsedUrl.hostname;
+  const port = parseInt(parsedUrl.port || "3306", 10);
+  const database = parsedUrl.pathname.replace(/^\//, "");
+
+  if (!user || !host || !database) {
+    throw new Error("DATABASE_URL está incompleta");
+  }
+
+  return {
     host,
     user,
     password,
     database,
     port,
-    disableEval: true,
-  });
-
-  return wrapConnection(conn, label || binding.database || "unknown");
+  };
 }
 
+function getDatabaseBinding(env: Env, label?: "DB_PRINCIPAL" | "DB_JOGADORES") {
+  if (isHyperdriveBinding(env.hostinger)) {
+    return {
+      binding: env.hostinger,
+      label: "hostinger",
+    };
+  }
+
+  if (label === "DB_JOGADORES" && isHyperdriveBinding(env.DB_JOGADORES)) {
+    return {
+      binding: env.DB_JOGADORES,
+      label: "DB_JOGADORES",
+    };
+  }
+
+  if (label === "DB_PRINCIPAL" && isHyperdriveBinding(env.DB_PRINCIPAL)) {
+    return {
+      binding: env.DB_PRINCIPAL,
+      label: "DB_PRINCIPAL",
+    };
+  }
+
+  if (isHyperdriveBinding(env.DB_PRINCIPAL)) {
+    return {
+      binding: env.DB_PRINCIPAL,
+      label: "DB_PRINCIPAL",
+    };
+  }
+
+  if (isHyperdriveBinding(env.DB_JOGADORES)) {
+    return {
+      binding: env.DB_JOGADORES,
+      label: "DB_JOGADORES",
+    };
+  }
+
+  return null;
+}
+
+export async function createDatabaseConnection(
+  env: Env,
+  label?: "DB_PRINCIPAL" | "DB_JOGADORES"
+): Promise<Connection> {
+  const hyperdriveConfig = getDatabaseBinding(env, label);
+
+  if (hyperdriveConfig) {
+    const conn = await createConnection({
+      host: hyperdriveConfig.binding.host,
+      user: hyperdriveConfig.binding.user,
+      password: hyperdriveConfig.binding.password,
+      database: hyperdriveConfig.binding.database,
+      port: hyperdriveConfig.binding.port,
+      disableEval: true,
+    });
+
+    return wrapConnection(conn, hyperdriveConfig.label);
+  }
+
+  const dbUrl = process.env.DATABASE_URL || env.DATABASE_URL;
+
+  if (!dbUrl) {
+    throw new Error("Nenhuma binding Hyperdrive ou DATABASE_URL foi definida");
+  }
+
+  try {
+    const config = parseDatabaseUrl(dbUrl);
+    const conn = await createConnection({
+      ...config,
+      disableEval: true,
+    });
+
+    return wrapConnection(conn, "DATABASE_URL");
+  } catch (error) {
+    if (error instanceof TypeError && (error as any).code === "ERR_INVALID_URL") {
+      throw new Error("DATABASE_URL format inválido. Use: mysql://user:password@host:port/database");
+    }
+    throw error;
+  }
+}
+
+export async function connectToDB(env: Env): Promise<Connection> {
+  return createDatabaseConnection(env);
+}
 
 export async function createMainConnection(env: Env): Promise<Connection> {
-  if (!env.DB_PRINCIPAL) {
-    throw new Error("Variável de ambiente DB_PRINCIPAL não configurada");
-  }
-  return connectToDB(env.DB_PRINCIPAL, "DB_PRINCIPAL");
+  return createDatabaseConnection(env, "DB_PRINCIPAL");
 }
 
 export async function createJogadoresConnection(env: Env): Promise<Connection> {
-  if (!env.DB_JOGADORES) {
-    throw new Error("Variável de ambiente DB_JOGADORES não configurada");
-  }
-  return connectToDB(env.DB_JOGADORES, "DB_JOGADORES");
+  return createDatabaseConnection(env, "DB_JOGADORES");
 }

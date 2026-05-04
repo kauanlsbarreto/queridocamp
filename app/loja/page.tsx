@@ -84,6 +84,13 @@ billing_country: string;
 billing_phone: string;
 };
 
+type TopPlayer = {
+id: number;
+nickname: string;
+avatar: string;
+points: number;
+};
+
 type BillingModalMode = "summary" | "edit";
 
 type BillingModalState = {
@@ -110,34 +117,6 @@ open: boolean;
 title: string;
 message: string;
 isError: boolean;
-};
-
-type PaymentTimelineEntry = {
-	id: number;
-	eventName: string;
-	statusBefore: string | null;
-	statusAfter: string | null;
-	source: string;
-	message: string | null;
-	createdAt: string;
-};
-
-type PaymentHistoryEntry = {
-	id: number;
-	itemName: string;
-	method: PaymentMethodId;
-	amountCents: number;
-	status: string;
-	isPending: boolean;
-	isFinal: boolean;
-	checkoutUrl: string;
-	pix: {
-		qrCodeImageUrl: string;
-		qrCodeText: string;
-	};
-	expiresAt: string | null;
-	createdAt: string;
-	logs: PaymentTimelineEntry[];
 };
 
 const PAYMENT_METHODS: PaymentMethodOption[] = [
@@ -267,70 +246,82 @@ if (digits.length <= 5) return digits;
 return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
-export default function LojaPage() {
-const paymentPopupRef = useRef<Window | null>(null);
-const paymentPollRef = useRef<number | null>(null);
-const billingCepLookupTimerRef = useRef<number | null>(null);
-const billingCepLastLookupRef = useRef("");
+function resolveAvatarSrc(avatar: string | null | undefined) {
+const value = String(avatar || "").trim();
+if (!value) return "/images/cs2-player.png";
+if (/^https?:\/\//i.test(value)) return value;
+if (value.startsWith("/")) return value;
+return `/${value}`;
+}
 
-const [user, setUser] = useState<FaceitUser | null>(null);
-const [items, setItems] = useState<StoreItem[]>([]);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState<string>("");
-const [showForm, setShowForm] = useState(false);
-const [submitting, setSubmitting] = useState(false);
-const [canViewStore, setCanViewStore] = useState(false);
-const [form, setForm] = useState<AddItemForm>(defaultForm);
-const [formMode, setFormMode] = useState<StoreActionMode>("create");
-const [editingItemId, setEditingItemId] = useState<number | null>(null);
-const [purchaseModal, setPurchaseModal] = useState<PurchaseModalState>({
-open: false,
-item: null,
-label: "",
-file: null,
-error: "",
-submitting: false,
-});
-const [wallpaperSuccessModal, setWallpaperSuccessModal] = useState<WallpaperSuccessModalState>({
-open: false,
-itemName: "",
-});
-const [paymentMethodModal, setPaymentMethodModal] = useState<PaymentMethodModalState>({
-open: false,
-item: null,
-error: "",
-submittingMethod: null,
-});
-const [billingModal, setBillingModal] = useState<BillingModalState>({
-open: false,
-item: null,
-profile: EMPTY_BILLING_PROFILE,
-mode: "edit",
-loading: false,
-saving: false,
-error: "",
-});
-const [pixModal, setPixModal] = useState<PixModalState>({
-open: false,
-itemName: "",
-paymentId: null,
-qrCodeImageUrl: "",
-qrCodeText: "",
-expiresAt: "",
-});
-const [pixCopied, setPixCopied] = useState(false);
-const [pixRemainingSeconds, setPixRemainingSeconds] = useState<number | null>(null);
-const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryEntry[]>([]);
-const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
-const [paymentHistoryError, setPaymentHistoryError] = useState("");
-const [deletingPendingPaymentId, setDeletingPendingPaymentId] = useState<number | null>(null);
-const [paymentFeedbackModal, setPaymentFeedbackModal] = useState<PaymentFeedbackModalState>({
-open: false,
-title: "",
-message: "",
-isError: false,
-});
-const [billingCepLoading, setBillingCepLoading] = useState(false);
+export default function LojaPage() {
+	// Data de lançamento da loja (igual backend)
+	const LOJA_RELEASE_AT_ISO = "2026-04-25T00:00:00.000Z"; // ajuste conforme backend
+	const LOJA_RELEASE_DATE = new Date(LOJA_RELEASE_AT_ISO);
+	const now = new Date();
+
+	const paymentPopupRef = useRef<Window | null>(null);
+	const paymentPollRef = useRef<number | null>(null);
+	const billingCepLookupTimerRef = useRef<number | null>(null);
+	const billingCepLastLookupRef = useRef("");
+
+	const [user, setUser] = useState<FaceitUser | null>(null);
+	const [items, setItems] = useState<StoreItem[]>([]);
+	const [topPlayers, setTopPlayers] = useState<TopPlayer[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string>("");
+	const [showForm, setShowForm] = useState(false);
+	const [submitting, setSubmitting] = useState(false);
+	const [canViewStore, setCanViewStore] = useState(false);
+	const [form, setForm] = useState<AddItemForm>(defaultForm);
+	const [formMode, setFormMode] = useState<StoreActionMode>("create");
+	const [editingItemId, setEditingItemId] = useState<number | null>(null);
+	const [purchaseModal, setPurchaseModal] = useState<PurchaseModalState>({
+		open: false,
+		item: null,
+		label: "",
+		file: null,
+		error: "",
+		submitting: false,
+	});
+	const [wallpaperSuccessModal, setWallpaperSuccessModal] = useState<WallpaperSuccessModalState>({
+		open: false,
+		itemName: "",
+	});
+	const [paymentMethodModal, setPaymentMethodModal] = useState<PaymentMethodModalState>({
+		open: false,
+		item: null,
+		error: "",
+		submittingMethod: null,
+	});
+	const [billingModal, setBillingModal] = useState<BillingModalState>({
+		open: false,
+		item: null,
+		profile: EMPTY_BILLING_PROFILE,
+		mode: "edit",
+		loading: false,
+		saving: false,
+		error: "",
+	});
+	const [pixModal, setPixModal] = useState<PixModalState>({
+		open: false,
+		itemName: "",
+		paymentId: null,
+		qrCodeImageUrl: "",
+		qrCodeText: "",
+		expiresAt: "",
+	});
+	const [pixCopied, setPixCopied] = useState(false);
+	const [pixRemainingSeconds, setPixRemainingSeconds] = useState<number | null>(null);
+	const [paymentFeedbackModal, setPaymentFeedbackModal] = useState<PaymentFeedbackModalState>({
+		open: false,
+		title: "",
+		message: "",
+		isError: false,
+	});
+	const [billingCepLoading, setBillingCepLoading] = useState(false);
+
+	//
 
 const adminLevel = useMemo(() => {
 if (!user) return null;
@@ -360,86 +351,52 @@ const hasRealPricePayment = useCallback((item: StoreItem | null | undefined) => 
 return Number(item?.preco || 0) > 0;
 }, []);
 
-const formatPaymentStatusLabel = useCallback((statusRaw: string) => {
-const status = String(statusRaw || "").toUpperCase();
-if (status === "PAID") return "Pago";
-if (status === "PENDING") return "Pendente";
-if (status === "WAITING") return "Aguardando";
-if (status === "IN_ANALYSIS") return "Em analise";
-if (status === "DECLINED") return "Recusado";
-if (status === "CANCELED") return "Cancelado";
-if (status === "EXPIRED") return "Expirado";
-if (status === "FAILED") return "Falhou";
-return status || "Desconhecido";
-}, []);
-
-const paymentStatusClass = useCallback((statusRaw: string) => {
-const status = String(statusRaw || "").toUpperCase();
-if (status === "PAID") return "border-emerald-400/30 bg-emerald-500/10 text-emerald-300";
-if (["PENDING", "WAITING", "IN_ANALYSIS"].includes(status)) {
-return "border-amber-400/30 bg-amber-500/10 text-amber-300";
-}
-return "border-red-400/30 bg-red-500/10 text-red-300";
-}, []);
-
 const loadItems = useCallback(async (guid: string, options?: { silent?: boolean }) => {
 if (!options?.silent) {
 setLoading(true);
 }
 setError("");
 
-try {
-const res = await fetch("/api/loja", {
-headers: guid ? { "x-faceit-guid": guid } : {},
-});
+		try {
+			const res = await fetch("/api/loja", {
+				headers: guid ? { "x-faceit-guid": guid } : {},
+			});
 
-const data = await res.json().catch(() => ({}));
+			const data = await res.json().catch(() => ({}));
 
-if (!res.ok) {
-setItems([]);
-setError(data?.message || "Nao foi possivel carregar a loja.");
-return;
-}
+			if (!res.ok) {
+				setItems([]);
+				setTopPlayers([]);
+				setError(data?.message || "Nao foi possivel carregar a loja.");
+				return;
+			}
 
-setItems(Array.isArray(data.items) ? data.items : []);
-} catch {
-setItems([]);
-setError("Erro ao carregar itens da loja.");
-} finally {
-if (!options?.silent) {
-setLoading(false);
-}
-}
-}, []);
-
-const loadPaymentHistory = useCallback(async (guid: string) => {
-if (!guid) {
-setPaymentHistory([]);
-setPaymentHistoryError("");
-return;
-}
-
-setLoadingPaymentHistory(true);
-setPaymentHistoryError("");
-
-try {
-const res = await fetch(`/api/loja/pagamento/minhas?faceit_guid=${encodeURIComponent(guid)}`);
-const data = await res.json().catch(() => ({}));
-
-if (!res.ok) {
-setPaymentHistory([]);
-setPaymentHistoryError(data?.message || "Nao foi possivel carregar suas transacoes.");
-return;
-}
-
-setPaymentHistory(Array.isArray(data?.payments) ? data.payments : []);
-} catch {
-setPaymentHistory([]);
-setPaymentHistoryError("Erro ao carregar historico de pagamentos.");
-} finally {
-setLoadingPaymentHistory(false);
-}
-}, []);
+			setItems(Array.isArray(data.items) ? data.items : []);
+			setTopPlayers(
+				Array.isArray(data.topPlayers)
+					? data.topPlayers
+							.map((player: unknown) => {
+								const candidate = player as Partial<TopPlayer>;
+								return {
+									id: Number(candidate.id || 0),
+									nickname: String(candidate.nickname || "Jogador"),
+									avatar: String(candidate.avatar || ""),
+									points: Math.max(0, Number(candidate.points || 0)),
+								};
+							})
+							.filter((player: TopPlayer) => player.id > 0)
+					: [],
+			);
+		} catch {
+			setItems([]);
+			setTopPlayers([]);
+			setError("Erro ao carregar itens da loja.");
+		} finally {
+			if (!options?.silent) {
+				setLoading(false);
+			}
+		}
+	}, []);
 
 const startPaymentStatusPolling = useCallback(
 (paymentId: number, itemName: string, faceitGuid: string) => {
@@ -482,18 +439,16 @@ closePixModal();
 
 if (status === "PAID") {
 await loadItems(faceitGuid, { silent: true });
-await loadPaymentHistory(faceitGuid);
 setPaymentFeedbackModal({
 open: true,
 title: "Pagamento confirmado",
-message: `Pagamento de ${itemName} confirmado e estoque atualizado.`,
+message: `Pagamento de ${itemName} confirmado.`,
 isError: false,
 });
 return;
 }
 
 if (status === "EXPIRED") {
-await loadPaymentHistory(faceitGuid);
 setPaymentFeedbackModal({
 open: true,
 title: "Tempo expirado",
@@ -504,12 +459,11 @@ return;
 }
 
 if (!isFinal && shouldFinalizeByClosedPopup) {
-await loadPaymentHistory(faceitGuid);
 setPaymentFeedbackModal({
 open: true,
 title: "Pagamento em processamento",
 message:
-"A janela foi fechada antes da confirmacao final. O pagamento pode levar alguns segundos para atualizar no historico.",
+							"A janela foi fechada antes da confirmacao final. O pagamento pode levar alguns segundos para atualizar.",
 isError: false,
 });
 return;
@@ -521,180 +475,47 @@ title: "Pagamento nao concluido",
 message: "O PagBank informou que o pagamento nao foi concluido.",
 isError: true,
 });
-await loadPaymentHistory(faceitGuid);
 } catch {
 }
 }, 5000);
 },
-[clearPaymentPolling, loadItems, loadPaymentHistory],
+	[clearPaymentPolling, loadItems],
 );
 
 useEffect(() => {
-if (typeof window === "undefined") return;
+		if (typeof window === "undefined") return;
 
-const stored = localStorage.getItem("faceit_user");
-if (!stored) {
-setUser(null);
-setPaymentHistory([]);
-if (canViewStore) {
-loadItems("");
-} else {
-setLoading(false);
-}
-return;
-}
+		const stored = localStorage.getItem("faceit_user");
+		let isAdmin = false;
+		if (stored) {
+			try {
+				const parsed = JSON.parse(stored) as FaceitUser;
+				setUser(parsed);
+				const adminLevel = parsed.Admin ?? parsed.admin;
+				isAdmin = adminLevel === 1 || adminLevel === 2;
+			} catch {}
+		}
 
-try {
-const parsed = JSON.parse(stored) as FaceitUser;
-setUser(parsed);
+		// Permite visualizar se for admin OU se já passou da data de lançamento
+		const podeVer = isAdmin || now >= LOJA_RELEASE_DATE;
+		setCanViewStore(podeVer);
 
-if (canViewStore) {
-const guid = String(parsed.faceit_guid || "");
-loadItems(guid);
-void loadPaymentHistory(guid);
-} else {
-setLoading(false);
-}
-} catch {
-setUser(null);
-setPaymentHistory([]);
-if (canViewStore) {
-loadItems("");
-} else {
-setLoading(false);
-}
-}
-}, [canViewStore, loadItems, loadPaymentHistory]);
-
-const continuePendingPayment = async (entry: PaymentHistoryEntry) => {
-const faceitGuid = String(user?.faceit_guid || "");
-if (!faceitGuid) {
-setPaymentFeedbackModal({
-open: true,
-title: "Login necessario",
-message: "Voce precisa estar logado para continuar um pagamento.",
-isError: true,
-});
-return;
-}
-
-if (entry.method === "PIX") {
-setPixModal({
-open: true,
-itemName: entry.itemName,
-paymentId: entry.id,
-qrCodeImageUrl: String(entry.pix?.qrCodeImageUrl || ""),
-qrCodeText: String(entry.pix?.qrCodeText || ""),
-expiresAt: String(entry.expiresAt || ""),
-});
-startPaymentStatusPolling(entry.id, entry.itemName, faceitGuid);
-return;
-}
-
-if (!entry.checkoutUrl) {
-setPaymentFeedbackModal({
-open: true,
-title: "Link indisponivel",
-message: "Nao encontramos o link do checkout para continuar este pagamento.",
-isError: true,
-});
-return;
-}
-
-const popup = window.open(entry.checkoutUrl, "pagbank-payment", "width=520,height=760");
-if (!popup) {
-setPaymentFeedbackModal({
-open: true,
-title: "Janela bloqueada",
-message: "Seu navegador bloqueou a janela de pagamento.",
-isError: true,
-});
-return;
-}
-
-paymentPopupRef.current = popup;
-startPaymentStatusPolling(entry.id, entry.itemName, faceitGuid);
-};
-
-const deletePendingPayment = async (entry: PaymentHistoryEntry) => {
-const faceitGuid = String(user?.faceit_guid || "");
-if (!faceitGuid) {
-setPaymentFeedbackModal({
-open: true,
-title: "Login necessario",
-message: "Voce precisa estar logado para excluir um pagamento pendente.",
-isError: true,
-});
-return;
-}
-
-if (!entry.isPending) {
-setPaymentFeedbackModal({
-open: true,
-title: "Nao permitido",
-message: "Apenas pagamentos pendentes podem ser excluidos.",
-isError: true,
-});
-return;
-}
-
-setDeletingPendingPaymentId(entry.id);
-const previousHistory = paymentHistory;
-setPaymentHistory((prev) => prev.filter((payment) => payment.id !== entry.id));
-try {
-const res = await fetch("/api/loja/pagamento/excluir-pendente", {
-method: "POST",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-payment_id: entry.id,
-faceit_guid: faceitGuid,
-}),
-});
-
-const data = await res.json().catch(() => ({}));
-if (!res.ok) {
-if (res.status === 404) {
-setPaymentFeedbackModal({
-open: true,
-title: "Pendente excluido",
-message: `O pagamento pendente de ${entry.itemName} ja nao estava mais disponivel.`,
-isError: false,
-});
-return;
-}
-setPaymentHistory(previousHistory);
-setPaymentFeedbackModal({
-open: true,
-title: "Falha ao excluir",
-message: data?.message || "Nao foi possivel excluir o pagamento pendente.",
-isError: true,
-});
-return;
-}
-
-if (pixModal.open && pixModal.paymentId === entry.id) {
-clearPaymentPolling();
-closePixModal();
-}
-
-setPaymentFeedbackModal({
-open: true,
-title: "Pendente excluido",
-message: `Pagamento pendente de ${entry.itemName} excluido com sucesso.`,
-isError: false,
-});
-} catch {
-setPaymentHistory(previousHistory);
-setPaymentFeedbackModal({
-open: true,
-title: "Erro inesperado",
-message: "Erro ao excluir pagamento pendente.",
-isError: true,
-});
-} finally {
-setDeletingPendingPaymentId(null);
-}
-};
+		if (podeVer) {
+			if (stored) {
+				try {
+					const parsed = JSON.parse(stored) as FaceitUser;
+					const guid = String(parsed.faceit_guid || "");
+					loadItems(guid);
+				} catch {
+					loadItems("");
+				}
+			} else {
+				loadItems("");
+			}
+		} else {
+			setLoading(false);
+		}
+	}, [loadItems]);
 
 useEffect(() => {
 return () => {
@@ -1109,6 +930,28 @@ return;
 
 if (res.status === 409 && Number(data?.existingPaymentId || 0) > 0) {
 const existingPaymentId = Number(data.existingPaymentId);
+
+		if (method === "PIX") {
+			setPixModal({
+				open: true,
+				itemName: item.nome,
+				paymentId: existingPaymentId,
+				qrCodeImageUrl: String(data?.pix?.qrCodeImageUrl || ""),
+				qrCodeText: String(data?.pix?.qrCodeText || ""),
+				expiresAt: String(data?.expiresAt || ""),
+			});
+			closePaymentMethodModal();
+			startPaymentStatusPolling(existingPaymentId, item.nome, faceitGuid);
+			return;
+		}
+
+		const existingCheckoutUrl = String(data?.checkoutUrl || "");
+		if (existingCheckoutUrl) {
+			closePaymentMethodModal();
+			window.location.assign(existingCheckoutUrl);
+			return;
+		}
+
 closePaymentMethodModal();
 startPaymentStatusPolling(existingPaymentId, item.nome, faceitGuid);
 setPaymentFeedbackModal({
@@ -1164,19 +1007,8 @@ error: "Checkout nao retornou URL de pagamento.",
 return;
 }
 
-const popup = window.open(checkoutUrl, "pagbank-payment", "width=520,height=760");
-if (!popup) {
-setPaymentMethodModal((prev) => ({
-...prev,
-submittingMethod: null,
-error: "Seu navegador bloqueou a janela de pagamento.",
-}));
-return;
-}
-
-paymentPopupRef.current = popup;
 closePaymentMethodModal();
-startPaymentStatusPolling(paymentId, item.nome, faceitGuid);
+window.location.assign(checkoutUrl);
 } catch {
 setPaymentMethodModal((prev) => ({
 ...prev,
@@ -1562,102 +1394,11 @@ className="rounded-lg border border-gold bg-gold px-4 py-2 text-sm font-black up
 </PremiumCard>
 )}
 
+<div>
+<div>
 {loading && (
 <PremiumCard>
 <div className="p-6 text-sm text-zinc-300">Carregando itens da loja...</div>
-</PremiumCard>
-)}
-
-{canViewStore && (
-<PremiumCard>
-<div className="p-6 md:p-8">
-<div className="flex items-center justify-between gap-3">
-<h2 className="text-lg font-black uppercase text-white">Minhas transacoes</h2>
-<button
-type="button"
-onClick={() => {
-const faceitGuid = String(user?.faceit_guid || "");
-void loadPaymentHistory(faceitGuid);
-}}
-className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-black uppercase text-zinc-200"
->
-Atualizar
-</button>
-</div>
-
-{loadingPaymentHistory && <p className="mt-4 text-sm text-zinc-300">Carregando historico...</p>}
-{paymentHistoryError && <p className="mt-4 text-sm font-semibold text-red-400">{paymentHistoryError}</p>}
-
-{!loadingPaymentHistory && !paymentHistoryError && paymentHistory.length === 0 && (
-<p className="mt-4 text-sm text-zinc-400">Nenhuma transacao registrada ainda.</p>
-)}
-
-<div className="mt-4 space-y-3">
-{paymentHistory.map((entry) => {
-	const [expanded, setExpanded] = useState(false);
-	return (
-		<div key={entry.id} className="rounded-xl border border-white/10 bg-black/30 p-4">
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<div>
-					<p className="text-sm font-black uppercase text-white">{entry.itemName}</p>
-					<p className="text-xs text-zinc-400">
-						ID #{entry.id} • {entry.method} • {formatCurrencyBRL(entry.amountCents / 100)}
-					</p>
-				</div>
-				<span className={`rounded-full border px-2 py-1 text-xs font-black uppercase ${paymentStatusClass(entry.status)}`}>
-					{formatPaymentStatusLabel(entry.status)}
-				</span>
-			</div>
-
-			{entry.isPending && (
-				<div className="mt-3 flex flex-wrap gap-2">
-					<button
-						type="button"
-						onClick={() => continuePendingPayment(entry)}
-						className="rounded-lg border border-gold bg-gold px-3 py-2 text-xs font-black uppercase text-black"
-					>
-						Continuar pagamento
-					</button>
-					<button
-						type="button"
-						onClick={() => void deletePendingPayment(entry)}
-						disabled={deletingPendingPaymentId === entry.id}
-						className="rounded-lg border border-red-500/70 bg-red-500/20 px-3 py-2 text-xs font-black uppercase text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{deletingPendingPaymentId === entry.id ? "Excluindo..." : "Excluir pendente"}
-					</button>
-				</div>
-			)}
-
-			{entry.logs.length > 0 && (
-				<div className="mt-3">
-					<button
-						type="button"
-						onClick={() => setExpanded((v) => !v)}
-						className="rounded border border-white/20 bg-white/5 px-3 py-1 text-xs font-bold uppercase text-zinc-200 mb-2"
-					>
-						{expanded ? "Fechar detalhes" : "Expandir detalhes"}
-					</button>
-					{expanded && (
-						<div className="rounded-lg border border-white/10 bg-black/40 p-3">
-							<div className="space-y-2">
-								{entry.logs.map((log) => (
-									<div key={log.id} className="text-xs text-zinc-300">
-										<span className="font-semibold text-zinc-200">{log.eventName}</span>
-										<span className="text-zinc-500"> • {new Date(log.createdAt).toLocaleString("pt-BR")}</span>
-										{log.message ? <span className="block text-zinc-400">{log.message}</span> : null}
-									</div>
-								))}
-							</div>
-						</div>
-					)}
-				</div>
-			)}
-		</div>
-	);
-})}
-</div>
-</div>
 </PremiumCard>
 )}
 
@@ -1738,6 +1479,48 @@ className="flex-1 rounded-lg border border-gold bg-gold px-3 py-2 text-xs font-b
 )}
 </div>
 )}
+</div>
+
+<aside className="mt-6 xl:hidden">
+<PremiumCard className="h-fit">
+<div className="p-5">
+<p className="text-xs uppercase tracking-[0.18em] text-gold/80">Ranking</p>
+<h3 className="mt-1 text-lg font-black uppercase text-white">Top 5 moedas</h3>
+<p className="mt-1 text-xs text-zinc-400">Jogadores com maior saldo de moedas no site.</p>
+
+<div className="mt-4 space-y-2">
+{topPlayers.length > 0 ? (
+topPlayers.map((player, index) => (
+<div key={player.id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+<span className="w-5 text-center text-xs font-black text-gold">#{index + 1}</span>
+<div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/15 bg-black/40">
+<Image
+src={resolveAvatarSrc(player.avatar)}
+alt={player.nickname}
+fill
+className="object-cover"
+unoptimized
+/>
+</div>
+<div className="min-w-0 flex-1">
+<p className="truncate text-sm font-bold text-white">{player.nickname}</p>
+</div>
+<div className="flex items-center gap-1 rounded-md border border-gold/25 bg-gold/10 px-2 py-1">
+<Image src="/moeda.png" alt="Moeda" width={14} height={14} />
+<span className="text-xs font-black text-gold">{player.points}</span>
+</div>
+</div>
+))
+) : (
+<div className="rounded-lg border border-white/10 bg-black/30 px-3 py-3 text-xs text-zinc-400">
+Nenhum jogador com moedas encontrado.
+</div>
+)}
+</div>
+</div>
+</PremiumCard>
+</aside>
+</div>
 
 {billingModal.open && billingModal.item && (
 <div className="fixed inset-0 z-[125] flex items-center justify-center bg-black/85 px-4 py-6">
@@ -2081,6 +1864,46 @@ Fechar
 </div>
 )}
 			</div>
+
+			<aside className="fixed top-36 z-[40] hidden w-[300px] xl:right-[8vw] xl:block 2xl:right-[10vw]">
+				<PremiumCard className="h-fit">
+					<div className="p-5">
+						<p className="text-xs uppercase tracking-[0.18em] text-gold/80">Ranking</p>
+						<h3 className="mt-1 text-lg font-black uppercase text-white">Top 5</h3>
+						<p className="mt-1 text-xs text-zinc-400">Jogadores com maior saldo de moedas no site.</p>
+
+						<div className="mt-4 space-y-2">
+							{topPlayers.length > 0 ? (
+								topPlayers.map((player, index) => (
+									<div key={player.id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+										<span className="w-5 text-center text-xs font-black text-gold">#{index + 1}</span>
+										<div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/15 bg-black/40">
+											<Image
+												src={resolveAvatarSrc(player.avatar)}
+												alt={player.nickname}
+												fill
+												className="object-cover"
+												unoptimized
+											/>
+										</div>
+										<div className="min-w-0 flex-1">
+											<p className="truncate text-sm font-bold text-white">{player.nickname}</p>
+										</div>
+										<div className="flex items-center gap-1 rounded-md border border-gold/25 bg-gold/10 px-2 py-1">
+											<Image src="/moeda.png" alt="Moeda" width={14} height={14} />
+											<span className="text-xs font-black text-gold">{player.points}</span>
+										</div>
+									</div>
+								))
+							) : (
+								<div className="rounded-lg border border-white/10 bg-black/30 px-3 py-3 text-xs text-zinc-400">
+									Nenhum jogador com moedas encontrado.
+								</div>
+							)}
+						</div>
+					</div>
+				</PremiumCard>
+			</aside>
 		</div>
 	</section>
 </PageAccessGate>

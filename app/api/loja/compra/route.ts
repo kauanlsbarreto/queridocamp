@@ -147,10 +147,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Item sem estoque." }, { status: 400 });
     }
 
-    if (!isWallpaper && item.id !== 1) {
-      return NextResponse.json({ message: "Compra disponível apenas para o item ID 1 no momento." }, { status: 400 });
-    }
-
     const requiredPoints = Number(item.moedas || 0);
     if (requiredPoints <= 0) {
       return NextResponse.json({ message: "Item sem valor em pontos configurado." }, { status: 400 });

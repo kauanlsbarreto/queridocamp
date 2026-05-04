@@ -81,6 +81,27 @@ export default function Callback() {
           admin: dbUser.admin,
         }
 
+        // Garante steamid no banco já no login (se faltar, busca via API Faceit no backend).
+        try {
+          const syncRes = await fetch('/api/players/sync-steamid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: fullUser.id,
+              faceit_guid: fullUser.faceit_guid,
+            }),
+          })
+
+          if (syncRes.ok) {
+            const syncData = await syncRes.json()
+            if (syncData?.steamid && !fullUser.steam_id_64) {
+              fullUser.steam_id_64 = syncData.steamid
+            }
+          }
+        } catch {
+          // Não bloqueia o login por falha de sincronização de steamid.
+        }
+
         localStorage.setItem('faceit_user', JSON.stringify(fullUser))
         localStorage.removeItem('faceit_link_player_id')
         localStorage.removeItem('faceit_code_verifier')

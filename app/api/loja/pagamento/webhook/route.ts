@@ -232,6 +232,7 @@ function verifyWebhookHmac(rawBody: string, signature: string, secret: string) {
 }
 
 export async function POST(request: Request) {
+
   let connection: any;
   try {
     const ctx = await getCloudflareContext({ async: true });
@@ -254,8 +255,24 @@ export async function POST(request: Request) {
     const headerToken = String(request.headers.get("x-webhook-token") || "").trim();
     const tokenIsValid = Boolean(configuredToken) && (queryToken === configuredToken || headerToken === configuredToken);
 
-    const rawBody = await request.text();
-    const body = JSON.parse(rawBody || "{}");
+    try {
+      const fs = await import("fs");
+      const path = require("path");
+      const logPath = path.resolve(process.cwd(), "pagbank-logs.txt");
+      const now = new Date().toISOString();
+      const rawBody = await request.text();
+      fs.appendFileSync(
+        logPath,
+        `\n[PAGBANK][WEBHOOK] ${now}\n${rawBody}\n`
+      );
+      // Precisa reparsear o body depois de ler o texto
+      var body = JSON.parse(rawBody || "{}");
+    } catch (e) {
+      // fallback: tenta ler o body normalmente
+      var rawBody = await request.text();
+      var body = JSON.parse(rawBody || "{}");
+    }
+    // --- FIM LOG PAGBANK ---
 
     const signature = resolveWebhookSignature(request);
     const hasSignature = Boolean(signature);
@@ -452,6 +469,36 @@ export async function POST(request: Request) {
           : dispatch.reason || dispatch.error || "Falha ao enviar webhook Discord.",
         details: dispatch,
       });
+      // LOG PAGBANK: salva evento detalhado no TXT
+      try {
+        const fs = await import("fs");
+        const path = require("path");
+        const logPath = path.resolve(process.cwd(), "pagbank-logs.txt");
+        const now = new Date().toISOString();
+        const eventLabel = `Pagamento Loja: ${mappedStatus === "PAID" ? "Pago" : mappedStatus}`;
+        const statusLabel = mappedStatus === "PAID" ? "Pago" : mappedStatus;
+        let logMsg = `\n[PAGBANK][EVENTO] ${now}\n`;
+        logMsg += `Evento: WEBHOOK_STATUS_UPDATED\n`;
+        logMsg += `Origem: api-webhook\n`;
+        logMsg += `Status PagBank: ${providerStatus}\n`;
+        logMsg += `Pagamento\n#${payment.id} | ${payment.payment_ref} | ${payment.metodo} | R$ ${(payment.amount_cents/100).toFixed(2)}\n`;
+        logMsg += `Status\nAnterior: ${currentStatus}\nAtual: ${statusLabel}\nPagBank: ${providerStatus}\n`;
+        logMsg += `Jogador / Item\nJogador: ${notificationPayment.player_nickname}\nFaceit GUID: ${notificationPayment.faceit_guid}\nPlayer ID: ${notificationPayment.player_id}\nItem: ${notificationPayment.item_nome}\nItem ID: ${notificationPayment.estoque_id}\n`;
+        logMsg += `Cliente\nNome: ${notificationPayment.billing_full_name}\nEmail: ${notificationPayment.player_email}\nDocumento: ${notificationPayment.billing_cpf_cnpj}\nTelefone: ${notificationPayment.billing_phone}\n`;
+        logMsg += `Endereco\n${notificationPayment.billing_street}, ${notificationPayment.billing_number}\n${notificationPayment.billing_complement}, ${notificationPayment.billing_neighborhood}\n${notificationPayment.billing_city} - ${notificationPayment.billing_state}\nCEP ${notificationPayment.billing_postal_code} | ${notificationPayment.billing_country}\n`;
+        logMsg += `PagBank\nOrder ID: ${body?.id || "-"}\nOrder Ref: ${body?.reference_id || "-"}\nCharge ID: ${body?.charges?.[0]?.id || "-"}\nCharge Ref: ${body?.charges?.[0]?.reference_id || "-"}\nCharge Status: ${body?.charges?.[0]?.status || providerStatus}\n`;
+        if (body?.charges?.[0]?.payment_method) {
+          const pm = body.charges[0].payment_method;
+          logMsg += `Cartao / Metodo\n${pm.type || "-"} | ${pm.card?.brand || "-"} | ${pm.card?.first_digits || ""}${pm.card?.last_digits ? "**"+pm.card.last_digits : ""} | ${pm.installments || ""}x | capture=${pm.capture ? "true" : "false"} | exp ${pm.card?.exp_month || ""}/${pm.card?.exp_year || ""}\n`;
+        }
+        if (body?.charges?.[0]?.payment_response) {
+          const pr = body.charges[0].payment_response;
+          logMsg += `Resposta PagBank\ncode=${pr.code || "-"} | ${pr.message || "-"} | ref=${pr.reference || "-"}\n`;
+        }
+        logMsg += `Datas\nCriado PagBank: ${body?.created_at || "-"}\nPago PagBank: ${body?.charges?.[0]?.paid_at || "-"}\nCriado local: ${notificationPayment.created_at}\nExpira local: ${notificationPayment.expires_at}\nPago local: ${notificationPayment.paid_at}\n`;
+        logMsg += `Falha / motivo\n${notificationPayment.failure_reason || "-"}\n`;
+        fs.appendFileSync(logPath, logMsg);
+      } catch {}
     }
     return NextResponse.json({ ok: true, status: mappedStatus }, { status: 200 });
   } catch (error) {

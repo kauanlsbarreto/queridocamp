@@ -11,14 +11,9 @@
   "observability": { "enabled": true },
   "hyperdrive": [
     {
-      "binding": "DB_PRINCIPAL",
-      "id": "1824943cc777470591f56e5a1857256b",
-      "localConnectionString": "mysql://root:YMQZnBJRGFhRYSfjSZjFMGTegALnUfoS@nozomi.proxy.rlwy.net:36657/railway"
-    },
-    {
-      "binding": "DB_JOGADORES",
-      "id": "aa334a49183040a6bdc1d4eaa38341e5",
-      "localConnectionString": "mysql://root:fDCcXUwqZhgwPRXMUKDTtrKiRARETYOE@hopper.proxy.rlwy.net:53994/railway"
+      "binding": "hostinger",
+      "id": "79de15ef75944ae2934beb5a5150b3f0",
+      "localConnectionString": "mysql://botuser:aF!0_%40MM360J@187.77.45.123:3306/bancoks"
     }
   ]
 }

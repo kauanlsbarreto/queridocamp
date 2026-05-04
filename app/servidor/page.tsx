@@ -1,0 +1,1420 @@
+"use client";
+
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	AlertTriangle,
+	Cog,
+	Swords,
+	RefreshCw,
+	Send,
+	Server,
+	TerminalSquare,
+} from "lucide-react";
+
+import PageAccessGate from "@/components/page-access-gate";
+import PremiumCard from "@/components/premium-card";
+import SectionTitle from "@/components/section-title";
+
+const SERVER_ID = "69e25c29817337ed7e1ff91c";
+const SERVER_IP = "169.150.198.104:25527";
+const SERVER_PASSWORD = "skn123";
+const STEAM_CONNECT_URL = `steam://run/730//+connect ${SERVER_IP}`;
+const CONSOLE_CONNECT_COMMAND = `connect ${SERVER_IP}; password ${SERVER_PASSWORD}`;
+
+type GameMode = "competitive" | "casual" | "arms_race" | "ffa_deathmatch" | "retakes" | "wingman" | "custom";
+type MapsSource = "mapgroup" | "workshop_collection" | "workshop_single_map";
+
+type ServerConfigForm = {
+	password: string;
+	game_mode: GameMode;
+	maps_source: MapsSource;
+	mapgroup: string;
+	mapgroup_start_map: string;
+	workshop_map_id: string;
+};
+
+type ModePreset = "1v1" | "mix";
+
+type CommandLogEntry = {
+	id: number;
+	usuario: string;
+	comando: string;
+	data: string;
+	hora: string;
+	nickname: string | null;
+	avatar: string | null;
+};
+
+type AdminCandidate = {
+	id: number;
+	nickname: string;
+	faceit_guid: string | null;
+	steamid: string | null;
+	avatar: string | null;
+	is_admin: boolean;
+};
+
+const LOGS_PAGE_SIZE = 5;
+const DEFAULT_AVATAR = "https://cdn.faceit.com/static/stats/avatar/default_user_blue.png";
+
+const IN_GAME_LEVEL_1_TO_5_COMMANDS = [
+	{ command: ".ready / .r / .pronto", description: "marca time como pronto" },
+	{ command: ".stay / .ficar", description: "manter lado apos faca" },
+	{ command: ".switch / .trocar", description: "trocar lado apos faca" },
+	{ command: ".tac / .timeout", description: "pedir pausa tatica" },
+	{ command: ".tec / .tech", description: "ligar/desligar pausa tecnica" },
+	{ command: ".config", description: "mostra status da partida" },
+	{ command: ".backups", description: "lista backups de round" },
+	{ command: ".readyrr", description: "confirma pronto apos restore" },
+	{ command: ".map <mapa>", description: "troca mapa imediatamente" },
+	{ command: ".start / .comecar", description: "forca inicio da partida" },
+	{ command: ".restart / .recomecar", description: "volta para warmup" },
+	{ command: ".restore <round>", description: "restaura round do backup" },
+	{ command: ".backups", description: "lista backups" },
+	{ command: ".tec / .tech", description: "pausa tecnica" },
+	{ command: ".nobots", description: "remove bots" },
+	{ command: ".bots", description: "completa times com bots" },
+	{ command: ".skinsperso", description: "liga/desliga bloqueio de skin personalizada" },
+	{ command: ".adm <mensagem>", description: "mensagem global de admin" },
+	{ command: ".rk", description: "liga/desliga round de faca no mapa atual" },
+];
+
+const CONSOLE_LEVEL_1_TO_5_COMMANDS = [
+	{ command: ".map <mapa>", description: "troca mapa imediatamente", console: "css_map" },
+	{ command: ".start / .comecar", description: "forca inicio da partida", console: "css_start" },
+	{ command: ".restart / .recomecar", description: "volta para warmup", console: "css_restart" },
+	{ command: ".restore <round>", description: "restaura round do backup", console: "css_restore" },
+	{ command: ".rk", description: "liga/desliga round de faca no mapa atual", console: "css_rk" },
+];
+
+function normalizeConsoleLines(payload: unknown): string[] {
+	if (!payload) return [];
+
+	if (Array.isArray(payload)) {
+		return payload.map((line) => String(line)).filter(Boolean);
+	}
+
+	if (typeof payload === "string") {
+		return payload.split("\n").map((line) => line.trimEnd()).filter(Boolean);
+	}
+
+	if (typeof payload === "object") {
+		const source = payload as Record<string, unknown>;
+		const keys = ["lines", "console", "backlog", "output", "data"];
+
+		for (const key of keys) {
+			const value = source[key];
+			if (Array.isArray(value)) return value.map((line) => String(line)).filter(Boolean);
+			if (typeof value === "string") {
+				return value.split("\n").map((line) => line.trimEnd()).filter(Boolean);
+			}
+		}
+	}
+
+	return [];
+}
+
+function removeConsoleTimestampPrefix(line: string): string {
+	return line.replace(/^[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}:\s*/, "").trim();
+}
+
+function parsePlayersFromStatus(lines: string[]): number | null {
+	if (lines.length === 0) return null;
+
+	const normalized = lines.map(removeConsoleTimestampPrefix);
+
+	for (let i = normalized.length - 1; i >= 0; i -= 1) {
+		const line = normalized[i];
+		const humansMatch = line.match(/players\s*:\s*(\d+)\s+humans?/i);
+		if (humansMatch) {
+			return Number(humansMatch[1]);
+		}
+	}
+
+	let startIndex = -1;
+	for (let i = normalized.length - 1; i >= 0; i -= 1) {
+		if (normalized[i].toLowerCase().includes("---------players--------")) {
+			startIndex = i;
+			break;
+		}
+	}
+
+	if (startIndex < 0) return null;
+
+	let count = 0;
+	for (let i = startIndex + 1; i < normalized.length; i += 1) {
+		const line = normalized[i];
+		if (!line) continue;
+
+		const lower = line.toLowerCase();
+		if (line.includes("#end") || lower.includes("--- sourcetv")) {
+			break;
+		}
+
+		if (lower.includes("id") && lower.includes("ping") && lower.includes("name")) {
+			continue;
+		}
+
+		if (lower.startsWith("message repeated")) {
+			continue;
+		}
+
+		const idMatch = line.match(/^(\d+)\s+/);
+		if (!idMatch) continue;
+
+		if (idMatch[1] === "65535") {
+			continue;
+		}
+
+		count += 1;
+	}
+
+	return count;
+}
+
+function formatNumber(value: number | null | undefined, suffix = "") {
+	if (typeof value !== "number" || !Number.isFinite(value)) return "-";
+	return `${value.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}${suffix}`;
+}
+
+function detectActiveModePreset(config: ServerConfigForm): ModePreset | null {
+	const gameMode = String(config.game_mode || "").trim().toLowerCase();
+	const mapsSource = String(config.maps_source || "").trim().toLowerCase();
+	const mapgroup = String(config.mapgroup || "").trim().toLowerCase();
+	const startMap = String(config.mapgroup_start_map || "").trim().toLowerCase();
+	const workshopMapId = String(config.workshop_map_id || "").trim();
+
+	const is1v1 = gameMode === "custom"
+		&& mapsSource === "workshop_collection"
+		&& workshopMapId === "3715378702";
+
+	if (is1v1) return "1v1";
+
+	const isMix = gameMode === "competitive"
+		&& mapsSource === "mapgroup"
+		&& mapgroup === "mg_active"
+		&& startMap === "de_mirage";
+
+	if (isMix) return "mix";
+
+	return null;
+}
+
+const SERVER_PAGE_SECTIONS = [
+	{ id: "topo-servidor", label: "Topo" },
+	{ id: "modo-rapido", label: "Config do Server" },
+	{ id: "config-servidor", label: "Configuracao" },
+	{ id: "console-servidor", label: "Console" },
+	{ id: "logs-comandos", label: "Logs de comandos" },
+] as const;
+
+export default function ServidorPage() {
+	const [consoleLines, setConsoleLines] = useState<string[]>([]);
+	const [loadingConsole, setLoadingConsole] = useState(true);
+	const [consoleError, setConsoleError] = useState("");
+	const [consoleCommand, setConsoleCommand] = useState("");
+	const [sendingCommand, setSendingCommand] = useState(false);
+	const [lastConsoleRefresh, setLastConsoleRefresh] = useState<string>("");
+	const [lastStatusCommandAt, setLastStatusCommandAt] = useState<string>("");
+	const [autoScrollToBottom, setAutoScrollToBottom] = useState(true);
+	const [configForm, setConfigForm] = useState<ServerConfigForm>({
+		password: "",
+		game_mode: "custom",
+		maps_source: "mapgroup",
+		mapgroup: "",
+		mapgroup_start_map: "",
+		workshop_map_id: "",
+	});
+	const [loadingConfig, setLoadingConfig] = useState(true);
+	const [savingConfig, setSavingConfig] = useState(false);
+	const [configError, setConfigError] = useState("");
+	const [configSuccess, setConfigSuccess] = useState("");
+	const [adminSearch, setAdminSearch] = useState("");
+	const [adminPlayers, setAdminPlayers] = useState<AdminCandidate[]>([]);
+	const [loadingAdminPlayers, setLoadingAdminPlayers] = useState(false);
+	const [adminPlayersError, setAdminPlayersError] = useState("");
+	const [selectedAdminPlayerIds, setSelectedAdminPlayerIds] = useState<number[]>([]);
+	const [managingAdmins, setManagingAdmins] = useState(false);
+	const [adminManageMessage, setAdminManageMessage] = useState("");
+	const [faceitGuid, setFaceitGuid] = useState("");
+	const [lvlServidor, setLvlServidor] = useState(0);
+	const [accessResolved, setAccessResolved] = useState(false);
+	const [applyingPreset, setApplyingPreset] = useState<"1v1" | "mix" | null>(null);
+	const [commandLogs, setCommandLogs] = useState<CommandLogEntry[]>([]);
+	const [loadingCommandLogs, setLoadingCommandLogs] = useState(true);
+	const [loadingOlderLogs, setLoadingOlderLogs] = useState(false);
+	const [loadingNewerLogs, setLoadingNewerLogs] = useState(false);
+	const [commandLogsError, setCommandLogsError] = useState("");
+	const [hasMoreOlderLogs, setHasMoreOlderLogs] = useState(false);
+	const [hasMoreNewerLogs, setHasMoreNewerLogs] = useState(false);
+	const [lastLogsRefresh, setLastLogsRefresh] = useState("");
+	const [showCommandsModal, setShowCommandsModal] = useState(false);
+	const [activeSectionId, setActiveSectionId] = useState<string>(SERVER_PAGE_SECTIONS[0].id);
+
+	const consoleRef = useRef<HTMLPreElement | null>(null);
+	const logsListRef = useRef<HTMLDivElement | null>(null);
+	const commandLogsRef = useRef<CommandLogEntry[]>([]);
+	const loadingOlderLogsRef = useRef(false);
+	const loadingNewerLogsRef = useRef(false);
+	const canUseRestrictedAreas = lvlServidor === 1 || lvlServidor === 2;
+	const canUseLevel1Preset = lvlServidor === 1;
+	const canSendConsoleCommands = lvlServidor >= 1 && lvlServidor <= 5;
+	const selectedAdminIdSet = useMemo(() => new Set(selectedAdminPlayerIds), [selectedAdminPlayerIds]);
+	const activeModePreset = useMemo(() => detectActiveModePreset(configForm), [configForm]);
+
+	const fetchConsole = useCallback(async () => {
+		try {
+			const response = await fetch(`/api/servidor/dathost?action=console&server_id=${SERVER_ID}&max_lines=220`, {
+				cache: "no-store",
+			});
+
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(data?.error || "Falha ao carregar console.");
+			}
+
+			const lines = normalizeConsoleLines(data?.console);
+			setConsoleLines(lines.slice(-220));
+			setConsoleError("");
+			setLastConsoleRefresh(new Date().toLocaleTimeString("pt-BR"));
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Erro ao atualizar console.";
+			setConsoleError(message);
+		} finally {
+			setLoadingConsole(false);
+		}
+	}, []);
+
+	const postConsoleCommand = useCallback(async (line: string, silent = false, logCommand = true) => {
+		try {
+			const response = await fetch("/api/servidor/dathost", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					...(faceitGuid ? { "x-faceit-guid": faceitGuid } : {}),
+				},
+				body: JSON.stringify({
+					server_id: SERVER_ID,
+					line,
+					faceit_guid: faceitGuid,
+					log_command: logCommand,
+				}),
+			});
+
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(data?.error || "Falha ao enviar comando.");
+			}
+
+			if (line.trim().toLowerCase() === "status") {
+				setLastStatusCommandAt(new Date().toLocaleTimeString("pt-BR"));
+			}
+
+			return true;
+		} catch (error) {
+			if (!silent) {
+				const message = error instanceof Error ? error.message : "Erro ao enviar comando.";
+				setConsoleError(message);
+			}
+			return false;
+		}
+	}, [faceitGuid]);
+
+	const mergeLogs = useCallback((current: CommandLogEntry[], incoming: CommandLogEntry[]) => {
+		const byId = new Map<number, CommandLogEntry>();
+		for (const item of current) byId.set(item.id, item);
+		for (const item of incoming) byId.set(item.id, item);
+		return Array.from(byId.values()).sort((a, b) => b.id - a.id);
+	}, []);
+
+	const fetchCommandLogs = useCallback(async (direction: "initial" | "older" | "newer" = "initial") => {
+		let resolvedDirection = direction;
+		const currentLogs = commandLogsRef.current;
+		const minId = currentLogs.length > 0 ? Math.min(...currentLogs.map((item) => item.id)) : null;
+		const maxId = currentLogs.length > 0 ? Math.max(...currentLogs.map((item) => item.id)) : null;
+
+		if ((direction === "older" && minId === null) || (direction === "newer" && maxId === null)) {
+			resolvedDirection = "initial";
+		}
+
+		if (resolvedDirection === "initial") setLoadingCommandLogs(true);
+		if (resolvedDirection === "older") setLoadingOlderLogs(true);
+		if (resolvedDirection === "newer") setLoadingNewerLogs(true);
+
+		try {
+			const query = new URLSearchParams({
+				action: "command-logs",
+				limit: String(LOGS_PAGE_SIZE),
+				direction: resolvedDirection,
+			});
+
+			if (resolvedDirection === "older" && minId !== null) {
+				query.set("cursor_id", String(minId));
+			}
+
+			if (resolvedDirection === "newer" && maxId !== null) {
+				query.set("cursor_id", String(maxId));
+			}
+
+			const response = await fetch(`/api/servidor/dathost?${query.toString()}`, { cache: "no-store" });
+			const data = await response.json().catch(() => ({}));
+
+			if (!response.ok) {
+				throw new Error(data?.error || "Falha ao carregar logs de comandos.");
+			}
+
+			const fetched = Array.isArray(data?.logs)
+				? data.logs.map((row: any): CommandLogEntry => ({
+					id: Number(row?.id || 0),
+					usuario: String(row?.usuario || ""),
+					comando: String(row?.comando || ""),
+					data: String(row?.data || ""),
+					hora: String(row?.hora || ""),
+					nickname: row?.nickname ? String(row.nickname) : null,
+					avatar: row?.avatar ? String(row.avatar) : null,
+				}))
+				: [];
+
+			if (resolvedDirection === "initial") {
+				setCommandLogs(fetched);
+			} else {
+				setCommandLogs((prev) => mergeLogs(prev, fetched));
+			}
+
+			setHasMoreOlderLogs(Boolean(data?.hasMoreOlder));
+			setHasMoreNewerLogs(Boolean(data?.hasMoreNewer));
+			setCommandLogsError("");
+			setLastLogsRefresh(new Date().toLocaleTimeString("pt-BR"));
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Erro ao atualizar logs de comandos.";
+			setCommandLogsError(message);
+		} finally {
+			setLoadingCommandLogs(false);
+			setLoadingOlderLogs(false);
+			setLoadingNewerLogs(false);
+		}
+	}, [mergeLogs]);
+
+	useEffect(() => {
+		commandLogsRef.current = commandLogs;
+	}, [commandLogs]);
+
+	const fetchServerSettings = useCallback(async () => {
+		try {
+			const response = await fetch(`/api/servidor/dathost?action=server-settings&server_id=${SERVER_ID}`, {
+				cache: "no-store",
+			});
+
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(data?.error || "Falha ao carregar configuracoes do servidor.");
+			}
+
+			const settings = (data?.settings || {}) as Record<string, string>;
+			const mapsSource = (settings.maps_source as MapsSource) || "mapgroup";
+			const workshopMapId = mapsSource === "workshop_single_map"
+				? settings.workshop_single_map_id || ""
+				: settings.workshop_collection_start_map_id || "";
+
+			setConfigForm({
+				password: settings.password || "",
+				game_mode: ((settings.game_mode as GameMode) || "custom"),
+				maps_source: mapsSource,
+				mapgroup: settings.mapgroup || "",
+				mapgroup_start_map: settings.mapgroup_start_map || "",
+				workshop_map_id: workshopMapId,
+			});
+
+			setConfigError("");
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Erro ao carregar configuracoes.";
+			setConfigError(message);
+		} finally {
+			setLoadingConfig(false);
+		}
+	}, []);
+
+	const fetchServerAccess = useCallback(async (guid: string) => {
+		if (!guid) {
+			setLvlServidor(0);
+			setAccessResolved(true);
+			return;
+		}
+
+		try {
+			const response = await fetch(`/api/servidor/dathost?action=access&faceit_guid=${encodeURIComponent(guid)}`, {
+				cache: "no-store",
+				headers: {
+					"x-faceit-guid": guid,
+				},
+			});
+
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				setLvlServidor(0);
+				setAccessResolved(true);
+				return;
+			}
+
+			setLvlServidor(Number(data?.lvlservidor || 0));
+			setAccessResolved(true);
+		} catch {
+			setLvlServidor(0);
+			setAccessResolved(true);
+		}
+	}, []);
+
+	const saveServerSettings = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		try {
+			setSavingConfig(true);
+			setConfigError("");
+			setConfigSuccess("");
+
+			const response = await fetch("/api/servidor/dathost", {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					server_id: SERVER_ID,
+					...configForm,
+					start_map: configForm.mapgroup_start_map,
+				}),
+			});
+
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(data?.error || "Falha ao salvar configuracao.");
+			}
+
+			setConfigSuccess("Configuracao salva com sucesso. O servidor pode reiniciar para aplicar as mudancas.");
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Erro ao salvar configuracao.";
+			setConfigError(message);
+		} finally {
+			setSavingConfig(false);
+		}
+	}, [configForm]);
+
+	const fetchAdminPlayers = useCallback(async (searchTerm = "") => {
+		if (!canUseLevel1Preset) return;
+
+		try {
+			setLoadingAdminPlayers(true);
+			setAdminPlayersError("");
+
+			const params = new URLSearchParams({
+				action: "admin-players",
+				limit: "120",
+			});
+
+			const query = searchTerm.trim();
+			if (query) {
+				params.set("query", query);
+			}
+
+			const response = await fetch(`/api/servidor/dathost?${params.toString()}`, {
+				cache: "no-store",
+				headers: {
+					...(faceitGuid ? { "x-faceit-guid": faceitGuid } : {}),
+				},
+			});
+
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(data?.error || "Falha ao carregar jogadores.");
+			}
+
+			const players: AdminCandidate[] = Array.isArray(data?.players)
+				? data.players.map((row: any): AdminCandidate => ({
+					id: Number(row?.id || 0),
+					nickname: String(row?.nickname || ""),
+					faceit_guid: row?.faceit_guid ? String(row.faceit_guid) : null,
+					steamid: row?.steamid ? String(row.steamid) : null,
+					avatar: row?.avatar ? String(row.avatar) : null,
+					is_admin: Boolean(row?.is_admin),
+				}))
+				: [];
+
+			setAdminPlayers(players.filter((player) => player.id > 0));
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Erro ao carregar jogadores.";
+			setAdminPlayersError(message);
+		} finally {
+			setLoadingAdminPlayers(false);
+		}
+	}, [canUseLevel1Preset, faceitGuid]);
+
+	const toggleAdminSelection = useCallback((playerId: number) => {
+		setSelectedAdminPlayerIds((prev) => (
+			prev.includes(playerId) ? prev.filter((id) => id !== playerId) : [...prev, playerId]
+		));
+	}, []);
+
+	const submitAdminAction = useCallback(async (action: "admin-add" | "admin-remove") => {
+		if (!canUseLevel1Preset || selectedAdminPlayerIds.length === 0) return;
+
+		try {
+			setManagingAdmins(true);
+			setAdminManageMessage("");
+
+			const response = await fetch("/api/servidor/dathost", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					...(faceitGuid ? { "x-faceit-guid": faceitGuid } : {}),
+				},
+				body: JSON.stringify({
+					action,
+					faceit_guid: faceitGuid,
+					player_ids: selectedAdminPlayerIds,
+				}),
+			});
+
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(data?.error || "Falha ao atualizar admins.");
+			}
+
+			const changed = Number(data?.changed || 0);
+			const skippedList = Array.isArray(data?.skipped) ? data.skipped : [];
+			const skipped = skippedList.length;
+			const firstReasons = skippedList
+				.slice(0, 3)
+				.map((item: any) => `${String(item?.nickname || "sem-nick")}: ${String(item?.reason || "ignorado")}`)
+				.join(" | ");
+			setAdminManageMessage(
+				`${action === "admin-add" ? "Admin adicionado" : "Admin removido"}: ${changed}. Ignorados: ${skipped}.${firstReasons ? ` Motivos: ${firstReasons}` : ""}`,
+			);
+			setSelectedAdminPlayerIds([]);
+			await fetchAdminPlayers(adminSearch);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Erro ao atualizar admins.";
+			setAdminManageMessage(message);
+		} finally {
+			setManagingAdmins(false);
+		}
+	}, [adminSearch, canUseLevel1Preset, faceitGuid, fetchAdminPlayers, selectedAdminPlayerIds]);
+
+	const applyModePreset = useCallback(async (mode: "1v1" | "mix") => {
+		if (!canUseLevel1Preset) return;
+
+		try {
+			setApplyingPreset(mode);
+
+			await fetch("/api/servidor/dathost", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					...(faceitGuid ? { "x-faceit-guid": faceitGuid } : {}),
+				},
+				body: JSON.stringify({
+					action: "apply-mode-preset",
+					mode,
+					server_id: SERVER_ID,
+					faceit_guid: faceitGuid,
+				}),
+			});
+
+			setLoadingConfig(true);
+			void fetchServerSettings();
+			window.setTimeout(() => {
+				void fetchConsole();
+			}, 1000);
+		} finally {
+			setApplyingPreset(null);
+		}
+	}, [canUseLevel1Preset, faceitGuid, fetchConsole, fetchServerSettings]);
+
+	useEffect(() => {
+		const readFaceitGuid = () => {
+			try {
+				const raw = localStorage.getItem("faceit_user");
+				if (!raw) {
+					setFaceitGuid("");
+					return;
+				}
+
+				const parsed = JSON.parse(raw) as { faceit_guid?: string };
+				setFaceitGuid(String(parsed?.faceit_guid || "").trim());
+			} catch {
+				setFaceitGuid("");
+			}
+		};
+
+		readFaceitGuid();
+
+		const onStorage = (event: StorageEvent) => {
+			if (!event.key || event.key === "faceit_user") {
+				readFaceitGuid();
+			}
+		};
+
+		window.addEventListener("storage", onStorage);
+		return () => window.removeEventListener("storage", onStorage);
+	}, []);
+
+	useEffect(() => {
+		void fetchServerAccess(faceitGuid);
+	}, [faceitGuid, fetchServerAccess]);
+
+	useEffect(() => {
+		if (!accessResolved) return;
+
+		if (canUseRestrictedAreas) {
+			setLoadingConfig(true);
+			void fetchServerSettings();
+		} else {
+			setLoadingConfig(false);
+		}
+	}, [accessResolved, canUseRestrictedAreas, fetchServerSettings]);
+
+	useEffect(() => {
+		if (!accessResolved || !canUseLevel1Preset) {
+			setAdminPlayers([]);
+			setSelectedAdminPlayerIds([]);
+			setAdminManageMessage("");
+			return;
+		}
+
+		void fetchAdminPlayers("");
+	}, [accessResolved, canUseLevel1Preset, fetchAdminPlayers]);
+
+	useEffect(() => {
+		if (!accessResolved) return;
+
+		fetchConsole();
+
+			if (canSendConsoleCommands) {
+			void (async () => {
+					const ok = await postConsoleCommand("status", true, false);
+				if (ok) {
+					window.setTimeout(() => {
+						void fetchConsole();
+					}, 600);
+				}
+			})();
+		}
+
+		const consolePollMs = canUseRestrictedAreas ? 3500 : 60 * 60 * 1000;
+		const consoleTimer = window.setInterval(fetchConsole, consolePollMs);
+
+		let statusTimer: number | null = null;
+		if (canSendConsoleCommands) {
+			statusTimer = window.setInterval(() => {
+				void (async () => {
+					const ok = await postConsoleCommand("status", true, false);
+					if (ok) {
+						window.setTimeout(() => {
+							void fetchConsole();
+						}, 700);
+					}
+				})();
+			}, 15000);
+		}
+
+		return () => {
+			window.clearInterval(consoleTimer);
+			if (statusTimer) window.clearInterval(statusTimer);
+		};
+	}, [accessResolved, canSendConsoleCommands, canUseRestrictedAreas, fetchConsole, postConsoleCommand]);
+
+	useEffect(() => {
+		loadingOlderLogsRef.current = loadingOlderLogs;
+	}, [loadingOlderLogs]);
+
+	useEffect(() => {
+		loadingNewerLogsRef.current = loadingNewerLogs;
+	}, [loadingNewerLogs]);
+
+	useEffect(() => {
+		void fetchCommandLogs("initial");
+		const timer = window.setInterval(() => {
+			void fetchCommandLogs("newer");
+		}, 12000);
+
+		return () => {
+			window.clearInterval(timer);
+		};
+	}, [fetchCommandLogs]);
+
+	useEffect(() => {
+		if (!autoScrollToBottom) return;
+		if (!consoleRef.current) return;
+
+		consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
+	}, [consoleLines, autoScrollToBottom]);
+
+	const sendConsoleCommand = useCallback(
+		async (event: FormEvent<HTMLFormElement>) => {
+			event.preventDefault();
+			if (!canSendConsoleCommands) return;
+			const line = consoleCommand.trim();
+			if (!line) return;
+
+			try {
+				setSendingCommand(true);
+				const ok = await postConsoleCommand(line, false, true);
+				if (!ok) return;
+
+				setConsoleCommand("");
+				setConsoleError("");
+				await fetchConsole();
+				void fetchCommandLogs("newer");
+			} catch (error) {
+				const message = error instanceof Error ? error.message : "Erro ao enviar comando.";
+				setConsoleError(message);
+			} finally {
+				setSendingCommand(false);
+			}
+		},
+		[canSendConsoleCommands, consoleCommand, fetchCommandLogs, fetchConsole, postConsoleCommand],
+	);
+
+	const onLogsScroll = useCallback(() => {
+		const container = logsListRef.current;
+		if (!container) return;
+
+		const threshold = 36;
+		const nearTop = container.scrollTop <= threshold;
+		const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
+
+		if (nearTop && hasMoreNewerLogs && !loadingNewerLogsRef.current) {
+			void fetchCommandLogs("newer");
+		}
+
+		if (nearBottom && hasMoreOlderLogs && !loadingOlderLogsRef.current) {
+			void fetchCommandLogs("older");
+		}
+	}, [fetchCommandLogs, hasMoreNewerLogs, hasMoreOlderLogs]);
+
+	const playersOnlineNow = useMemo(() => parsePlayersFromStatus(consoleLines), [consoleLines]);
+
+	const scrollToSection = useCallback((sectionId: string) => {
+		if (typeof window === "undefined") return;
+		const target = document.getElementById(sectionId);
+		if (!target) return;
+		setActiveSectionId(sectionId);
+		target.scrollIntoView({ behavior: "smooth", block: "start" });
+	}, []);
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+
+		const updateActiveSection = () => {
+			const threshold = 220;
+			let current: string = SERVER_PAGE_SECTIONS[0].id;
+
+			for (const section of SERVER_PAGE_SECTIONS) {
+				const el = document.getElementById(section.id);
+				if (!el) continue;
+				const top = el.getBoundingClientRect().top;
+				if (top <= threshold) current = section.id;
+			}
+
+			setActiveSectionId(current);
+		};
+
+		updateActiveSection();
+		window.addEventListener("scroll", updateActiveSection, { passive: true });
+		window.addEventListener("resize", updateActiveSection);
+
+		return () => {
+			window.removeEventListener("scroll", updateActiveSection);
+			window.removeEventListener("resize", updateActiveSection);
+		};
+	}, []);
+
+	return (
+		<PageAccessGate level={1} restrictedTitle="Acesso restrito">
+			<main className="relative overflow-hidden py-14 md:py-20">
+				<div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(236,161,73,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(231,106,33,0.14),transparent_28%)]" />
+
+				<section className="container">
+					<div>
+							<div id="topo-servidor" className="scroll-mt-28" />
+					<SectionTitle
+						title="Painel do Servidor CS2"
+						description="Configurar o servidor"
+					/>
+
+					<PremiumCard className="mb-8 border-gold/20 bg-[#08111b]/95">
+						<div className="p-5">
+							<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+								<div>
+									<p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold/80">Servidor Querido Camp</p>
+									<p className="mt-1 text-sm text-gray-300">1x1 / Treino / Mix / Testar Skin</p>
+								</div>
+								<a
+									href={STEAM_CONNECT_URL}
+									className="inline-flex items-center justify-center rounded-xl bg-gold px-4 py-2 text-sm font-bold text-black transition hover:bg-gold/90"
+								>
+									Conectar via Steam
+								</a>
+							</div>
+
+							<div className="rounded-xl border border-white/10 bg-black/40 p-3">
+								<p className="text-xs uppercase tracking-[0.14em] text-gold/75">Comando no console</p>
+								<p className="mt-1 break-all font-mono text-sm text-gray-200">{CONSOLE_CONNECT_COMMAND}</p>
+							</div>
+						</div>
+					</PremiumCard>
+
+					<div className="mb-8 grid gap-4 md:grid-cols-2">
+						<PremiumCard>
+							<div className="p-5">
+								<p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold/80">Server ID</p>
+								<p className="mt-2 break-all text-sm font-bold text-white">{SERVER_ID}</p>
+							</div>
+						</PremiumCard>
+
+						<PremiumCard>
+							<div className="flex items-center gap-3 p-5">
+								<Server className="h-5 w-5 text-gold" />
+								<div>
+									<p className="text-xs uppercase tracking-[0.18em] text-gold/75">Players online agora</p>
+									<p className="text-xl font-black text-white">{formatNumber(playersOnlineNow)}</p>
+								</div>
+							</div>
+						</PremiumCard>
+					</div>
+
+					<div className="grid gap-8">
+						<div id="modo-rapido" className="scroll-mt-28">
+						<PremiumCard className="border-gold/20 bg-[#08111b]/95">
+							<div className="p-6 md:p-7">
+								<div className="mb-5 flex items-center gap-2 text-2xl font-black text-white">
+									<Swords className="h-6 w-6 text-gold" />
+									Config do Server
+								</div>
+
+								<div className="grid gap-3 md:grid-cols-2">
+									<button
+										type="button"
+										onClick={() => {
+											void applyModePreset("1v1");
+										}}
+										disabled={!canUseLevel1Preset || applyingPreset !== null}
+										className={`inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+											activeModePreset === "1v1"
+												? "bg-gold text-black hover:bg-gold/90"
+												: "border border-gold bg-transparent text-gold hover:bg-gold/10"
+										}`}
+									>
+										{applyingPreset === "1v1" ? "Aplicando 1v1..." : activeModePreset === "1v1" ? "1v1 (ativo)" : "1v1"}
+									</button>
+
+									<button
+										type="button"
+										onClick={() => {
+											void applyModePreset("mix");
+										}}
+										disabled={!canUseLevel1Preset || applyingPreset !== null}
+										className={`inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+											activeModePreset === "mix"
+												? "bg-gold text-black hover:bg-gold/90"
+												: "border border-gold bg-transparent text-gold hover:bg-gold/10"
+										}`}
+									>
+										{applyingPreset === "mix" ? "Aplicando Mix..." : activeModePreset === "mix" ? "Mix (ativo)" : "Mix"}
+									</button>
+								</div>
+
+							</div>
+						</PremiumCard>
+						</div>
+
+						<div id="config-servidor" className="scroll-mt-28">
+						<PremiumCard className="border-gold/20 bg-[#08111b]/95">
+							<div className="p-6 md:p-7">
+								<div className="mb-5 flex items-center justify-between gap-3">
+									<h2 className="flex items-center gap-2 text-2xl font-black text-white">
+										<Cog className="h-6 w-6 text-gold" />
+										Configuracao do servidor
+									</h2>
+									<button
+										type="button"
+										onClick={() => {
+											setLoadingConfig(true);
+											void fetchServerSettings();
+										}}
+										className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20"
+										disabled={!canUseRestrictedAreas || loadingConfig || savingConfig}
+									>
+										<RefreshCw className="h-4 w-4" /> Recarregar
+									</button>
+								</div>
+
+								<form onSubmit={saveServerSettings} className="grid gap-4 md:grid-cols-2">
+									<div className="space-y-2">
+										<label className="text-xs font-bold uppercase tracking-[0.16em] text-gold/80">Password</label>
+										<input
+											type="password"
+											value={configForm.password}
+											onChange={(event) => setConfigForm((prev) => ({ ...prev, password: event.target.value }))}
+											placeholder="Senha do servidor"
+											autoComplete="new-password"
+											className="w-full rounded-xl border border-white/15 bg-[#0f1823] px-4 py-3 text-sm text-white outline-none transition focus:border-gold/50"
+											disabled={!canUseRestrictedAreas || loadingConfig || savingConfig}
+										/>
+										<p className="text-[11px] text-gray-500">Se este campo vier vazio, mantenha vazio para nao sobrescrever a senha atual.</p>
+									</div>
+
+									<div className="space-y-2">
+										<label className="text-xs font-bold uppercase tracking-[0.16em] text-gold/80">Game Mode</label>
+										<select
+											value={configForm.game_mode}
+											onChange={(event) => setConfigForm((prev) => ({ ...prev, game_mode: event.target.value as GameMode }))}
+											className="w-full rounded-xl border border-white/15 bg-[#0f1823] px-4 py-3 text-sm text-white outline-none focus:border-gold/50"
+											disabled={!canUseRestrictedAreas || loadingConfig || savingConfig}
+										>
+											<option value="competitive">Competitive</option>
+											<option value="casual">Casual</option>
+											<option value="arms_race">Arms Race</option>
+											<option value="ffa_deathmatch">FFA Deathmatch</option>
+											<option value="retakes">Retakes</option>
+											<option value="wingman">Wingman</option>
+											<option value="custom">Custom</option>
+										</select>
+									</div>
+
+									<div className="space-y-2">
+										<label className="text-xs font-bold uppercase tracking-[0.16em] text-gold/80">Maps Source</label>
+										<select
+											value={configForm.maps_source}
+											onChange={(event) => setConfigForm((prev) => ({ ...prev, maps_source: event.target.value as MapsSource }))}
+											className="w-full rounded-xl border border-white/15 bg-[#0f1823] px-4 py-3 text-sm text-white outline-none focus:border-gold/50"
+											disabled={!canUseRestrictedAreas || loadingConfig || savingConfig}
+										>
+											<option value="mapgroup">mapgroup</option>
+											<option value="workshop_collection">workshop_collection</option>
+											<option value="workshop_single_map">workshop_single_map</option>
+										</select>
+									</div>
+
+									<div className="space-y-2">
+										<label className="text-xs font-bold uppercase tracking-[0.16em] text-gold/80">Mapgroup</label>
+										<input
+											type="text"
+											value={configForm.mapgroup}
+											onChange={(event) => setConfigForm((prev) => ({ ...prev, mapgroup: event.target.value }))}
+											placeholder="Ex: mg_active"
+											className="w-full rounded-xl border border-white/15 bg-[#0f1823] px-4 py-3 text-sm text-white outline-none transition focus:border-gold/50"
+											disabled={!canUseRestrictedAreas || loadingConfig || savingConfig}
+										/>
+									</div>
+
+									<div className="space-y-2">
+										<label className="text-xs font-bold uppercase tracking-[0.16em] text-gold/80">Start Map</label>
+										<input
+											type="text"
+											value={configForm.mapgroup_start_map}
+											onChange={(event) => setConfigForm((prev) => ({ ...prev, mapgroup_start_map: event.target.value }))}
+											placeholder="Ex: de_dust2"
+											className="w-full rounded-xl border border-white/15 bg-[#0f1823] px-4 py-3 text-sm text-white outline-none transition focus:border-gold/50"
+											disabled={!canUseRestrictedAreas || loadingConfig || savingConfig}
+										/>
+									</div>
+
+									<div className="space-y-2 md:col-span-2">
+										<label className="text-xs font-bold uppercase tracking-[0.16em] text-gold/80">Workshop Map ID</label>
+										<input
+											type="text"
+											value={configForm.workshop_map_id}
+											onChange={(event) => setConfigForm((prev) => ({ ...prev, workshop_map_id: event.target.value }))}
+											placeholder={configForm.maps_source === "workshop_single_map" ? "Steam ID do mapa (single map)" : "Steam ID do start map da collection"}
+											className="w-full rounded-xl border border-white/15 bg-[#0f1823] px-4 py-3 text-sm text-white outline-none transition focus:border-gold/50"
+											disabled={!canUseRestrictedAreas || loadingConfig || savingConfig}
+										/>
+									</div>
+
+									<div className="md:col-span-2 flex flex-wrap items-center gap-3">
+										<button
+											type="submit"
+											disabled={!canUseRestrictedAreas || loadingConfig || savingConfig}
+											className="inline-flex items-center justify-center gap-2 rounded-xl bg-gold px-5 py-3 text-sm font-bold text-black transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-60"
+										>
+											{savingConfig ? "Salvando..." : "Salvar configuracao"}
+										</button>
+
+										{loadingConfig && <span className="text-sm text-gray-400">Carregando configuracoes...</span>}
+										{!!configSuccess && <span className="text-sm text-emerald-300">{configSuccess}</span>}
+										{!!configError && <span className="text-sm text-red-300">{configError}</span>}
+									</div>
+								</form>
+
+								{canUseLevel1Preset && (
+								<div className="mt-8 rounded-2xl border border-white/10 bg-black/30 p-4 md:p-5">
+									<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+										<p className="text-sm font-black uppercase tracking-[0.14em] text-gold">Admins</p>
+										<div className="flex flex-wrap items-center gap-2">
+											<button
+												type="button"
+												onClick={() => {
+													void fetchAdminPlayers(adminSearch);
+												}}
+												disabled={!canUseLevel1Preset || loadingAdminPlayers || managingAdmins}
+												className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-60"
+											>
+												<RefreshCw className="h-4 w-4" /> Recarregar lista
+											</button>
+										</div>
+									</div>
+
+									<div className="mb-4 grid gap-3 md:grid-cols-[1fr_auto]">
+										<input
+											type="text"
+											value={adminSearch}
+											onChange={(event) => setAdminSearch(event.target.value)}
+											placeholder="Pesquisar nickname"
+											className="w-full rounded-xl border border-white/15 bg-[#0f1823] px-4 py-3 text-sm text-white outline-none transition focus:border-gold/50"
+											disabled={!canUseLevel1Preset || loadingAdminPlayers || managingAdmins}
+										/>
+										<button
+											type="button"
+											onClick={() => {
+												void fetchAdminPlayers(adminSearch);
+											}}
+											disabled={!canUseLevel1Preset || loadingAdminPlayers || managingAdmins}
+											className="inline-flex items-center justify-center rounded-xl border border-gold bg-transparent px-5 py-3 text-sm font-bold text-gold transition hover:bg-gold/10 disabled:cursor-not-allowed disabled:opacity-60"
+										>
+											Buscar
+										</button>
+									</div>
+
+									<div className="mb-4 max-h-[320px] space-y-2 overflow-y-auto rounded-xl border border-white/10 bg-[#0b1320] p-3">
+										{loadingAdminPlayers ? (
+											<p className="text-sm text-gray-400">Carregando jogadores...</p>
+										) : adminPlayersError ? (
+											<p className="text-sm text-red-300">{adminPlayersError}</p>
+										) : adminPlayers.length === 0 ? (
+											<p className="text-sm text-gray-400">Nenhum jogador encontrado.</p>
+										) : (
+											adminPlayers.map((player) => (
+												<label key={player.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-black/35 px-3 py-2">
+													<input
+														type="checkbox"
+														checked={selectedAdminIdSet.has(player.id)}
+														onChange={() => toggleAdminSelection(player.id)}
+														disabled={!canUseLevel1Preset || managingAdmins}
+														className="h-4 w-4 rounded border-white/30 bg-transparent text-gold"
+													/>
+													<img
+														src={player.avatar || DEFAULT_AVATAR}
+														alt={player.nickname || "Player"}
+														className="h-9 w-9 rounded-full border border-white/10 object-cover"
+														loading="lazy"
+													/>
+													<div className="min-w-0 flex-1">
+														<div className="flex items-center gap-2">
+															<p className="truncate text-sm font-bold text-white">{player.nickname || "Sem nickname"}</p>
+															{player.is_admin && (
+																<span className="rounded border border-emerald-400/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-300">
+																Admin
+															</span>
+															)}
+														</div>
+														<p className="truncate text-xs text-gray-400">SteamID: {player.steamid || "sera sincronizado via FACEIT"}</p>
+													</div>
+												</label>
+											))
+										)}
+									</div>
+
+									<div className="flex flex-wrap items-center gap-3">
+										<button
+											type="button"
+											onClick={() => {
+												void submitAdminAction("admin-add");
+											}}
+											disabled={!canUseLevel1Preset || managingAdmins || selectedAdminPlayerIds.length === 0}
+											className="inline-flex items-center justify-center rounded-xl bg-gold px-5 py-3 text-sm font-bold text-black transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-60"
+										>
+											{managingAdmins ? "Processando..." : "Colocar Admin"}
+										</button>
+										<button
+											type="button"
+											onClick={() => {
+												void submitAdminAction("admin-remove");
+											}}
+											disabled={!canUseLevel1Preset || managingAdmins || selectedAdminPlayerIds.length === 0}
+											className="inline-flex items-center justify-center rounded-xl border border-gold bg-transparent px-5 py-3 text-sm font-bold text-gold transition hover:bg-gold/10 disabled:cursor-not-allowed disabled:opacity-60"
+										>
+											{managingAdmins ? "Processando..." : "Remover Admin"}
+										</button>
+										<span className="text-xs text-gray-400">Selecionados: {selectedAdminPlayerIds.length}</span>
+									</div>
+
+									{!!adminManageMessage && (
+										<p className="mt-3 text-sm text-gray-300">{adminManageMessage}</p>
+									)}
+								</div>
+								)}
+							</div>
+						</PremiumCard>
+						</div>
+
+						<div id="console-servidor" className="scroll-mt-28">
+						<PremiumCard className="border-gold/20 bg-[#08111b]/95">
+							<div className="p-6 md:p-7">
+								<div className="flex flex-wrap items-center justify-between gap-3">
+									<h2 className="flex items-center gap-2 text-2xl font-black text-white">
+										<TerminalSquare className="h-6 w-6 text-gold" />
+										Console ao vivo
+									</h2>
+							
+
+									<div className="flex flex-wrap gap-2">
+										<button
+											type="button"
+											onClick={() => {
+												void fetchConsole();
+											}}
+											className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20"
+											disabled={false}
+										>
+											<RefreshCw className="h-4 w-4" /> Atualizar
+										</button>
+																				<button
+											type="button"
+											onClick={() => setShowCommandsModal(true)}
+											className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20"
+										>
+											Comandos
+										</button>
+										<button
+											type="button"
+											onClick={() => {
+												if (!canSendConsoleCommands) return;
+												void (async () => {
+													const ok = await postConsoleCommand("status");
+													if (ok) {
+														window.setTimeout(() => {
+															void fetchConsole();
+														}, 700);
+													}
+												})();
+											}}
+											className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20"
+											disabled={!canSendConsoleCommands}
+										>
+											Status
+										</button>
+										<button
+											type="button"
+											onClick={() => setAutoScrollToBottom((prev) => !prev)}
+											className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20"
+											disabled={false}
+										>
+											Auto-scroll: {autoScrollToBottom ? "ON" : "OFF"}
+										</button>
+									</div>
+								</div>
+
+								<p className="mt-2 text-sm text-gray-400">
+									Atualizado em: <span className="font-semibold text-gray-300">{lastConsoleRefresh || "-"}</span>
+								</p>
+								<p className="mt-1 text-xs text-gray-500">
+									Ultimo comando status: <span className="font-semibold text-gray-400">{lastStatusCommandAt || "-"}</span>
+								</p>
+
+								<div className="mt-5 rounded-2xl border border-white/10 bg-black/70 p-4">
+									{loadingConsole ? (
+										<p className="text-sm text-gray-400">Carregando console...</p>
+									) : consoleError ? (
+										<div className="flex items-start gap-2 text-sm text-red-300">
+											<AlertTriangle className="mt-0.5 h-4 w-4" />
+											<p>{consoleError}</p>
+										</div>
+									) : (
+										<pre ref={consoleRef} className="max-h-[460px] overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-gray-200">
+											{consoleLines.length > 0 ? consoleLines.join("\n") : "Console sem linhas no momento."}
+										</pre>
+									)}
+								</div>
+
+								<form onSubmit={sendConsoleCommand} className="mt-5 grid gap-3 md:grid-cols-[1fr_auto]">
+									<input
+										type="text"
+										value={consoleCommand}
+										onChange={(event) => setConsoleCommand(event.target.value)}
+										placeholder="Ex: status, changelevel, sv_cheats 0"
+										className="w-full rounded-xl border border-white/15 bg-[#0f1823] px-4 py-3 text-sm text-white outline-none transition focus:border-gold/50"
+										disabled={!canSendConsoleCommands}
+									/>
+
+									<button
+										type="submit"
+										disabled={!canSendConsoleCommands || sendingCommand || !consoleCommand.trim()}
+										className="inline-flex items-center justify-center gap-2 rounded-xl bg-gold px-5 py-3 text-sm font-bold text-black transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-60"
+									>
+										<Send className="h-4 w-4" />
+										{sendingCommand ? "Enviando..." : "Enviar comando"}
+									</button>
+								</form>
+
+								<p className="mt-3 text-xs text-gray-500">
+									Permissao de comandos no console: niveis 1 a 5.
+								</p>
+							</div>
+						</PremiumCard>
+						</div>
+
+						{showCommandsModal && (
+							<div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4">
+								<div className="w-full max-w-5xl rounded-2xl border border-gold/30 bg-[#08111b] shadow-2xl">
+									<div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+										<h3 className="text-lg font-black uppercase text-white">Lista de comandos</h3>
+										<button
+											type="button"
+											onClick={() => setShowCommandsModal(false)}
+											className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-bold uppercase text-gray-200 transition hover:bg-white/10"
+										>
+											Fechar
+										</button>
+									</div>
+
+									<div className="grid max-h-[74vh] gap-6 overflow-y-auto p-5 md:grid-cols-2">
+										<div className="rounded-xl border border-white/10 bg-black/35 p-4">
+											<p className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gold">Comandos in-game</p>
+											<div className="space-y-2">
+												{IN_GAME_LEVEL_1_TO_5_COMMANDS.map((item, index) => (
+													<div key={`ingame-${index}`} className="rounded-lg border border-white/10 bg-[#0d1624] px-3 py-2">
+														<p className="font-mono text-xs text-white">{item.command}</p>
+														<p className="mt-1 text-xs text-gray-400">{item.description}</p>
+													</div>
+												))}
+											</div>
+										</div>
+
+										<div className="rounded-xl border border-white/10 bg-black/35 p-4">
+											<p className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-gold">Comandos console</p>
+											<div className="mb-3 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs text-gold">
+												Use no console: <span className="font-mono font-bold">css_comando</span>
+											</div>
+											<div className="space-y-2">
+												{CONSOLE_LEVEL_1_TO_5_COMMANDS.map((item, index) => (
+													<div key={`console-${index}`} className="rounded-lg border border-white/10 bg-[#0d1624] px-3 py-2">
+														<div className="flex flex-wrap items-center justify-between gap-2">
+															<p className="font-mono text-xs text-white">{item.command}</p>
+															<span className="rounded border border-gold/40 bg-gold/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-gold">
+																{item.console}
+															</span>
+														</div>
+														<p className="mt-1 text-xs text-gray-400">{item.description}</p>
+													</div>
+												))}
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						)}
+
+						<div id="logs-comandos" className="scroll-mt-28">
+						<PremiumCard className="border-gold/20 bg-[#08111b]/95">
+							<div className="p-6 md:p-7">
+								<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+									<h2 className="flex items-center gap-2 text-2xl font-black text-white">
+										<TerminalSquare className="h-6 w-6 text-gold" />
+										Logs de comandos
+									</h2>
+									<button
+										type="button"
+										onClick={() => {
+											void fetchCommandLogs("initial");
+										}}
+										className="inline-flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold transition hover:bg-gold/20"
+									>
+										<RefreshCw className="h-4 w-4" /> Recarregar
+									</button>
+								</div>
+
+								<p className="mb-4 text-sm text-gray-400">
+									Atualizado em: <span className="font-semibold text-gray-300">{lastLogsRefresh || "-"}</span>
+								</p>
+
+								<div
+									ref={logsListRef}
+									onScroll={onLogsScroll}
+									className="max-h-[420px] space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/70 p-4"
+								>
+									{loadingCommandLogs ? (
+										<p className="text-sm text-gray-400">Carregando logs...</p>
+									) : commandLogsError ? (
+										<div className="flex items-start gap-2 text-sm text-red-300">
+											<AlertTriangle className="mt-0.5 h-4 w-4" />
+											<p>{commandLogsError}</p>
+										</div>
+									) : commandLogs.length === 0 ? (
+										<p className="text-sm text-gray-400">Nenhum comando registrado ainda.</p>
+									) : (
+										commandLogs.map((entry) => (
+											<div key={entry.id} className="rounded-xl border border-white/10 bg-[#0b1320] p-3">
+												<div className="flex items-start gap-3">
+													<img
+														src={entry.avatar || DEFAULT_AVATAR}
+														alt={entry.usuario}
+														className="h-10 w-10 rounded-full border border-white/10 object-cover"
+														loading="lazy"
+													/>
+													<div className="min-w-0 flex-1">
+														<div className="flex flex-wrap items-center justify-between gap-2">
+																<p className="text-sm font-bold text-white break-all">{entry.nickname ? `${entry.nickname} - ${entry.usuario}` : entry.usuario}</p>
+															<p className="text-xs text-gray-400">{entry.data} as {entry.hora}</p>
+														</div>
+														<p className="mt-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs text-gray-200 break-all">
+															{entry.comando}
+														</p>
+													</div>
+												</div>
+											</div>
+										))
+									)}
+
+									{loadingNewerLogs && <p className="text-xs text-gray-500">Carregando logs mais novos...</p>}
+									{loadingOlderLogs && <p className="text-xs text-gray-500">Carregando logs mais antigos...</p>}
+								</div>
+
+							</div>
+						</PremiumCard>
+						</div>
+					</div>
+					</div>
+
+					<aside className="fixed right-10 top-1/2 z-[75] hidden w-[260px] -translate-y-1/2 xl:block 2xl:right-16">
+						<PremiumCard className="border-white/15 bg-[#0b1320]/90 shadow-[0_16px_40px_rgba(0,0,0,0.45)] backdrop-blur-md">
+							<div className="p-4">
+								<p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gold/85">Navegacao rapida</p>
+								<p className="mt-1 text-xs text-zinc-400">Acesse cada bloco desta pagina.</p>
+								<div className="mt-3 space-y-2">
+									{SERVER_PAGE_SECTIONS.map((section, index) => {
+										const isActive = activeSectionId === section.id;
+										return (
+											<button
+												key={section.id}
+												type="button"
+												onClick={() => scrollToSection(section.id)}
+												className={`group flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.08em] transition ${
+													isActive
+														? "border-gold/60 bg-gold/15 text-gold"
+														: "border-white/15 bg-black/30 text-zinc-200 hover:border-gold/40 hover:text-gold"
+												}`}
+											>
+												<span className="truncate">{section.label}</span>
+												<span className={`rounded-md border px-2 py-0.5 text-[10px] ${isActive ? "border-gold/50 bg-gold/15 text-gold" : "border-white/20 text-zinc-400 group-hover:border-gold/30 group-hover:text-gold"}`}>
+													{index + 1}
+												</span>
+											</button>
+										);
+									})}
+								</div>
+							</div>
+						</PremiumCard>
+					</aside>
+				</section>
+			</main>
+		</PageAccessGate>
+	);
+}
