@@ -518,7 +518,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 				)}
 				{hasTop90Stats && (
 					<div className="absolute top-2 left-2 rounded-md border border-zinc-500/60 bg-zinc-900/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-zinc-200">
-						Top90
+                        Ja participou
 					</div>
 				)}
 				<div className="relative mb-2 w-20 h-20 rounded-full border-2 border-white shadow overflow-hidden">
