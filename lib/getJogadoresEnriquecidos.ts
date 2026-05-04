@@ -1,4 +1,5 @@
 import { createJogadoresConnection, createMainConnection } from '@/lib/db';
+import type { Env } from '@/lib/db';
 
 const FACEIT_API_BASE = 'https://open.faceit.com/data/v4';
 const FALLBACK_FACEIT_API_KEY = '7b080715-fe0b-461d-a1f1-62cfd0c47e63';
@@ -55,12 +56,12 @@ async function fetchFaceitProfile(params: { guid?: string; nickname?: string }) 
   return null;
 }
 
-export async function getJogadoresEnriquecidos() {
-  const connJogadores = await createJogadoresConnection({});
+export async function getJogadoresEnriquecidos(env: Env) {
+  const connJogadores = await createJogadoresConnection(env);
   const [jogadores] = await connJogadores.query('SELECT * FROM jogadores');
   await connJogadores.end();
 
-  const connMain = await createMainConnection({});
+  const connMain = await createMainConnection(env);
   const [players] = await connMain.query('SELECT * FROM players');
   await connMain.end();
 
