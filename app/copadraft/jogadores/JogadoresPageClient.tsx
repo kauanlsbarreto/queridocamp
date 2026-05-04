@@ -165,6 +165,10 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	});
 	const [raffleLoading, setRaffleLoading] = useState(false);
 	const [resettingAllData, setResettingAllData] = useState(false);
+	const [top90Modal, setTop90Modal] = useState<{ open: boolean; jogador: any | null }>({
+		open: false,
+		jogador: null,
+	});
 
 	const admin = isAdmin(user);
 
@@ -484,21 +488,38 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		const savingPote = Boolean(savingPoteById[jogadorId]);
 		const removingPote = Boolean(removingPoteById[jogadorId]);
 		const removingFromTime = Boolean(removingFromTimeById[jogadorId]);
+		const hasTop90Stats = Boolean(jogador?.top90Stats);
 
-		const borderColor = 'border-gray-400';
+		const borderColor = hasTop90Stats ? 'border-zinc-700' : 'border-gray-400';
+		const bgColor = hasTop90Stats ? 'bg-[#060c14]' : 'bg-white/10';
 
 		// Cor de fundo e borda fixa, tamanho da foto padronizado
 		return (
-			<div className={`relative bg-white/10 border-2 ${borderColor} rounded-xl shadow-xl p-4 flex flex-col items-center gap-3 transition-transform hover:scale-105`}>
+			<div
+				onClick={() => {
+					if (!hasTop90Stats) return;
+					setTop90Modal({ open: true, jogador });
+				}}
+				className={`relative ${bgColor} border-2 ${borderColor} rounded-xl shadow-xl p-4 flex flex-col items-center gap-3 transition-transform hover:scale-105 ${hasTop90Stats ? 'cursor-pointer' : ''}`}
+				title={hasTop90Stats ? 'Clique para ver estatisticas' : undefined}
+			>
 				{podeRemoverDoTime && admin && (
 					<button
 						type="button"
-						onClick={() => handleRemoveFromTime(jogadorId)}
+						onClick={(e) => {
+							e.stopPropagation();
+							handleRemoveFromTime(jogadorId);
+						}}
 						disabled={removingFromTime}
 						className="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center text-sm font-bold transition disabled:opacity-60"
 					>
 						{removingFromTime ? '...' : '✕'}
 					</button>
+				)}
+				{hasTop90Stats && (
+					<div className="absolute top-2 left-2 rounded-md border border-zinc-500/60 bg-zinc-900/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-zinc-200">
+						Top90
+					</div>
 				)}
 				<div className="relative mb-2 w-20 h-20 rounded-full border-2 border-white shadow overflow-hidden">
 					<Image src={jogador.faceit_image || '/images/cs2-player.png'} fill alt={jogador.nick} className="object-cover" />
@@ -525,13 +546,13 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 				</div>
 				   <div className="flex gap-2 mt-1">
 					   {jogador.linkgc && (
-						   <Link href={jogador.linkgc} className="px-2 py-1 bg-gradient-to-r from-blue-700 to-blue-400 rounded-full shadow hover:from-blue-800 hover:to-blue-500 transition flex items-center" target="_blank">
+						   <Link onClick={(e) => e.stopPropagation()} href={jogador.linkgc} className="px-2 py-1 bg-gradient-to-r from-blue-700 to-blue-400 rounded-full shadow hover:from-blue-800 hover:to-blue-500 transition flex items-center" target="_blank">
 							   <Image src="/gc.png" alt="GC" width={28} height={28} className="inline-block" />
 						   </Link>
 					   )}
 					   {jogador.faceit_guid && (
 						   <>
-							   <Link href={`https://www.faceit.com/en/players/${jogador.nick}`} className="px-2 py-1 bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full shadow hover:from-orange-600 hover:to-yellow-500 transition flex items-center" target="_blank">
+							   <Link onClick={(e) => e.stopPropagation()} href={`https://www.faceit.com/en/players/${jogador.nick}`} className="px-2 py-1 bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full shadow hover:from-orange-600 hover:to-yellow-500 transition flex items-center" target="_blank">
 								   <Image src="/images/faceit.png" alt="Faceit" width={28} height={28} className="inline-block" />
 							   </Link>
 							   {admin && (
@@ -539,7 +560,8 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 									   type="button"
 									   className="px-2 py-1 bg-gradient-to-r from-zinc-700 to-zinc-500 rounded-full shadow text-xs text-white hover:from-zinc-800 hover:to-zinc-600 transition flex items-center gap-1"
 									   style={{ minWidth: 0 }}
-									   onClick={() => {
+									   onClick={(e) => {
+										   e.stopPropagation();
 										   if (navigator?.clipboard) {
 											   navigator.clipboard.writeText(jogador.faceit_guid);
 										   }
@@ -559,6 +581,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 							value={currentPote || ''}
 							disabled={savingPote || removingPote}
 							onChange={(e) => {
+								e.stopPropagation();
 								const nextPote = Number(e.target.value);
 								if (!nextPote || nextPote === currentPote) return;
 								handleSetPote(jogadorId, nextPote);
@@ -572,7 +595,10 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 						{currentPote && (
 							<button
 								type="button"
-								onClick={() => handleRemoveFromPote(jogadorId)}
+								onClick={(e) => {
+									e.stopPropagation();
+									handleRemoveFromPote(jogadorId);
+								}}
 								disabled={removingPote || savingPote}
 								className="w-full rounded-lg border border-red-400/60 bg-red-500/20 text-red-200 text-sm font-semibold px-3 py-2 hover:bg-red-500/30 transition disabled:opacity-60"
 							>
@@ -674,11 +700,11 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 								return (
 									<div key={j.id} className="relative">
 										<JogadorCard jogador={j} />
-										<div className="absolute top-0 left-0 right-0 flex gap-2 p-2">
+										<div className="absolute top-0 left-0 right-0 flex flex-col gap-2 p-2">
 											<select
 												className="flex-1 rounded-md border border-gold/30 bg-[#101826] text-white text-xs px-2 py-1 outline-none focus:border-gold"
 												value={pote}
-												disabled={savingPoteById[Number(j.id)]}
+												disabled={savingPoteById[Number(j.id)] || removingPoteById[Number(j.id)]}
 												onChange={(e) => {
 													const nextPote = Number(e.target.value);
 													if (nextPote === pote) return;
@@ -689,6 +715,14 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 													<option key={p} value={p}>Pote {p}</option>
 												))}
 											</select>
+											<button
+												type="button"
+												onClick={() => handleRemoveFromPote(Number(j.id))}
+												disabled={savingPoteById[Number(j.id)] || removingPoteById[Number(j.id)]}
+												className="rounded-md border border-red-400/60 bg-red-500/20 text-red-200 text-[11px] font-semibold px-2 py-1 hover:bg-red-500/30 transition disabled:opacity-60"
+											>
+												{removingPoteById[Number(j.id)] ? 'Removendo...' : 'Sem pote'}
+											</button>
 										</div>
 									</div>
 								);
@@ -882,6 +916,41 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		);
 	}
 
+	function Top90StatsModal() {
+		if (!top90Modal.open || !top90Modal.jogador?.top90Stats) return null;
+
+		const stats = top90Modal.jogador.top90Stats;
+		const items = [
+			{ label: 'K/D', value: Number(stats.kd || 0).toFixed(2) },
+			{ label: 'K/R', value: Number(stats.kr || 0).toFixed(2) },
+			{ label: 'Kills', value: String(Math.trunc(Number(stats.k || 0))) },
+			{ label: 'Mortes', value: String(Math.trunc(Number(stats.d || 0))) },
+		];
+
+		return (
+			<div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setTop90Modal({ open: false, jogador: null })}>
+				<div className="w-full max-w-md rounded-2xl border border-zinc-500/40 bg-[#0A0F17] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.55)]" onClick={(e) => e.stopPropagation()}>
+					<div className="flex items-center justify-between mb-4">
+						<div>
+							<div className="text-lg font-black text-white">Estatisticas Top90</div>
+							<div className="text-xs text-zinc-300 mt-1">{top90Modal.jogador.nick}</div>
+						</div>
+						<button onClick={() => setTop90Modal({ open: false, jogador: null })} className="text-zinc-400 hover:text-white text-xl">✕</button>
+					</div>
+
+					<div className="grid grid-cols-2 gap-3">
+						{items.map((item) => (
+							<div key={item.label} className="rounded-xl border border-zinc-700/80 bg-zinc-900/70 p-3">
+								<div className="text-[11px] uppercase tracking-[0.12em] text-zinc-400">{item.label}</div>
+								<div className="mt-1 text-xl font-black text-white">{item.value}</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className="max-w-6xl mx-auto px-4 py-8 md:py-10">
 			<div className="mb-6 md:mb-8">
@@ -971,6 +1040,8 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 					</div>
 				</div>
 			)}
+
+			<Top90StatsModal />
 
 			<PlayerSelectorModal />
 			<RafflePoteModal />

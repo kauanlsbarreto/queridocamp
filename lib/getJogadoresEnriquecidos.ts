@@ -10,6 +10,32 @@ type FaceitPlayerPayload = {
   avatar_url?: string;
 };
 
+type Top90Stats = {
+  kd: number;
+  kr: number;
+  k: number;
+  d: number;
+};
+
+function toNumber(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function toInteger(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.trunc(n) : 0;
+}
+
+function normalizeTop90Stats(row: any): Top90Stats {
+  return {
+    kd: toNumber(row?.kd ?? row?.k_d ?? row?.kdr),
+    kr: toNumber(row?.kr ?? row?.k_r),
+    k: toInteger(row?.k ?? row?.kills),
+    d: toInteger(row?.d ?? row?.deaths ?? row?.mortes),
+  };
+}
+
 function getFaceitApiKey() {
   const envKey = typeof process !== 'undefined' ? process.env.FACEIT_API_KEY?.trim() : '';
   return envKey || FALLBACK_FACEIT_API_KEY;
@@ -63,6 +89,15 @@ export async function getJogadoresEnriquecidos(env: Env) {
 
   const connMain = await createMainConnection(env);
   const [players] = await connMain.query('SELECT * FROM players');
+
+  let top90Rows: any[] = [];
+  try {
+    const [rows] = await connMain.query('SELECT * FROM top90_stats');
+    top90Rows = Array.isArray(rows) ? rows : [];
+  } catch {
+    top90Rows = [];
+  }
+
   await connMain.end();
 
   const jogadoresArr: any[] = Array.isArray(jogadores) ? jogadores : [];
@@ -71,6 +106,18 @@ export async function getJogadoresEnriquecidos(env: Env) {
   const playersMap = new Map();
   for (const p of playersArr) {
     if (p.faceit_guid) playersMap.set(String(p.faceit_guid).toLowerCase(), p);
+  }
+
+  const top90ByGuid = new Map<string, Top90Stats>();
+  const top90ByNick = new Map<string, Top90Stats>();
+
+  for (const row of top90Rows) {
+    const guid = String(row?.faceit_guild || row?.faceit_guid || '').trim().toLowerCase();
+    const nick = String(row?.nick || row?.nickname || '').trim().toLowerCase();
+    const stats = normalizeTop90Stats(row);
+
+    if (guid) top90ByGuid.set(guid, stats);
+    if (nick) top90ByNick.set(nick, stats);
   }
 
   const faceitFallbackCache = new Map<string, { nickname: string; avatar: string } | null>();
@@ -96,6 +143,8 @@ export async function getJogadoresEnriquecidos(env: Env) {
 
     const resolvedNickname = player?.nickname || fallbackProfile?.nickname || j.nick;
     const resolvedAvatar = player?.avatar || fallbackProfile?.avatar || j.faceit_image;
+    const normalizedNick = String(resolvedNickname || j?.nick || '').trim().toLowerCase();
+    const top90Stats = top90ByGuid.get(guidKey) || top90ByNick.get(normalizedNick) || null;
 
     return {
       ...j,
@@ -103,6 +152,7 @@ export async function getJogadoresEnriquecidos(env: Env) {
       faceit_image: resolvedAvatar,
       nickname: resolvedNickname || null,
       avatar: resolvedAvatar || null,
+      top90Stats,
     };
   });
 
