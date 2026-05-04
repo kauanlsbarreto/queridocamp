@@ -190,12 +190,13 @@ export default function Campeonato() {
                   Não perca a oportunidade de fazer parte do maior campeonato de CS2 de Sergipe. Inscreva-se agora!
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link
-                    href="/regras"
+                  <a
+                    href="/regras.pdf"
+                    download="regras-querido-camp.pdf"
                     className="border-2 border-gold text-gold font-bold py-3 px-8 rounded-md hover:bg-gold/10 transition-colors transform hover:scale-105 duration-200 shadow-lg shadow-gold/10"
                   >
                     Ver Regras
-                  </Link>
+                  </a>
                   <Link
                     href="/inscricao"
                     className="bg-gold text-black font-bold py-3 px-8 rounded-md hover:bg-gold/80 transition-colors transform hover:scale-105 duration-200 shadow-lg shadow-gold/20"

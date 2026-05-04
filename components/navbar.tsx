@@ -143,7 +143,13 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
             <div className="flex space-x-1 items-center glass-gold rounded-2xl px-6 py-2">
               <NavLink href="/">Home</NavLink>
               <NavLink href="/galeria">Galeria</NavLink>
-              <NavLink href="/regras">Regras</NavLink>
+              <a
+                href="/regras.pdf"
+                download="regras-querido-camp.pdf"
+                className="text-white/80 hover:text-gold px-3 py-2 rounded-xl transition-colors whitespace-nowrap text-sm xl:text-base"
+              >
+                Regras
+              </a>
               <NavLink href="/campeonato">Campeonato</NavLink>
               <NavLink href="/loja">Loja</NavLink>
               <NavLink href="/players">Jogadores</NavLink>
@@ -209,7 +215,13 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
           >
             <NavLink href="/">Home</NavLink>
             <NavLink href="/galeria">Galeria</NavLink>
-            <NavLink href="/regras">Regras</NavLink>
+            <a
+              href="/regras.pdf"
+              download="regras-querido-camp.pdf"
+              className="text-white/80 hover:text-gold px-3 py-2 rounded-xl transition-colors whitespace-nowrap text-sm xl:text-base"
+            >
+              Regras
+            </a>
             <NavLink href="/campeonato">Campeonato</NavLink>
             <NavLink href="/loja">Loja</NavLink>
             <NavLink href="/players">Jogadores</NavLink>

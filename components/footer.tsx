@@ -48,7 +48,11 @@ const Footer = () => {
             <ul className="space-y-3">
               <FooterLink href="/">Home</FooterLink>
               <FooterLink href="/galeria">Galeria</FooterLink>
-              <FooterLink href="/regras">Regras</FooterLink>
+              <li>
+                <a href="/regras.pdf" download="regras-querido-camp.pdf" className="text-gray-300 hover:text-gold transition-colors">
+                  Regras
+                </a>
+              </li>
               <FooterLink href="/campeonato">Campeonato</FooterLink>
               <FooterLink href="/premiacao">Premiação</FooterLink>
             </ul>

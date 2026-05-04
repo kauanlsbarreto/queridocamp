@@ -15,6 +15,20 @@ export default function Regras() {
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto space-y-12">
+            <PremiumCard hoverEffect={false}>
+              <div className="p-6 md:p-8 text-center">
+                <h2 className="text-2xl font-bold text-gold mb-3">Baixar Regras em PDF</h2>
+                <p className="text-white/80 mb-6">Prefere ler offline? Baixe o documento oficial das regras do campeonato.</p>
+                <a
+                  href="/regras.pdf"
+                  download="regras-querido-camp.pdf"
+                  className="bg-gold text-black font-bold py-3 px-8 rounded-md hover:bg-gold/80 transition-colors inline-block transform hover:scale-105 duration-200 shadow-lg shadow-gold/20"
+                >
+                  Baixar Regras
+                </a>
+              </div>
+            </PremiumCard>
+
             <RuleSection number="1" title="Integridade e Conduta">
               <RuleItem title="Proibição de Cheats e Scripts Ilegais:">
                 É estritamente proibido o uso de qualquer tipo de trapaça, incluindo, mas não se limitando a: wallhack,
