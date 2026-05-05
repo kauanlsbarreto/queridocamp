@@ -2,6 +2,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
+import { formatCountdownUnit, usePotesReleaseCountdown } from './contagem';
 
 const faceitLevelCache = new Map<string, number | null>();
 const FACEIT_API_BASE = 'https://open.faceit.com/data/v4';
@@ -171,6 +172,9 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	});
 
 	const admin = isAdmin(user);
+	const { isReleased: potesReleased, countdown: potesCountdown, releaseText: potesReleaseText } = usePotesReleaseCountdown();
+	const canSeeAdminTabs = admin;
+	const canSeePotesTab = admin || potesReleased;
 
 	useEffect(() => {
 		try {
@@ -182,6 +186,19 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	useEffect(() => {
 		setJogadoresState(jogadores);
 	}, [jogadores]);
+
+	useEffect(() => {
+		if (!canSeeAdminTabs && (tab === 'escolher' || tab === 'times')) {
+			if (canSeePotesTab) {
+				setTab('potes');
+			}
+			return;
+		}
+
+		if (tab === 'potes' && !canSeePotesTab) {
+			setTab('times');
+		}
+	}, [tab, canSeeAdminTabs, canSeePotesTab]);
 
 	useEffect(() => {
 		async function fetchAllFaceitLevels() {
@@ -471,11 +488,14 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	const potes = groupByPote(jogadoresState);
 	const times = groupByTime(jogadoresState);
 	const jogadoresSemPote = jogadoresState.filter((j: any) => !j.pote);
-	const tabOptions: Array<{ key: 'escolher' | 'times' | 'potes'; label: string }> = [
-		{ key: 'escolher', label: 'Escolher Pote' },
-		{ key: 'times', label: 'Times' },
-		{ key: 'potes', label: 'Potes' },
-	];
+	const tabOptions: Array<{ key: 'escolher' | 'times' | 'potes'; label: string }> = [];
+	if (canSeeAdminTabs) {
+		tabOptions.push({ key: 'escolher', label: 'Escolher Pote' });
+		tabOptions.push({ key: 'times', label: 'Times' });
+	}
+	if (canSeePotesTab) {
+		tabOptions.push({ key: 'potes', label: 'Potes' });
+	}
 
 	function JogadorCard({ jogador, podeEscolherPote = false, podeRemoverDoTime = false }: { jogador: any, podeEscolherPote?: boolean, podeRemoverDoTime?: boolean }) {
 		const jogadorId = Number(jogador.id);
@@ -489,10 +509,11 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		const removingPote = Boolean(removingPoteById[jogadorId]);
 		const removingFromTime = Boolean(removingFromTimeById[jogadorId]);
 		const hasTop90Stats = Boolean(jogador?.top90Stats);
-		const canOpenStatsModal = hasTop90Stats;
+		const showTop90Visuals = admin && hasTop90Stats;
+		const canOpenStatsModal = showTop90Visuals;
 
-		const borderColor = hasTop90Stats ? 'border-zinc-700' : 'border-gray-400';
-		const bgColor = hasTop90Stats ? 'bg-[#060c14]' : 'bg-white/10';
+		const borderColor = showTop90Visuals ? 'border-zinc-700' : 'border-gray-400';
+		const bgColor = showTop90Visuals ? 'bg-[#060c14]' : 'bg-white/10';
 
 		// Cor de fundo e borda fixa, tamanho da foto padronizado
 		return (
@@ -512,7 +533,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 						{removingFromTime ? '...' : '✕'}
 					</button>
 				)}
-				{hasTop90Stats && (
+				{showTop90Visuals && (
 					<div className="absolute top-2 left-2 rounded-md border border-zinc-500/60 bg-zinc-900/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-zinc-200">
                         Ja participou
 					</div>
@@ -628,6 +649,17 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		if (capitoes.length === 0) return <div className="text-zinc-400">Nenhum time criado ainda.</div>;
 		return (
 			<div className="flex flex-col gap-6">
+				{admin && (
+					<div className="flex justify-end">
+						<button
+							type="button"
+							onClick={() => setRafflePoteModal({ open: true, selectedPote: null })}
+							className="rounded-md border border-blue-400/60 bg-blue-500/20 text-blue-200 text-xs font-semibold px-3 py-2 hover:bg-blue-500/30 transition"
+						>
+							Sortear Pote
+						</button>
+					</div>
+				)}
 				{capitoes.map((capitao: any) => {
 					const isRestoring = Boolean(restoringTimeByCapitao[Number(capitao.id)]);
 					const time = jogadoresState.filter((j: any) => j.timeid === capitao.id || j.id === capitao.id);
@@ -642,13 +674,6 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 								<div className="flex items-center gap-2">
 									{admin && (
 										<>
-											<button
-												type="button"
-												onClick={() => setRafflePoteModal({ open: true, selectedPote: null })}
-												className="rounded-md border border-blue-400/60 bg-blue-500/20 text-blue-200 text-xs font-semibold px-2 py-1 hover:bg-blue-500/30 transition"
-											>
-												Sortear Pote
-											</button>
 											<button
 												type="button"
 												onClick={() => handleRestoreTime(Number(capitao.id))}
@@ -928,7 +953,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}
 
 	function Top90StatsModal() {
-		if (!top90Modal.open || !top90Modal.jogador?.top90Stats) return null;
+		if (!admin || !top90Modal.open || !top90Modal.jogador?.top90Stats) return null;
 
 		const stats = top90Modal.jogador.top90Stats;
 		const items = [
@@ -968,32 +993,73 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 				<h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">Copa Draft - {jogadoresState.length} Jogadores</h1>
 			</div>
 
-			<div className="rounded-2xl border border-white/10 bg-[#08111B]/80 backdrop-blur-sm p-2 mb-6 shadow-[0_12px_30px_rgba(0,0,0,0.35)]">
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-					{tabOptions.map((option) => {
-						const active = tab === option.key;
-						return (
-							<button
-								key={option.key}
-								onClick={() => setTab(option.key)}
-								className={`rounded-xl px-4 py-3 text-left transition-all duration-200 border ${
-									active
-										? 'bg-gradient-to-r from-gold to-gold-dark text-black border-transparent shadow-[0_8px_20px_rgba(236,161,73,0.45)]'
-										: 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-gold/30'
-								}`}
-							>
-								<div className="font-bold text-sm md:text-base">{option.label}</div>
-							</button>
-						);
-					})}
-				</div>
-			</div>
+			{!canSeeAdminTabs && !canSeePotesTab && (
+				<div className="mb-6 relative overflow-hidden rounded-2xl border border-gold/30 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black p-1 shadow-[0_0_40px_rgba(250,204,21,0.15)]">
+					<div className="relative rounded-2xl border border-white/10 bg-black/70 p-6 md:p-8">
+						<div className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-gold/20 blur-3xl" />
+						<div className="pointer-events-none absolute -bottom-20 -right-10 h-52 w-52 rounded-full bg-amber-500/15 blur-3xl" />
 
-			<div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0A111A] to-[#0E1825] p-4 md:p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
-				{tab === 'escolher' && <EscolherPoteSection />}
-				{tab === 'times' && <TimesSection />}
-				{tab === 'potes' && <PotesSection />}
-			</div>
+						<div className="relative z-10 text-center">
+							<h2 className="mt-2 text-2xl font-black uppercase text-white md:text-3xl">Potes bloqueado</h2>
+							<p className="mx-auto mt-3 max-w-2xl text-sm text-zinc-300 md:text-base">
+								A aba de potes sera liberada para todos na data abaixo.
+							</p>
+							<p className="mt-3 text-sm font-semibold text-gold">Liberação geral: {potesReleaseText} (Brasilia)</p>
+
+							<div className="mx-auto mt-6 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
+								<div className="rounded-xl border border-gold/20 bg-white/5 p-4">
+									<p className="text-3xl font-black text-gold">{formatCountdownUnit(potesCountdown.days)}</p>
+									<p className="mt-1 text-xs uppercase tracking-wider text-zinc-300">Dias</p>
+								</div>
+								<div className="rounded-xl border border-gold/20 bg-white/5 p-4">
+									<p className="text-3xl font-black text-gold">{formatCountdownUnit(potesCountdown.hours)}</p>
+									<p className="mt-1 text-xs uppercase tracking-wider text-zinc-300">Horas</p>
+								</div>
+								<div className="rounded-xl border border-gold/20 bg-white/5 p-4">
+									<p className="text-3xl font-black text-gold">{formatCountdownUnit(potesCountdown.minutes)}</p>
+									<p className="mt-1 text-xs uppercase tracking-wider text-zinc-300">Min</p>
+								</div>
+								<div className="rounded-xl border border-gold/20 bg-white/5 p-4">
+									<p className="text-3xl font-black text-gold">{formatCountdownUnit(potesCountdown.seconds)}</p>
+									<p className="mt-1 text-xs uppercase tracking-wider text-zinc-300">Seg</p>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{tabOptions.length > 0 && (
+				<>
+
+					<div className="rounded-2xl border border-white/10 bg-[#08111B]/80 backdrop-blur-sm p-2 mb-6 shadow-[0_12px_30px_rgba(0,0,0,0.35)]">
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+							{tabOptions.map((option) => {
+								const active = tab === option.key;
+								return (
+									<button
+										key={option.key}
+										onClick={() => setTab(option.key)}
+										className={`rounded-xl px-4 py-3 text-left transition-all duration-200 border ${
+											active
+												? 'bg-gradient-to-r from-gold to-gold-dark text-black border-transparent shadow-[0_8px_20px_rgba(236,161,73,0.45)]'
+												: 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-gold/30'
+										}`}
+									>
+										<div className="font-bold text-sm md:text-base">{option.label}</div>
+									</button>
+								);
+							})}
+						</div>
+					</div>
+
+					<div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0A111A] to-[#0E1825] p-4 md:p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
+						{tab === 'escolher' && canSeeAdminTabs && <EscolherPoteSection />}
+						{tab === 'times' && canSeeAdminTabs && <TimesSection />}
+						{tab === 'potes' && canSeePotesTab && <PotesSection />}
+					</div>
+				</>
+			)}
 
 			{pickModal.open && (
 				<div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">

@@ -11,7 +11,7 @@ import PremiumCard from "@/components/premium-card"
 
 export default function Inscricao() {
   return (
-    <PageAccessGate level={2} adminMinLevel={2}>
+    <PageAccessGate level={2} adminMinLevel={1}>
       <InscricaoForm />
     </PageAccessGate>
   );
