@@ -173,6 +173,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
                 </button>
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#060D15]/95 backdrop-blur-xl border border-gold/20 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top flex flex-col p-4 text-center">
                   <DropdownLink href="/copadraft/inscricao">Inscrição</DropdownLink>
+                  <DropdownLink href="/copadraft/jogadores">Potes</DropdownLink>
                 </div>
               </div>
             </div>
@@ -240,6 +241,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
               <p className="px-2 text-xs font-bold text-gold uppercase tracking-widest mb-2 text-center">Copa Draft</p>
               <div className="grid grid-cols-1 gap-2">
                 <MobileGridLink href="/copadraft/inscricao">Inscrição</MobileGridLink>
+                <MobileGridLink href="/copadraft/jogadores">Potes</MobileGridLink>
               </div>
             </div>
 
