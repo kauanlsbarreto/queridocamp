@@ -16,6 +16,8 @@ export type LojaProviderType = "CHECKOUT" | "ORDER";
 const PAGBANK_API_BASE_URL =
   (process.env.PAGBANK_API_BASE_URL?.trim() || "https://api.pagseguro.com/").replace(/\/+$/, "");
 
+const PAGBANK_LOG_FILE = "pagbank-logs.txt";
+
 function getPagBankToken() {
   return process.env.TOKEN_PAGSEGURO?.trim() || "";
 }
@@ -68,6 +70,14 @@ export function isFinalStatus(statusRaw: unknown) {
   return ["PAID", "DECLINED", "CANCELED", "EXPIRED", "FAILED"].includes(status);
 }
 
+async function tryAppendPagBankLog(entry: string) {
+  try {
+    const fs = await import("fs");
+    fs.appendFileSync(PAGBANK_LOG_FILE, entry);
+  } catch {
+  }
+}
+
 
 async function pagBankFetch(path: string, init?: RequestInit) {
   const token = getPagBankToken();
@@ -83,17 +93,15 @@ async function pagBankFetch(path: string, init?: RequestInit) {
     headers.set("Content-Type", "application/json");
   }
 
-  const fs = await import('fs');
-  const logFile = 'pagbank-logs.txt';
   if (
     (path === "/orders" && init?.method === "POST") ||
     (path === "/checkouts" && init?.method === "POST")
   ) {
     try {
       const parsedBody = init?.body ? JSON.parse(init.body as string) : undefined;
-      fs.appendFileSync(logFile, `\n[PAGBANK][REQUEST] ${path}\n${JSON.stringify(parsedBody, null, 2)}\n`);
+      await tryAppendPagBankLog(`\n[PAGBANK][REQUEST] ${path}\n${JSON.stringify(parsedBody, null, 2)}\n`);
     } catch (e) {
-      fs.appendFileSync(logFile, `\n[PAGBANK][REQUEST] ${path}\n${init?.body}\n`);
+      await tryAppendPagBankLog(`\n[PAGBANK][REQUEST] ${path}\n${init?.body}\n`);
     }
   }
 
@@ -104,37 +112,29 @@ async function pagBankFetch(path: string, init?: RequestInit) {
 
   const data = await response.json().catch(() => ({}));
 
-  // Log de response para crédito e PIX em arquivo
   if (
     (path === "/orders" && init?.method === "POST") ||
     (path === "/checkouts" && init?.method === "POST")
   ) {
-    fs.appendFileSync(logFile, `\n[PAGBANK][RESPONSE] ${path}\n${JSON.stringify(data, null, 2)}\n`);
+    await tryAppendPagBankLog(`\n[PAGBANK][RESPONSE] ${path}\n${JSON.stringify(data, null, 2)}\n`);
   }
 
   return { response, data };
 }
 
 export async function getOrder(orderId: string) {
-  const fs = await import('fs');
-  const logFile = 'pagbank-logs.txt';
   const path = `/orders/${encodeURIComponent(orderId)}`;
   const result = await pagBankFetch(path, {
     method: "GET",
   });
-  // Só loga se status final
   const status = extractOrderChargeStatus(result.data);
   if (isFinalStatus(status)) {
-    try {
-      fs.appendFileSync(logFile, `\n[PAGBANK][RESPONSE] ${path}\n${JSON.stringify(result.data, null, 2)}\n`);
-    } catch {}
+    await tryAppendPagBankLog(`\n[PAGBANK][RESPONSE] ${path}\n${JSON.stringify(result.data, null, 2)}\n`);
   }
   return result;
 }
 
 export async function getCheckout(checkoutId: string) {
-  const fs = await import('fs');
-  const logFile = 'pagbank-logs.txt';
   const path = `/checkouts/${encodeURIComponent(checkoutId)}`;
   const result = await pagBankFetch(path, {
     method: "GET",
@@ -142,9 +142,7 @@ export async function getCheckout(checkoutId: string) {
 
   const status = extractCheckoutStatus(result.data);
   if (isFinalStatus(status)) {
-    try {
-      fs.appendFileSync(logFile, `\n[PAGBANK][RESPONSE] ${path}\n${JSON.stringify(result.data, null, 2)}\n`);
-    } catch {}
+    await tryAppendPagBankLog(`\n[PAGBANK][RESPONSE] ${path}\n${JSON.stringify(result.data, null, 2)}\n`);
   }
 
   return result;
@@ -181,13 +179,44 @@ export function extractPixData(orderData: any) {
   let qrCodeImageUrl = "";
   let qrCodeText = "";
 
+  const directTextCandidates = [
+    qrCode?.text,
+    qrCode?.emv,
+    qrCode?.payload,
+    qrCode?.code,
+    orderData?.text,
+    orderData?.emv,
+    orderData?.payload,
+  ];
+
+  for (const candidate of directTextCandidates) {
+    const value = String(candidate || "").trim();
+    if (value) {
+      qrCodeText = value;
+      break;
+    }
+  }
+
+  const imageBase64 = String(qrCode?.image_base64 || qrCode?.imageBase64 || "").trim();
+  if (imageBase64) {
+    qrCodeImageUrl = imageBase64.startsWith("data:image")
+      ? imageBase64
+      : `data:image/png;base64,${imageBase64}`;
+  }
+
   for (const link of links) {
+    const rel = String(link?.rel || "").toLowerCase();
     const media = String(link?.media || "").toLowerCase();
     const href = String(link?.href || "");
     if (!href) continue;
 
-    if (media === "image/png") qrCodeImageUrl = href;
-    if (media === "text/plain") qrCodeText = href;
+    if (!qrCodeImageUrl && (media === "image/png" || rel.includes("qr") || /\.png(\?|$)/i.test(href))) {
+      qrCodeImageUrl = href;
+    }
+
+    if (!qrCodeText && media === "text/plain") {
+      qrCodeText = href;
+    }
   }
 
   return {
