@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 
 
 const faceitLevelCache = new Map<string, number | null>();
+const faceitProfileCache = new Map<string, { nickname: string; avatar: string } | null>();
 const FACEIT_API_BASE = 'https://open.faceit.com/data/v4';
 const FACEIT_HEADERS = { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' };
 
@@ -33,6 +34,15 @@ function getLevelImagePath(level: number | null) {
 		return `/faceitlevel/${level}.png`;
 	}
 	return '/faceitlevel/-1.png';
+}
+
+function parseFaceitProfile(payload: any) {
+	const nickname = normalizeText(payload?.nickname);
+	const avatar = normalizeText(payload?.avatar || payload?.avatar_url);
+	return {
+		nickname,
+		avatar,
+	};
 }
 
 async function fetchFaceitJson(url: string, retries = 2) {
@@ -95,6 +105,38 @@ async function fetchFaceitLevel(guid: unknown, nick: unknown): Promise<number | 
 				const byResolvedId = await fetchFaceitJson(`${FACEIT_API_BASE}/players/${encodeURIComponent(lookedUpPlayerId)}`);
 				if (byResolvedId.ok) {
 					return parseFaceitLevel(byResolvedId.data);
+				}
+			}
+		}
+	}
+
+	return null;
+}
+
+async function fetchFaceitProfile(guid: unknown, nick: unknown): Promise<{ nickname: string; avatar: string } | null> {
+	const normalizedGuid = normalizeText(guid);
+	const normalizedNick = normalizeText(nick);
+
+	if (normalizedGuid) {
+		const byId = await fetchFaceitJson(`${FACEIT_API_BASE}/players/${encodeURIComponent(normalizedGuid)}`);
+		if (byId.ok) {
+			const profile = parseFaceitProfile(byId.data);
+			if (profile.nickname || profile.avatar) return profile;
+		}
+	}
+
+	if (normalizedNick) {
+		const byNickname = await fetchFaceitJson(`${FACEIT_API_BASE}/players?nickname=${encodeURIComponent(normalizedNick)}`);
+		if (byNickname.ok) {
+			const profile = parseFaceitProfile(byNickname.data);
+			if (profile.nickname || profile.avatar) return profile;
+
+			const lookedUpPlayerId = normalizeText(byNickname.data?.player_id);
+			if (lookedUpPlayerId) {
+				const byResolvedId = await fetchFaceitJson(`${FACEIT_API_BASE}/players/${encodeURIComponent(lookedUpPlayerId)}`);
+				if (byResolvedId.ok) {
+					const resolvedProfile = parseFaceitProfile(byResolvedId.data);
+					if (resolvedProfile.nickname || resolvedProfile.avatar) return resolvedProfile;
 				}
 			}
 		}
@@ -245,6 +287,70 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		}
 
 		fetchAllFaceitLevels();
+	}, [jogadoresState]);
+
+	useEffect(() => {
+		let cancelled = false;
+
+		async function backfillMissingFaceitProfile() {
+			const targets = Array.from(
+				new Map(
+					jogadoresState
+						.map((j: any) => {
+							const guidKey = normalizeText(j.faceit_guid).toLowerCase();
+							if (!guidKey) return null;
+
+							const hasNick = Boolean(normalizeText(j.nick));
+							const hasAvatar = Boolean(normalizeText(j.faceit_image));
+							if (hasNick && hasAvatar) return null;
+
+							return [guidKey, { guidKey, guid: j.faceit_guid, nick: j.nick }];
+						})
+						.filter(Boolean) as Array<[string, { guidKey: string; guid: unknown; nick: unknown }]>
+				).values()
+			);
+
+			if (!targets.length) return;
+
+			const pending = targets.filter((entry) => !faceitProfileCache.has(entry.guidKey));
+			if (pending.length) {
+				const tasks = pending.map((entry) => async () => {
+					const profile = await fetchFaceitProfile(entry.guid, entry.nick);
+					faceitProfileCache.set(entry.guidKey, profile);
+				});
+
+				await runWithConcurrency(tasks, 4);
+			}
+
+			if (cancelled) return;
+
+			setJogadoresState((prev) => prev.map((j: any) => {
+				const guidKey = normalizeText(j.faceit_guid).toLowerCase();
+				if (!guidKey) return j;
+
+				const profile = faceitProfileCache.get(guidKey);
+				if (!profile) return j;
+
+				const currentNick = normalizeText(j.nick);
+				const currentAvatar = normalizeText(j.faceit_image);
+				const nextNick = currentNick || profile.nickname;
+				const nextAvatar = currentAvatar || profile.avatar;
+
+				if (nextNick === currentNick && nextAvatar === currentAvatar) return j;
+
+				return {
+					...j,
+					nick: nextNick || j.nick,
+					faceit_image: nextAvatar || j.faceit_image,
+				};
+			}));
+		}
+
+		backfillMissingFaceitProfile();
+
+		return () => {
+			cancelled = true;
+		};
 	}, [jogadoresState]);
 
 	async function handleSetPote(jogadorId: number, pote: number) {

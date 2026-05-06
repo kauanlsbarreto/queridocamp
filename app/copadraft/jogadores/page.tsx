@@ -11,7 +11,9 @@ export default async function Page() {
 
   try {
     const ctx = await getCloudflareContext({ async: true });
-    jogadores = await getJogadoresEnriquecidos(ctx.env as unknown as Env);
+    jogadores = await getJogadoresEnriquecidos(ctx.env as unknown as Env, {
+      enableServerFaceitFallback: false,
+    });
   } catch (error) {
     // Prevent build-time failures when DB is unreachable in prerender/build context.
     console.error('Erro ao renderizar /copadraft/jogadores:', error);

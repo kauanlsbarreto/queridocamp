@@ -98,7 +98,10 @@ async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, concurrency
   await Promise.all(workers);
 }
 
-export async function getJogadoresEnriquecidos(env: Env) {
+export async function getJogadoresEnriquecidos(
+  env: Env,
+  options?: { enableServerFaceitFallback?: boolean },
+) {
   const connJogadores = await createJogadoresConnection(env);
   const [jogadores] = await connJogadores.query('SELECT * FROM jogadores');
   await connJogadores.end();
@@ -137,7 +140,10 @@ export async function getJogadoresEnriquecidos(env: Env) {
   }
 
   const faceitFallbackCache = new Map<string, { nickname: string; avatar: string } | null>();
-  const enableServerFaceitFallback = (process.env.ENABLE_SERVER_FACEIT_FALLBACK || '').trim() === '1';
+  const enableServerFaceitFallback =
+    typeof options?.enableServerFaceitFallback === 'boolean'
+      ? options.enableServerFaceitFallback
+      : (process.env.ENABLE_SERVER_FACEIT_FALLBACK || '').trim() === '1';
 
   if (enableServerFaceitFallback) {
     const fallbackTasks = jogadoresArr.map((j: any) => async () => {

@@ -43,6 +43,41 @@ type PendingPaymentRow = {
   provider_qr_code_text: string | null;
 };
 
+async function deleteUserPendingPayments(connection: any, faceitGuid: string) {
+  const [rows] = await connection.query(
+    `SELECT id
+     FROM loja_pagamentos
+     WHERE faceit_guid = ?
+       AND status IN ('PENDING', 'WAITING', 'IN_ANALYSIS')`,
+    [faceitGuid],
+  );
+
+  const paymentIds = Array.isArray(rows)
+    ? rows
+        .map((row: any) => Number(row?.id || 0))
+        .filter((id: number) => Number.isFinite(id) && id > 0)
+    : [];
+
+  if (!paymentIds.length) {
+    return { deletedPayments: 0, deletedLogs: 0 };
+  }
+
+  const placeholders = paymentIds.map(() => "?").join(",");
+  const [deleteLogsResult] = await connection.query(
+    `DELETE FROM loja_pagamentos_logs WHERE payment_id IN (${placeholders})`,
+    paymentIds,
+  );
+  const [deletePaymentsResult] = await connection.query(
+    `DELETE FROM loja_pagamentos WHERE id IN (${placeholders})`,
+    paymentIds,
+  );
+
+  return {
+    deletedPayments: Number((deletePaymentsResult as any)?.affectedRows || 0),
+    deletedLogs: Number((deleteLogsResult as any)?.affectedRows || 0),
+  };
+}
+
 function toUtcSqlDateTime(isoString: string) {
   return isoString.slice(0, 19).replace("T", " ");
 }
@@ -324,6 +359,23 @@ export async function POST(request: Request) {
     const item = items[0];
     if (Number(item.estoque || 0) <= 0) {
       return NextResponse.json({ message: "Item sem estoque." }, { status: 400 });
+    }
+
+    if (method === "PIX") {
+      const cleanup = await deleteUserPendingPayments(connection, faceitGuid);
+      if (cleanup.deletedPayments > 0 || cleanup.deletedLogs > 0) {
+        await createPaymentLog(connection, {
+          eventName: "CREATE_PIX_PURGED_USER_PENDING",
+          source: "api-criar",
+          message: "Pendencias anteriores do usuario removidas antes de criar novo PIX.",
+          details: {
+            itemId: item.id,
+            faceitGuid,
+            deletedPayments: cleanup.deletedPayments,
+            deletedLogs: cleanup.deletedLogs,
+          },
+        });
+      }
     }
 
     const [pendingRows] = await connection.query(
