@@ -52,11 +52,14 @@ async function fetchFaceitProfile(params: { guid?: string; nickname?: string }) 
   const headers = { Authorization: `Bearer ${getFaceitApiKey()}` };
   const normalizedGuid = String(params.guid || '').trim();
   const normalizedNick = String(params.nickname || '').trim();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1800);
 
   try {
     if (normalizedGuid) {
-      const byGuidRes = await fetch(`${FACEIT_API_BASE}/players/${encodeURIComponent(normalizedGuid)}`, { headers });
+      const byGuidRes = await fetch(`${FACEIT_API_BASE}/players/${encodeURIComponent(normalizedGuid)}`, { headers, signal: controller.signal });
       if (byGuidRes.ok) {
+        clearTimeout(timeout);
         const byGuid = (await byGuidRes.json()) as FaceitPlayerPayload;
         return {
           nickname: String(byGuid?.nickname || '').trim(),
@@ -66,8 +69,9 @@ async function fetchFaceitProfile(params: { guid?: string; nickname?: string }) 
     }
 
     if (normalizedNick) {
-      const byNickRes = await fetch(`${FACEIT_API_BASE}/players?nickname=${encodeURIComponent(normalizedNick)}`, { headers });
+      const byNickRes = await fetch(`${FACEIT_API_BASE}/players?nickname=${encodeURIComponent(normalizedNick)}`, { headers, signal: controller.signal });
       if (byNickRes.ok) {
+        clearTimeout(timeout);
         const byNick = (await byNickRes.json()) as FaceitPlayerPayload;
         return {
           nickname: String(byNick?.nickname || '').trim(),
@@ -76,10 +80,22 @@ async function fetchFaceitProfile(params: { guid?: string; nickname?: string }) 
       }
     }
   } catch {
+    clearTimeout(timeout);
     return null;
   }
 
+  clearTimeout(timeout);
+
   return null;
+}
+
+async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, concurrency: number) {
+  const workers = Array.from({ length: Math.max(1, concurrency) }, async (_, workerIndex) => {
+    for (let i = workerIndex; i < tasks.length; i += Math.max(1, concurrency)) {
+      await tasks[i]();
+    }
+  });
+  await Promise.all(workers);
 }
 
 export async function getJogadoresEnriquecidos(env: Env) {
@@ -121,20 +137,23 @@ export async function getJogadoresEnriquecidos(env: Env) {
   }
 
   const faceitFallbackCache = new Map<string, { nickname: string; avatar: string } | null>();
+  const enableServerFaceitFallback = (process.env.ENABLE_SERVER_FACEIT_FALLBACK || '').trim() === '1';
 
-  const fallbackTasks = jogadoresArr.map(async (j: any) => {
-    const guidKey = String(j?.faceit_guid || '').trim().toLowerCase();
-    if (!guidKey || playersMap.has(guidKey) || faceitFallbackCache.has(guidKey)) return;
+  if (enableServerFaceitFallback) {
+    const fallbackTasks = jogadoresArr.map((j: any) => async () => {
+      const guidKey = String(j?.faceit_guid || '').trim().toLowerCase();
+      if (!guidKey || playersMap.has(guidKey) || faceitFallbackCache.has(guidKey)) return;
 
-    const profile = await fetchFaceitProfile({
-      guid: String(j?.faceit_guid || ''),
-      nickname: String(j?.nick || ''),
+      const profile = await fetchFaceitProfile({
+        guid: String(j?.faceit_guid || ''),
+        nickname: String(j?.nick || ''),
+      });
+
+      faceitFallbackCache.set(guidKey, profile);
     });
 
-    faceitFallbackCache.set(guidKey, profile);
-  });
-
-  await Promise.all(fallbackTasks);
+    await runWithConcurrency(fallbackTasks, 4);
+  }
 
   const enriched = jogadoresArr.map((j: any) => {
     const guidKey = String(j?.faceit_guid || '').trim().toLowerCase();
