@@ -4,6 +4,12 @@ import { createMainConnection } from "@/lib/db";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 
 export const dynamic = "force-dynamic";
+const NOTIFICACOES_CACHE_TTL_MS = 15000;
+const NOTIFICACOES_TIMEOUT_MS = 3500;
+
+let notificacoesCacheValue: NotificacaoRow[] | null = null;
+let notificacoesCacheUpdatedAt = 0;
+let notificacoesInFlight: Promise<NotificacaoRow[]> | null = null;
 
 type NotificacaoRow = RowDataPacket & {
   id: number;
@@ -19,22 +25,46 @@ type PlayerRow = RowDataPacket & {
 };
 
 export async function GET() {
-  let connection: any;
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
-    connection = await createMainConnection(env);
+    const cacheAgeMs = Date.now() - notificacoesCacheUpdatedAt;
+    if (notificacoesCacheValue && cacheAgeMs < NOTIFICACOES_CACHE_TTL_MS) {
+      return NextResponse.json(notificacoesCacheValue);
+    }
 
-    const [rows] = await connection.query(
-      "SELECT id, titulo, descricao, data, pagina FROM notificacoes ORDER BY data DESC"
-    ) as [NotificacaoRow[], any];
+    const dbPromise = notificacoesInFlight || (async () => {
+      let connection: any;
+      try {
+        const ctx = await getCloudflareContext({ async: true });
+        const env = ctx.env as any;
+        connection = await createMainConnection(env);
 
-    return NextResponse.json(rows);
+        const [rows] = await connection.query(
+          "SELECT id, titulo, descricao, data, pagina FROM notificacoes ORDER BY data DESC"
+        ) as [NotificacaoRow[], any];
+
+        notificacoesCacheValue = rows;
+        notificacoesCacheUpdatedAt = Date.now();
+        return rows;
+      } finally {
+        if (connection) await connection.end();
+      }
+    })();
+
+    notificacoesInFlight = dbPromise;
+
+    const timed = await Promise.race([
+      dbPromise,
+      new Promise<NotificacaoRow[]>((resolve) => {
+        setTimeout(() => resolve(notificacoesCacheValue || []), NOTIFICACOES_TIMEOUT_MS);
+      }),
+    ]);
+
+    return NextResponse.json(timed);
   } catch (error) {
     console.error("Erro ao buscar notificações:", error);
     return NextResponse.json([], { status: 500 });
   } finally {
-    if (connection) await connection.end();
+    notificacoesInFlight = null;
   }
 }
 

@@ -648,3 +648,373 @@
   ],
   "origin": "CHECKOUT_WEB"
 }
+
+[PAGBANK][REQUEST] /orders
+{
+  "reference_id": "LOJA_PAY_68_19da47c7",
+  "customer": {
+    "name": "Teste Local Querido Camp",
+    "email": "player1@queridocamp.com.br",
+    "tax_id": "12345678909"
+  },
+  "items": [
+    {
+      "reference_id": "7",
+      "name": "Teste",
+      "quantity": 1,
+      "unit_amount": 100
+    }
+  ],
+  "qr_codes": [
+    {
+      "amount": {
+        "value": 100
+      },
+      "expiration_date": "2026-05-06T22:12:55.712Z"
+    }
+  ],
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+
+[PAGBANK][RESPONSE] /orders
+{
+  "id": "ORDE_325F7759-2CDB-454C-8D49-546F33774548",
+  "reference_id": "LOJA_PAY_68_19da47c7",
+  "created_at": "2026-05-06T18:27:55.929-03:00",
+  "customer": {
+    "name": "Teste Local Querido Camp",
+    "email": "player1@queridocamp.com.br",
+    "tax_id": "12345678909"
+  },
+  "items": [
+    {
+      "reference_id": "7",
+      "name": "Teste",
+      "quantity": 1,
+      "unit_amount": 100
+    }
+  ],
+  "qr_codes": [
+    {
+      "id": "QRCO_683C6BC4-2C54-419B-BF1E-1C9BA572EFCA",
+      "expiration_date": "2026-05-06T19:12:55.000-03:00",
+      "amount": {
+        "value": 100
+      },
+      "text": "00020101021226830014br.gov.bcb.pix2561api.pagseguro.com/pix/v2/683C6BC4-2C54-419B-BF1E-1C9BA572EFCA5204799153039865802BR592263.790.373 DENIS LIMA 6007Aracaju62070503***63049989",
+      "arrangements": [
+        "PIX"
+      ],
+      "links": [
+        {
+          "rel": "QRCODE.PNG",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_683C6BC4-2C54-419B-BF1E-1C9BA572EFCA/png",
+          "media": "image/png",
+          "type": "GET"
+        },
+        {
+          "rel": "QRCODE.BASE64",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_683C6BC4-2C54-419B-BF1E-1C9BA572EFCA/base64",
+          "media": "text/plain",
+          "type": "GET"
+        }
+      ]
+    }
+  ],
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/orders/ORDE_325F7759-2CDB-454C-8D49-546F33774548",
+      "media": "application/json",
+      "type": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://api.pagseguro.com/orders/ORDE_325F7759-2CDB-454C-8D49-546F33774548/pay",
+      "media": "application/json",
+      "type": "POST"
+    }
+  ]
+}
+
+[PAGBANK][REQUEST] /orders
+{
+  "reference_id": "LOJA_PAY_68_19da47c7",
+  "customer": {
+    "name": "Teste Local Querido Camp",
+    "email": "player1@queridocamp.com.br",
+    "tax_id": "12345678909"
+  },
+  "items": [
+    {
+      "reference_id": "7",
+      "name": "Teste",
+      "quantity": 1,
+      "unit_amount": 100
+    }
+  ],
+  "qr_codes": [
+    {
+      "amount": {
+        "value": 100
+      },
+      "expiration_date": "2026-05-06T22:12:55.712Z"
+    }
+  ],
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+[PAGBANK][RESPONSE] /orders
+{
+  "id": "ORDE_325F7759-2CDB-454C-8D49-546F33774548",
+  "reference_id": "LOJA_PAY_68_19da47c7",
+  "created_at": "2026-05-06T18:27:55.929-03:00",
+  "customer": {
+    "name": "Teste Local Querido Camp",
+    "email": "player1@queridocamp.com.br",
+    "tax_id": "12345678909"
+  },
+  "items": [
+    {
+      "reference_id": "7",
+      "name": "Teste",
+      "quantity": 1,
+      "unit_amount": 100
+    }
+  ],
+  "qr_codes": [
+    {
+      "id": "QRCO_683C6BC4-2C54-419B-BF1E-1C9BA572EFCA",
+      "expiration_date": "2026-05-06T19:12:55.000-03:00",
+      "amount": {
+        "value": 100
+      },
+      "text": "00020101021226830014br.gov.bcb.pix2561api.pagseguro.com/pix/v2/683C6BC4-2C54-419B-BF1E-1C9BA572EFCA5204799153039865802BR592263.790.373 DENIS LIMA 6007Aracaju62070503***63049989",
+      "arrangements": [
+        "PIX"
+      ],
+      "links": [
+        {
+          "rel": "QRCODE.PNG",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_683C6BC4-2C54-419B-BF1E-1C9BA572EFCA/png",
+          "media": "image/png",
+          "type": "GET"
+        },
+        {
+          "rel": "QRCODE.BASE64",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_683C6BC4-2C54-419B-BF1E-1C9BA572EFCA/base64",
+          "media": "text/plain",
+          "type": "GET"
+        }
+      ]
+    }
+  ],
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/orders/ORDE_325F7759-2CDB-454C-8D49-546F33774548",
+      "media": "application/json",
+      "type": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://api.pagseguro.com/orders/ORDE_325F7759-2CDB-454C-8D49-546F33774548/pay",
+      "media": "application/json",
+      "type": "POST"
+    }
+  ]
+}
+
+[PAGBANK][REQUEST] /orders
+{
+  "reference_id": "LOJA_PAY_69_3381ec44",
+  "customer": {
+    "name": "Teste Local Querido Camp",
+    "email": "player1@queridocamp.com.br",
+    "tax_id": "12345678909"
+  },
+  "items": [
+    {
+      "reference_id": "7",
+      "name": "Teste",
+      "quantity": 1,
+      "unit_amount": 100
+    }
+  ],
+  "qr_codes": [
+    {
+      "amount": {
+        "value": 100
+      },
+      "expiration_date": "2026-05-06T22:13:04.266Z"
+    }
+  ],
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+
+[PAGBANK][RESPONSE] /orders
+{
+  "id": "ORDE_7B5877E9-734E-4E61-B3F8-E0F4AE1A6246",
+  "reference_id": "LOJA_PAY_69_3381ec44",
+  "created_at": "2026-05-06T18:28:04.374-03:00",
+  "customer": {
+    "name": "Teste Local Querido Camp",
+    "email": "player1@queridocamp.com.br",
+    "tax_id": "12345678909"
+  },
+  "items": [
+    {
+      "reference_id": "7",
+      "name": "Teste",
+      "quantity": 1,
+      "unit_amount": 100
+    }
+  ],
+  "qr_codes": [
+    {
+      "id": "QRCO_95054294-86F0-4116-BD95-0A45CBF765F1",
+      "expiration_date": "2026-05-06T19:13:04.000-03:00",
+      "amount": {
+        "value": 100
+      },
+      "text": "00020101021226830014br.gov.bcb.pix2561api.pagseguro.com/pix/v2/95054294-86F0-4116-BD95-0A45CBF765F15204799153039865802BR592263.790.373 DENIS LIMA 6007Aracaju62070503***6304963C",
+      "arrangements": [
+        "PIX"
+      ],
+      "links": [
+        {
+          "rel": "QRCODE.PNG",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_95054294-86F0-4116-BD95-0A45CBF765F1/png",
+          "media": "image/png",
+          "type": "GET"
+        },
+        {
+          "rel": "QRCODE.BASE64",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_95054294-86F0-4116-BD95-0A45CBF765F1/base64",
+          "media": "text/plain",
+          "type": "GET"
+        }
+      ]
+    }
+  ],
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/orders/ORDE_7B5877E9-734E-4E61-B3F8-E0F4AE1A6246",
+      "media": "application/json",
+      "type": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://api.pagseguro.com/orders/ORDE_7B5877E9-734E-4E61-B3F8-E0F4AE1A6246/pay",
+      "media": "application/json",
+      "type": "POST"
+    }
+  ]
+}
+
+[PAGBANK][REQUEST] /orders
+{
+  "reference_id": "LOJA_PAY_69_3381ec44",
+  "customer": {
+    "name": "Teste Local Querido Camp",
+    "email": "player1@queridocamp.com.br",
+    "tax_id": "12345678909"
+  },
+  "items": [
+    {
+      "reference_id": "7",
+      "name": "Teste",
+      "quantity": 1,
+      "unit_amount": 100
+    }
+  ],
+  "qr_codes": [
+    {
+      "amount": {
+        "value": 100
+      },
+      "expiration_date": "2026-05-06T22:13:04.266Z"
+    }
+  ],
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+[PAGBANK][RESPONSE] /orders
+{
+  "id": "ORDE_7B5877E9-734E-4E61-B3F8-E0F4AE1A6246",
+  "reference_id": "LOJA_PAY_69_3381ec44",
+  "created_at": "2026-05-06T18:28:04.374-03:00",
+  "customer": {
+    "name": "Teste Local Querido Camp",
+    "email": "player1@queridocamp.com.br",
+    "tax_id": "12345678909"
+  },
+  "items": [
+    {
+      "reference_id": "7",
+      "name": "Teste",
+      "quantity": 1,
+      "unit_amount": 100
+    }
+  ],
+  "qr_codes": [
+    {
+      "id": "QRCO_95054294-86F0-4116-BD95-0A45CBF765F1",
+      "expiration_date": "2026-05-06T19:13:04.000-03:00",
+      "amount": {
+        "value": 100
+      },
+      "text": "00020101021226830014br.gov.bcb.pix2561api.pagseguro.com/pix/v2/95054294-86F0-4116-BD95-0A45CBF765F15204799153039865802BR592263.790.373 DENIS LIMA 6007Aracaju62070503***6304963C",
+      "arrangements": [
+        "PIX"
+      ],
+      "links": [
+        {
+          "rel": "QRCODE.PNG",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_95054294-86F0-4116-BD95-0A45CBF765F1/png",
+          "media": "image/png",
+          "type": "GET"
+        },
+        {
+          "rel": "QRCODE.BASE64",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_95054294-86F0-4116-BD95-0A45CBF765F1/base64",
+          "media": "text/plain",
+          "type": "GET"
+        }
+      ]
+    }
+  ],
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/orders/ORDE_7B5877E9-734E-4E61-B3F8-E0F4AE1A6246",
+      "media": "application/json",
+      "type": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://api.pagseguro.com/orders/ORDE_7B5877E9-734E-4E61-B3F8-E0F4AE1A6246/pay",
+      "media": "application/json",
+      "type": "POST"
+    }
+  ]
+}

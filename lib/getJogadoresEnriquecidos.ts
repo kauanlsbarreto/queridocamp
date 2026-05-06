@@ -17,6 +17,11 @@ type Top90Stats = {
   d: number;
 };
 
+const JOGADORES_CACHE_TTL_MS = 20000;
+let jogadoresCacheValue: any[] | null = null;
+let jogadoresCacheUpdatedAt = 0;
+let jogadoresInFlight: Promise<any[]> | null = null;
+
 function toNumber(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -100,8 +105,19 @@ async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, concurrency
 
 export async function getJogadoresEnriquecidos(
   env: Env,
-  options?: { enableServerFaceitFallback?: boolean },
+  options?: { enableServerFaceitFallback?: boolean; bypassCache?: boolean },
 ) {
+  const bypassCache = options?.bypassCache === true;
+  const cacheAgeMs = Date.now() - jogadoresCacheUpdatedAt;
+  if (!bypassCache && jogadoresCacheValue && cacheAgeMs < JOGADORES_CACHE_TTL_MS) {
+    return jogadoresCacheValue;
+  }
+
+  if (!bypassCache && jogadoresInFlight) {
+    return jogadoresInFlight;
+  }
+
+  const loadPromise = (async () => {
   const connJogadores = await createJogadoresConnection(env);
   const [jogadores] = await connJogadores.query('SELECT * FROM jogadores');
   await connJogadores.end();
@@ -143,7 +159,7 @@ export async function getJogadoresEnriquecidos(
   const enableServerFaceitFallback =
     typeof options?.enableServerFaceitFallback === 'boolean'
       ? options.enableServerFaceitFallback
-      : (process.env.ENABLE_SERVER_FACEIT_FALLBACK || '').trim() === '1';
+      : false;
 
   if (enableServerFaceitFallback) {
     const fallbackTasks = jogadoresArr.map((j: any) => async () => {
@@ -181,5 +197,19 @@ export async function getJogadoresEnriquecidos(
     };
   });
 
-  return enriched;
+    jogadoresCacheValue = enriched;
+    jogadoresCacheUpdatedAt = Date.now();
+
+    return enriched;
+  })();
+
+  jogadoresInFlight = loadPromise;
+
+  try {
+    return await loadPromise;
+  } finally {
+    if (jogadoresInFlight === loadPromise) {
+      jogadoresInFlight = null;
+    }
+  }
 }

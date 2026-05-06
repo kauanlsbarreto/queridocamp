@@ -225,6 +225,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		open: false,
 		jogador: null,
 	});
+	const [loadingInitialFallbackData, setLoadingInitialFallbackData] = useState(false);
 
 	const admin = isAdmin(user);
 	const canSeeAdminTabs = admin;
@@ -237,6 +238,46 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 
 	useEffect(() => {
 		setJogadoresState(jogadores);
+	}, [jogadores]);
+
+	useEffect(() => {
+		if (Array.isArray(jogadores) && jogadores.length > 0) return;
+
+		let cancelled = false;
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 6000);
+
+		async function loadFallbackData() {
+			setLoadingInitialFallbackData(true);
+			try {
+				const res = await fetch('/copadraft/jogadores/api', {
+					signal: controller.signal,
+					cache: 'no-store',
+				});
+				if (!res.ok) return;
+
+				const data = await res.json();
+				if (cancelled) return;
+
+				const fetched = Array.isArray(data?.jogadores) ? data.jogadores : [];
+				if (fetched.length > 0) {
+					setJogadoresState(fetched);
+				}
+			} catch {
+				// Mantem fallback silencioso
+			} finally {
+				clearTimeout(timeout);
+				if (!cancelled) setLoadingInitialFallbackData(false);
+			}
+		}
+
+		loadFallbackData();
+
+		return () => {
+			cancelled = true;
+			clearTimeout(timeout);
+			controller.abort();
+		};
 	}, [jogadores]);
 
 	useEffect(() => {
@@ -1096,6 +1137,9 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		<div className="max-w-6xl mx-auto px-4 py-8 md:py-10">
 			<div className="mb-6 md:mb-8">
 				<h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">Copa Draft - {jogadoresState.length} Jogadores</h1>
+				{loadingInitialFallbackData && jogadoresState.length === 0 && (
+					<p className="mt-2 text-xs text-zinc-400">Carregando dados dos potes...</p>
+				)}
 			</div>
 
 
