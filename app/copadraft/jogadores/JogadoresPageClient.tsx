@@ -8,6 +8,8 @@ const faceitLevelCache = new Map<string, number | null>();
 const faceitProfileCache = new Map<string, { nickname: string; avatar: string } | null>();
 const FACEIT_API_BASE = 'https://open.faceit.com/data/v4';
 const FACEIT_HEADERS = { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' };
+const JOGADORES_LOCAL_CACHE_KEY = 'copadraft_jogadores_cache_v1';
+const JOGADORES_LOCAL_CACHE_TTL_MS = 1000 * 60 * 5;
 
 function normalizeText(value: unknown) {
 	return String(value || '').trim();
@@ -187,13 +189,52 @@ function readStoredUser() {
 	}
 }
 
+function readJogadoresCache() {
+	if (typeof window === 'undefined') return [];
+	try {
+		const raw = localStorage.getItem(JOGADORES_LOCAL_CACHE_KEY);
+		if (!raw) return [];
+
+		const parsed = JSON.parse(raw) as { updatedAt?: number; jogadores?: any[] };
+		const updatedAt = Number(parsed?.updatedAt || 0);
+		const jogadoresCached = Array.isArray(parsed?.jogadores) ? parsed.jogadores : [];
+
+		if (!updatedAt || Date.now() - updatedAt > JOGADORES_LOCAL_CACHE_TTL_MS) {
+			localStorage.removeItem(JOGADORES_LOCAL_CACHE_KEY);
+			return [];
+		}
+
+		return jogadoresCached;
+	} catch {
+		return [];
+	}
+}
+
+function writeJogadoresCache(jogadores: any[]) {
+	if (typeof window === 'undefined') return;
+	try {
+		localStorage.setItem(
+			JOGADORES_LOCAL_CACHE_KEY,
+			JSON.stringify({
+				updatedAt: Date.now(),
+				jogadores,
+			}),
+		);
+	} catch {
+		// Silencioso para nao quebrar UI se storage estiver indisponivel
+	}
+}
+
 export default function JogadoresPageClient({ jogadores }: { jogadores: any[] }) {
 	const [user, setUser] = useState<any>(() => readStoredUser());
 	const [tab, setTab] = useState<'escolher'|'times'|'potes'>(() => {
 		const u = readStoredUser();
 		return isAdmin(u) ? 'times' : 'potes';
 	});
-	const [jogadoresState, setJogadoresState] = useState<any[]>(jogadores);
+	const [jogadoresState, setJogadoresState] = useState<any[]>(() => {
+		if (Array.isArray(jogadores) && jogadores.length > 0) return jogadores;
+		return readJogadoresCache();
+	});
 	const [faceitLevels, setFaceitLevels] = useState<Record<string, number | null>>({});
 	const [faceitLevelsLoading, setFaceitLevelsLoading] = useState(false);
 	const [savingPoteById, setSavingPoteById] = useState<Record<number, boolean>>({});
@@ -239,8 +280,16 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}, []);
 
 	useEffect(() => {
-		setJogadoresState(jogadores);
+		if (Array.isArray(jogadores) && jogadores.length > 0) {
+			setJogadoresState(jogadores);
+		}
 	}, [jogadores]);
+
+	useEffect(() => {
+		if (Array.isArray(jogadoresState) && jogadoresState.length > 0) {
+			writeJogadoresCache(jogadoresState);
+		}
+	}, [jogadoresState]);
 
 	useEffect(() => {
 		if (!shouldBootstrapFromApi) {
