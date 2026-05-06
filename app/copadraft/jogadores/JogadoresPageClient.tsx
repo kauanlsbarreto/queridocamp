@@ -225,7 +225,9 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		open: false,
 		jogador: null,
 	});
-	const [loadingInitialFallbackData, setLoadingInitialFallbackData] = useState(false);
+	const shouldBootstrapFromApi = Array.isArray(jogadores) && jogadores.length === 0;
+	const [loadingInitialFallbackData, setLoadingInitialFallbackData] = useState(shouldBootstrapFromApi);
+	const [fallbackAttempt, setFallbackAttempt] = useState(0);
 
 	const admin = isAdmin(user);
 	const canSeeAdminTabs = admin;
@@ -241,44 +243,62 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}, [jogadores]);
 
 	useEffect(() => {
-		if (Array.isArray(jogadores) && jogadores.length > 0) return;
+		if (!shouldBootstrapFromApi) {
+			setLoadingInitialFallbackData(false);
+			return;
+		}
+
+		if (jogadoresState.length > 0) {
+			setLoadingInitialFallbackData(false);
+			return;
+		}
 
 		let cancelled = false;
-		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), 6000);
+		let waitMs = 700;
 
-		async function loadFallbackData() {
+		async function loadFallbackDataWithRetry() {
 			setLoadingInitialFallbackData(true);
-			try {
-				const res = await fetch('/copadraft/jogadores/api', {
-					signal: controller.signal,
-					cache: 'no-store',
-				});
-				if (!res.ok) return;
 
-				const data = await res.json();
-				if (cancelled) return;
+			while (!cancelled) {
+				const controller = new AbortController();
+				const timeout = setTimeout(() => controller.abort(), 6000);
 
-				const fetched = Array.isArray(data?.jogadores) ? data.jogadores : [];
-				if (fetched.length > 0) {
-					setJogadoresState(fetched);
+				try {
+					const res = await fetch('/copadraft/jogadores/api', {
+						signal: controller.signal,
+						cache: 'no-store',
+					});
+
+					if (res.ok) {
+						const data = await res.json();
+						if (cancelled) return;
+
+						const fetched = Array.isArray(data?.jogadores) ? data.jogadores : [];
+						if (fetched.length > 0) {
+							setJogadoresState(fetched);
+							setLoadingInitialFallbackData(false);
+							return;
+						}
+					}
+				} catch {
+					// Mantem retry silencioso
+				} finally {
+					clearTimeout(timeout);
 				}
-			} catch {
-				// Mantem fallback silencioso
-			} finally {
-				clearTimeout(timeout);
-				if (!cancelled) setLoadingInitialFallbackData(false);
+
+				if (cancelled) return;
+				setFallbackAttempt((prev) => prev + 1);
+				await new Promise((resolve) => setTimeout(resolve, waitMs));
+				waitMs = Math.min(waitMs + 400, 3000);
 			}
 		}
 
-		loadFallbackData();
+		loadFallbackDataWithRetry();
 
 		return () => {
 			cancelled = true;
-			clearTimeout(timeout);
-			controller.abort();
 		};
-	}, [jogadores]);
+	}, [shouldBootstrapFromApi, jogadoresState.length]);
 
 	useEffect(() => {
 		if (!canSeeAdminTabs && (tab === 'escolher' || tab === 'times')) {
@@ -1133,13 +1153,25 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		);
 	}
 
+	const blockPageUntilData = shouldBootstrapFromApi && jogadoresState.length === 0;
+
+	if (blockPageUntilData) {
+		return (
+			<div className="max-w-6xl mx-auto px-4 py-20 md:py-24">
+				<div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0A111A] to-[#0E1825] p-8 md:p-10 shadow-[0_18px_45px_rgba(0,0,0,0.35)] text-center">
+					<div className="text-2xl md:text-3xl font-black text-white">Carregando dados dos potes...</div>
+					<p className="mt-3 text-sm text-zinc-300">Aguarde enquanto buscamos os dados da API e banco.</p>
+					<p className="mt-2 text-xs text-zinc-500">Tentativa: {fallbackAttempt + 1}</p>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className="max-w-6xl mx-auto px-4 py-8 md:py-10">
 			<div className="mb-6 md:mb-8">
 				<h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">Copa Draft - {jogadoresState.length} Jogadores</h1>
-				{loadingInitialFallbackData && jogadoresState.length === 0 && (
-					<p className="mt-2 text-xs text-zinc-400">Carregando dados dos potes...</p>
-				)}
+				{loadingInitialFallbackData && <p className="mt-2 text-xs text-zinc-400">Atualizando dados...</p>}
 			</div>
 
 
