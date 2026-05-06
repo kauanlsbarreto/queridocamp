@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PremiumCard from "@/components/premium-card";
 import PageAccessGate from "@/components/page-access-gate";
@@ -20,6 +21,8 @@ ativo: number;
 };
 
 type FaceitUser = {
+id?: number | string;
+ID?: number | string;
 faceit_guid?: string;
 Admin?: number;
 admin?: number;
@@ -260,7 +263,6 @@ export default function LojaPage() {
 	const LOJA_RELEASE_DATE = new Date(LOJA_RELEASE_AT_ISO);
 	const now = new Date();
 
-	const paymentPopupRef = useRef<Window | null>(null);
 	const paymentPollRef = useRef<number | null>(null);
 	const billingCepLookupTimerRef = useRef<number | null>(null);
 	const billingCepLastLookupRef = useRef("");
@@ -332,6 +334,13 @@ return Number.isFinite(parsed) ? parsed : null;
 
 const isAdmin12 = adminLevel === 1 || adminLevel === 2;
 
+const userNumericId = useMemo(() => {
+const rawId = user?.id ?? user?.ID;
+const parsed = Number(rawId);
+if (!Number.isFinite(parsed) || parsed <= 0) return null;
+return Math.trunc(parsed);
+}, [user]);
+
 const formatCurrencyBRL = useCallback((value: number) => {
 const amount = Number(value || 0);
 return amount.toLocaleString("pt-BR", {
@@ -402,21 +411,8 @@ const startPaymentStatusPolling = useCallback(
 (paymentId: number, itemName: string, faceitGuid: string) => {
 clearPaymentPolling();
 
-let popupClosedAt: number | null = null;
-
 paymentPollRef.current = window.setInterval(async () => {
 try {
-const popupWasClosed =
-paymentPopupRef.current !== null && paymentPopupRef.current.closed;
-
-if (popupWasClosed && popupClosedAt === null) {
-popupClosedAt = Date.now();
-}
-
-if (!popupWasClosed) {
-popupClosedAt = null;
-}
-
 const statusRes = await fetch(`/api/loja/pagamento/status?paymentId=${paymentId}`);
 const statusData = await statusRes.json().catch(() => ({}));
 if (!statusRes.ok) return;
@@ -424,17 +420,10 @@ if (!statusRes.ok) return;
 const status = String(statusData?.status || "").toUpperCase();
 const isFinal = Boolean(statusData?.isFinal);
 
-const closedForMs = popupClosedAt ? Date.now() - popupClosedAt : 0;
-const shouldFinalizeByClosedPopup = popupWasClosed && closedForMs >= 60000;
-
-if (!isFinal && !shouldFinalizeByClosedPopup) return;
+if (!isFinal) return;
 
 clearPaymentPolling();
 
-if (paymentPopupRef.current && !paymentPopupRef.current.closed) {
-paymentPopupRef.current.close();
-}
-paymentPopupRef.current = null;
 closePixModal();
 
 if (status === "PAID") {
@@ -454,17 +443,6 @@ open: true,
 title: "Tempo expirado",
 message: "O tempo de pagamento expirou. Tente novamente.",
 isError: true,
-});
-return;
-}
-
-if (!isFinal && shouldFinalizeByClosedPopup) {
-setPaymentFeedbackModal({
-open: true,
-title: "Pagamento em processamento",
-message:
-							"A janela foi fechada antes da confirmacao final. O pagamento pode levar alguns segundos para atualizar.",
-isError: false,
 });
 return;
 }
@@ -520,9 +498,6 @@ useEffect(() => {
 useEffect(() => {
 return () => {
 clearPaymentPolling();
-if (paymentPopupRef.current && !paymentPopupRef.current.closed) {
-paymentPopupRef.current.close();
-}
 };
 }, [clearPaymentPolling]);
 
@@ -948,7 +923,7 @@ const existingPaymentId = Number(data.existingPaymentId);
 		const existingCheckoutUrl = String(data?.checkoutUrl || "");
 		if (existingCheckoutUrl) {
 			closePaymentMethodModal();
-			window.location.assign(existingCheckoutUrl);
+			window.open(existingCheckoutUrl, "_blank", "noopener,noreferrer");
 			return;
 		}
 
@@ -1008,7 +983,7 @@ return;
 }
 
 closePaymentMethodModal();
-window.location.assign(checkoutUrl);
+window.open(checkoutUrl, "_blank", "noopener,noreferrer");
 } catch {
 setPaymentMethodModal((prev) => ({
 ...prev,
@@ -1272,6 +1247,27 @@ return (
 <p className="mt-2 text-sm text-zinc-400">
 Itens exclusivos para compra com moeda do site.
 </p>
+
+<div className="mt-4 flex flex-wrap gap-2">
+{userNumericId ? (
+<>
+<Link
+href={`/minhas-compras$ID-${userNumericId}`}
+className="rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-xs font-black uppercase tracking-[0.08em] text-zinc-100 transition hover:border-gold/60 hover:text-gold"
+>
+Minhas Compras
+</Link>
+<Link
+href={`/pagamentos-pendentes$ID-${userNumericId}`}
+className="rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-xs font-black uppercase tracking-[0.08em] text-zinc-100 transition hover:border-gold/60 hover:text-gold"
+>
+Pagamentos Pendentes
+</Link>
+</>
+) : (
+<p className="text-xs text-zinc-500">Faca login para acessar Minhas Compras e Pagamentos Pendentes.</p>
+)}
+</div>
 </div>
 
 {isAdmin12 && (

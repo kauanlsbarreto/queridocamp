@@ -41,14 +41,9 @@ export function generatePaymentRef(localId: number) {
   return `LOJA_PAY_${localId}_${randomUUID().slice(0, 8)}`;
 }
 
-export function extractPayLink(links: unknown) {
-  if (!Array.isArray(links)) return "";
-  for (const link of links as Array<Record<string, unknown>>) {
-    if (String(link?.rel || "").toUpperCase() === "PAY") {
-      return String(link?.href || "");
-    }
-  }
-  return "";
+export function extractPayLink(links: any[] = []) {
+  const pay = links.find(l => l.rel === "PAY");
+  return pay?.href || "";
 }
 
 export function mapProviderStatusToLocal(statusRaw: unknown): LojaPaymentStatus {

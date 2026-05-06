@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
+import { deleteStalePendingPayments } from "@/lib/loja-payment-cleanup";
 
 export const dynamic = "force-dynamic";
 
@@ -111,6 +112,7 @@ export async function GET(request: Request) {
 
     await ensurePaymentsTable(connection);
     await ensurePaymentsLogsTable(connection);
+    await deleteStalePendingPayments(connection, 30);
 
     const [paymentRows] = await connection.query(
       `SELECT id, payment_ref, item_nome, metodo, amount_cents, status,

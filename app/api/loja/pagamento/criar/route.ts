@@ -12,13 +12,16 @@ import {
   buildIsoFromNow,
   createCheckout,
   createOrder,
+  extractCheckoutStatus,
   extractPayLink,
   extractPixData,
   generatePaymentRef,
+  getCheckout,
   hasPagBankToken,
   mapProviderStatusToLocal,
   toCents,
 } from "@/lib/pagbank-loja";
+import { deleteStalePendingPayments } from "@/lib/loja-payment-cleanup";
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +33,43 @@ type CreateBody = {
 
 type PendingPaymentRow = {
   id: number;
+  payment_ref: string | null;
   status: string;
   expires_at: string | null;
+  provider_type: string | null;
+  provider_id: string | null;
   provider_checkout_url: string | null;
   provider_qr_code_url: string | null;
   provider_qr_code_text: string | null;
 };
+
+function toUtcSqlDateTime(isoString: string) {
+  return isoString.slice(0, 19).replace("T", " ");
+}
+
+async function invalidatePendingPayment(
+  connection: any,
+  payment: PendingPaymentRow,
+  nextStatus: string,
+  message: string,
+  details?: unknown,
+) {
+  await connection.query(
+    "UPDATE loja_pagamentos SET status = ?, failure_reason = ? WHERE id = ?",
+    [nextStatus, message, payment.id],
+  );
+
+  await createPaymentLog(connection, {
+    paymentId: payment.id,
+    paymentRef: payment.payment_ref,
+    eventName: "CREATE_DUPLICATE_PENDING_INVALIDATED",
+    statusBefore: payment.status,
+    statusAfter: nextStatus,
+    source: "api-criar",
+    message,
+    details,
+  });
+}
 
 async function ensurePaymentsTable(connection: any) {
   await connection.query(`
@@ -150,6 +184,18 @@ function getProviderErrorMessage(data: any) {
 
 export async function POST(request: Request) {
   let connection: any;
+  let createdPaymentId: number | null = null;
+
+  const markPaymentFailed = async (paymentId: number, reason: string) => {
+    if (!connection || !paymentId) return;
+    await connection.query(
+      `UPDATE loja_pagamentos
+       SET status = 'FAILED', failure_reason = ?
+       WHERE id = ? AND status IN ('PENDING', 'WAITING', 'IN_ANALYSIS')`,
+      [reason.slice(0, 1000), paymentId],
+    );
+  };
+
   try {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as any;
@@ -173,6 +219,7 @@ export async function POST(request: Request) {
     await ensureBillingColumns(connection);
     await ensurePaymentsTable(connection);
     await ensurePaymentsLogsTable(connection);
+    await deleteStalePendingPayments(connection, 30);
 
     const body = (await request.json().catch(() => ({}))) as CreateBody;
     const itemId = Number(body.item_id || 0);
@@ -280,7 +327,8 @@ export async function POST(request: Request) {
     }
 
     const [pendingRows] = await connection.query(
-      `SELECT id, status, expires_at, provider_checkout_url, provider_qr_code_url, provider_qr_code_text
+      `SELECT id, payment_ref, status, expires_at, provider_type, provider_id,
+              provider_checkout_url, provider_qr_code_url, provider_qr_code_text
        FROM loja_pagamentos
        WHERE faceit_guid = ?
          AND estoque_id = ?
@@ -293,35 +341,131 @@ export async function POST(request: Request) {
     const pendingPayments = pendingRows as PendingPaymentRow[];
     if (pendingPayments.length) {
       const existing = pendingPayments[0];
+
+      if (method === "CREDIT_CARD") {
+        const providerType = String(existing.provider_type || "").toUpperCase();
+        const providerId = String(existing.provider_id || "");
+
+        if (providerType === "CHECKOUT") {
+          if (!providerId) {
+            await invalidatePendingPayment(
+              connection,
+              existing,
+              "FAILED",
+              "Pendencia de checkout sem provider_id valido. Novo checkout liberado.",
+            );
+          } else {
+            const { response, data } = await getCheckout(providerId);
+
+            if (!response.ok) {
+              await invalidatePendingPayment(
+                connection,
+                existing,
+                response.status === 404 ? "EXPIRED" : "FAILED",
+                `Checkout pendente invalido no PagBank (${response.status}). Novo checkout liberado.`,
+                {
+                  providerStatus: response.status,
+                  providerResponse: data,
+                },
+              );
+            } else {
+              const checkoutPageStatus = String(data?.status || "").toUpperCase();
+              const providerStatus = extractCheckoutStatus(data);
+              const localProviderStatus = mapProviderStatusToLocal(providerStatus || checkoutPageStatus);
+              const refreshedCheckoutUrl = extractPayLink(data?.links);
+
+              if (refreshedCheckoutUrl && refreshedCheckoutUrl !== String(existing.provider_checkout_url || "")) {
+                await connection.query(
+                  "UPDATE loja_pagamentos SET provider_checkout_url = ? WHERE id = ?",
+                  [refreshedCheckoutUrl, existing.id],
+                );
+                existing.provider_checkout_url = refreshedCheckoutUrl;
+              }
+
+              // Verifica se o checkout vai expirar em menos de 10 minutos
+              const expiresAtMs = existing.expires_at
+                ? new Date(String(existing.expires_at)).getTime()
+                : 0;
+              const tenMinutesFromNow = Date.now() + 10 * 60 * 1000;
+              const isNearExpiry = expiresAtMs > 0 && expiresAtMs < tenMinutesFromNow;
+
+              if (
+                isNearExpiry ||
+                checkoutPageStatus === "EXPIRED" ||
+                checkoutPageStatus === "INACTIVE" ||
+                ["EXPIRED", "CANCELED", "DECLINED", "FAILED"].includes(localProviderStatus) ||
+                !String(existing.provider_checkout_url || "").trim()
+              ) {
+                await invalidatePendingPayment(
+                  connection,
+                  existing,
+                  localProviderStatus === "PENDING" ? "EXPIRED" : localProviderStatus,
+                  isNearExpiry
+                    ? "Checkout pendente proximo do vencimento. Novo checkout sera criado."
+                    : "Checkout pendente invalido ou indisponivel no PagBank. Novo checkout liberado.",
+                  {
+                    checkoutPageStatus,
+                    providerStatus,
+                    refreshedCheckoutUrl,
+                    isNearExpiry,
+                    expiresAt: existing.expires_at,
+                  },
+                );
+              }
+            }
+          }
+        }
+      }
+
+      const [refreshedPendingRows] = await connection.query(
+        `SELECT id, payment_ref, status, expires_at, provider_type, provider_id,
+                provider_checkout_url, provider_qr_code_url, provider_qr_code_text
+         FROM loja_pagamentos
+         WHERE id = ?
+           AND status IN ('PENDING', 'WAITING', 'IN_ANALYSIS')
+           AND (expires_at IS NULL OR expires_at > NOW())
+         LIMIT 1`,
+        [existing.id],
+      );
+      const refreshedPendingPayments = refreshedPendingRows as PendingPaymentRow[];
+
+      if (!refreshedPendingPayments.length) {
+        // Existing pending payment was invalidated, so continue and create a new one.
+      } else {
+        const activePending = refreshedPendingPayments[0];
       await createPaymentLog(connection, {
-        paymentId: existing.id,
+        paymentId: activePending.id,
         eventName: "CREATE_BLOCKED_DUPLICATE_PENDING",
-        statusBefore: existing.status,
-        statusAfter: existing.status,
+        statusBefore: activePending.status,
+        statusAfter: activePending.status,
         source: "api-criar",
         message: "Novo pagamento bloqueado por pendencia existente para item/usuario.",
         details: {
           itemId: item.id,
           faceitGuid,
           method,
-          existingPaymentId: existing.id,
+          existingPaymentId: activePending.id,
         },
       });
 
       return NextResponse.json(
         {
+          success: true,
+          reusedExistingPayment: true,
           message: "Voce ja possui um pagamento pendente para este item. Finalize ou aguarde expirar.",
-          existingPaymentId: existing.id,
-          existingStatus: existing.status,
-          checkoutUrl: String(existing.provider_checkout_url || ""),
+          paymentId: activePending.id,
+          existingPaymentId: activePending.id,
+          existingStatus: activePending.status,
+          checkoutUrl: String(activePending.provider_checkout_url || ""),
           pix: {
-            qrCodeImageUrl: String(existing.provider_qr_code_url || ""),
-            qrCodeText: String(existing.provider_qr_code_text || ""),
+            qrCodeImageUrl: String(activePending.provider_qr_code_url || ""),
+            qrCodeText: String(activePending.provider_qr_code_text || ""),
           },
-          expiresAt: existing.expires_at,
+          expiresAt: activePending.expires_at,
         },
-        { status: 409 },
+        { status: 200 },
       );
+      }
     }
 
     const amountCents = toCents(Number(item.preco || 0));
@@ -332,8 +476,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const expiresIso = buildIsoFromNow(30);
-    const expiresDate = new Date(expiresIso);
+    const expiresIso = buildIsoFromNow(45);
+    const expiresAtSql = toUtcSqlDateTime(expiresIso);
 
     const insertResultRaw = await connection.query(
       `INSERT INTO loja_pagamentos
@@ -348,7 +492,7 @@ export async function POST(request: Request) {
         item.nome,
         method,
         amountCents,
-        expiresDate,
+        expiresAtSql,
       ],
     );
 
@@ -357,6 +501,7 @@ export async function POST(request: Request) {
     if (!paymentId) {
       return NextResponse.json({ message: "Falha ao criar pagamento." }, { status: 500 });
     }
+    createdPaymentId = paymentId;
 
     const paymentRef = generatePaymentRef(paymentId);
     const siteUrl = getSiteUrl(request);
@@ -414,6 +559,7 @@ export async function POST(request: Request) {
       } catch {}
       if (!response.ok) {
         const providerError = getProviderErrorMessage(data);
+        await markPaymentFailed(paymentId, `PIX provider create error (${response.status}): ${providerError}`);
         await createPaymentLog(connection, {
           paymentId,
           eventName: "PROVIDER_CREATE_ERROR",
@@ -471,6 +617,7 @@ export async function POST(request: Request) {
       } catch {}
       if (!response.ok) {
         const providerError = getProviderErrorMessage(data);
+        await markPaymentFailed(paymentId, `Checkout provider create error (${response.status}): ${providerError}`);
         await createPaymentLog(connection, {
           paymentId,
           eventName: "PROVIDER_CREATE_ERROR",
@@ -563,6 +710,15 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro desconhecido";
+
+    if (createdPaymentId && connection) {
+      try {
+        await markPaymentFailed(createdPaymentId, `Unhandled create error: ${message}`);
+      } catch {
+        // noop: preserve original error response.
+      }
+    }
+
     return NextResponse.json({ message }, { status: 500 });
   } finally {
     if (connection) {

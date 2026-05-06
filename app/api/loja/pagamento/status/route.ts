@@ -14,6 +14,7 @@ import {
   loadLojaPaymentDiscordContext,
   sendLojaPaymentDiscordWebhook,
 } from "@/lib/loja-payment-discord-webhook";
+import { deleteStalePendingPayments } from "@/lib/loja-payment-cleanup";
 
 export const dynamic = "force-dynamic";
 
@@ -296,6 +297,7 @@ export async function GET(request: Request) {
 
     await ensurePaymentsTable(connection);
     await ensurePaymentsLogsTable(connection);
+    await deleteStalePendingPayments(connection, 30);
 
     const [rows] = await connection.query(
       `SELECT id, payment_ref, provider_type, provider_id, provider_checkout_url, provider_qr_code_url, provider_qr_code_text,

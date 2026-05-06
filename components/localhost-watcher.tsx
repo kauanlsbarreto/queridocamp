@@ -32,8 +32,8 @@ export default function LocalhostWatcher() {
           } else {
             console.warn("Usuário Sh4yKon não encontrado no banco. Usando mock estático.")
             userData = {
-              id: 999999,
-              faceit_guid: "local-dev-guid",
+              id: 1,
+              faceit_guid: "fcb1b15c-f3d4-47d1-bd27-b478b7ada9ee",
               nickname: "Sh4yKon",
               avatar: "https://distribution.faceit-cdn.net/images/183bacac-0e2c-4ade-867c-cb5df6e55058.jpg",
               Admin: 1,

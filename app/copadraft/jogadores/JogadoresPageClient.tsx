@@ -2,7 +2,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
-import { formatCountdownUnit, usePotesReleaseCountdown } from './contagem';
+
 
 const faceitLevelCache = new Map<string, number | null>();
 const FACEIT_API_BASE = 'https://open.faceit.com/data/v4';
@@ -172,9 +172,8 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	});
 
 	const admin = isAdmin(user);
-	const { isReleased: potesReleased, countdown: potesCountdown, releaseText: potesReleaseText } = usePotesReleaseCountdown();
 	const canSeeAdminTabs = admin;
-	const canSeePotesTab = admin || potesReleased;
+	const canSeePotesTab = true;
 
 	useEffect(() => {
 		try {
@@ -189,16 +188,9 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 
 	useEffect(() => {
 		if (!canSeeAdminTabs && (tab === 'escolher' || tab === 'times')) {
-			if (canSeePotesTab) {
-				setTab('potes');
-			}
-			return;
+			setTab('potes');
 		}
-
-		if (tab === 'potes' && !canSeePotesTab) {
-			setTab('times');
-		}
-	}, [tab, canSeeAdminTabs, canSeePotesTab]);
+	}, [tab, canSeeAdminTabs]);
 
 	useEffect(() => {
 		async function fetchAllFaceitLevels() {
@@ -488,14 +480,10 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	const potes = groupByPote(jogadoresState);
 	const times = groupByTime(jogadoresState);
 	const jogadoresSemPote = jogadoresState.filter((j: any) => !j.pote);
-	const tabOptions: Array<{ key: 'escolher' | 'times' | 'potes'; label: string }> = [];
-	if (canSeeAdminTabs) {
-		tabOptions.push({ key: 'escolher', label: 'Escolher Pote' });
-		tabOptions.push({ key: 'times', label: 'Times' });
-	}
-	if (canSeePotesTab) {
-		tabOptions.push({ key: 'potes', label: 'Potes' });
-	}
+	const tabOptions: Array<{ key: 'escolher' | 'times' | 'potes'; label: string }> = [
+		...(canSeeAdminTabs ? [{ key: 'escolher' as const, label: 'Escolher Pote' }, { key: 'times' as const, label: 'Times' }] : []),
+		{ key: 'potes' as const, label: 'Potes' },
+	];
 
 	function JogadorCard({ jogador, podeEscolherPote = false, podeRemoverDoTime = false }: { jogador: any, podeEscolherPote?: boolean, podeRemoverDoTime?: boolean }) {
 		const jogadorId = Number(jogador.id);
@@ -993,41 +981,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 				<h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">Copa Draft - {jogadoresState.length} Jogadores</h1>
 			</div>
 
-			{!canSeeAdminTabs && !canSeePotesTab && (
-				<div className="mb-6 relative overflow-hidden rounded-2xl border border-gold/30 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black p-1 shadow-[0_0_40px_rgba(250,204,21,0.15)]">
-					<div className="relative rounded-2xl border border-white/10 bg-black/70 p-6 md:p-8">
-						<div className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-gold/20 blur-3xl" />
-						<div className="pointer-events-none absolute -bottom-20 -right-10 h-52 w-52 rounded-full bg-amber-500/15 blur-3xl" />
 
-						<div className="relative z-10 text-center">
-							<h2 className="mt-2 text-2xl font-black uppercase text-white md:text-3xl">Potes bloqueado</h2>
-							<p className="mx-auto mt-3 max-w-2xl text-sm text-zinc-300 md:text-base">
-								A aba de potes sera liberada para todos na data abaixo.
-							</p>
-							<p className="mt-3 text-sm font-semibold text-gold">Liberação geral: {potesReleaseText} (Brasilia)</p>
-
-							<div className="mx-auto mt-6 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4">
-								<div className="rounded-xl border border-gold/20 bg-white/5 p-4">
-									<p className="text-3xl font-black text-gold">{formatCountdownUnit(potesCountdown.days)}</p>
-									<p className="mt-1 text-xs uppercase tracking-wider text-zinc-300">Dias</p>
-								</div>
-								<div className="rounded-xl border border-gold/20 bg-white/5 p-4">
-									<p className="text-3xl font-black text-gold">{formatCountdownUnit(potesCountdown.hours)}</p>
-									<p className="mt-1 text-xs uppercase tracking-wider text-zinc-300">Horas</p>
-								</div>
-								<div className="rounded-xl border border-gold/20 bg-white/5 p-4">
-									<p className="text-3xl font-black text-gold">{formatCountdownUnit(potesCountdown.minutes)}</p>
-									<p className="mt-1 text-xs uppercase tracking-wider text-zinc-300">Min</p>
-								</div>
-								<div className="rounded-xl border border-gold/20 bg-white/5 p-4">
-									<p className="text-3xl font-black text-gold">{formatCountdownUnit(potesCountdown.seconds)}</p>
-									<p className="mt-1 text-xs uppercase tracking-wider text-zinc-300">Seg</p>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			)}
 
 			{tabOptions.length > 0 && (
 				<>
