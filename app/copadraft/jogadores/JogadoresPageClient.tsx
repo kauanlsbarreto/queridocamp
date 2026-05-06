@@ -135,9 +135,22 @@ function groupByTime(jogadores: any[]) {
 	return times;
 }
 
+function readStoredUser() {
+	if (typeof window === 'undefined') return null;
+	try {
+		const stored = localStorage.getItem('faceit_user');
+		return stored ? JSON.parse(stored) : null;
+	} catch {
+		return null;
+	}
+}
+
 export default function JogadoresPageClient({ jogadores }: { jogadores: any[] }) {
-	const [tab, setTab] = useState<'escolher'|'times'|'potes'>('times');
-	const [user, setUser] = useState<any>(null);
+	const [user, setUser] = useState<any>(() => readStoredUser());
+	const [tab, setTab] = useState<'escolher'|'times'|'potes'>(() => {
+		const u = readStoredUser();
+		return isAdmin(u) ? 'times' : 'potes';
+	});
 	const [jogadoresState, setJogadoresState] = useState<any[]>(jogadores);
 	const [faceitLevels, setFaceitLevels] = useState<Record<string, number | null>>({});
 	const [faceitLevelsLoading, setFaceitLevelsLoading] = useState(false);
@@ -176,10 +189,8 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	const canSeePotesTab = true;
 
 	useEffect(() => {
-		try {
-			const stored = localStorage.getItem('faceit_user');
-			if (stored) setUser(JSON.parse(stored));
-		} catch {}
+		const updated = readStoredUser();
+		if (updated) setUser(updated);
 	}, []);
 
 	useEffect(() => {
