@@ -78,6 +78,7 @@ submittingMethod: PaymentMethodId | null;
 };
 
 type BillingProfile = {
+email: string;
 billing_full_name: string;
 billing_company_name: string;
 billing_cpf_cnpj: string;
@@ -157,6 +158,7 @@ const CREDIT_INSTALLMENT_SIMULATION = [
 ];
 
 const EMPTY_BILLING_PROFILE: BillingProfile = {
+email: "",
 billing_full_name: "",
 billing_company_name: "",
 billing_cpf_cnpj: "",
@@ -172,6 +174,7 @@ billing_phone: "",
 };
 
 const LOCALHOST_BILLING_PROFILE: BillingProfile = {
+email: "teste-local@queridocamp.com.br",
 billing_full_name: "Teste Local Querido Camp",
 billing_company_name: "",
 billing_cpf_cnpj: "12345678909",
@@ -360,6 +363,7 @@ return String(item?.categoria || "").trim().toLowerCase() === "wallpaper";
 
 function normalizeBillingProfile(source: Partial<BillingProfile> | null | undefined): BillingProfile {
 return {
+email: String((source as { email?: string } | null | undefined)?.email || "").trim(),
 billing_full_name: String(source?.billing_full_name || "").trim(),
 billing_company_name: String(source?.billing_company_name || "").trim(),
 billing_cpf_cnpj: String(source?.billing_cpf_cnpj || "").trim(),
@@ -377,6 +381,7 @@ billing_phone: String(source?.billing_phone || "").trim(),
 
 function isBillingProfileComplete(profile: BillingProfile) {
 return Boolean(
+profile.email &&
 profile.billing_full_name &&
 profile.billing_cpf_cnpj &&
 profile.billing_street &&
@@ -1105,7 +1110,7 @@ const profile = normalizeBillingProfile(billingModal.profile);
 if (!isBillingProfileComplete(profile)) {
 setBillingModal((prev) => ({
 ...prev,
-error: "Preencha nome, documento, telefone e endereco completo.",
+error: "Preencha email, nome, documento, telefone e endereco completo.",
 }));
 return;
 }
@@ -1958,6 +1963,7 @@ Carregando seus dados salvos...
 ) : billingModal.mode === "summary" ? (
 <div className="mt-5 space-y-4">
 <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-200">
+<p><span className="font-bold text-white">Email:</span> {billingModal.profile.email || "Nao informado"}</p>
 <p><span className="font-bold text-white">Nome:</span> {billingModal.profile.billing_full_name || "Nao informado"}</p>
 <p><span className="font-bold text-white">Documento:</span> {billingModal.profile.billing_cpf_cnpj || "Nao informado"}</p>
 <p><span className="font-bold text-white">Telefone:</span> {billingModal.profile.billing_phone || "Nao informado"}</p>
@@ -1984,6 +1990,10 @@ Continuar para pagamento
 ) : (
 <div className="mt-5 space-y-4">
 <div className="grid gap-3 md:grid-cols-2">
+<label className="text-sm text-zinc-300 md:col-span-2">
+<span className="mb-1 block font-bold uppercase text-zinc-200">Email *</span>
+<input required type="email" value={billingModal.profile.email} onChange={(event) => updateBillingField("email", event.target.value)} className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-white outline-none" />
+</label>
 <label className="text-sm text-zinc-300">
 <span className="mb-1 block font-bold uppercase text-zinc-200">Nome completo *</span>
 <input required value={billingModal.profile.billing_full_name} onChange={(event) => updateBillingField("billing_full_name", event.target.value)} className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-white outline-none" />
@@ -1999,6 +2009,10 @@ Continuar para pagamento
 <label className="text-sm text-zinc-300">
 <span className="mb-1 block font-bold uppercase text-zinc-200">Numero *</span>
 <input required value={billingModal.profile.billing_number} onChange={(event) => updateBillingField("billing_number", event.target.value)} className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-white outline-none" />
+</label>
+<label className="text-sm text-zinc-300">
+<span className="mb-1 block font-bold uppercase text-zinc-200">Complemento</span>
+<input value={billingModal.profile.billing_complement} onChange={(event) => updateBillingField("billing_complement", event.target.value)} className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-white outline-none" />
 </label>
 <label className="text-sm text-zinc-300">
 <span className="mb-1 block font-bold uppercase text-zinc-200">Bairro *</span>

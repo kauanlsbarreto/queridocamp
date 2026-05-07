@@ -14,9 +14,37 @@ type BillingRequestBody = {
   faceit_guid?: string;
 } & Partial<typeof EMPTY_BILLING_PROFILE>;
 
+function resolveBillingApiError(error: unknown) {
+  const message = error instanceof Error ? error.message : "Erro desconhecido.";
+  const errorCode = String((error as { code?: string } | null)?.code || "").trim().toUpperCase();
+
+  if (
+    errorCode === "ER_DUP_ENTRY" &&
+    (message.includes("players.email") || message.toLowerCase().includes("for key 'email'"))
+  ) {
+    return {
+      status: 409,
+      message: "Este email ja esta cadastrado em outra conta. Use outro email para continuar.",
+    };
+  }
+
+  if (errorCode === "ER_DUP_ENTRY") {
+    return {
+      status: 409,
+      message: "Ja existe um cadastro com esses dados. Revise as informacoes e tente novamente.",
+    };
+  }
+
+  return {
+    status: 500,
+    message,
+  };
+}
+
 async function loadBillingProfile(connection: any, faceitGuid: string) {
   const [rows] = await connection.query(
     `SELECT id,
+            email,
             billing_full_name, billing_company_name, billing_cpf_cnpj, billing_street, billing_number,
             billing_complement, billing_neighborhood, billing_city, billing_state, billing_postal_code,
             billing_country, billing_phone
@@ -61,9 +89,10 @@ export async function GET(request: Request) {
       isComplete: result.isComplete,
     });
   } catch (error) {
+    const resolvedError = resolveBillingApiError(error);
     return NextResponse.json(
-      { message: error instanceof Error ? error.message : "Erro desconhecido." },
-      { status: 500 },
+      { message: resolvedError.message },
+      { status: resolvedError.status },
     );
   } finally {
     if (connection) await connection.end();
@@ -82,7 +111,7 @@ export async function PUT(request: Request) {
     const profile = normalizeBillingProfile(body);
     if (!isBillingProfileComplete(profile)) {
       return NextResponse.json(
-        { message: "Preencha nome, documento, telefone e endereco completo." },
+        { message: "Preencha email, nome, documento, telefone e endereco completo." },
         { status: 400 },
       );
     }
@@ -98,7 +127,8 @@ export async function PUT(request: Request) {
 
     await connection.query(
       `UPDATE players
-       SET billing_full_name = ?,
+         SET email = ?,
+           billing_full_name = ?,
            billing_company_name = ?,
            billing_cpf_cnpj = ?,
            billing_street = ?,
@@ -112,6 +142,7 @@ export async function PUT(request: Request) {
            billing_phone = ?
        WHERE faceit_guid = ?`,
       [
+        profile.email,
         profile.billing_full_name,
         profile.billing_company_name,
         profile.billing_cpf_cnpj,
@@ -130,9 +161,10 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ success: true, profile, isComplete: true });
   } catch (error) {
+    const resolvedError = resolveBillingApiError(error);
     return NextResponse.json(
-      { message: error instanceof Error ? error.message : "Erro desconhecido." },
-      { status: 500 },
+      { message: resolvedError.message },
+      { status: resolvedError.status },
     );
   } finally {
     if (connection) await connection.end();

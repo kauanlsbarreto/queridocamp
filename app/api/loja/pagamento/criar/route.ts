@@ -332,7 +332,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          message: "Preencha seus dados de cobranca antes de iniciar o pagamento.",
+          message: "Preencha email e seus dados de cobranca antes de iniciar o pagamento.",
           code: "BILLING_INCOMPLETE",
           billingProfile,
         },

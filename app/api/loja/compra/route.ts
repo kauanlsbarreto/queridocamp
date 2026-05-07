@@ -164,6 +164,13 @@ export async function POST(request: Request) {
     const playerAdmin = Number(players[0].admin || 0);
     const currentPoints = Number(players[0].points || 0);
 
+    if (!playerEmail.trim()) {
+      return NextResponse.json(
+        { message: "Voce precisa cadastrar um email antes de realizar a compra." },
+        { status: 400 },
+      );
+    }
+
     const [itemRows] = await connection.query(
       "SELECT id, nome, preco, moedas, estoque, ativo, categoria, tipo_item, imagem_url FROM estoque WHERE id = ? LIMIT 1",
       [itemId],

@@ -1,4 +1,5 @@
 export type LojaBillingProfile = {
+  email: string;
   billing_full_name: string;
   billing_company_name: string;
   billing_cpf_cnpj: string;
@@ -29,6 +30,7 @@ const BILLING_COLUMNS: Array<{ name: keyof LojaBillingProfile; sql: string }> = 
 ];
 
 export const EMPTY_BILLING_PROFILE: LojaBillingProfile = {
+  email: "",
   billing_full_name: "",
   billing_company_name: "",
   billing_cpf_cnpj: "",
@@ -49,6 +51,7 @@ function normalizeValue(value: unknown, fallback = "") {
 
 export function normalizeBillingProfile(source: any): LojaBillingProfile {
   return {
+    email: normalizeValue(source?.email),
     billing_full_name: normalizeValue(source?.billing_full_name),
     billing_company_name: normalizeValue(source?.billing_company_name),
     billing_cpf_cnpj: normalizeValue(source?.billing_cpf_cnpj),
@@ -66,7 +69,8 @@ export function normalizeBillingProfile(source: any): LojaBillingProfile {
 
 export function isBillingProfileComplete(profile: LojaBillingProfile) {
   return Boolean(
-    profile.billing_full_name &&
+    profile.email &&
+      profile.billing_full_name &&
       profile.billing_cpf_cnpj &&
       profile.billing_street &&
       profile.billing_number &&
