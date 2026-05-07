@@ -92,7 +92,6 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	});
 	const shouldBootstrapFromApi = Array.isArray(jogadores) && jogadores.length === 0;
 	const [loadingInitialFallbackData, setLoadingInitialFallbackData] = useState(shouldBootstrapFromApi);
-	const [fallbackAttempt, setFallbackAttempt] = useState(0);
 
 	const isAdminUser = isAdmin(user);
 	const isAdminView = isAdminUser && viewAs === 'admin';
@@ -162,7 +161,6 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 				}
 
 				if (cancelled) return;
-				setFallbackAttempt((prev) => prev + 1);
 				await new Promise((resolve) => setTimeout(resolve, waitMs));
 				waitMs = Math.min(waitMs + 400, 3000);
 			}
@@ -978,20 +976,6 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 							</div>
 						))}
 					</div>
-				</div>
-			</div>
-		);
-	}
-
-	const blockPageUntilData = shouldBootstrapFromApi && jogadoresState.length === 0;
-
-	if (blockPageUntilData) {
-		return (
-			<div className="max-w-6xl mx-auto px-4 py-20 md:py-24">
-				<div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0A111A] to-[#0E1825] p-8 md:p-10 shadow-[0_18px_45px_rgba(0,0,0,0.35)] text-center">
-					<div className="text-2xl md:text-3xl font-black text-white">Carregando dados dos potes...</div>
-					<p className="mt-3 text-sm text-zinc-300">Aguarde enquanto buscamos os dados da API e banco.</p>
-					<p className="mt-2 text-xs text-zinc-500">Tentativa: {fallbackAttempt + 1}</p>
 				</div>
 			</div>
 		);
