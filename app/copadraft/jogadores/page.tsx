@@ -5,32 +5,47 @@ import type { Env } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-const SSR_FAST_SNAPSHOT_TIMEOUT_MS = Number(process.env.COPADRAFT_SSR_FAST_SNAPSHOT_TIMEOUT_MS || 1800);
+const SSR_FAST_SNAPSHOT_TIMEOUT_MS = Number(process.env.COPADRAFT_SSR_FAST_SNAPSHOT_TIMEOUT_MS || 5000);
 
 async function getJogadoresSnapshotRapido(env: Env) {
   let jogadoresConnection: any = null;
   let mainConnection: any = null;
+  let jogadores: any[] = [];
+  let players: any[] = [];
+  let top90: any[] = [];
+
   try {
-    [jogadoresConnection, mainConnection] = await Promise.all([
-      createJogadoresConnection(env),
-      createMainConnection(env),
-    ]);
+    jogadoresConnection = await createJogadoresConnection(env);
+    const [jogadoresRows] = await jogadoresConnection.query({ sql: 'SELECT * FROM jogadores', timeout: SSR_FAST_SNAPSHOT_TIMEOUT_MS });
+    jogadores = Array.isArray(jogadoresRows) ? jogadoresRows : [];
+  } catch {
+    return [] as any[];
+  }
 
-    const [jogadoresRows, playersRows] = await Promise.all([
-      jogadoresConnection.query({ sql: 'SELECT * FROM jogadores', timeout: SSR_FAST_SNAPSHOT_TIMEOUT_MS }),
-      mainConnection.query({ sql: 'SELECT faceit_guid, nickname, avatar FROM players', timeout: SSR_FAST_SNAPSHOT_TIMEOUT_MS }),
-    ]);
+  try {
+    mainConnection = await createMainConnection(env);
 
-    let top90: any[] = [];
+    try {
+      const [playersRows] = await mainConnection.query({
+        sql: 'SELECT faceit_guid, nickname, avatar FROM players',
+        timeout: SSR_FAST_SNAPSHOT_TIMEOUT_MS,
+      });
+      players = Array.isArray(playersRows) ? playersRows : [];
+    } catch {
+      players = [];
+    }
+
     try {
       const [top90Rows] = await mainConnection.query({ sql: 'SELECT * FROM top90_stats', timeout: SSR_FAST_SNAPSHOT_TIMEOUT_MS });
       top90 = Array.isArray(top90Rows) ? top90Rows : [];
     } catch {
       top90 = [];
     }
+  } catch {
+    // Se o banco principal falhar, ainda devolvemos os jogadores base.
+  }
 
-    const jogadores = Array.isArray((jogadoresRows as any)?.[0]) ? (jogadoresRows as any)[0] : [];
-    const players = Array.isArray((playersRows as any)?.[0]) ? (playersRows as any)[0] : [];
+  try {
 
     const byGuid = new Map<string, { nickname: string; avatar: string }>();
     const avatarByNickname = new Map<string, string>();
@@ -82,7 +97,7 @@ async function getJogadoresSnapshotRapido(env: Env) {
       };
     });
   } catch {
-    return [] as any[];
+    return jogadores;
   } finally {
     await Promise.allSettled([
       jogadoresConnection?.end?.(),
