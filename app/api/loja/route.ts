@@ -60,6 +60,39 @@ function normalizeImageUrl(raw: string) {
   return localPath;
 }
 
+function parseImageUrls(raw: unknown) {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((entry) => normalizeImageUrl(String(entry || "")))
+      .filter((entry): entry is string => Boolean(entry));
+  }
+
+  const value = String(raw || "").trim();
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((entry) => normalizeImageUrl(String(entry || "")))
+        .filter((entry): entry is string => Boolean(entry));
+    }
+  } catch {
+  }
+
+  const normalized = normalizeImageUrl(value);
+  return normalized ? [normalized] : [];
+}
+
+function serializeImageUrls(raw: unknown) {
+  const imageUrls = parseImageUrls(raw);
+  if (!imageUrls.length) {
+    return null;
+  }
+
+  return JSON.stringify(imageUrls);
+}
+
 function parseStorePayload(body: Record<string, unknown>) {
   const {
     nome,
@@ -107,7 +140,7 @@ function parseStorePayload(body: Record<string, unknown>) {
     preco: Number(itemPreco.toFixed(2)),
     moedas: Math.floor(itemMoedas),
     estoque: Math.floor(itemEstoque),
-    imagem_url: normalizeImageUrl(String(imagem_url || "")),
+    imagem_url: serializeImageUrls(imagem_url),
     categoria: String(categoria || "").trim() || null,
     tipo_item: String(tipo_item || "").trim() || null,
     ativo: ativo === false ? 0 : 1,
@@ -125,7 +158,7 @@ async function ensureTable(connection: any) {
       preco DECIMAL(10, 2) NOT NULL,
       moedas INT DEFAULT 0,
       estoque INT DEFAULT 0,
-      imagem_url VARCHAR(255),
+      imagem_url TEXT,
       categoria VARCHAR(100),
       data_adicionado TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       ativo BOOLEAN DEFAULT TRUE,
@@ -133,6 +166,8 @@ async function ensureTable(connection: any) {
       CONSTRAINT estoque_positivo CHECK (estoque >= 0)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
+
+  await connection.query("ALTER TABLE estoque MODIFY COLUMN imagem_url TEXT NULL");
 }
 
 async function isAdminOneOrTwo(connection: any, faceitGuid: string) {

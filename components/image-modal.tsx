@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import { X, ChevronLeft, ChevronRight } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { createPortal } from "react-dom"
 
 interface ImageModalProps {
   isOpen: boolean
@@ -16,6 +17,11 @@ interface ImageModalProps {
 
 const ImageModal = ({ isOpen, onClose, imageSrc, imageAlt, images, currentIndex = 0 }: ImageModalProps) => {
   const [index, setIndex] = useState(currentIndex)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Reset index when modal opens with new images
   useEffect(() => {
@@ -69,16 +75,16 @@ const ImageModal = ({ isOpen, onClose, imageSrc, imageAlt, images, currentIndex 
 
   const currentImage = images ? images[index] : { src: imageSrc, alt: imageAlt }
 
-  if (!isOpen) return null
+  if (!isOpen || !isMounted) return null
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
           onClick={onClose}
         >
           {/* Close button */}
@@ -147,6 +153,8 @@ const ImageModal = ({ isOpen, onClose, imageSrc, imageAlt, images, currentIndex 
       )}
     </AnimatePresence>
   )
+
+  return createPortal(modalContent, document.body)
 }
 
 export default ImageModal

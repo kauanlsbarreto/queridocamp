@@ -2,7 +2,6 @@
 
 import { ThemeProvider } from "@/components/theme-provider"
 import LiveMatchesController from "@/components/LiveMatchesController"
-import StatusAlertPopup from "@/components/status-alert-popup"
 
 export default function ClientProviders({
   children,
@@ -12,7 +11,6 @@ export default function ClientProviders({
   return (
     <ThemeProvider attribute="class" defaultTheme="dark">
       <LiveMatchesController />
-      <StatusAlertPopup />
       {children}
     </ThemeProvider>
   )

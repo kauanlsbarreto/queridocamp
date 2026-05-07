@@ -3,8 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import PremiumCard from "@/components/premium-card";
+import ImageModal from "@/components/image-modal";
 import PageAccessGate from "@/components/page-access-gate";
+import PremiumCard from "@/components/premium-card";
 import { LOJA_RELEASE_AT_ISO, LOJA_RELEASE_LABEL } from "@/lib/release-gates";
 
 type StoreItem = {
@@ -31,7 +32,7 @@ admin?: number;
 type AddItemForm = {
 nome: string;
 descricao: string;
-imagem_url: string;
+imagem_url: string[];
 categoria: string;
 tipo_item: string;
 estoque: number;
@@ -41,6 +42,10 @@ ativo: boolean;
 };
 
 type StoreActionMode = "create" | "edit";
+
+type StoreSection = "products" | "coins";
+
+const ALL_PRODUCT_CATEGORIES = "__ALL__";
 
 type PurchaseModalState = {
 open: boolean;
@@ -127,6 +132,30 @@ const PAYMENT_METHODS: PaymentMethodOption[] = [
 { id: "CREDIT_CARD", label: "Credito", image: "/images/payments/credit-card.svg", opensExternalPage: true },
 ];
 
+const PAYMENT_TERMS = [
+	"Ao concluir a compra, o pedido entra em fila de producao e analise interna.",
+	"Depois que a producao do item for iniciada, o pedido deixa de ser reembolsavel.",
+	"Antes do inicio da producao, qualquer excecao depende de validacao manual da equipe.",
+	"No cartao, juros, valor final e disponibilidade de parcelamento sao definidos no checkout do PagBank conforme bandeira, emissor e configuracao da conta.",
+];
+
+const CREDIT_INSTALLMENT_REFERENCE_BASE = 149.99;
+
+const CREDIT_INSTALLMENT_SIMULATION = [
+	{ installments: 1, referenceInstallmentValue: 149.99, referenceTotalPaid: 149.99 },
+	{ installments: 2, referenceInstallmentValue: 78.94, referenceTotalPaid: 157.88 },
+	{ installments: 3, referenceInstallmentValue: 53.53, referenceTotalPaid: 160.58 },
+	{ installments: 4, referenceInstallmentValue: 40.82, referenceTotalPaid: 163.29 },
+	{ installments: 5, referenceInstallmentValue: 33.21, referenceTotalPaid: 166.05 },
+	{ installments: 6, referenceInstallmentValue: 28.14, referenceTotalPaid: 168.83 },
+	{ installments: 7, referenceInstallmentValue: 24.52, referenceTotalPaid: 171.65 },
+	{ installments: 8, referenceInstallmentValue: 21.81, referenceTotalPaid: 174.48 },
+	{ installments: 9, referenceInstallmentValue: 19.71, referenceTotalPaid: 177.36 },
+	{ installments: 10, referenceInstallmentValue: 18.03, referenceTotalPaid: 180.26 },
+	{ installments: 11, referenceInstallmentValue: 16.65, referenceTotalPaid: 183.18 },
+	{ installments: 12, referenceInstallmentValue: 15.51, referenceTotalPaid: 186.15 },
+];
+
 const EMPTY_BILLING_PROFILE: BillingProfile = {
 billing_full_name: "",
 billing_company_name: "",
@@ -160,7 +189,7 @@ billing_phone: "11999999999",
 const defaultForm: AddItemForm = {
 nome: "",
 descricao: "",
-imagem_url: "",
+imagem_url: [""],
 categoria: "",
 tipo_item: "",
 estoque: 0,
@@ -169,7 +198,7 @@ preco: 0,
 ativo: true,
 };
 
-function resolveStoreImageSrc(imageUrl: string | null) {
+function resolveStoreImageSrc(imageUrl: string | null | undefined) {
 const value = String(imageUrl || "").trim().replace(/\\/g, "/");
 if (!value) return "/images/cs2-player.png";
 
@@ -187,6 +216,142 @@ localPath = `/${localPath}`;
 }
 
 return localPath;
+}
+
+function parseStoreImageUrls(raw: string | null | undefined) {
+const value = String(raw || "").trim();
+if (!value) return ["/images/cs2-player.png"];
+
+try {
+const parsed = JSON.parse(value);
+if (Array.isArray(parsed)) {
+const images = parsed
+.map((entry) => resolveStoreImageSrc(typeof entry === "string" ? entry : ""))
+.filter(Boolean);
+
+if (images.length) {
+return images;
+}
+}
+} catch {
+}
+
+const normalized = resolveStoreImageSrc(value);
+return normalized ? [normalized] : ["/images/cs2-player.png"];
+}
+
+function parseEditableStoreImageUrls(raw: string | null | undefined) {
+const value = String(raw || "").trim();
+if (!value) return [""];
+
+try {
+const parsed = JSON.parse(value);
+if (Array.isArray(parsed)) {
+const images = parsed
+.map((entry) => String(entry || "").trim())
+.filter(Boolean);
+
+if (images.length) {
+return images;
+}
+}
+} catch {
+}
+
+return [value];
+}
+
+function StoreItemImageCarousel({ itemName, imageUrl }: { itemName: string; imageUrl: string | null }) {
+const imageUrls = useMemo(() => parseStoreImageUrls(imageUrl), [imageUrl]);
+const [currentIndex, setCurrentIndex] = useState(0);
+const [isModalOpen, setIsModalOpen] = useState(false);
+
+useEffect(() => {
+setCurrentIndex(0);
+}, [imageUrl]);
+
+const hasMultipleImages = imageUrls.length > 1;
+
+const showPreviousImage = () => {
+setCurrentIndex((prev) => (prev === 0 ? imageUrls.length - 1 : prev - 1));
+};
+
+const showNextImage = () => {
+setCurrentIndex((prev) => (prev === imageUrls.length - 1 ? 0 : prev + 1));
+};
+
+return (
+<>
+<div className="relative mb-4 aspect-[4/3] w-full overflow-hidden rounded-lg border border-white/10 bg-black/40">
+<button
+type="button"
+onClick={() => setIsModalOpen(true)}
+className="absolute inset-0 z-[1] cursor-zoom-in"
+aria-label={`Ampliar imagens de ${itemName}`}
+>
+<Image
+src={imageUrls[currentIndex]}
+alt={itemName}
+fill
+className="object-contain"
+unoptimized
+/>
+</button>
+
+{hasMultipleImages && (
+<>
+<button
+type="button"
+onClick={(event) => {
+event.stopPropagation();
+showPreviousImage();
+}}
+className="absolute left-2 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/60 text-lg font-black text-white transition hover:border-gold/60 hover:text-gold"
+aria-label={`Ver imagem anterior de ${itemName}`}
+>
+&lt;
+</button>
+<button
+type="button"
+onClick={(event) => {
+event.stopPropagation();
+showNextImage();
+}}
+className="absolute right-2 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/60 text-lg font-black text-white transition hover:border-gold/60 hover:text-gold"
+aria-label={`Ver proxima imagem de ${itemName}`}
+>
+&gt;
+</button>
+<div className="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-black/65 px-3 py-1">
+{imageUrls.map((entry, index) => (
+<button
+key={`${entry}-${index}`}
+type="button"
+onClick={(event) => {
+event.stopPropagation();
+setCurrentIndex(index);
+}}
+className={`h-2.5 w-2.5 rounded-full transition ${index === currentIndex ? "bg-gold" : "bg-white/35 hover:bg-white/60"}`}
+aria-label={`Ver imagem ${index + 1} de ${itemName}`}
+/>
+))}
+<span className="text-[10px] font-black uppercase tracking-[0.12em] text-zinc-200">
+{currentIndex + 1}/{imageUrls.length}
+</span>
+</div>
+</>
+)}
+</div>
+<ImageModal
+isOpen={isModalOpen}
+onClose={() => setIsModalOpen(false)}
+imageSrc={imageUrls[currentIndex]}
+imageAlt={itemName}
+images={imageUrls.map((src) => ({ src, alt: itemName }))}
+currentIndex={currentIndex}
+/>
+</>
+);
 }
 
 function isWallpaperItem(item: Pick<StoreItem, "categoria"> | null | undefined) {
@@ -260,12 +425,25 @@ return `/${value}`;
 export default function LojaPage() {
 	// Data de lançamento da loja (igual backend)
 	const LOJA_RELEASE_AT_ISO = "2026-04-25T00:00:00.000Z"; // ajuste conforme backend
-	const LOJA_RELEASE_DATE = new Date(LOJA_RELEASE_AT_ISO);
-	const now = new Date();
 
 	const paymentPollRef = useRef<number | null>(null);
 	const billingCepLookupTimerRef = useRef<number | null>(null);
 	const billingCepLastLookupRef = useRef("");
+	const syncUserFromStorage = useCallback(() => {
+		if (typeof window === "undefined") return;
+
+		const stored = localStorage.getItem("faceit_user");
+		if (!stored) {
+			setUser(null);
+			return;
+		}
+
+		try {
+			setUser(JSON.parse(stored) as FaceitUser);
+		} catch {
+			setUser(null);
+		}
+	}, []);
 
 	const [user, setUser] = useState<FaceitUser | null>(null);
 	const [items, setItems] = useState<StoreItem[]>([]);
@@ -274,7 +452,10 @@ export default function LojaPage() {
 	const [error, setError] = useState<string>("");
 	const [showForm, setShowForm] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
-	const [canViewStore, setCanViewStore] = useState(false);
+	const [activeStoreSection, setActiveStoreSection] = useState<StoreSection>("products");
+	const [isDesktopRankingMinimized, setIsDesktopRankingMinimized] = useState(false);
+	const [sendingTestEmail, setSendingTestEmail] = useState(false);
+	const [activeProductCategory, setActiveProductCategory] = useState<string>(ALL_PRODUCT_CATEGORIES);
 	const [form, setForm] = useState<AddItemForm>(defaultForm);
 	const [formMode, setFormMode] = useState<StoreActionMode>("create");
 	const [editingItemId, setEditingItemId] = useState<number | null>(null);
@@ -333,6 +514,11 @@ return Number.isFinite(parsed) ? parsed : null;
 }, [user]);
 
 const isAdmin12 = adminLevel === 1 || adminLevel === 2;
+const isAdmin1 = adminLevel === 1;
+
+const isFaceitLogged = useMemo(() => {
+	return Boolean(user?.faceit_guid || user?.id || user?.ID);
+}, [user]);
 
 const userNumericId = useMemo(() => {
 const rawId = user?.id ?? user?.ID;
@@ -340,6 +526,73 @@ const parsed = Number(rawId);
 if (!Number.isFinite(parsed) || parsed <= 0) return null;
 return Math.trunc(parsed);
 }, [user]);
+
+const productItems = useMemo(() => items.filter((item) => Number(item.preco || 0) > 0), [items]);
+
+const coinItems = useMemo(() => items.filter((item) => Number(item.moedas || 0) > 0), [items]);
+
+const productCategories = useMemo(() => {
+const categoryMap = new Map<string, string>();
+
+for (const item of productItems) {
+const rawCategory = String(item.categoria || "").trim();
+if (!rawCategory) continue;
+
+const normalizedKey = rawCategory.toLowerCase();
+if (!categoryMap.has(normalizedKey)) {
+categoryMap.set(normalizedKey, rawCategory);
+}
+}
+
+return Array.from(categoryMap.values()).sort((left, right) => left.localeCompare(right, "pt-BR"));
+}, [productItems]);
+
+useEffect(() => {
+if (activeStoreSection !== "products") return;
+if (activeProductCategory === ALL_PRODUCT_CATEGORIES) return;
+
+const existsInCurrentList = productCategories.some(
+(category) => category.toLowerCase() === activeProductCategory.toLowerCase(),
+);
+
+if (!existsInCurrentList) {
+setActiveProductCategory(ALL_PRODUCT_CATEGORIES);
+}
+}, [activeStoreSection, activeProductCategory, productCategories]);
+
+const visibleProductItems = useMemo(() => {
+if (activeProductCategory === ALL_PRODUCT_CATEGORIES) {
+return productItems;
+}
+
+return productItems.filter(
+(item) => String(item.categoria || "").trim().toLowerCase() === activeProductCategory.toLowerCase(),
+);
+}, [productItems, activeProductCategory]);
+
+const visibleItems = activeStoreSection === "products" ? visibleProductItems : coinItems;
+
+const selectedPaymentItemPrice = useMemo(() => Number(paymentMethodModal.item?.preco || 0), [paymentMethodModal.item?.preco]);
+
+const installmentRows = useMemo(() => {
+	const amount = selectedPaymentItemPrice;
+	if (amount <= 0) return [];
+
+	const scaleFactor = amount / CREDIT_INSTALLMENT_REFERENCE_BASE;
+
+	return CREDIT_INSTALLMENT_SIMULATION.map((entry) => {
+		const installmentValue = Math.round(entry.referenceInstallmentValue * scaleFactor * 100) / 100;
+		const totalPaid = Math.round(entry.referenceTotalPaid * scaleFactor * 100) / 100;
+		const totalInterest = Math.max(0, Math.round((totalPaid - amount) * 100) / 100);
+
+		return {
+			installments: entry.installments,
+			installmentValue,
+			totalPaid,
+			totalInterest,
+		};
+		});
+	}, [selectedPaymentItemPrice]);
 
 const formatCurrencyBRL = useCallback((value: number) => {
 const amount = Number(value || 0);
@@ -463,37 +716,38 @@ isError: true,
 useEffect(() => {
 		if (typeof window === "undefined") return;
 
-		const stored = localStorage.getItem("faceit_user");
-		let isAdmin = false;
-		if (stored) {
-			try {
-				const parsed = JSON.parse(stored) as FaceitUser;
-				setUser(parsed);
-				const adminLevel = parsed.Admin ?? parsed.admin;
-				isAdmin = adminLevel === 1 || adminLevel === 2;
-			} catch {}
-		}
+		syncUserFromStorage();
 
-		// Permite visualizar se for admin OU se já passou da data de lançamento
-		const podeVer = isAdmin || now >= LOJA_RELEASE_DATE;
-		setCanViewStore(podeVer);
+		const onAuthUpdate = () => {
+			syncUserFromStorage();
+		};
 
-		if (podeVer) {
-			if (stored) {
-				try {
-					const parsed = JSON.parse(stored) as FaceitUser;
-					const guid = String(parsed.faceit_guid || "");
-					loadItems(guid);
-				} catch {
-					loadItems("");
-				}
-			} else {
-				loadItems("");
+		const onStorage = (event: StorageEvent) => {
+			if (!event.key || event.key === "faceit_user") {
+				syncUserFromStorage();
 			}
-		} else {
+		};
+
+		window.addEventListener("faceit_auth_updated", onAuthUpdate);
+		window.addEventListener("storage", onStorage);
+
+		return () => {
+			window.removeEventListener("faceit_auth_updated", onAuthUpdate);
+			window.removeEventListener("storage", onStorage);
+		};
+	}, [syncUserFromStorage]);
+
+useEffect(() => {
+		if (!isFaceitLogged) {
+			setItems([]);
+			setTopPlayers([]);
 			setLoading(false);
+			setError("");
+			return;
 		}
-	}, [loadItems]);
+
+		void loadItems(String(user?.faceit_guid || ""));
+	}, [isFaceitLogged, loadItems, user?.faceit_guid]);
 
 useEffect(() => {
 return () => {
@@ -507,7 +761,7 @@ setEditingItemId(item.id);
 setForm({
 nome: item.nome,
 descricao: item.descricao || "",
-imagem_url: item.imagem_url || "",
+imagem_url: parseEditableStoreImageUrls(item.imagem_url),
 categoria: item.categoria || "",
 tipo_item: item.tipo_item || "",
 estoque: item.estoque,
@@ -635,6 +889,58 @@ message: "",
 isError: false,
 });
 };
+
+const handleSendTestEmail = useCallback(async () => {
+if (!isAdmin12 || sendingTestEmail) return;
+
+const faceitGuid = String(user?.faceit_guid || "");
+if (!faceitGuid) {
+setPaymentFeedbackModal({
+open: true,
+title: "Email de teste",
+message: "Voce precisa estar logado como admin para enviar o email de teste.",
+isError: true,
+});
+return;
+}
+
+setSendingTestEmail(true);
+
+try {
+const response = await fetch("/api/loja/email-teste", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({ faceit_guid: faceitGuid }),
+});
+
+const data = await response.json().catch(() => ({}));
+if (!response.ok) {
+setPaymentFeedbackModal({
+open: true,
+title: "Falha no email de teste",
+message: data?.message || "Nao foi possivel enviar o email de teste.",
+isError: true,
+});
+return;
+}
+
+setPaymentFeedbackModal({
+open: true,
+title: "Email de teste enviado",
+message: data?.message || "O email de teste foi enviado com sucesso.",
+isError: false,
+});
+} catch {
+setPaymentFeedbackModal({
+open: true,
+title: "Falha no email de teste",
+message: "Erro inesperado ao enviar o email de teste.",
+isError: true,
+});
+} finally {
+setSendingTestEmail(false);
+}
+}, [isAdmin12, sendingTestEmail, user?.faceit_guid]);
 
 const closeBillingModal = () => {
 setBillingModal({
@@ -1199,9 +1505,14 @@ setSubmitting(true);
 setError("");
 
 try {
+const imageUrls = form.imagem_url
+.map((entry) => entry.trim())
+.filter(Boolean);
+
 const payload: Record<string, unknown> = {
 faceit_guid: faceitGuid,
 ...form,
+imagem_url: imageUrls,
 };
 
 if (formMode === "edit" && editingItemId) {
@@ -1234,10 +1545,10 @@ setSubmitting(false);
 };
 
 return (
-<PageAccessGate level={2}>
-  <section className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black py-12">
-    <div className="container mx-auto px-4">
-      <div className="mx-auto max-w-6xl space-y-6">
+	<PageAccessGate level={1}>
+	<section className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black py-12">
+		<div className="container mx-auto px-4">
+	<div className="mx-auto max-w-6xl space-y-6">
 <PremiumCard>
 <div className="p-6 md:p-8">
 <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -1271,6 +1582,7 @@ Pagamentos Pendentes
 </div>
 
 {isAdmin12 && (
+<div className="flex flex-wrap items-center gap-2 md:justify-end">
 <button
 type="button"
 onClick={handleCreateMode}
@@ -1278,6 +1590,17 @@ className="rounded-lg border border-gold bg-gold px-4 py-2 text-sm font-black up
 >
 {showForm && formMode === "create" ? "Fechar" : "Adicionar Item"}
 </button>
+{isAdmin1 && (
+<button
+type="button"
+onClick={() => void handleSendTestEmail()}
+disabled={sendingTestEmail}
+className="rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm font-black uppercase text-zinc-100 transition hover:border-gold/60 hover:text-gold disabled:cursor-not-allowed disabled:opacity-50"
+>
+{sendingTestEmail ? "Enviando email..." : "Enviar Email Teste"}
+</button>
+)}
+</div>
 )}
 </div>
 </div>
@@ -1294,12 +1617,62 @@ onChange={(e) => setForm((prev) => ({ ...prev, nome: e.target.value }))}
 required
 />
 
+<div className="md:col-span-2">
+<div className="mb-2 flex items-center justify-between gap-3">
+<label className="block text-xs uppercase tracking-[0.1em] text-zinc-400">Imagens do item</label>
+<button
+type="button"
+onClick={() =>
+setForm((prev) => ({
+...prev,
+imagem_url: [...prev.imagem_url, ""],
+}))
+}
+className="flex h-9 w-9 items-center justify-center rounded-full border border-gold bg-gold text-lg font-black text-black transition hover:opacity-90"
+aria-label="Adicionar nova imagem"
+>
++
+</button>
+</div>
+
+<div className="space-y-3">
+{form.imagem_url.map((imageUrl, index) => (
+<div key={`store-image-field-${index}`} className="flex items-center gap-2">
 <input
-className="rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-white outline-none focus:border-gold"
-placeholder="URL ou public/loja/item.png"
-value={form.imagem_url}
-onChange={(e) => setForm((prev) => ({ ...prev, imagem_url: e.target.value }))}
+className="flex-1 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-white outline-none focus:border-gold"
+placeholder={`URL da imagem ${index + 1} ou public/loja/item-${index + 1}.png`}
+value={imageUrl}
+onChange={(e) =>
+setForm((prev) => ({
+...prev,
+imagem_url: prev.imagem_url.map((entry, entryIndex) =>
+entryIndex === index ? e.target.value : entry,
+),
+}))
+}
 />
+<button
+type="button"
+onClick={() =>
+setForm((prev) => ({
+...prev,
+imagem_url:
+prev.imagem_url.length === 1
+? [""]
+: prev.imagem_url.filter((_, entryIndex) => entryIndex !== index),
+}))
+}
+className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-lg font-black text-zinc-200 transition hover:border-red-400/60 hover:text-red-300"
+aria-label={`Remover imagem ${index + 1}`}
+>
+×
+</button>
+</div>
+))}
+</div>
+
+<p className="mt-2 text-xs text-zinc-500">Use o botao + para adicionar mais imagens. Os cards da loja exibem setas para alternar entre elas.</p>
+</div>
 
 <input
 className="rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-white outline-none focus:border-gold"
@@ -1315,11 +1688,12 @@ value={form.tipo_item}
 onChange={(e) => setForm((prev) => ({ ...prev, tipo_item: e.target.value }))}
 />
 
-<input
-className="rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-white outline-none focus:border-gold md:col-span-2"
+<textarea
+className="min-h-[180px] rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-white outline-none focus:border-gold md:col-span-2"
 placeholder="Descricao"
 value={form.descricao}
 onChange={(e) => setForm((prev) => ({ ...prev, descricao: e.target.value }))}
+spellCheck={false}
 />
 
 <div className="md:col-span-2">
@@ -1392,6 +1766,54 @@ className="rounded-lg border border-gold bg-gold px-4 py-2 text-sm font-black up
 
 <div>
 <div>
+{!loading && (
+<div className="mb-4 flex flex-wrap gap-2">
+<button
+type="button"
+onClick={() => setActiveStoreSection("products")}
+className={`rounded-lg border px-4 py-2 text-sm font-black uppercase transition ${activeStoreSection === "products" ? "border-gold bg-gold text-black" : "border-white/20 bg-white/5 text-zinc-100 hover:border-gold/50 hover:text-gold"}`}
+>
+Itens Personalizados ({productItems.length})
+</button>
+<button
+type="button"
+onClick={() => setActiveStoreSection("coins")}
+className={`rounded-lg border px-4 py-2 text-sm font-black uppercase transition ${activeStoreSection === "coins" ? "border-gold bg-gold text-black" : "border-white/20 bg-white/5 text-zinc-100 hover:border-gold/50 hover:text-gold"}`}
+>
+Perfil ({coinItems.length})
+</button>
+</div>
+)}
+
+{!loading && activeStoreSection === "products" && (
+<div className="mb-4 flex flex-wrap gap-2">
+<button
+type="button"
+onClick={() => setActiveProductCategory(ALL_PRODUCT_CATEGORIES)}
+className={`rounded-lg border px-3 py-1.5 text-xs font-black uppercase transition ${activeProductCategory === ALL_PRODUCT_CATEGORIES ? "border-gold bg-gold text-black" : "border-white/20 bg-white/5 text-zinc-100 hover:border-gold/50 hover:text-gold"}`}
+>
+Todos ({productItems.length})
+</button>
+{productCategories.map((category) => {
+const isActive = activeProductCategory.toLowerCase() === category.toLowerCase();
+const categoryCount = productItems.filter(
+(item) => String(item.categoria || "").trim().toLowerCase() === category.toLowerCase(),
+).length;
+
+return (
+<button
+key={`product-category-${category}`}
+type="button"
+onClick={() => setActiveProductCategory(category)}
+className={`rounded-lg border px-3 py-1.5 text-xs font-black uppercase transition ${isActive ? "border-gold bg-gold text-black" : "border-white/20 bg-white/5 text-zinc-100 hover:border-gold/50 hover:text-gold"}`}
+>
+{category} ({categoryCount})
+</button>
+);
+})}
+</div>
+)}
+
 {loading && (
 <PremiumCard>
 <div className="p-6 text-sm text-zinc-300">Carregando itens da loja...</div>
@@ -1400,21 +1822,13 @@ className="rounded-lg border border-gold bg-gold px-4 py-2 text-sm font-black up
 
 {!loading && (
 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-{items.map((item) => (
+{visibleItems.map((item) => (
 <PremiumCard key={item.id}>
 <div className="p-5">
-<div className="relative mb-4 aspect-[4/3] w-full overflow-hidden rounded-lg border border-white/10 bg-black/40">
-<Image
-src={resolveStoreImageSrc(item.imagem_url)}
-alt={item.nome}
-fill
-className="object-contain"
-unoptimized
-/>
-</div>
+<StoreItemImageCarousel itemName={item.nome} imageUrl={item.imagem_url} />
 
 <h2 className="text-lg font-black uppercase text-white">{item.nome}</h2>
-<p className="mt-1 text-sm text-zinc-400">{item.descricao || "Sem descricao"}</p>
+<p className="mt-1 whitespace-pre-line text-sm text-zinc-400">{item.descricao || "Sem descricao"}</p>
 
 <div className="mt-4 flex flex-wrap gap-2 text-xs">
 {item.categoria && (
@@ -1458,19 +1872,29 @@ Editar
 )}
 <button
 type="button"
-onClick={() => (hasRealPricePayment(item) ? openPaymentMethodsModal(item) : handleBuyItem(item))}
+onClick={() =>
+activeStoreSection === "coins"
+? handleBuyItem(item)
+: hasRealPricePayment(item)
+? openPaymentMethodsModal(item)
+: handleBuyItem(item)
+}
 className="flex-1 rounded-lg border border-gold bg-gold px-3 py-2 text-xs font-black uppercase text-black transition hover:opacity-90"
 >
-{hasRealPricePayment(item) ? "Pagar" : "Comprar"}
+{activeStoreSection === "coins" ? "Comprar" : hasRealPricePayment(item) ? "Pagar" : "Comprar"}
 </button>
 </div>
 </div>
 </PremiumCard>
 ))}
 
-{!items.length && (
+{!visibleItems.length && (
 <PremiumCard>
-<div className="p-6 text-sm text-zinc-300">Nenhum item ativo na loja no momento.</div>
+<div className="p-6 text-sm text-zinc-300">
+{activeStoreSection === "products"
+? "Nenhum produto com preco disponivel no momento."
+: "Nenhum item disponivel para compra com moeda no momento."}
+</div>
 </PremiumCard>
 )}
 </div>
@@ -1651,11 +2075,14 @@ Fechar
 
 {paymentMethodModal.open && paymentMethodModal.item && (
 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 px-4">
-<PremiumCard className="w-full max-w-sm">
-<div className="p-6">
+<PremiumCard className="w-full max-w-4xl">
+<div className="max-h-[90vh] overflow-y-auto p-6">
 <h2 className="text-xl font-black uppercase text-white">Escolha a forma de pagamento</h2>
 <p className="mt-2 text-sm text-zinc-300">
 Item: <span className="font-bold text-gold">{paymentMethodModal.item.nome}</span>
+</p>
+<p className="mt-1 text-sm text-zinc-400">
+Valor base do item: <span className="font-bold text-white">{formatCurrencyBRL(selectedPaymentItemPrice)}</span>
 </p>
 <div className="mt-5 -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 md:pb-0">
 {PAYMENT_METHODS.map((method) => (
@@ -1678,6 +2105,58 @@ className="min-w-[150px] snap-start rounded-xl border border-white/20 bg-white/5
 </div>
 
 <p className="mt-2 text-xs text-zinc-500 md:hidden">Deslize para ver todos os metodos.</p>
+
+<div className="mt-6 grid gap-4 xl:grid-cols-[1.05fr_1.35fr]">
+<div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-4">
+<p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Termos da compra</p>
+<div className="mt-3 space-y-2 text-sm text-zinc-200">
+{PAYMENT_TERMS.map((term) => (
+<p key={term} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+{term}
+</p>
+))}
+</div>
+</div>
+
+<div className="rounded-xl border border-white/10 bg-white/5 p-4">
+<div className="flex flex-wrap items-center justify-between gap-3">
+<div>
+<p className="text-xs font-black uppercase tracking-[0.18em] text-gold/80">Simulacao para credito</p>
+<h3 className="mt-1 text-sm font-black uppercase text-white">Parcelamento no cartao de credito</h3>
+</div>
+<div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-right">
+<p className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">Base do pedido</p>
+<p className="text-sm font-black text-gold">{formatCurrencyBRL(selectedPaymentItemPrice)}</p>
+</div>
+</div>
+
+<div className="mt-4 overflow-hidden rounded-xl border border-white/10">
+<div className="grid grid-cols-[0.75fr_1fr_1fr_1.3fr] bg-white/10 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-zinc-300">
+<span>Parcelas</span>
+<span>Parcela (R$)</span>
+<span>Total pago (R$)</span>
+<span>Juros total (R$)</span>
+</div>
+<div className="max-h-[320px] overflow-y-auto">
+{installmentRows.map((row) => (
+<div
+key={`installment-row-${row.installments}`}
+className="grid grid-cols-[0.75fr_1fr_1fr_1.3fr] items-center border-t border-white/10 px-3 py-2 text-sm text-zinc-200"
+>
+<span className="font-black text-white">{row.installments}x</span>
+<span>{formatCurrencyBRL(row.installmentValue)}</span>
+<span>{formatCurrencyBRL(row.totalPaid)}</span>
+<span className={row.totalInterest === 0 ? "text-emerald-300" : "text-amber-200"}>{formatCurrencyBRL(row.totalInterest)}</span>
+</div>
+))}
+</div>
+</div>
+
+<p className="mt-3 text-xs text-zinc-400">
+Esta tabela e uma simulacao para compras no cartao de credito baseada no exemplo de juros por parcela. O valor exibido serve como referencia antes do redirecionamento e o total final do checkout pode variar conforme regras ativas do PagBank, bandeira, emissor e configuracao de parcelamento da conta.
+</p>
+</div>
+</div>
 
 {paymentMethodModal.error && (
 <p className="mt-3 text-sm font-semibold text-red-400">{paymentMethodModal.error}</p>
@@ -1864,44 +2343,60 @@ Fechar
 			<aside className="fixed top-36 z-[40] hidden w-[300px] xl:right-[8vw] xl:block 2xl:right-[10vw]">
 				<PremiumCard className="h-fit">
 					<div className="p-5">
-						<p className="text-xs uppercase tracking-[0.18em] text-gold/80">Ranking</p>
-						<h3 className="mt-1 text-lg font-black uppercase text-white">Top 5</h3>
-						<p className="mt-1 text-xs text-zinc-400">Jogadores com maior saldo de moedas no site.</p>
-
-						<div className="mt-4 space-y-2">
-							{topPlayers.length > 0 ? (
-								topPlayers.map((player, index) => (
-									<div key={player.id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 px-3 py-2">
-										<span className="w-5 text-center text-xs font-black text-gold">#{index + 1}</span>
-										<div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/15 bg-black/40">
-											<Image
-												src={resolveAvatarSrc(player.avatar)}
-												alt={player.nickname}
-												fill
-												className="object-cover"
-												unoptimized
-											/>
-										</div>
-										<div className="min-w-0 flex-1">
-											<p className="truncate text-sm font-bold text-white">{player.nickname}</p>
-										</div>
-										<div className="flex items-center gap-1 rounded-md border border-gold/25 bg-gold/10 px-2 py-1">
-											<Image src="/moeda.png" alt="Moeda" width={14} height={14} />
-											<span className="text-xs font-black text-gold">{player.points}</span>
-										</div>
-									</div>
-								))
-							) : (
-								<div className="rounded-lg border border-white/10 bg-black/30 px-3 py-3 text-xs text-zinc-400">
-									Nenhum jogador com moedas encontrado.
-								</div>
-							)}
+						<div className="flex items-start justify-between gap-3">
+							<div>
+								<p className="text-xs uppercase tracking-[0.18em] text-gold/80">Ranking</p>
+								<h3 className="mt-1 text-lg font-black uppercase text-white">Top 5</h3>
+							</div>
+							<button
+								type="button"
+								onClick={() => setIsDesktopRankingMinimized((prev) => !prev)}
+								className="rounded-md border border-white/20 bg-white/5 px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-zinc-100 transition hover:border-gold/60 hover:text-gold"
+							>
+								{isDesktopRankingMinimized ? "Maximizar" : "Minimizar"}
+							</button>
 						</div>
+
+						{!isDesktopRankingMinimized && (
+							<>
+								<p className="mt-1 text-xs text-zinc-400">Jogadores com maior saldo de moedas no site.</p>
+
+								<div className="mt-4 space-y-2">
+									{topPlayers.length > 0 ? (
+										topPlayers.map((player, index) => (
+											<div key={player.id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+												<span className="w-5 text-center text-xs font-black text-gold">#{index + 1}</span>
+												<div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/15 bg-black/40">
+													<Image
+														src={resolveAvatarSrc(player.avatar)}
+														alt={player.nickname}
+														fill
+														className="object-cover"
+														unoptimized
+													/>
+												</div>
+												<div className="min-w-0 flex-1">
+													<p className="truncate text-sm font-bold text-white">{player.nickname}</p>
+												</div>
+												<div className="flex items-center gap-1 rounded-md border border-gold/25 bg-gold/10 px-2 py-1">
+													<Image src="/moeda.png" alt="Moeda" width={14} height={14} />
+													<span className="text-xs font-black text-gold">{player.points}</span>
+												</div>
+											</div>
+										))
+									) : (
+										<div className="rounded-lg border border-white/10 bg-black/30 px-3 py-3 text-xs text-zinc-400">
+											Nenhum jogador com moedas encontrado.
+										</div>
+									)}
+								</div>
+							</>
+						)}
 					</div>
 				</PremiumCard>
 			</aside>
 		</div>
 	</section>
-</PageAccessGate>
+	</PageAccessGate>
 );
 }

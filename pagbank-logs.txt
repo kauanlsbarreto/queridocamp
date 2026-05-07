@@ -1018,3 +1018,653 @@
     }
   ]
 }
+
+[PAGBANK][REQUEST] /checkouts
+{
+  "reference_id": "LOJA_PAY_71_6edf4129",
+  "expiration_date": "2026-05-07T17:03:21.856Z",
+  "items": [
+    {
+      "reference_id": "8",
+      "name": "Agente Terrorista Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 20000
+    }
+  ],
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=71",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=71",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+
+[PAGBANK][RESPONSE] /checkouts
+{
+  "id": "CHEC_76F89DC9-E4C4-4A05-B5F5-2732E248EC9C",
+  "reference_id": "LOJA_PAY_71_6edf4129",
+  "expiration_date": "2026-05-07T17:03:21.856Z",
+  "created_at": "2026-05-07T13:18:22-03:00",
+  "status": "ACTIVE",
+  "customer_modifiable": true,
+  "items": [
+    {
+      "reference_id": "8",
+      "name": "Agente Terrorista Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 20000
+    }
+  ],
+  "additional_amount": 0,
+  "discount_amount": 0,
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=71",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=71",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_76F89DC9-E4C4-4A05-B5F5-2732E248EC9C",
+      "method": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://pagamento.pagbank.com.br/pagamento?code=76f89dc9-e4c4-4a05-b5f5-2732e248ec9c",
+      "method": "GET"
+    },
+    {
+      "rel": "INACTIVATE",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_76F89DC9-E4C4-4A05-B5F5-2732E248EC9C/inactivate",
+      "method": "POST"
+    }
+  ],
+  "origin": "CHECKOUT_WEB"
+}
+
+[PAGBANK][REQUEST] /checkouts
+{
+  "reference_id": "LOJA_PAY_71_6edf4129",
+  "expiration_date": "2026-05-07T17:03:21.856Z",
+  "items": [
+    {
+      "reference_id": "8",
+      "name": "Agente Terrorista Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 20000
+    }
+  ],
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=71",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=71",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+[PAGBANK][RESPONSE] /checkouts
+{
+  "id": "CHEC_76F89DC9-E4C4-4A05-B5F5-2732E248EC9C",
+  "reference_id": "LOJA_PAY_71_6edf4129",
+  "expiration_date": "2026-05-07T17:03:21.856Z",
+  "created_at": "2026-05-07T13:18:22-03:00",
+  "status": "ACTIVE",
+  "customer_modifiable": true,
+  "items": [
+    {
+      "reference_id": "8",
+      "name": "Agente Terrorista Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 20000
+    }
+  ],
+  "additional_amount": 0,
+  "discount_amount": 0,
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=71",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=71",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_76F89DC9-E4C4-4A05-B5F5-2732E248EC9C",
+      "method": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://pagamento.pagbank.com.br/pagamento?code=76f89dc9-e4c4-4a05-b5f5-2732e248ec9c",
+      "method": "GET"
+    },
+    {
+      "rel": "INACTIVATE",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_76F89DC9-E4C4-4A05-B5F5-2732E248EC9C/inactivate",
+      "method": "POST"
+    }
+  ],
+  "origin": "CHECKOUT_WEB"
+}
+
+[PAGBANK][REQUEST] /orders
+{
+  "reference_id": "LOJA_PAY_72_97dae76c",
+  "customer": {
+    "name": "Teste Local Querido Camp",
+    "email": "player1@queridocamp.com.br",
+    "tax_id": "12345678909"
+  },
+  "items": [
+    {
+      "reference_id": "10",
+      "name": "Mapa Dust 2 Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 21999
+    }
+  ],
+  "qr_codes": [
+    {
+      "amount": {
+        "value": 21999
+      },
+      "expiration_date": "2026-05-07T17:58:23.989Z"
+    }
+  ],
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+
+[PAGBANK][RESPONSE] /orders
+{
+  "id": "ORDE_029B60A9-9338-42CD-A961-40381E8CEBBF",
+  "reference_id": "LOJA_PAY_72_97dae76c",
+  "created_at": "2026-05-07T14:13:24.261-03:00",
+  "customer": {
+    "name": "Teste Local Querido Camp",
+    "email": "player1@queridocamp.com.br",
+    "tax_id": "12345678909"
+  },
+  "items": [
+    {
+      "reference_id": "10",
+      "name": "Mapa Dust 2 Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 21999
+    }
+  ],
+  "qr_codes": [
+    {
+      "id": "QRCO_7A0187B2-38CF-4890-AE0B-8EC0E3971B92",
+      "expiration_date": "2026-05-07T14:58:23.000-03:00",
+      "amount": {
+        "value": 21999
+      },
+      "text": "00020101021226830014br.gov.bcb.pix2561api.pagseguro.com/pix/v2/7A0187B2-38CF-4890-AE0B-8EC0E3971B925204799153039865802BR592263.790.373 DENIS LIMA 6007Aracaju62070503***63049C41",
+      "arrangements": [
+        "PIX"
+      ],
+      "links": [
+        {
+          "rel": "QRCODE.PNG",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_7A0187B2-38CF-4890-AE0B-8EC0E3971B92/png",
+          "media": "image/png",
+          "type": "GET"
+        },
+        {
+          "rel": "QRCODE.BASE64",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_7A0187B2-38CF-4890-AE0B-8EC0E3971B92/base64",
+          "media": "text/plain",
+          "type": "GET"
+        }
+      ]
+    }
+  ],
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/orders/ORDE_029B60A9-9338-42CD-A961-40381E8CEBBF",
+      "media": "application/json",
+      "type": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://api.pagseguro.com/orders/ORDE_029B60A9-9338-42CD-A961-40381E8CEBBF/pay",
+      "media": "application/json",
+      "type": "POST"
+    }
+  ]
+}
+
+[PAGBANK][REQUEST] /orders
+{
+  "reference_id": "LOJA_PAY_72_97dae76c",
+  "customer": {
+    "name": "Teste Local Querido Camp",
+    "email": "player1@queridocamp.com.br",
+    "tax_id": "12345678909"
+  },
+  "items": [
+    {
+      "reference_id": "10",
+      "name": "Mapa Dust 2 Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 21999
+    }
+  ],
+  "qr_codes": [
+    {
+      "amount": {
+        "value": 21999
+      },
+      "expiration_date": "2026-05-07T17:58:23.989Z"
+    }
+  ],
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+[PAGBANK][RESPONSE] /orders
+{
+  "id": "ORDE_029B60A9-9338-42CD-A961-40381E8CEBBF",
+  "reference_id": "LOJA_PAY_72_97dae76c",
+  "created_at": "2026-05-07T14:13:24.261-03:00",
+  "customer": {
+    "name": "Teste Local Querido Camp",
+    "email": "player1@queridocamp.com.br",
+    "tax_id": "12345678909"
+  },
+  "items": [
+    {
+      "reference_id": "10",
+      "name": "Mapa Dust 2 Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 21999
+    }
+  ],
+  "qr_codes": [
+    {
+      "id": "QRCO_7A0187B2-38CF-4890-AE0B-8EC0E3971B92",
+      "expiration_date": "2026-05-07T14:58:23.000-03:00",
+      "amount": {
+        "value": 21999
+      },
+      "text": "00020101021226830014br.gov.bcb.pix2561api.pagseguro.com/pix/v2/7A0187B2-38CF-4890-AE0B-8EC0E3971B925204799153039865802BR592263.790.373 DENIS LIMA 6007Aracaju62070503***63049C41",
+      "arrangements": [
+        "PIX"
+      ],
+      "links": [
+        {
+          "rel": "QRCODE.PNG",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_7A0187B2-38CF-4890-AE0B-8EC0E3971B92/png",
+          "media": "image/png",
+          "type": "GET"
+        },
+        {
+          "rel": "QRCODE.BASE64",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_7A0187B2-38CF-4890-AE0B-8EC0E3971B92/base64",
+          "media": "text/plain",
+          "type": "GET"
+        }
+      ]
+    }
+  ],
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/orders/ORDE_029B60A9-9338-42CD-A961-40381E8CEBBF",
+      "media": "application/json",
+      "type": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://api.pagseguro.com/orders/ORDE_029B60A9-9338-42CD-A961-40381E8CEBBF/pay",
+      "media": "application/json",
+      "type": "POST"
+    }
+  ]
+}
+
+[PAGBANK][REQUEST] /checkouts
+{
+  "reference_id": "LOJA_PAY_73_b98ebf9f",
+  "expiration_date": "2026-05-07T18:02:01.896Z",
+  "items": [
+    {
+      "reference_id": "11",
+      "name": "Mapa Anubis Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 21999
+    }
+  ],
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=73",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=73",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+
+[PAGBANK][RESPONSE] /checkouts
+{
+  "id": "CHEC_27727CAC-7D4C-498E-BC90-E11D9B3FC4C2",
+  "reference_id": "LOJA_PAY_73_b98ebf9f",
+  "expiration_date": "2026-05-07T18:02:01.896Z",
+  "created_at": "2026-05-07T14:17:02-03:00",
+  "status": "ACTIVE",
+  "customer_modifiable": true,
+  "items": [
+    {
+      "reference_id": "11",
+      "name": "Mapa Anubis Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 21999
+    }
+  ],
+  "additional_amount": 0,
+  "discount_amount": 0,
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=73",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=73",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_27727CAC-7D4C-498E-BC90-E11D9B3FC4C2",
+      "method": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://pagamento.pagbank.com.br/pagamento?code=27727cac-7d4c-498e-bc90-e11d9b3fc4c2",
+      "method": "GET"
+    },
+    {
+      "rel": "INACTIVATE",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_27727CAC-7D4C-498E-BC90-E11D9B3FC4C2/inactivate",
+      "method": "POST"
+    }
+  ],
+  "origin": "CHECKOUT_WEB"
+}
+
+[PAGBANK][REQUEST] /checkouts
+{
+  "reference_id": "LOJA_PAY_73_b98ebf9f",
+  "expiration_date": "2026-05-07T18:02:01.896Z",
+  "items": [
+    {
+      "reference_id": "11",
+      "name": "Mapa Anubis Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 21999
+    }
+  ],
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=73",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=73",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+[PAGBANK][RESPONSE] /checkouts
+{
+  "id": "CHEC_27727CAC-7D4C-498E-BC90-E11D9B3FC4C2",
+  "reference_id": "LOJA_PAY_73_b98ebf9f",
+  "expiration_date": "2026-05-07T18:02:01.896Z",
+  "created_at": "2026-05-07T14:17:02-03:00",
+  "status": "ACTIVE",
+  "customer_modifiable": true,
+  "items": [
+    {
+      "reference_id": "11",
+      "name": "Mapa Anubis Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 21999
+    }
+  ],
+  "additional_amount": 0,
+  "discount_amount": 0,
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=73",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=73",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_27727CAC-7D4C-498E-BC90-E11D9B3FC4C2",
+      "method": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://pagamento.pagbank.com.br/pagamento?code=27727cac-7d4c-498e-bc90-e11d9b3fc4c2",
+      "method": "GET"
+    },
+    {
+      "rel": "INACTIVATE",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_27727CAC-7D4C-498E-BC90-E11D9B3FC4C2/inactivate",
+      "method": "POST"
+    }
+  ],
+  "origin": "CHECKOUT_WEB"
+}
+
+[PAGBANK][REQUEST] /checkouts
+{
+  "reference_id": "LOJA_PAY_74_3d3cba9d",
+  "expiration_date": "2026-05-07T20:20:50.663Z",
+  "items": [
+    {
+      "reference_id": "17",
+      "name": "M9 Baioneta Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 14999
+    }
+  ],
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=74",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=74",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+
+[PAGBANK][RESPONSE] /checkouts
+{
+  "id": "CHEC_8807AC2C-86C8-4BA0-AD60-C7249AC7BFC8",
+  "reference_id": "LOJA_PAY_74_3d3cba9d",
+  "expiration_date": "2026-05-07T20:20:50.663Z",
+  "created_at": "2026-05-07T16:35:50-03:00",
+  "status": "ACTIVE",
+  "customer_modifiable": true,
+  "items": [
+    {
+      "reference_id": "17",
+      "name": "M9 Baioneta Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 14999
+    }
+  ],
+  "additional_amount": 0,
+  "discount_amount": 0,
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=74",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=74",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_8807AC2C-86C8-4BA0-AD60-C7249AC7BFC8",
+      "method": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://pagamento.pagbank.com.br/pagamento?code=8807ac2c-86c8-4ba0-ad60-c7249ac7bfc8",
+      "method": "GET"
+    },
+    {
+      "rel": "INACTIVATE",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_8807AC2C-86C8-4BA0-AD60-C7249AC7BFC8/inactivate",
+      "method": "POST"
+    }
+  ],
+  "origin": "CHECKOUT_WEB"
+}
+
+[PAGBANK][REQUEST] /checkouts
+{
+  "reference_id": "LOJA_PAY_74_3d3cba9d",
+  "expiration_date": "2026-05-07T20:20:50.663Z",
+  "items": [
+    {
+      "reference_id": "17",
+      "name": "M9 Baioneta Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 14999
+    }
+  ],
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=74",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=74",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ]
+}
+[PAGBANK][RESPONSE] /checkouts
+{
+  "id": "CHEC_8807AC2C-86C8-4BA0-AD60-C7249AC7BFC8",
+  "reference_id": "LOJA_PAY_74_3d3cba9d",
+  "expiration_date": "2026-05-07T20:20:50.663Z",
+  "created_at": "2026-05-07T16:35:50-03:00",
+  "status": "ACTIVE",
+  "customer_modifiable": true,
+  "items": [
+    {
+      "reference_id": "17",
+      "name": "M9 Baioneta Counter Strike – Impressão 3D",
+      "quantity": 1,
+      "unit_amount": 14999
+    }
+  ],
+  "additional_amount": 0,
+  "discount_amount": 0,
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "redirect_url": "https://queridocamp.com.br/loja/pagamento?paymentId=74",
+  "return_url": "https://queridocamp.com.br/loja/pagamento?paymentId=74",
+  "notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "payment_notification_urls": [
+    "https://queridocamp.com.br/api/loja/pagamento/webhook?token=DEFINA_UM_TOKEN_FORTE_AQUI"
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_8807AC2C-86C8-4BA0-AD60-C7249AC7BFC8",
+      "method": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://pagamento.pagbank.com.br/pagamento?code=8807ac2c-86c8-4ba0-ad60-c7249ac7bfc8",
+      "method": "GET"
+    },
+    {
+      "rel": "INACTIVATE",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_8807AC2C-86C8-4BA0-AD60-C7249AC7BFC8/inactivate",
+      "method": "POST"
+    }
+  ],
+  "origin": "CHECKOUT_WEB"
+}

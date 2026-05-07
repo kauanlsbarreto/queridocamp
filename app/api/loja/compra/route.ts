@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
+import { ensureBillingColumns } from "@/lib/loja-billing";
+import { sendLojaPurchaseBrevoEmail } from "@/lib/loja-brevo-email";
 import { sendStorePurchaseWebhook } from "@/lib/loja-purchase-webhook";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +44,27 @@ function normalizeStorePath(raw: string | null | undefined) {
   return normalized;
 }
 
+function resolvePrimaryStoreImage(raw: string | null | undefined) {
+  const value = String(raw || "").trim();
+  if (!value) return "";
+
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      for (const entry of parsed) {
+        const normalized = normalizeStorePath(typeof entry === "string" ? entry : "");
+        if (normalized) {
+          return normalized;
+        }
+      }
+      return "";
+    }
+  } catch {
+  }
+
+  return normalizeStorePath(value);
+}
+
 function isWallpaperCategory(category: string | null | undefined) {
   return String(category || "").trim().toLowerCase() === "wallpaper";
 }
@@ -80,6 +103,7 @@ export async function POST(request: Request) {
     connection = await createMainConnection(env);
 
     await ensurePurchasesTable(connection);
+    await ensureBillingColumns(connection);
 
     const contentType = request.headers.get("content-type") || "";
     const isJsonRequest = contentType.includes("application/json");
@@ -99,7 +123,13 @@ export async function POST(request: Request) {
     }
 
     const [playerRows] = await connection.query(
-      "SELECT id, nickname, avatar, admin, points FROM players WHERE faceit_guid = ? LIMIT 1",
+      `SELECT id, nickname, avatar, admin, points, email,
+              billing_full_name, billing_company_name, billing_cpf_cnpj, billing_street,
+              billing_number, billing_complement, billing_neighborhood, billing_city,
+              billing_state, billing_postal_code, billing_country, billing_phone
+       FROM players
+       WHERE faceit_guid = ?
+       LIMIT 1`,
       [faceitGuid],
     );
     const players = playerRows as Array<{
@@ -108,6 +138,19 @@ export async function POST(request: Request) {
       avatar: string | null;
       admin: number | null;
       points: number | null;
+      email: string | null;
+      billing_full_name: string | null;
+      billing_company_name: string | null;
+      billing_cpf_cnpj: string | null;
+      billing_street: string | null;
+      billing_number: string | null;
+      billing_complement: string | null;
+      billing_neighborhood: string | null;
+      billing_city: string | null;
+      billing_state: string | null;
+      billing_postal_code: string | null;
+      billing_country: string | null;
+      billing_phone: string | null;
     }>;
 
     if (!players.length) {
@@ -116,6 +159,7 @@ export async function POST(request: Request) {
 
     const playerId = Number(players[0].id);
     const playerNickname = String(players[0].nickname || "");
+    const playerEmail = String(players[0].email || "");
     const playerAvatar = String(players[0].avatar || "");
     const playerAdmin = Number(players[0].admin || 0);
     const currentPoints = Number(players[0].points || 0);
@@ -167,7 +211,7 @@ export async function POST(request: Request) {
     let finalImageUrl = "";
 
     if (isWallpaper) {
-      finalImageUrl = normalizeStorePath(item.imagem_url);
+      finalImageUrl = resolvePrimaryStoreImage(item.imagem_url);
       if (!finalImageUrl) {
         return NextResponse.json({ message: "Wallpaper sem imagem configurada." }, { status: 400 });
       }
@@ -253,6 +297,43 @@ export async function POST(request: Request) {
       });
     } catch (webhookError) {
       console.error("Falha ao enviar webhook de compra da loja:", webhookError);
+    }
+
+    try {
+      const emailResult = await sendLojaPurchaseBrevoEmail(
+        {
+          purchaseType: "POINTS_PURCHASE",
+          completedAt: new Date().toISOString(),
+          purchaseId,
+          faceitGuid,
+          playerId,
+          playerNickname,
+          playerEmail,
+          itemId: item.id,
+          itemName: item.nome,
+          itemCategory: item.categoria,
+          itemType: item.tipo_item,
+          amountCents: Number(item.preco || 0) > 0 ? Math.round(Number(item.preco) * 100) : 0,
+          pointsCost: requiredPoints,
+          pointsBefore: currentPoints,
+          pointsAfter: newPoints,
+          stockBefore: estoqueBefore,
+          stockAfter: estoqueAfter,
+          labelText: finalLabelText,
+          imageUrl: finalImageUrl,
+          billingProfile: players[0],
+          requestUrl: request.url,
+          ip,
+          userAgent,
+        },
+        env,
+      );
+
+      if (!emailResult.sent && !emailResult.skipped) {
+        console.error("Falha ao enviar email Brevo da compra da loja:", emailResult.error || emailResult.reason);
+      }
+    } catch (emailError) {
+      console.error("Erro inesperado ao enviar email Brevo da compra da loja:", emailError);
     }
 
     return NextResponse.json(

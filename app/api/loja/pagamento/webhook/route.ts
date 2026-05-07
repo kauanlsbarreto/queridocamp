@@ -7,6 +7,7 @@ import {
   loadLojaPaymentDiscordContext,
   sendLojaPaymentDiscordWebhook,
 } from "@/lib/loja-payment-discord-webhook";
+import { sendLojaPurchaseBrevoEmail } from "@/lib/loja-brevo-email";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,8 @@ type PaymentRow = {
   provider_id?: string | null;
   estoque_id: number;
   status: string;
+  metodo?: string;
+  amount_cents?: number;
 };
 
 async function ensurePaymentsTable(connection: any) {
@@ -254,23 +257,25 @@ export async function POST(request: Request) {
     const queryToken = String(url.searchParams.get("token") || "").trim();
     const headerToken = String(request.headers.get("x-webhook-token") || "").trim();
     const tokenIsValid = Boolean(configuredToken) && (queryToken === configuredToken || headerToken === configuredToken);
+    let rawBody = "";
+    let body: any = {};
 
     try {
       const fs = await import("fs");
       const path = require("path");
       const logPath = path.resolve(process.cwd(), "pagbank-logs.txt");
       const now = new Date().toISOString();
-      const rawBody = await request.text();
+      rawBody = await request.text();
       fs.appendFileSync(
         logPath,
         `\n[PAGBANK][WEBHOOK] ${now}\n${rawBody}\n`
       );
       // Precisa reparsear o body depois de ler o texto
-      var body = JSON.parse(rawBody || "{}");
+      body = JSON.parse(rawBody || "{}");
     } catch (e) {
       // fallback: tenta ler o body normalmente
-      var rawBody = await request.text();
-      var body = JSON.parse(rawBody || "{}");
+      rawBody = await request.text();
+      body = JSON.parse(rawBody || "{}");
     }
     // --- FIM LOG PAGBANK ---
 
@@ -429,6 +434,39 @@ export async function POST(request: Request) {
             : dispatch.reason || dispatch.error || "Falha ao enviar webhook Discord.",
           details: dispatch,
         });
+
+        const emailDispatch = await sendLojaPurchaseBrevoEmail(
+          {
+            purchaseType: "PAID_ORDER",
+            completedAt: notificationPayment.paid_at,
+            paymentId: notificationPayment.id,
+            paymentRef: notificationPayment.payment_ref,
+            providerId: notificationPayment.provider_id,
+            paymentMethod: notificationPayment.metodo,
+            faceitGuid: notificationPayment.faceit_guid,
+            playerId: notificationPayment.player_id,
+            playerNickname: notificationPayment.player_nickname,
+            playerEmail: notificationPayment.player_email,
+            itemId: notificationPayment.estoque_id,
+            itemName: notificationPayment.item_nome,
+            amountCents: notificationPayment.amount_cents,
+            billingProfile: notificationPayment,
+            requestUrl: request.url,
+          },
+          env,
+        );
+        await createPaymentLog(connection, {
+          paymentId: payment.id,
+          paymentRef: payment.payment_ref,
+          eventName: emailDispatch.sent ? "BREVO_EMAIL_SENT" : "BREVO_EMAIL_FAILED",
+          statusBefore: currentStatus,
+          statusAfter: result.finalStatus,
+          source: "api-webhook",
+          message: emailDispatch.sent
+            ? "Email Brevo enviado com sucesso."
+            : emailDispatch.reason || emailDispatch.error || "Falha ao enviar email Brevo.",
+          details: emailDispatch,
+        });
       }
       return NextResponse.json({ ok: true, status: result.finalStatus }, { status: 200 });
     }
@@ -475,13 +513,12 @@ export async function POST(request: Request) {
         const path = require("path");
         const logPath = path.resolve(process.cwd(), "pagbank-logs.txt");
         const now = new Date().toISOString();
-        const eventLabel = `Pagamento Loja: ${mappedStatus === "PAID" ? "Pago" : mappedStatus}`;
-        const statusLabel = mappedStatus === "PAID" ? "Pago" : mappedStatus;
+        const statusLabel = mappedStatus;
         let logMsg = `\n[PAGBANK][EVENTO] ${now}\n`;
         logMsg += `Evento: WEBHOOK_STATUS_UPDATED\n`;
         logMsg += `Origem: api-webhook\n`;
         logMsg += `Status PagBank: ${providerStatus}\n`;
-        logMsg += `Pagamento\n#${payment.id} | ${payment.payment_ref} | ${payment.metodo} | R$ ${(payment.amount_cents/100).toFixed(2)}\n`;
+        logMsg += `Pagamento\n#${payment.id} | ${payment.payment_ref} | ${notificationPayment.metodo} | R$ ${(Number(notificationPayment.amount_cents || 0)/100).toFixed(2)}\n`;
         logMsg += `Status\nAnterior: ${currentStatus}\nAtual: ${statusLabel}\nPagBank: ${providerStatus}\n`;
         logMsg += `Jogador / Item\nJogador: ${notificationPayment.player_nickname}\nFaceit GUID: ${notificationPayment.faceit_guid}\nPlayer ID: ${notificationPayment.player_id}\nItem: ${notificationPayment.item_nome}\nItem ID: ${notificationPayment.estoque_id}\n`;
         logMsg += `Cliente\nNome: ${notificationPayment.billing_full_name}\nEmail: ${notificationPayment.player_email}\nDocumento: ${notificationPayment.billing_cpf_cnpj}\nTelefone: ${notificationPayment.billing_phone}\n`;
