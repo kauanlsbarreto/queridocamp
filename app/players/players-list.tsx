@@ -81,7 +81,6 @@ const Pagination = ({ totalPages, currentPage }: { totalPages: number, currentPa
 };
 
 export default function PlayersList({ initialPlayers, totalPages, currentPage, lastUpdate, search }: { initialPlayers: Player[], totalPages: number, currentPage: number, lastUpdate: string, search: string }) {
-  const [faceitLevels, setFaceitLevels] = useState<Record<string, { level: number; challenger: boolean }>>({});
   const [inputValue, setInputValue] = useState(search);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -104,36 +103,8 @@ export default function PlayersList({ initialPlayers, totalPages, currentPage, l
     });
   };
 
-  useEffect(() => {
-    setFaceitLevels({});
-    const fetchLevels = async () => {
-      const results: Record<string, { level: number; challenger: boolean }> = {};
-      await Promise.all((initialPlayers || []).map(async (player) => {
-        if (!player.faceit_guid || player.id === 0) return;
-        try {
-          const res = await fetch(`https://open.faceit.com/data/v4/players/${player.faceit_guid}`, {
-            headers: { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            results[String(player.id)] = {
-              level: data.games?.cs2?.skill_level || 0,
-              challenger: data.games?.cs2?.skill_level === 10 && data.faceit_rank <= 1000,
-            };
-          }
-        } catch (e) { /* skip */ }
-      }));
-      setFaceitLevels(results);
-    };
-    fetchLevels();
-  }, [initialPlayers]);
-
   const players = initialPlayers
-    .map(p => ({
-      ...p,
-      faceit_level: faceitLevels[String(p.id)]?.level ?? p.faceit_level,
-      is_challenger: faceitLevels[String(p.id)]?.challenger ?? p.is_challenger,
-    }))
+    .map(p => ({ ...p }))
     .sort((a, b) => {
       const roleA = SPECIAL_ROLES[a.faceit_guid || ''] ? 1 : 0;
       const roleB = SPECIAL_ROLES[b.faceit_guid || ''] ? 1 : 0;

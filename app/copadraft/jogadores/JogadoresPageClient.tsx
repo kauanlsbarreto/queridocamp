@@ -90,8 +90,6 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		open: false,
 		jogador: null,
 	});
-	const shouldBootstrapFromApi = Array.isArray(jogadores) && jogadores.length === 0;
-	const [loadingInitialFallbackData, setLoadingInitialFallbackData] = useState(shouldBootstrapFromApi);
 
 	const isAdminUser = isAdmin(user);
 	const isAdminView = isAdminUser && viewAs === 'admin';
@@ -117,65 +115,6 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}, [jogadores]);
 
 	useEffect(() => {
-		if (!shouldBootstrapFromApi) {
-			setLoadingInitialFallbackData(false);
-			return;
-		}
-
-		if (jogadoresState.length > 0) {
-			setLoadingInitialFallbackData(false);
-			return;
-		}
-
-		let cancelled = false;
-		let waitMs = 500;
-
-		async function loadFallbackDataWithRetry() {
-			setLoadingInitialFallbackData(true);
-			let firstAttempt = true;
-
-			while (!cancelled) {
-				const controller = new AbortController();
-				const timeout = setTimeout(() => controller.abort(), firstAttempt ? 4500 : 7000);
-
-				try {
-					const res = await fetch(firstAttempt ? '/copadraft/jogadores/api?fast=1' : '/copadraft/jogadores/api', {
-						signal: controller.signal,
-						cache: 'no-store',
-					});
-
-					if (res.ok) {
-						const data = await res.json();
-						if (cancelled) return;
-
-						const fetched = Array.isArray(data?.jogadores) ? data.jogadores : [];
-						if (fetched.length > 0) {
-							setJogadoresState(fetched);
-							setLoadingInitialFallbackData(false);
-							return;
-						}
-					}
-				} catch {
-					// Mantem retry silencioso
-				} finally {
-					clearTimeout(timeout);
-				}
-
-				if (cancelled) return;
-				firstAttempt = false;
-				await new Promise((resolve) => setTimeout(resolve, waitMs));
-				waitMs = Math.min(waitMs + 400, 3000);
-			}
-		}
-
-		loadFallbackDataWithRetry();
-
-		return () => {
-			cancelled = true;
-		};
-	}, [shouldBootstrapFromApi, jogadoresState.length]);
-
-	useEffect(() => {
 		if (!canSeeEscolherTab && tab === 'escolher') {
 			setTab('potes');
 		}
@@ -188,72 +127,6 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		setRafflePoteModal({ open: false, selectedPote: null });
 		setTop90Modal({ open: false, jogador: null });
 	}, [isAdminView]);
-
-	useEffect(() => {
-		let cancelled = false;
-		let timer: ReturnType<typeof setTimeout> | null = null;
-
-		async function syncLevelsOnOpen() {
-			const controller = new AbortController();
-			const timeout = setTimeout(() => controller.abort(), 9000);
-			try {
-				const res = await fetch('/copadraft/jogadores/api?syncLevels=1', {
-					cache: 'no-store',
-					signal: controller.signal,
-				});
-				if (!res.ok) return;
-
-				const data = await res.json();
-				if (cancelled) return;
-
-				const fetched = Array.isArray(data?.jogadores) ? data.jogadores : [];
-				if (fetched.length > 0) {
-					setJogadoresState(fetched);
-				}
-			} catch {
-				// Sincronizacao silenciosa para nao bloquear UX
-			} finally {
-				clearTimeout(timeout);
-			}
-		}
-
-		// Deixa os cards aparecerem primeiro no edge e sincroniza depois.
-		timer = setTimeout(() => {
-			if (!cancelled) {
-				syncLevelsOnOpen();
-			}
-		}, 1500);
-
-		return () => {
-			cancelled = true;
-			if (timer) clearTimeout(timer);
-		};
-	}, []);
-
-	useEffect(() => {
-		let cancelled = false;
-
-		async function refreshData() {
-			try {
-				const res = await fetch('/copadraft/jogadores/api', { cache: 'no-store' });
-				if (!res.ok || cancelled) return;
-				const data = await res.json();
-				if (cancelled) return;
-				const fetched = Array.isArray(data?.jogadores) ? data.jogadores : [];
-				if (fetched.length > 0) {
-					setJogadoresState(fetched);
-				}
-			} catch {
-				// Atualizacao silenciosa para nao impactar UX
-			}
-		}
-
-		const interval = setInterval(refreshData, 10000);
-		return () => {
-			cancelled = true;
-			clearInterval(interval);
-		};
-	}, []);
 
 	async function handleSetPote(jogadorId: number, pote: number) {
 		if (!isAdminView) return;
@@ -1029,7 +902,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 						</div>
 					)}
 				</div>
-				{loadingInitialFallbackData && <p className="mt-2 text-xs text-zinc-400">Atualizando dados...</p>}
+				{jogadoresState.length === 0 && <p className="mt-2 text-xs text-zinc-400">Nenhum jogador encontrado no banco de dados.</p>}
 			</div>
 
 

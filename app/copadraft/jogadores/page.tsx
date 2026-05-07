@@ -1,28 +1,11 @@
 import JogadoresPageClient from './JogadoresPageClient';
-import { getJogadoresEnriquecidos } from '@/lib/getJogadoresEnriquecidos';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createJogadoresConnection } from '@/lib/db';
 import type { Env } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-const SSR_ENRICHED_TIMEOUT_MS = Number(process.env.COPADRAFT_SSR_ENRICHED_TIMEOUT_MS || 2800);
 const SSR_FAST_SNAPSHOT_TIMEOUT_MS = Number(process.env.COPADRAFT_SSR_FAST_SNAPSHOT_TIMEOUT_MS || 1800);
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
-  return await new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${label}_TIMEOUT_${timeoutMs}MS`)), timeoutMs);
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
-}
 
 async function getJogadoresSnapshotRapido(env: Env) {
   let connection: any = null;
@@ -45,16 +28,6 @@ export default async function Page() {
     const env = ctx.env as unknown as Env;
 
     jogadores = await getJogadoresSnapshotRapido(env);
-
-    if (jogadores.length === 0) {
-    try {
-      jogadores = await withTimeout(getJogadoresEnriquecidos(env, {
-        enableServerFaceitFallback: false,
-      }), SSR_ENRICHED_TIMEOUT_MS, 'SSR_ENRICHED');
-    } catch {
-      // Mantem vazio no SSR quando as duas fontes estao lentas/indisponiveis.
-    }
-    }
   } catch (error) {
     // Prevent build-time failures when DB is unreachable in prerender/build context.
     console.error('Erro ao renderizar /copadraft/jogadores:', error);
