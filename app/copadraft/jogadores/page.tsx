@@ -6,8 +6,8 @@ import type { Env } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-const SSR_ENRICHED_TIMEOUT_MS = Number(process.env.COPADRAFT_SSR_ENRICHED_TIMEOUT_MS || 4500);
-const SSR_FAST_SNAPSHOT_TIMEOUT_MS = Number(process.env.COPADRAFT_SSR_FAST_SNAPSHOT_TIMEOUT_MS || 3500);
+const SSR_ENRICHED_TIMEOUT_MS = Number(process.env.COPADRAFT_SSR_ENRICHED_TIMEOUT_MS || 2800);
+const SSR_FAST_SNAPSHOT_TIMEOUT_MS = Number(process.env.COPADRAFT_SSR_FAST_SNAPSHOT_TIMEOUT_MS || 1800);
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   return await new Promise<T>((resolve, reject) => {
@@ -44,13 +44,16 @@ export default async function Page() {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
 
+    jogadores = await getJogadoresSnapshotRapido(env);
+
+    if (jogadores.length === 0) {
     try {
       jogadores = await withTimeout(getJogadoresEnriquecidos(env, {
         enableServerFaceitFallback: false,
       }), SSR_ENRICHED_TIMEOUT_MS, 'SSR_ENRICHED');
     } catch {
-      // Fallback para snapshot rapido quando o enriquecimento demora no edge.
-      jogadores = await getJogadoresSnapshotRapido(env);
+      // Mantem vazio no SSR quando as duas fontes estao lentas/indisponiveis.
+    }
     }
   } catch (error) {
     // Prevent build-time failures when DB is unreachable in prerender/build context.

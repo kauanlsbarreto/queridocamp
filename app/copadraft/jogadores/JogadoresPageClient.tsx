@@ -191,10 +191,16 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 
 	useEffect(() => {
 		let cancelled = false;
+		let timer: ReturnType<typeof setTimeout> | null = null;
 
 		async function syncLevelsOnOpen() {
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 9000);
 			try {
-				const res = await fetch('/copadraft/jogadores/api?syncLevels=1', { cache: 'no-store' });
+				const res = await fetch('/copadraft/jogadores/api?syncLevels=1', {
+					cache: 'no-store',
+					signal: controller.signal,
+				});
 				if (!res.ok) return;
 
 				const data = await res.json();
@@ -206,13 +212,21 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 				}
 			} catch {
 				// Sincronizacao silenciosa para nao bloquear UX
+			} finally {
+				clearTimeout(timeout);
 			}
 		}
 
-		syncLevelsOnOpen();
+		// Deixa os cards aparecerem primeiro no edge e sincroniza depois.
+		timer = setTimeout(() => {
+			if (!cancelled) {
+				syncLevelsOnOpen();
+			}
+		}, 1500);
 
 		return () => {
 			cancelled = true;
+			if (timer) clearTimeout(timer);
 		};
 	}, []);
 
