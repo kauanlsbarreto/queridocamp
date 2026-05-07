@@ -4,6 +4,7 @@ import type { Env } from '@/lib/db';
 const FACEIT_API_BASE = 'https://open.faceit.com/data/v4';
 const FALLBACK_FACEIT_API_KEY = '7b080715-fe0b-461d-a1f1-62cfd0c47e63';
 const DEFAULT_PLAYER_AVATAR = '/images/cs2-player.png';
+const MYSQL_QUERY_TIMEOUT_MS = 8000;
 
 type FaceitPlayerPayload = {
   nickname?: string;
@@ -99,29 +100,51 @@ async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, concurrency
   await Promise.all(workers);
 }
 
+async function queryWithTimeout(connection: any, sql: string, values?: any[]) {
+  return connection.query(
+    {
+      sql,
+      timeout: MYSQL_QUERY_TIMEOUT_MS,
+    },
+    values,
+  );
+}
+
 export async function getJogadoresEnriquecidos(
   env: Env,
   options?: { enableServerFaceitFallback?: boolean },
 ) {
-  const connJogadores = await createJogadoresConnection(env);
-  const [jogadores] = await connJogadores.query('SELECT * FROM jogadores');
-  await connJogadores.end();
+  let connJogadores: any = null;
+  let connMain: any = null;
 
-  const connMain = await createMainConnection(env);
-  const [players] = await connMain.query('SELECT * FROM players');
-
+  let jogadores: any[] = [];
+  let players: any[] = [];
   let top90Rows: any[] = [];
+
   try {
-    const [rows] = await connMain.query('SELECT * FROM top90_stats');
-    top90Rows = Array.isArray(rows) ? rows : [];
-  } catch {
-    top90Rows = [];
+    connJogadores = await createJogadoresConnection(env);
+    const [jogadoresRows] = await queryWithTimeout(connJogadores, 'SELECT * FROM jogadores');
+    jogadores = Array.isArray(jogadoresRows) ? jogadoresRows : [];
+
+    connMain = await createMainConnection(env);
+    const [playerRows] = await queryWithTimeout(connMain, 'SELECT * FROM players');
+    players = Array.isArray(playerRows) ? playerRows : [];
+
+    try {
+      const [rows] = await queryWithTimeout(connMain, 'SELECT * FROM top90_stats');
+      top90Rows = Array.isArray(rows) ? rows : [];
+    } catch {
+      top90Rows = [];
+    }
+  } finally {
+    await Promise.allSettled([
+      connJogadores?.end?.(),
+      connMain?.end?.(),
+    ]);
   }
 
-  await connMain.end();
-
-  const jogadoresArr: any[] = Array.isArray(jogadores) ? jogadores : [];
-  const playersArr: any[] = Array.isArray(players) ? players : [];
+  const jogadoresArr: any[] = jogadores;
+  const playersArr: any[] = players;
 
   const playersMap = new Map();
   const playerAvatarByNick = new Map<string, string>();

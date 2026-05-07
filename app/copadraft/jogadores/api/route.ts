@@ -6,6 +6,7 @@ import type { Env } from '@/lib/db';
 
 const FACEIT_API_BASE = 'https://open.faceit.com/data/v4';
 const FALLBACK_FACEIT_API_KEY = '7b080715-fe0b-461d-a1f1-62cfd0c47e63';
+const API_TIMEOUT_MS = 15000;
 
 function normalizeText(value: unknown) {
   return String(value || '').trim();
@@ -91,6 +92,24 @@ function buildBulkLevelUpdate(changedLevels: Array<{ id: number; nextLevel: numb
   }
 
   return { sql, params };
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return await new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label}_TIMEOUT_${timeoutMs}MS`));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
 }
 
 async function syncJogadoresLevels(env: Env) {
@@ -272,15 +291,28 @@ export async function GET(request: Request) {
     const shouldSyncLevels = new URL(request.url).searchParams.get('syncLevels') === '1';
     let syncResumo: any = null;
     if (shouldSyncLevels) {
-      syncResumo = await syncJogadoresLevels(env);
+      syncResumo = await withTimeout(syncJogadoresLevels(env), API_TIMEOUT_MS, 'SYNC_LEVELS');
     }
 
-    const jogadores = await getJogadoresEnriquecidos(env, {
-      enableServerFaceitFallback: false,
-    });
+    const jogadores = await withTimeout(
+      getJogadoresEnriquecidos(env, {
+        enableServerFaceitFallback: false,
+      }),
+      API_TIMEOUT_MS,
+      'GET_JOGADORES_ENRIQUECIDOS',
+    );
 
     return NextResponse.json({ jogadores, syncResumo });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
+    const isTimeout = String(message).includes('_TIMEOUT_');
+    if (isTimeout) {
+      return NextResponse.json(
+        { jogadores: [], syncResumo: null, error: 'Timeout ao buscar jogadores.' },
+        { status: 504 },
+      );
+    }
+
     return NextResponse.json({ error: 'Erro ao buscar jogadores.' }, { status: 500 });
   }
 }
