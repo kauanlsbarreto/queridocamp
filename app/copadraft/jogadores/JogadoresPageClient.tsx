@@ -96,7 +96,8 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 
 	const isAdminUser = isAdmin(user);
 	const isAdminView = isAdminUser && viewAs === 'admin';
-	const canSeeAdminTabs = isAdminView;
+	const canSeeEscolherTab = isAdminView;
+	const canSeeTimesTab = true;
 	const canSeePotesTab = true;
 
 	useEffect(() => {
@@ -175,10 +176,10 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}, [shouldBootstrapFromApi, jogadoresState.length]);
 
 	useEffect(() => {
-		if (!canSeeAdminTabs && (tab === 'escolher' || tab === 'times')) {
+		if (!canSeeEscolherTab && tab === 'escolher') {
 			setTab('potes');
 		}
-	}, [tab, canSeeAdminTabs]);
+	}, [tab, canSeeEscolherTab]);
 
 	useEffect(() => {
 		if (isAdminView) return;
@@ -212,6 +213,31 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 
 		return () => {
 			cancelled = true;
+		};
+	}, []);
+
+	useEffect(() => {
+		let cancelled = false;
+
+		async function refreshData() {
+			try {
+				const res = await fetch('/copadraft/jogadores/api', { cache: 'no-store' });
+				if (!res.ok || cancelled) return;
+				const data = await res.json();
+				if (cancelled) return;
+				const fetched = Array.isArray(data?.jogadores) ? data.jogadores : [];
+				if (fetched.length > 0) {
+					setJogadoresState(fetched);
+				}
+			} catch {
+				// Atualizacao silenciosa para nao impactar UX
+			}
+		}
+
+		const interval = setInterval(refreshData, 10000);
+		return () => {
+			cancelled = true;
+			clearInterval(interval);
 		};
 	}, []);
 
@@ -460,7 +486,8 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	const times = groupByTime(jogadoresState);
 	const jogadoresSemPote = jogadoresState.filter((j: any) => !j.pote);
 	const tabOptions: Array<{ key: 'escolher' | 'times' | 'potes'; label: string }> = [
-		...(canSeeAdminTabs ? [{ key: 'escolher' as const, label: 'Escolher Pote' }, { key: 'times' as const, label: 'Times' }] : []),
+		...(canSeeEscolherTab ? [{ key: 'escolher' as const, label: 'Escolher Pote' }] : []),
+		...(canSeeTimesTab ? [{ key: 'times' as const, label: 'Times' }] : []),
 		{ key: 'potes' as const, label: 'Potes' },
 	];
 
@@ -1032,8 +1059,8 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 					</div>
 
 					<div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0A111A] to-[#0E1825] p-4 md:p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
-						{tab === 'escolher' && canSeeAdminTabs && <EscolherPoteSection />}
-						{tab === 'times' && canSeeAdminTabs && <TimesSection />}
+						{tab === 'escolher' && canSeeEscolherTab && <EscolherPoteSection />}
+						{tab === 'times' && canSeeTimesTab && <TimesSection />}
 						{tab === 'potes' && canSeePotesTab && <PotesSection />}
 					</div>
 				</>
