@@ -6,7 +6,8 @@ import type { Env } from '@/lib/db';
 
 const FACEIT_API_BASE = 'https://open.faceit.com/data/v4';
 const FALLBACK_FACEIT_API_KEY = '7b080715-fe0b-461d-a1f1-62cfd0c47e63';
-const API_TIMEOUT_MS = 15000;
+const API_TIMEOUT_MS = Number(process.env.COPADRAFT_API_TIMEOUT_MS || 25000);
+const FALLBACK_QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_FALLBACK_QUERY_TIMEOUT_MS || 12000);
 
 function normalizeText(value: unknown) {
   return String(value || '').trim();
@@ -110,6 +111,32 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: str
         reject(error);
       });
   });
+}
+
+function isTimeoutLikeError(error: unknown) {
+  const message = String(error instanceof Error ? error.message : error || '').toLowerCase();
+  const code = String((error as { code?: string } | null)?.code || '').toUpperCase();
+
+  if (message.includes('_timeout_')) return true;
+  if (message.includes('timeout')) return true;
+  if (message.includes('promise will never complete')) return true;
+  if (message.includes('had hung')) return true;
+  if (code === 'PROTOCOL_SEQUENCE_TIMEOUT') return true;
+  if (code === 'ETIMEDOUT') return true;
+  return false;
+}
+
+async function fetchJogadoresFallback(env: Env) {
+  let connection: any = null;
+  try {
+    connection = await createJogadoresConnection(env);
+    const [rows] = await connection.query({ sql: 'SELECT * FROM jogadores', timeout: FALLBACK_QUERY_TIMEOUT_MS });
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  } finally {
+    await Promise.allSettled([connection?.end?.()]);
+  }
 }
 
 async function syncJogadoresLevels(env: Env) {
@@ -284,9 +311,10 @@ async function syncJogadoresLevels(env: Env) {
 }
 
 export async function GET(request: Request) {
+  let env: Env | null = null;
   try {
     const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    env = ctx.env as unknown as Env;
 
     const shouldSyncLevels = new URL(request.url).searchParams.get('syncLevels') === '1';
     let syncResumo: any = null;
@@ -305,14 +333,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ jogadores, syncResumo });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido';
-    const isTimeout = String(message).includes('_TIMEOUT_');
-    if (isTimeout) {
+    const isTimeout = isTimeoutLikeError(error);
+
+    if (isTimeout && env) {
+      const fallbackJogadores = await fetchJogadoresFallback(env);
       return NextResponse.json(
-        { jogadores: [], syncResumo: null, error: 'Timeout ao buscar jogadores.' },
-        { status: 504 },
+        {
+          jogadores: fallbackJogadores,
+          syncResumo: null,
+          warning: 'Tempo de resposta excedido ao buscar dados completos. Exibindo fallback.',
+        },
+        { status: 200 },
       );
     }
 
-    return NextResponse.json({ error: 'Erro ao buscar jogadores.' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao buscar jogadores.', detail: message }, { status: 500 });
   }
 }

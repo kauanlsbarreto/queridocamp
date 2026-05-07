@@ -4,7 +4,7 @@ import type { Env } from '@/lib/db';
 const FACEIT_API_BASE = 'https://open.faceit.com/data/v4';
 const FALLBACK_FACEIT_API_KEY = '7b080715-fe0b-461d-a1f1-62cfd0c47e63';
 const DEFAULT_PLAYER_AVATAR = '/images/cs2-player.png';
-const MYSQL_QUERY_TIMEOUT_MS = 8000;
+const MYSQL_QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_MYSQL_QUERY_TIMEOUT_MS || 20000);
 
 type FaceitPlayerPayload = {
   nickname?: string;
