@@ -316,7 +316,24 @@ export async function GET(request: Request) {
     const ctx = await getCloudflareContext({ async: true });
     env = ctx.env as unknown as Env;
 
-    const shouldSyncLevels = new URL(request.url).searchParams.get('syncLevels') === '1';
+    const url = new URL(request.url);
+    const isFastMode = url.searchParams.get('fast') === '1';
+
+    if (isFastMode) {
+      const fallbackJogadores = await withTimeout(
+        fetchJogadoresFallback(env),
+        Math.min(FALLBACK_QUERY_TIMEOUT_MS, 7000),
+        'FAST_FALLBACK',
+      );
+
+      return NextResponse.json({
+        jogadores: fallbackJogadores,
+        syncResumo: null,
+        fastMode: true,
+      });
+    }
+
+    const shouldSyncLevels = url.searchParams.get('syncLevels') === '1';
     let syncResumo: any = null;
     if (shouldSyncLevels) {
       syncResumo = await withTimeout(syncJogadoresLevels(env), API_TIMEOUT_MS, 'SYNC_LEVELS');

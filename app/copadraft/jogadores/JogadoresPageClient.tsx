@@ -128,17 +128,18 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		}
 
 		let cancelled = false;
-		let waitMs = 700;
+		let waitMs = 500;
 
 		async function loadFallbackDataWithRetry() {
 			setLoadingInitialFallbackData(true);
+			let firstAttempt = true;
 
 			while (!cancelled) {
 				const controller = new AbortController();
-				const timeout = setTimeout(() => controller.abort(), 6000);
+				const timeout = setTimeout(() => controller.abort(), firstAttempt ? 4500 : 7000);
 
 				try {
-					const res = await fetch('/copadraft/jogadores/api', {
+					const res = await fetch(firstAttempt ? '/copadraft/jogadores/api?fast=1' : '/copadraft/jogadores/api', {
 						signal: controller.signal,
 						cache: 'no-store',
 					});
@@ -161,6 +162,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 				}
 
 				if (cancelled) return;
+				firstAttempt = false;
 				await new Promise((resolve) => setTimeout(resolve, waitMs));
 				waitMs = Math.min(waitMs + 400, 3000);
 			}
