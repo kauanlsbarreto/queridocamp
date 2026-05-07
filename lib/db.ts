@@ -142,6 +142,7 @@ function parseDatabaseUrl(databaseUrl: string) {
 }
 
 function getDatabaseBinding(env: Env, label?: "DB_PRINCIPAL" | "DB_JOGADORES") {
+  // hostinger always takes priority over any other binding.
   if (isHyperdriveBinding(env.hostinger)) {
     return {
       binding: env.hostinger,

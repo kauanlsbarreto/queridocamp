@@ -3,10 +3,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
 
-
-const faceitLevelCache = new Map<string, number | null>();
-const FACEIT_API_BASE = 'https://open.faceit.com/data/v4';
-const FACEIT_HEADERS = { 'Authorization': 'Bearer 7b080715-fe0b-461d-a1f1-62cfd0c47e63' };
 const JOGADORES_LOCAL_CACHE_KEY = 'copadraft_jogadores_cache_v1';
 const JOGADORES_LOCAL_CACHE_TTL_MS = 1000 * 60 * 5;
 
@@ -14,85 +10,11 @@ function normalizeText(value: unknown) {
 	return String(value || '').trim();
 }
 
-function getPlayerCacheKey(guid: unknown, nick: unknown) {
-	const normalizedGuid = normalizeText(guid).toLowerCase();
-	if (normalizedGuid) return `guid:${normalizedGuid}`;
-	return '';
-}
-
-function parseFaceitLevel(payload: any): number | null {
-	// FACEIT Data API: games.cs2.skill_level
-	const skillLevel = Number(payload?.games?.cs2?.skill_level);
-	if (Number.isInteger(skillLevel) && skillLevel >= 1 && skillLevel <= 10) return skillLevel;
-
-	return null;
-}
-
 function getLevelImagePath(level: number | null) {
 	if (typeof level === 'number' && level >= 1 && level <= 10) {
 		return `/faceitlevel/${level}.png`;
 	}
 	return '/faceitlevel/-1.png';
-}
-
-async function fetchFaceitJson(url: string, retries = 2) {
-	let lastStatus: number | null = null;
-
-	for (let attempt = 0; attempt <= retries; attempt++) {
-		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), 7000);
-
-		try {
-			const response = await fetch(url, {
-				headers: FACEIT_HEADERS,
-				signal: controller.signal,
-			});
-			clearTimeout(timeout);
-
-			if (response.ok) {
-				return { ok: true as const, status: response.status, data: await response.json() };
-			}
-
-			lastStatus = response.status;
-			if ((response.status === 429 || response.status === 503 || response.status >= 500) && attempt < retries) {
-				await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
-				continue;
-			}
-
-			return { ok: false as const, status: response.status, data: null };
-		} catch {
-			clearTimeout(timeout);
-			if (attempt < retries) {
-				await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
-				continue;
-			}
-		}
-	}
-
-	return { ok: false as const, status: lastStatus, data: null };
-}
-
-async function fetchFaceitLevel(guid: unknown): Promise<number | null> {
-	const normalizedGuid = normalizeText(guid);
-
-	if (normalizedGuid) {
-		const byId = await fetchFaceitJson(`${FACEIT_API_BASE}/players/${encodeURIComponent(normalizedGuid)}`);
-		if (byId.ok) {
-			const level = parseFaceitLevel(byId.data);
-			if (level) return level;
-		}
-	}
-
-	return null;
-}
-
-async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, concurrency: number) {
-	const workers = Array.from({ length: Math.max(1, concurrency) }, async (_, workerIndex) => {
-		for (let i = workerIndex; i < tasks.length; i += Math.max(1, concurrency)) {
-			await tasks[i]();
-		}
-	});
-	await Promise.all(workers);
 }
 
 function isAdmin(user: any) {
@@ -174,8 +96,6 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		if (Array.isArray(jogadores) && jogadores.length > 0) return jogadores;
 		return readJogadoresCache();
 	});
-	const [faceitLevels, setFaceitLevels] = useState<Record<string, number | null>>({});
-	const [faceitLevelsLoading, setFaceitLevelsLoading] = useState(false);
 	const [savingPoteById, setSavingPoteById] = useState<Record<number, boolean>>({});
 	const [removingPoteById, setRemovingPoteById] = useState<Record<number, boolean>>({});
 	const [pickModal, setPickModal] = useState<{ open: boolean; capitao: any | null; jogador: any | null; pote: number | null }>({
@@ -295,48 +215,31 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}, [tab, canSeeAdminTabs]);
 
 	useEffect(() => {
-		async function fetchAllFaceitLevels() {
-			const entries = Array.from(
-				new Map(
-					jogadoresState
-						.map((j: any) => {
-							const key = getPlayerCacheKey(j.faceit_guid, j.nick);
-							return key ? [key, { key, guid: j.faceit_guid, nick: j.nick }] : null;
-						})
-						.filter(Boolean) as Array<[string, { key: string; guid: string; nick: string }]>
-				).values()
-			);
+		let cancelled = false;
 
-			if (entries.length === 0) {
-				setFaceitLevels({});
-				setFaceitLevelsLoading(false);
-				return;
+		async function syncLevelsOnOpen() {
+			try {
+				const res = await fetch('/copadraft/jogadores/api?syncLevels=1', { cache: 'no-store' });
+				if (!res.ok) return;
+
+				const data = await res.json();
+				if (cancelled) return;
+
+				const fetched = Array.isArray(data?.jogadores) ? data.jogadores : [];
+				if (fetched.length > 0) {
+					setJogadoresState(fetched);
+				}
+			} catch {
+				// Sincronizacao silenciosa para nao bloquear UX
 			}
-
-			const pendingEntries = entries.filter((entry) => !faceitLevelCache.has(entry.key));
-
-			if (pendingEntries.length > 0) {
-				setFaceitLevelsLoading(true);
-
-				const tasks = pendingEntries.map((entry) => async () => {
-					const level = await fetchFaceitLevel(entry.guid);
-					faceitLevelCache.set(entry.key, level);
-				});
-
-				await runWithConcurrency(tasks, 6);
-			}
-
-			const nextLevels: Record<string, number | null> = {};
-			for (const entry of entries) {
-				nextLevels[entry.key] = faceitLevelCache.get(entry.key) ?? null;
-			}
-
-			setFaceitLevels(nextLevels);
-			setFaceitLevelsLoading(false);
 		}
 
-		fetchAllFaceitLevels();
-	}, [jogadoresState]);
+		syncLevelsOnOpen();
+
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	async function handleSetPote(jogadorId: number, pote: number) {
 		if (!admin) return;
@@ -589,10 +492,8 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 
 	function JogadorCard({ jogador, podeEscolherPote = false, podeRemoverDoTime = false }: { jogador: any, podeEscolherPote?: boolean, podeRemoverDoTime?: boolean }) {
 		const jogadorId = Number(jogador.id);
-		const playerKey = getPlayerCacheKey(jogador.faceit_guid, jogador.nick);
-		const hasLevel = playerKey ? Object.prototype.hasOwnProperty.call(faceitLevels, playerKey) : true;
-		const faceitLevel = playerKey ? (faceitLevels[playerKey] ?? null) : null;
-		const faceitLoading = Boolean(playerKey) && faceitLevelsLoading && !hasLevel;
+		const dbLevelRaw = Number(jogador?.level || 0);
+		const faceitLevel = Number.isInteger(dbLevelRaw) && dbLevelRaw >= 1 && dbLevelRaw <= 10 ? dbLevelRaw : null;
 		const levelImg = getLevelImagePath(faceitLevel);
 		const currentPote = jogador.pote ? Number(jogador.pote) : null;
 		const savingPote = Boolean(savingPoteById[jogadorId]);
@@ -608,7 +509,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		// Cor de fundo e borda fixa, tamanho da foto padronizado
 		return (
 			<div
-				className={`relative ${bgColor} border-2 ${borderColor} rounded-xl shadow-xl p-4 flex flex-col items-center gap-3 transition-transform hover:scale-105`}
+				className={`relative ${bgColor} border-2 ${borderColor} rounded-xl shadow-xl p-4 flex flex-col items-center gap-3 transition-shadow duration-200 hover:shadow-2xl`}
 			>
 				{podeRemoverDoTime && admin && (
 					<button
@@ -643,13 +544,10 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 					</div>
 				)}
 				<div className="flex items-center gap-2 min-h-[42px]">
-					{faceitLoading
-						? <span className="animate-pulse text-yellow-300 text-xs">Carregando...</span>
-						: <Image src={levelImg} width={42} height={42} alt={`Faceit Level ${faceitLevel ?? '-'} `} onError={(e) => {
-							const target = e.currentTarget as HTMLImageElement;
-							target.src = '/faceitlevel/-1.png';
-						}} />
-					}
+					<Image src={levelImg} width={42} height={42} alt={`Faceit Level ${faceitLevel ?? '-'} `} onError={(e) => {
+						const target = e.currentTarget as HTMLImageElement;
+						target.src = '/faceitlevel/-1.png';
+					}} />
 				</div>
 				   <div className="flex gap-2 mt-1">
 					   {jogador.linkgc && (
@@ -876,10 +774,8 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 				normalizeText(j.nick).toLowerCase().includes(normalizeText(escolherPoteSearchText).toLowerCase())
 			)
 			.sort((a: any, b: any) => {
-				const keyA = getPlayerCacheKey(a.faceit_guid, a.nick);
-				const keyB = getPlayerCacheKey(b.faceit_guid, b.nick);
-				const levelA = keyA ? (faceitLevels[keyA] ?? 0) : 0;
-				const levelB = keyB ? (faceitLevels[keyB] ?? 0) : 0;
+				const levelA = Number(a?.level || 0);
+				const levelB = Number(b?.level || 0);
 				return levelB - levelA;
 			});
 		return (
@@ -941,8 +837,8 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 					<div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
 						{filteredPlayers.length > 0 ? (
 							filteredPlayers.map((jogador: any) => {
-								const playerKey = getPlayerCacheKey(jogador.faceit_guid, jogador.nick);
-								const faceitLevel = playerKey ? (faceitLevels[playerKey] ?? null) : null;
+								const dbLevelRaw = Number(jogador?.level || 0);
+								const faceitLevel = Number.isInteger(dbLevelRaw) && dbLevelRaw >= 1 && dbLevelRaw <= 10 ? dbLevelRaw : null;
 								const levelImg = getLevelImagePath(faceitLevel);
 								return (
 									<button
