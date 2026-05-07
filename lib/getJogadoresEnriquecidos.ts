@@ -3,6 +3,7 @@ import type { Env } from '@/lib/db';
 
 const FACEIT_API_BASE = 'https://open.faceit.com/data/v4';
 const FALLBACK_FACEIT_API_KEY = '7b080715-fe0b-461d-a1f1-62cfd0c47e63';
+const DEFAULT_PLAYER_AVATAR = '/images/cs2-player.png';
 
 type FaceitPlayerPayload = {
   nickname?: string;
@@ -16,11 +17,6 @@ type Top90Stats = {
   k: number;
   d: number;
 };
-
-const JOGADORES_CACHE_TTL_MS = 20000;
-let jogadoresCacheValue: any[] | null = null;
-let jogadoresCacheUpdatedAt = 0;
-let jogadoresInFlight: Promise<any[]> | null = null;
 
 function toNumber(value: unknown) {
   const n = Number(value);
@@ -105,19 +101,8 @@ async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, concurrency
 
 export async function getJogadoresEnriquecidos(
   env: Env,
-  options?: { enableServerFaceitFallback?: boolean; bypassCache?: boolean },
+  options?: { enableServerFaceitFallback?: boolean },
 ) {
-  const bypassCache = options?.bypassCache === true;
-  const cacheAgeMs = Date.now() - jogadoresCacheUpdatedAt;
-  if (!bypassCache && jogadoresCacheValue && cacheAgeMs < JOGADORES_CACHE_TTL_MS) {
-    return jogadoresCacheValue;
-  }
-
-  if (!bypassCache && jogadoresInFlight) {
-    return jogadoresInFlight;
-  }
-
-  const loadPromise = (async () => {
   const connJogadores = await createJogadoresConnection(env);
   const [jogadores] = await connJogadores.query('SELECT * FROM jogadores');
   await connJogadores.end();
@@ -139,20 +124,32 @@ export async function getJogadoresEnriquecidos(
   const playersArr: any[] = Array.isArray(players) ? players : [];
 
   const playersMap = new Map();
+  const playerAvatarByNick = new Map<string, string>();
   for (const p of playersArr) {
     if (p.faceit_guid) playersMap.set(String(p.faceit_guid).toLowerCase(), p);
+
+    const nickKey = String(p?.nickname || '').trim().toLowerCase();
+    const avatar = String(p?.avatar || '').trim();
+    if (nickKey && avatar && !playerAvatarByNick.has(nickKey)) {
+      playerAvatarByNick.set(nickKey, avatar);
+    }
   }
 
   const top90ByGuid = new Map<string, Top90Stats>();
   const top90ByNick = new Map<string, Top90Stats>();
+  const top90NickByGuid = new Map<string, string>();
+  const top90NickByNick = new Map<string, string>();
 
   for (const row of top90Rows) {
     const guid = String(row?.faceit_guild || row?.faceit_guid || '').trim().toLowerCase();
     const nick = String(row?.nick || row?.nickname || '').trim().toLowerCase();
+    const rawNick = String(row?.nick || row?.nickname || '').trim();
     const stats = normalizeTop90Stats(row);
 
     if (guid) top90ByGuid.set(guid, stats);
     if (nick) top90ByNick.set(nick, stats);
+    if (guid && rawNick) top90NickByGuid.set(guid, rawNick);
+    if (nick && rawNick) top90NickByNick.set(nick, rawNick);
   }
 
   const faceitFallbackCache = new Map<string, { nickname: string; avatar: string } | null>();
@@ -181,9 +178,21 @@ export async function getJogadoresEnriquecidos(
     const guidKey = String(j?.faceit_guid || '').trim().toLowerCase();
     const player = guidKey ? playersMap.get(guidKey) : null;
     const fallbackProfile = guidKey ? faceitFallbackCache.get(guidKey) || null : null;
+    const sourceNick = String(j?.nick || '').trim();
+    const sourceNickKey = sourceNick.toLowerCase();
 
-    const resolvedNickname = player?.nickname || fallbackProfile?.nickname || j.nick;
-    const resolvedAvatar = player?.avatar || fallbackProfile?.avatar || j.faceit_image;
+    const top90Nickname =
+      (!player && (top90NickByGuid.get(guidKey) || top90NickByNick.get(sourceNickKey))) || '';
+
+    const resolvedNickname = player?.nickname || top90Nickname || fallbackProfile?.nickname || sourceNick;
+    const resolvedNicknameKey = String(resolvedNickname || '').trim().toLowerCase();
+    const avatarByResolvedNickname = resolvedNicknameKey ? playerAvatarByNick.get(resolvedNicknameKey) : '';
+    const resolvedAvatar =
+      String(player?.avatar || '').trim() ||
+      String(avatarByResolvedNickname || '').trim() ||
+      String(fallbackProfile?.avatar || '').trim() ||
+      String(j?.faceit_image || '').trim() ||
+      DEFAULT_PLAYER_AVATAR;
     const normalizedNick = String(resolvedNickname || j?.nick || '').trim().toLowerCase();
     const top90Stats = top90ByGuid.get(guidKey) || top90ByNick.get(normalizedNick) || null;
 
@@ -197,19 +206,5 @@ export async function getJogadoresEnriquecidos(
     };
   });
 
-    jogadoresCacheValue = enriched;
-    jogadoresCacheUpdatedAt = Date.now();
-
-    return enriched;
-  })();
-
-  jogadoresInFlight = loadPromise;
-
-  try {
-    return await loadPromise;
-  } finally {
-    if (jogadoresInFlight === loadPromise) {
-      jogadoresInFlight = null;
-    }
-  }
+  return enriched;
 }

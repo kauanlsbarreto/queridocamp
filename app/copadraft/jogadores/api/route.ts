@@ -277,7 +277,6 @@ export async function GET(request: Request) {
 
     const jogadores = await getJogadoresEnriquecidos(env, {
       enableServerFaceitFallback: false,
-      bypassCache: shouldSyncLevels,
     });
 
     return NextResponse.json({ jogadores, syncResumo });

@@ -3,9 +3,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
 
-const JOGADORES_LOCAL_CACHE_KEY = 'copadraft_jogadores_cache_v1';
-const JOGADORES_LOCAL_CACHE_TTL_MS = 1000 * 60 * 5;
-
 function normalizeText(value: unknown) {
 	return String(value || '').trim();
 }
@@ -50,51 +47,19 @@ function readStoredUser() {
 	}
 }
 
-function readJogadoresCache() {
-	if (typeof window === 'undefined') return [];
-	try {
-		const raw = localStorage.getItem(JOGADORES_LOCAL_CACHE_KEY);
-		if (!raw) return [];
-
-		const parsed = JSON.parse(raw) as { updatedAt?: number; jogadores?: any[] };
-		const updatedAt = Number(parsed?.updatedAt || 0);
-		const jogadoresCached = Array.isArray(parsed?.jogadores) ? parsed.jogadores : [];
-
-		if (!updatedAt || Date.now() - updatedAt > JOGADORES_LOCAL_CACHE_TTL_MS) {
-			localStorage.removeItem(JOGADORES_LOCAL_CACHE_KEY);
-			return [];
-		}
-
-		return jogadoresCached;
-	} catch {
-		return [];
-	}
-}
-
-function writeJogadoresCache(jogadores: any[]) {
-	if (typeof window === 'undefined') return;
-	try {
-		localStorage.setItem(
-			JOGADORES_LOCAL_CACHE_KEY,
-			JSON.stringify({
-				updatedAt: Date.now(),
-				jogadores,
-			}),
-		);
-	} catch {
-		// Silencioso para nao quebrar UI se storage estiver indisponivel
-	}
-}
-
 export default function JogadoresPageClient({ jogadores }: { jogadores: any[] }) {
 	const [user, setUser] = useState<any>(() => readStoredUser());
+	const [viewAs, setViewAs] = useState<'admin' | 'player'>(() => {
+		const u = readStoredUser();
+		return isAdmin(u) ? 'admin' : 'player';
+	});
 	const [tab, setTab] = useState<'escolher'|'times'|'potes'>(() => {
 		const u = readStoredUser();
 		return isAdmin(u) ? 'times' : 'potes';
 	});
 	const [jogadoresState, setJogadoresState] = useState<any[]>(() => {
 		if (Array.isArray(jogadores) && jogadores.length > 0) return jogadores;
-		return readJogadoresCache();
+		return [];
 	});
 	const [savingPoteById, setSavingPoteById] = useState<Record<number, boolean>>({});
 	const [removingPoteById, setRemovingPoteById] = useState<Record<number, boolean>>({});
@@ -129,8 +94,9 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	const [loadingInitialFallbackData, setLoadingInitialFallbackData] = useState(shouldBootstrapFromApi);
 	const [fallbackAttempt, setFallbackAttempt] = useState(0);
 
-	const admin = isAdmin(user);
-	const canSeeAdminTabs = admin;
+	const isAdminUser = isAdmin(user);
+	const isAdminView = isAdminUser && viewAs === 'admin';
+	const canSeeAdminTabs = isAdminView;
 	const canSeePotesTab = true;
 
 	useEffect(() => {
@@ -139,16 +105,16 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}, []);
 
 	useEffect(() => {
+		if (!isAdminUser && viewAs !== 'player') {
+			setViewAs('player');
+		}
+	}, [isAdminUser, viewAs]);
+
+	useEffect(() => {
 		if (Array.isArray(jogadores) && jogadores.length > 0) {
 			setJogadoresState(jogadores);
 		}
 	}, [jogadores]);
-
-	useEffect(() => {
-		if (Array.isArray(jogadoresState) && jogadoresState.length > 0) {
-			writeJogadoresCache(jogadoresState);
-		}
-	}, [jogadoresState]);
 
 	useEffect(() => {
 		if (!shouldBootstrapFromApi) {
@@ -215,6 +181,14 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}, [tab, canSeeAdminTabs]);
 
 	useEffect(() => {
+		if (isAdminView) return;
+		setPickModal({ open: false, capitao: null, jogador: null, pote: null });
+		setPlayerSelectorModal({ open: false, capitao: null, pote: null });
+		setRafflePoteModal({ open: false, selectedPote: null });
+		setTop90Modal({ open: false, jogador: null });
+	}, [isAdminView]);
+
+	useEffect(() => {
 		let cancelled = false;
 
 		async function syncLevelsOnOpen() {
@@ -242,7 +216,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}, []);
 
 	async function handleSetPote(jogadorId: number, pote: number) {
-		if (!admin) return;
+		if (!isAdminView) return;
 		setSavingPoteById((prev) => ({ ...prev, [jogadorId]: true }));
 
 		try {
@@ -265,7 +239,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}
 
 	async function handleRemoveFromPote(jogadorId: number) {
-		if (!admin) return;
+		if (!isAdminView) return;
 		setRemovingPoteById((prev) => ({ ...prev, [jogadorId]: true }));
 
 		try {
@@ -288,7 +262,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}
 
 	async function handleRemoveFromTime(jogadorId: number) {
-		if (!admin) return;
+		if (!isAdminView) return;
 		setRemovingFromTimeById((prev) => ({ ...prev, [jogadorId]: true }));
 
 		try {
@@ -344,7 +318,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}
 
 	async function confirmPick() {
-		if (!pickModal.capitao || !pickModal.jogador || !pickModal.pote || !admin) return;
+		if (!pickModal.capitao || !pickModal.jogador || !pickModal.pote || !isAdminView) return;
 
 		const gasto = Number(gastoInput);
 		if (!Number.isInteger(gasto) || gasto < 0) return;
@@ -386,7 +360,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}
 
 	async function handleRestoreTime(capitaoId: number) {
-		if (!admin) return;
+		if (!isAdminView) return;
 		setRestoringTimeByCapitao((prev) => ({ ...prev, [capitaoId]: true }));
 
 		try {
@@ -418,7 +392,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}
 
 	async function performRaffle(poteAlSortear: number) {
-		if (!admin || !poteAlSortear) return;
+		if (!isAdminView || !poteAlSortear) return;
 		setRaffleLoading(true);
 
 		try {
@@ -455,7 +429,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}
 
 	async function handleResetAllData() {
-		if (!admin || !window.confirm('Tem certeza? Isso vai limpar pote, timeid e dinheiro de TODOS os jogadores!')) return;
+		if (!isAdminView || !window.confirm('Tem certeza? Isso vai limpar pote, timeid e dinheiro de TODOS os jogadores!')) return;
 		setResettingAllData(true);
 
 		try {
@@ -500,8 +474,9 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		const removingPote = Boolean(removingPoteById[jogadorId]);
 		const removingFromTime = Boolean(removingFromTimeById[jogadorId]);
 		const hasTop90Stats = Boolean(jogador?.top90Stats);
-		const showTop90Visuals = admin && hasTop90Stats;
+		const showTop90Visuals = isAdminView && hasTop90Stats;
 		const canOpenStatsModal = showTop90Visuals;
+		const avatarUrl = String(jogador?.faceit_image || jogador?.avatar || '').trim();
 
 		const borderColor = showTop90Visuals ? 'border-zinc-700' : 'border-gray-400';
 		const bgColor = showTop90Visuals ? 'bg-[#060c14]' : 'bg-white/10';
@@ -511,7 +486,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 			<div
 				className={`relative ${bgColor} border-2 ${borderColor} rounded-xl shadow-xl p-4 flex flex-col items-center gap-3 transition-shadow duration-200 hover:shadow-2xl`}
 			>
-				{podeRemoverDoTime && admin && (
+				{podeRemoverDoTime && isAdminView && (
 					<button
 						type="button"
 						onClick={(e) => {
@@ -529,9 +504,11 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
                         Ja participou
 					</div>
 				)}
-				<div className="relative mb-2 w-20 h-20 rounded-full border-2 border-white shadow overflow-hidden">
-					<Image src={jogador.faceit_image || '/images/cs2-player.png'} fill alt={jogador.nick} className="object-cover" />
-				</div>
+				{avatarUrl ? (
+					<div className="relative mb-2 w-20 h-20 rounded-full border-2 border-white shadow overflow-hidden">
+						<Image src={avatarUrl} fill alt={jogador.nick} className="object-cover" />
+					</div>
+				) : null}
 				<div className="font-extrabold text-lg text-white drop-shadow-lg text-center">{jogador.nick}</div>
 			{!podeEscolherPote && (
 				<div className="text-xs text-zinc-300">
@@ -560,7 +537,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 							   <Link onClick={(e) => e.stopPropagation()} href={`https://www.faceit.com/en/players/${encodeURIComponent(String(jogador.nick || ''))}`} className="px-2 py-1 bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full shadow hover:from-orange-600 hover:to-yellow-500 transition flex items-center" target="_blank">
 								   <Image src="/images/faceit.png" alt="Faceit" width={28} height={28} className="inline-block" />
 							   </Link>
-							   {admin && (
+							   {isAdminView && (
 								   <button
 									   type="button"
 									   className="px-2 py-1 bg-gradient-to-r from-zinc-700 to-zinc-500 rounded-full shadow text-xs text-white hover:from-zinc-800 hover:to-zinc-600 transition flex items-center gap-1"
@@ -591,7 +568,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 						Ver stats
 					</button>
 				)}
-				{podeEscolherPote && admin && (
+				{podeEscolherPote && isAdminView && (
 					<div className="w-full mt-2 flex flex-col gap-2">
 						<select
 							className="w-full rounded-lg border border-gold/30 bg-[#101826] text-white text-sm px-3 py-2 outline-none focus:border-gold"
@@ -637,7 +614,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		if (capitoes.length === 0) return <div className="text-zinc-400">Nenhum time criado ainda.</div>;
 		return (
 			<div className="flex flex-col gap-6">
-				{admin && (
+				{isAdminView && (
 					<div className="flex justify-end">
 						<button
 							type="button"
@@ -660,7 +637,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 									<div className="text-xs text-gold mt-1">Dinheiro: R$ {dinheiroCapitao.toLocaleString('pt-BR')}</div>
 								</div>
 								<div className="flex items-center gap-2">
-									{admin && (
+									{isAdminView && (
 										<>
 											<button
 												type="button"
@@ -683,7 +660,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 									return (
 										<div key={pote} className="min-h-[120px]">
 											{membro ? <JogadorCard jogador={membro} podeEscolherPote={false} podeRemoverDoTime={pote !== 1} /> : (
-												admin && pote !== 1
+												isAdminView && pote !== 1
 													? <div className="h-full rounded-xl border border-dashed border-gold/40 bg-gold/5 p-3 flex flex-col items-center justify-center text-center text-xs text-gold gap-2">
 														<div className="font-semibold">Escolher do Pote {pote}</div>
 														{minValues[pote] && <div className="text-red-400 font-bold text-xs">Mín: R$ {minValues[pote].toLocaleString('pt-BR')}</div>}
@@ -718,7 +695,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 						</div>
 						<div className="flex gap-2 flex-wrap justify-center">
 							{potes[pote]?.length ? potes[pote].map((j: any) => {
-								const canEdit = admin;
+								const canEdit = isAdminView;
 								if (!canEdit) return <JogadorCard key={j.id} jogador={j} />;
 								
 								return (
@@ -754,7 +731,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 						</div>
 					</div>
 				))}
-				{admin && (
+				{isAdminView && (
 					<button
 						onClick={handleResetAllData}
 						disabled={resettingAllData}
@@ -768,7 +745,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}
 
 	function EscolherPoteSection() {
-		if (!admin) return <div className="text-zinc-400">Apenas admins podem escolher potes.</div>;
+		if (!isAdminView) return <div className="text-zinc-400">Apenas admins podem escolher potes.</div>;
 		const filteredPlayers = jogadoresSemPote
 			.filter((j: any) =>
 				normalizeText(j.nick).toLowerCase().includes(normalizeText(escolherPoteSearchText).toLowerCase())
@@ -847,12 +824,18 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 										className="flex flex-col items-center gap-2 p-3 rounded-xl border border-gold/20 bg-white/5 hover:bg-gold/10 hover:border-gold/40 transition"
 									>
 										<div className="relative w-16 h-16 rounded-full border-2 border-gold/40 overflow-hidden">
-											<Image
-												src={jogador.faceit_image || '/images/cs2-player.png'}
-												fill
-												alt={jogador.nick}
-												className="object-cover"
-											/>
+											{String(jogador.faceit_image || jogador.avatar || '').trim() ? (
+												<Image
+													src={String(jogador.faceit_image || jogador.avatar || '').trim()}
+													fill
+													alt={jogador.nick}
+													className="object-cover"
+												/>
+											) : (
+												<div className="w-full h-full bg-[#1D2A3C] flex items-center justify-center text-[10px] text-zinc-200 px-2 text-center">
+													{jogador.nick}
+												</div>
+											)}
 										</div>
 										<div className="text-xs font-semibold text-white text-center truncate w-full px-1">
 											{jogador.nick}
@@ -939,7 +922,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	}
 
 	function Top90StatsModal() {
-		if (!admin || !top90Modal.open || !top90Modal.jogador?.top90Stats) return null;
+		if (!isAdminView || !top90Modal.open || !top90Modal.jogador?.top90Stats) return null;
 
 		const stats = top90Modal.jogador.top90Stats;
 		const items = [
@@ -990,7 +973,35 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	return (
 		<div className="max-w-6xl mx-auto px-4 py-8 md:py-10">
 			<div className="mb-6 md:mb-8">
-				<h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">Copa Draft - {jogadoresState.length} Jogadores</h1>
+				<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+					<h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">Copa Draft - {jogadoresState.length} Jogadores</h1>
+					{isAdminUser && (
+						<div className="inline-flex rounded-xl border border-gold/35 bg-[#0E1724] p-1">
+							<button
+								type="button"
+								onClick={() => setViewAs('admin')}
+								className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+									viewAs === 'admin'
+										? 'bg-gold text-black shadow-[0_6px_16px_rgba(236,161,73,0.35)]'
+										: 'text-zinc-200 hover:bg-white/10'
+								}`}
+							>
+								Ver como Admin
+							</button>
+							<button
+								type="button"
+								onClick={() => setViewAs('player')}
+								className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+									viewAs === 'player'
+										? 'bg-zinc-200 text-black shadow-[0_6px_16px_rgba(255,255,255,0.18)]'
+										: 'text-zinc-200 hover:bg-white/10'
+								}`}
+							>
+								Ver como Player
+							</button>
+						</div>
+					)}
+				</div>
 				{loadingInitialFallbackData && <p className="mt-2 text-xs text-zinc-400">Atualizando dados...</p>}
 			</div>
 
