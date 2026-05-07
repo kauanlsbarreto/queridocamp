@@ -134,10 +134,10 @@ const PAYMENT_METHODS: PaymentMethodOption[] = [
 ];
 
 const PAYMENT_TERMS = [
-	"Ao concluir a compra, o pedido entra em fila de producao e analise interna.",
-	"Depois que a producao do item for iniciada, o pedido deixa de ser reembolsavel.",
-	"Antes do inicio da producao, qualquer excecao depende de validacao manual da equipe.",
-	"No cartao, juros, valor final e disponibilidade de parcelamento sao definidos no checkout do PagBank conforme bandeira, emissor e configuracao da conta.",
+	"Compras online seguem o Codigo de Defesa do Consumidor, incluindo o direito de arrependimento em ate 7 dias corridos apos o recebimento.",
+	"Em caso de atraso na entrega, produto diferente do anunciado ou descumprimento da oferta, o cliente pode solicitar cancelamento e reembolso do valor pago.",
+	"Se houver defeito no produto ou servico e o problema nao for resolvido no prazo legal, o cliente pode pedir reembolso conforme o CDC.",
+	"No cartao, juros, valor final e parcelamento sao definidos no checkout do PagBank conforme bandeira, emissor e configuracao da conta.",
 ];
 
 const CREDIT_INSTALLMENT_REFERENCE_BASE = 149.99;
