@@ -4,6 +4,8 @@ import type { Env } from "@/lib/db";
 import { getCopaDraftTimes } from "@/lib/copadraft-times";
 import TimesPageClient from "./TimesPageClient";
 
+export const revalidate = 60;
+
 type Player = {
 	nickname: string;
 	faceit_guid: string;
@@ -14,6 +16,11 @@ type Team = {
 	nome_time: string;
 	jogadores: Player[];
 };
+
+let cachedTimesData: {
+	expiresAt: number;
+	data: Team[];
+} | null = null;
 
 async function loadTeams(): Promise<Team[]> {
 	return getCopaDraftTimes();
@@ -72,7 +79,19 @@ function mergeTeamsWithAvatar(teams: Team[], avatarByGuid: Map<string, string>):
 }
 
 export default async function CopaDraftTimesPage() {
-	const teamsData = await loadTeams();
+	let teamsData: Team[] = [];
+	const now = Date.now();
+	
+	if (cachedTimesData && cachedTimesData.expiresAt > now) {
+		teamsData = cachedTimesData.data;
+	} else {
+		teamsData = await loadTeams();
+		cachedTimesData = {
+			expiresAt: now + 60000,
+			data: teamsData,
+		};
+	}
+
 	let teamsWithAvatar = teamsData;
 
 	try {

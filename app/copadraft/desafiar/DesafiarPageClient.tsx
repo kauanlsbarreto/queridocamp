@@ -561,6 +561,17 @@ export default function DesafiarPageClient({
 
   useEffect(() => {
     setUser(readStoredUser());
+    
+    // Restore previous session data if user navigates back
+    try {
+      const cached = sessionStorage.getItem("desafiar_matches_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setMatches(parsed);
+      }
+    } catch {
+      // ignore cache restore errors
+    }
   }, []);
 
   useEffect(() => {
@@ -689,12 +700,20 @@ export default function DesafiarPageClient({
   function upsertMatch(updated: MatchRow) {
     setMatches((prev) => {
       const idx = prev.findIndex((m) => m.id === updated.id);
+      let next: MatchRow[];
       if (idx >= 0) {
-        const next = [...prev];
+        next = [...prev];
         next[idx] = updated;
-        return next;
+      } else {
+        next = [updated, ...prev];
       }
-      return [updated, ...prev];
+      // Persist to session cache so navigation doesn't lose state
+      try {
+        sessionStorage.setItem("desafiar_matches_cache", JSON.stringify(next));
+      } catch {
+        // ignore storage errors (quota, etc)
+      }
+      return next;
     });
   }
 

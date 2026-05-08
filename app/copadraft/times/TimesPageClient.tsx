@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 type Player = {
   nickname: string;
@@ -179,14 +179,28 @@ function GroupCard({
 
 export default function TimesPageClient({ teamsData }: Props) {
   const [activeTeamKey, setActiveTeamKey] = useState<string | null>(null);
+  const [cachedTeams, setCachedTeams] = useState<Team[]>(teamsData);
+
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem("times_page_cache");
+      if (cached) {
+        setCachedTeams(JSON.parse(cached));
+      } else {
+        sessionStorage.setItem("times_page_cache", JSON.stringify(teamsData));
+      }
+    } catch {
+      // ignore cache errors
+    }
+  }, [teamsData]);
 
   const teamsByName = useMemo(() => {
     const map = new Map<string, Team>();
-    for (const team of teamsData || []) {
+    for (const team of cachedTeams || []) {
       map.set(normalizeName(team.nome_time), team);
     }
     return map;
-  }, [teamsData]);
+  }, [cachedTeams]);
 
   const groupA = GROUP_A.map((name) => {
     const found = teamsByName.get(normalizeName(name));

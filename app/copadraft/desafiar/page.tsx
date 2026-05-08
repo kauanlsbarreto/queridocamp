@@ -10,9 +10,20 @@ import DesafiarPageClient, {
 } from "./DesafiarPageClient";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60;
 const PAGE_QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_QUERY_TIMEOUT_MS || 5000);
 const PAGE_CONNECT_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_CONNECT_TIMEOUT_MS || 4000);
+
+// SWR-style cache: keeps data in memory for 60s to avoid refetch on navigation
+let cachedPageData: {
+  expiresAt: number;
+  data: {
+    teamsCapitaes: TeamCapitao[];
+    teamMembers: TeamMember[];
+    jogos: JogoRow[];
+    matches: MatchRow[];
+  };
+} | null = null;
 
 const MIGRATION_COLUMNS: Array<{ name: string; sql: string }> = [
   { name: "rodada", sql: "ALTER TABLE matches ADD COLUMN rodada INT DEFAULT NULL" },
@@ -234,7 +245,17 @@ export default async function DesafiarPage() {
   try {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
-    data = await loadData(env);
+    
+    const now = Date.now();
+    if (cachedPageData && cachedPageData.expiresAt > now) {
+      data = cachedPageData.data;
+    } else {
+      data = await loadData(env);
+      cachedPageData = {
+        expiresAt: now + 60000,
+        data,
+      };
+    }
   } catch {}
 
   return <DesafiarPageClient {...data} />;

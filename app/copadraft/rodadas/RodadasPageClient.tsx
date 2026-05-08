@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export type Jogo = {
   rodada: number;
@@ -127,9 +127,24 @@ function RoundCard({ rodada, jogos }: { rodada: number; jogos: Jogo[] }) {
 }
 
 export default function RodadasPageClient({ jogos }: Props) {
+  const [cachedJogos, setCachedJogos] = useState<Jogo[]>(jogos);
+
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem("rodadas_page_cache");
+      if (cached) {
+        setCachedJogos(JSON.parse(cached));
+      } else {
+        sessionStorage.setItem("rodadas_page_cache", JSON.stringify(jogos));
+      }
+    } catch {
+      // ignore cache errors
+    }
+  }, [jogos]);
+
   const byRound = new Map<number, Jogo[]>();
   for (let r = 1; r <= TOTAL_RODADAS; r++) byRound.set(r, []);
-  for (const jogo of jogos) {
+  for (const jogo of cachedJogos) {
     const r = Number(jogo.rodada);
     if (r >= 1 && r <= TOTAL_RODADAS) {
       byRound.get(r)!.push(jogo);

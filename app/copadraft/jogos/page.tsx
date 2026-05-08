@@ -5,9 +5,14 @@ import { getTeamNameByCaptainGuidMap } from "@/lib/copadraft-times";
 import JogosPageClient, { type ConfirmedGame } from "./JogosPageClient";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60;
 
 const QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_JOGOS_QUERY_TIMEOUT_MS || 5000);
+
+let cachedJogosData: {
+	expiresAt: number;
+	data: ConfirmedGame[];
+} | null = null;
 
 function toIsoDate(value: unknown) {
 	if (!value) return "";
@@ -118,11 +123,21 @@ async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
 
 export default async function JogosPage() {
 	let games: ConfirmedGame[] = [];
+	const now = Date.now();
 
 	try {
 		const ctx = await getCloudflareContext({ async: true });
 		const env = ctx.env as unknown as Env;
-		games = await loadConfirmedGames(env);
+		
+		if (cachedJogosData && cachedJogosData.expiresAt > now) {
+			games = cachedJogosData.data;
+		} else {
+			games = await loadConfirmedGames(env);
+			cachedJogosData = {
+				expiresAt: now + 60000,
+				data: games,
+			};
+		}
 	} catch {
 		games = [];
 	}

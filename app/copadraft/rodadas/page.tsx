@@ -4,6 +4,13 @@ import type { Env } from "@/lib/db";
 import RodadasPageClient from "./RodadasPageClient";
 import type { Jogo } from "./RodadasPageClient";
 
+export const revalidate = 60;
+
+let cachedRodadasData: {
+	expiresAt: number;
+	data: Jogo[];
+} | null = null;
+
 async function loadJogos(env: Env): Promise<Jogo[]> {
   let connection: any = null;
   try {
@@ -27,11 +34,21 @@ async function loadJogos(env: Env): Promise<Jogo[]> {
 
 export default async function RodadasPage() {
   let jogos: Jogo[] = [];
+  const now = Date.now();
 
   try {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
-    jogos = await loadJogos(env);
+    
+    if (cachedRodadasData && cachedRodadasData.expiresAt > now) {
+      jogos = cachedRodadasData.data;
+    } else {
+      jogos = await loadJogos(env);
+      cachedRodadasData = {
+        expiresAt: now + 60000,
+        data: jogos,
+      };
+    }
   } catch {
     // em build/prerender sem DB disponível, renderiza vazio
   }

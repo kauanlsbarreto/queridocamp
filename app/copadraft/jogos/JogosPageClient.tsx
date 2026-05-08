@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 export type ConfirmedGame = {
   id: number;
@@ -121,15 +121,30 @@ function DateSection({ date, games }: { date: string; games: ConfirmedGame[] }) 
 }
 
 export default function JogosPageClient({ games }: Props) {
+  const [cachedGames, setCachedGames] = useState<ConfirmedGame[]>(games);
+
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem("jogos_page_cache");
+      if (cached) {
+        setCachedGames(JSON.parse(cached));
+      } else {
+        sessionStorage.setItem("jogos_page_cache", JSON.stringify(games));
+      }
+    } catch {
+      // ignore cache errors
+    }
+  }, [games]);
+
   const grouped = useMemo(() => {
     const map = new Map<string, ConfirmedGame[]>();
-    for (const game of games) {
+    for (const game of cachedGames) {
       const dateKey = String(game.date || "").slice(0, 10);
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(game);
     }
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [games]);
+  }, [cachedGames]);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#030a1e] px-4 py-10 text-white">
