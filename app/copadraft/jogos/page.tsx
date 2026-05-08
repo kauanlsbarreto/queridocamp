@@ -8,11 +8,26 @@ export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 const QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_JOGOS_QUERY_TIMEOUT_MS || 5000);
+const JOGOS_CACHE_TTL_MS = Number(process.env.COPADRAFT_JOGOS_CACHE_TTL_MS || 60000);
+const JOGOS_LOAD_TIMEOUT_MS = Number(process.env.COPADRAFT_JOGOS_LOAD_TIMEOUT_MS || 3500);
 
 let cachedJogosData: {
 	expiresAt: number;
 	data: ConfirmedGame[];
 } | null = null;
+let refreshingJogosPromise: Promise<void> | null = null;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		const timeoutPromise = new Promise<never>((_, reject) => {
+			timer = setTimeout(() => reject(new Error(`${label} timeout after ${timeoutMs}ms`)), timeoutMs);
+		});
+		return await Promise.race([promise, timeoutPromise]);
+	} finally {
+		if (timer) clearTimeout(timer);
+	}
+}
 
 function toIsoDate(value: unknown) {
 	if (!value) return "";
@@ -49,10 +64,7 @@ async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
 	let jogadoresConn: any = null;
 
 	try {
-		[mainConn, jogadoresConn] = await Promise.all([
-			createMainConnection(env),
-			createJogadoresConnection(env),
-		]);
+		mainConn = await createMainConnection(env);
 
 		const [rows]: any = await mainConn.query({
 			sql: `SELECT id, challenger_team_id, challenged_team_id, rodada, proposed_date, proposed_time
@@ -77,6 +89,7 @@ async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
 
 		const teamIdToName = new Map<number, string>();
 		if (teamIds.length > 0) {
+			jogadoresConn = await createJogadoresConnection(env);
 			const placeholders = teamIds.map(() => "?").join(",");
 			const [captains]: any = await jogadoresConn.query(
 				{
@@ -121,22 +134,44 @@ async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
 	}
 }
 
+async function refreshJogosData(env: Env) {
+	const freshData = await withTimeout(loadConfirmedGames(env), JOGOS_LOAD_TIMEOUT_MS, "jogos page load");
+	cachedJogosData = {
+		expiresAt: Date.now() + JOGOS_CACHE_TTL_MS,
+		data: freshData,
+	};
+}
+
 export default async function JogosPage() {
 	let games: ConfirmedGame[] = [];
 	const now = Date.now();
 
 	try {
-		if (cachedJogosData && cachedJogosData.expiresAt > now) {
-			return <JogosPageClient games={cachedJogosData.data} />;
+		const cacheAtStart = cachedJogosData;
+		if (cacheAtStart && cacheAtStart.expiresAt > now) {
+			return <JogosPageClient games={cacheAtStart.data} />;
 		}
 
 		const ctx = await getCloudflareContext({ async: true });
 		const env = ctx.env as unknown as Env;
-		games = await loadConfirmedGames(env);
-		cachedJogosData = {
-			expiresAt: now + 60000,
-			data: games,
-		};
+
+		const staleCache = cachedJogosData;
+		if (staleCache) {
+			games = staleCache.data;
+			if (!refreshingJogosPromise) {
+				refreshingJogosPromise = refreshJogosData(env)
+					.catch((err) => {
+						console.error("[copadraft/jogos] background refresh error:", err);
+					})
+					.finally(() => {
+						refreshingJogosPromise = null;
+					});
+			}
+		} else {
+			await refreshJogosData(env);
+			const refreshedCache = cachedJogosData;
+			if (refreshedCache) games = refreshedCache.data;
+		}
 	} catch {
 		games = [];
 	}

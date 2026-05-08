@@ -1,34 +1,63 @@
-FROM node:18-slim AS deps
+# Build stage
+FROM node:22-alpine AS builder
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm install --legacy-peer-deps --no-audit --no-fund 
+# Install pnpm
+RUN npm install -g pnpm@10.11.1
 
-FROM node:18-slim AS builder
-WORKDIR /app
+# Set build environment variables
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV NODE_OPTIONS="--max-old-space-size=1024"
-ENV NEXT_BUILD_WORKERS=1
-ENV NODE_ENV production
+# Copy dependency files
+COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
 
-COPY --from=deps /app/node_modules ./node_modules
+# Install dependencies using pnpm
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
 COPY . .
 
-RUN npm run build 
+# Build Next.js application
+RUN pnpm run build
 
-FROM node:18-slim AS runner
+# Production stage
+FROM node:22-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV PORT 3000
-ENV NEXT_TELEMETRY_DISABLED 1
+# Install pnpm and git
+RUN npm install -g pnpm@10.11.1 && \
+    apk add --no-cache git
 
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next 
-COPY --from=builder /app/node_modules ./node_modules
+# Set runtime environment
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+
+# Copy built application and dependencies
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+
+# Copy entire source for git operations
+COPY --chown=nextjs:nodejs . .
+
+# Copy entrypoint script
+COPY --chown=nextjs:nodejs entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Switch to non-root user
+USER nextjs
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+ENTRYPOINT ["/app/entrypoint.sh"]
