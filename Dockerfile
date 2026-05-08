@@ -41,4 +41,4 @@ COPY --from=builder /app ./
 
 EXPOSE 3001
 
-CMD ["pnpm", "start"]
+CMD ["pnpm", "start"] 
