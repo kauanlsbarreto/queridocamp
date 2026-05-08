@@ -1,0 +1,98 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { createMainConnection } from "@/lib/db";
+import type { Env } from "@/lib/db";
+import TimesPageClient from "./TimesPageClient";
+
+type Player = {
+	nickname: string;
+	faceit_guid: string;
+	avatar?: string;
+};
+
+type Team = {
+	nome_time: string;
+	jogadores: Player[];
+};
+
+export const revalidate = 3600;
+
+async function loadTeams(): Promise<Team[]> {
+	try {
+		const filePath = path.join(process.cwd(), "copadraft-times.json");
+		const raw = await fs.readFile(filePath, "utf8");
+		const parsed = JSON.parse(raw);
+		return Array.isArray(parsed) ? parsed : [];
+	} catch {
+		return [];
+	}
+}
+
+async function loadAvatarByGuid(env: Env, teams: Team[]): Promise<Map<string, string>> {
+	const guidSet = new Set<string>();
+
+	for (const team of teams) {
+		for (const player of team.jogadores || []) {
+			const guid = String(player?.faceit_guid || "").trim().toLowerCase();
+			if (guid) guidSet.add(guid);
+		}
+	}
+
+	if (guidSet.size === 0) return new Map<string, string>();
+
+	let connection: any = null;
+	try {
+		connection = await createMainConnection(env);
+		const guids = Array.from(guidSet);
+		const placeholders = guids.map(() => "?").join(",");
+		const [rows] = await connection.query(
+			`SELECT faceit_guid, avatar FROM players WHERE faceit_guid IN (${placeholders})`,
+			guids
+		);
+
+		const avatarByGuid = new Map<string, string>();
+		if (Array.isArray(rows)) {
+			for (const row of rows as any[]) {
+				const guid = String(row?.faceit_guid || "").trim().toLowerCase();
+				const avatar = String(row?.avatar || "").trim();
+				if (guid && avatar) avatarByGuid.set(guid, avatar);
+			}
+		}
+
+		return avatarByGuid;
+	} catch {
+		return new Map<string, string>();
+	} finally {
+		await connection?.end?.();
+	}
+}
+
+function mergeTeamsWithAvatar(teams: Team[], avatarByGuid: Map<string, string>): Team[] {
+	return teams.map((team) => ({
+		...team,
+		jogadores: (team.jogadores || []).map((player) => {
+			const guid = String(player?.faceit_guid || "").trim().toLowerCase();
+			return {
+				...player,
+				avatar: avatarByGuid.get(guid) || "",
+			};
+		}),
+	}));
+}
+
+export default async function CopaDraftTimesPage() {
+	const teamsData = await loadTeams();
+	let teamsWithAvatar = teamsData;
+
+	try {
+		const ctx = await getCloudflareContext({ async: true });
+		const env = ctx.env as unknown as Env;
+		const avatarByGuid = await loadAvatarByGuid(env, teamsData);
+		teamsWithAvatar = mergeTeamsWithAvatar(teamsData, avatarByGuid);
+	} catch {
+		teamsWithAvatar = mergeTeamsWithAvatar(teamsData, new Map<string, string>());
+	}
+
+	return <TimesPageClient teamsData={teamsWithAvatar} />;
+}

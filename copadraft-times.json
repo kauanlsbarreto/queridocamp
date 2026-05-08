@@ -1,0 +1,352 @@
+[
+  {
+    "nome_time": "Uruguai",
+    "jogadores": [
+      {
+        "nickname": "-Black",
+        "faceit_guid": "38cecb4b-314d-43bc-93d7-c58496b1cd9c"
+      },
+      {
+        "nickname": "B-r-N-",
+        "faceit_guid": "bb7d8f04-091a-41a0-808d-69cf8f6e7de9"
+      },
+      {
+        "nickname": "kalilvini",
+        "faceit_guid": "bdbfb0fd-f5c9-4b52-942c-a1e47ee17f0f"
+      },
+      {
+        "nickname": "AmZ_Skinner",
+        "faceit_guid": "0573d045-942b-40bc-80b7-de5670497507"
+      },
+      {
+        "nickname": "HazaaarD",
+        "faceit_guid": "b32178e7-63f7-4379-9cfd-064a1fd35b5a"
+      }
+    ]
+  },
+  {
+    "nome_time": "Alemanha",
+    "jogadores": [
+      {
+        "nickname": "alls",
+        "faceit_guid": "8597a7bb-1af3-4978-b748-cb503f0af53a"
+      },
+      {
+        "nickname": "microlock1",
+        "faceit_guid": "c8e99e2a-3cb7-441b-a614-74b00617977e"
+      },
+      {
+        "nickname": "-Sh4yan777",
+        "faceit_guid": "fcb1b15c-f3d4-47d1-bd27-b478b7ada9ee"
+      },
+      {
+        "nickname": "Jords",
+        "faceit_guid": "c4b9af88-a238-4673-ba37-2a295dad1672"
+      },
+      {
+        "nickname": "Ratinho-SE",
+        "faceit_guid": "4bd74c62-e025-47a0-955b-64293964b199"
+      }
+    ]
+  },
+  {
+    "nome_time": "México",
+    "jogadores": [
+      {
+        "nickname": "alvzXD",
+        "faceit_guid": "9eec837d-8081-4254-acc8-3bcbac6cf552"
+      },
+      {
+        "nickname": "snAkeee1",
+        "faceit_guid": "ac3d49a9-678b-45d4-8ec1-b57f46cc909a"
+      },
+      {
+        "nickname": "_sag4",
+        "faceit_guid": "ba357c72-a24b-40a0-98a2-6f4be450cd18"
+      },
+      {
+        "nickname": "l3tmetry",
+        "faceit_guid": "dc40d2c7-fad4-4deb-9567-c44053b93204"
+      },
+      {
+        "nickname": "Kondz",
+        "faceit_guid": "5cb97590-bc4b-47a4-8c9c-045027e97c58"
+      }
+    ]
+  },
+  {
+    "nome_time": "Argentina",
+    "jogadores": [
+      {
+        "nickname": "dNtt-",
+        "faceit_guid": "85811617-dc9c-4431-90aa-1d8e2d37207d"
+      },
+      {
+        "nickname": "mulekera",
+        "faceit_guid": "867b77b6-2994-48d9-a89a-c959a8e19f52"
+      },
+      {
+        "nickname": "Jzn079",
+        "faceit_guid": "76bcbd7a-0e2e-45b8-abfc-377566b194b2"
+      },
+      {
+        "nickname": "llLASll",
+        "faceit_guid": "81a9298e-33fe-4b20-9300-2667adb75e4b"
+      },
+      {
+        "nickname": "V1taoooooo",
+        "faceit_guid": "080dbe3e-cbf0-4691-b9d4-6f259c98c6bd"
+      }
+    ]
+  },
+  {
+    "nome_time": "Holanda",
+    "jogadores": [
+      {
+        "nickname": "fpspdx",
+        "faceit_guid": "d181a0f9-1990-499c-aa18-5bd074c1458c"
+      },
+      {
+        "nickname": "rzn1",
+        "faceit_guid": "82118baf-62fe-48c6-adfc-050871523ccc"
+      },
+      {
+        "nickname": "nEX07-",
+        "faceit_guid": "104a3c1e-8fe7-4663-a0af-9805dbff54f8"
+      },
+      {
+        "nickname": "babuzinho",
+        "faceit_guid": "3bde4e48-ba7e-4be8-88b0-8bcd855cf1a8"
+      },
+      {
+        "nickname": "O_BAIANO",
+        "faceit_guid": "504d2a32-40b9-4a3f-b876-b566fc103489"
+      }
+    ]
+  },
+  {
+    "nome_time": "França",
+    "jogadores": [
+      {
+        "nickname": "gAbri-_",
+        "faceit_guid": "f30a2dcc-61b8-4517-a3f3-874814102cc8"
+      },
+      {
+        "nickname": "-VICTIN-",
+        "faceit_guid": "78825fd8-c7e9-4a0e-b8c0-05da3e4e4365"
+      },
+      {
+        "nickname": "OkkotsuY",
+        "faceit_guid": "47bc980c-85d8-4fae-863f-f1466a56ec83"
+      },
+      {
+        "nickname": "Savio0",
+        "faceit_guid": "a5d78c0b-a938-4c1e-9ada-06e7a790f65e"
+      },
+      {
+        "nickname": "J3ssen3",
+        "faceit_guid": "ca1d6798-bd55-428d-ba7c-b09fe42c4e3e"
+      }
+    ]
+  },
+  {
+    "nome_time": "Inglaterra",
+    "jogadores": [
+      {
+        "nickname": "haardKINg",
+        "faceit_guid": "9a339c10-9d50-4d88-a062-e2f28b511eb9"
+      },
+      {
+        "nickname": "marcosads1",
+        "faceit_guid": "1a3ea48a-062b-4f73-81b1-4ae943ffe332"
+      },
+      {
+        "nickname": "logizera",
+        "faceit_guid": "e7adf6a6-d555-4ec2-a5ff-d40af5edb75d"
+      },
+      {
+        "nickname": "xarostv",
+        "faceit_guid": "3ccac4cc-84a4-4d6f-aa9d-36b000923894"
+      },
+      {
+        "nickname": "guishow1",
+        "faceit_guid": "8b5063dc-6fe4-4b79-b8b8-666989fc479e"
+      }
+    ]
+  },
+  {
+    "nome_time": "Brasil",
+    "jogadores": [
+      {
+        "nickname": "kenkayDEUS",
+        "faceit_guid": "7a9a7460-81ca-4285-9998-e0e6ee5cc9b2"
+      },
+      {
+        "nickname": "WTs---D",
+        "faceit_guid": "2cd5967b-6272-4cd9-b463-ef75ce7fbbd0"
+      },
+      {
+        "nickname": "Rodoxxx",
+        "faceit_guid": "98f79799-bea9-4b08-806b-1c1398feb166"
+      },
+      {
+        "nickname": "PutF1re",
+        "faceit_guid": "d9c1f7eb-6c73-4e07-aa68-1ccd19327f4b"
+      },
+      {
+        "nickname": "ROMA-",
+        "faceit_guid": "4584a029-f101-43f2-b0f2-f0ab6067a92d"
+      }
+    ]
+  },
+  {
+    "nome_time": "Itália",
+    "jogadores": [
+      {
+        "nickname": "kovaak_aim",
+        "faceit_guid": "f75145b1-60ed-42a3-a2b9-843d2a5248c0"
+      },
+      {
+        "nickname": "Sid10",
+        "faceit_guid": "8608f14b-7574-4a1a-904c-fe04a19dd8fe"
+      },
+      {
+        "nickname": "Kinh0_",
+        "faceit_guid": "6669b623-b880-4a7c-9647-b1622515b869"
+      },
+      {
+        "nickname": "Mounjarode15",
+        "faceit_guid": "14d57887-f34e-4ca3-b35e-e5ce5067073b"
+      },
+      {
+        "nickname": "-ZeGotinha",
+        "faceit_guid": "d3f7501f-4cbe-49e3-9590-4b723c2da283"
+      }
+    ]
+  },
+  {
+    "nome_time": "Portugal",
+    "jogadores": [
+      {
+        "nickname": "Lildeniszskr",
+        "faceit_guid": "0124bfce-db9e-4d4f-b3f4-b66084a8a484"
+      },
+      {
+        "nickname": "_lucas7",
+        "faceit_guid": "0b85693c-48ff-4ee0-a3ea-e421554c8cbb"
+      },
+      {
+        "nickname": "ZnoTT",
+        "faceit_guid": "d194c25d-cb8e-4780-ab25-b5f407be047e"
+      },
+      {
+        "nickname": "iuRyyy",
+        "faceit_guid": "c0769bfb-c5e6-4632-94f2-873e6cb407a8"
+      },
+      {
+        "nickname": "slayerking",
+        "faceit_guid": "2677cf29-60e3-4298-a6e1-76320f1eedab"
+      }
+    ]
+  },
+  {
+    "nome_time": "Espanha",
+    "jogadores": [
+      {
+        "nickname": "moura_tn1",
+        "faceit_guid": "62dfedf1-c596-47a2-8d81-89051544c6e8"
+      },
+      {
+        "nickname": "LLP_S2",
+        "faceit_guid": "1ce9aeed-46e4-4847-99af-d5453be16dae"
+      },
+      {
+        "nickname": "TeX_tn1",
+        "faceit_guid": "dd85687d-83f5-4e6a-9e31-881510f855de"
+      },
+      {
+        "nickname": "TourinhoT11",
+        "faceit_guid": "a517ce37-ed98-4867-a699-1dd8e493a865"
+      },
+      {
+        "nickname": "gagauuu",
+        "faceit_guid": "48114bdf-36bd-48f8-9cd0-898e8e3f1e13"
+      }
+    ]
+  },
+  {
+    "nome_time": "Japão",
+    "jogadores": [
+      {
+        "nickname": "Novackcs",
+        "faceit_guid": "8d676f65-b44b-4312-8643-9decbb35bfc2"
+      },
+      {
+        "nickname": "Vina",
+        "faceit_guid": "c60ffe75-0add-475d-a723-f820ee8ded60"
+      },
+      {
+        "nickname": "_ThoZ_",
+        "faceit_guid": "ff586eb0-552d-479d-a9db-05df4299b930"
+      },
+      {
+        "nickname": "Sr_Revolt",
+        "faceit_guid": "97c69de5-880f-4465-8dad-cbdc4c85f7e9"
+      },
+      {
+        "nickname": "heisenbergse",
+        "faceit_guid": "66dd99f2-9d56-4f62-b5c4-ecb50c1d1a99"
+      }
+    ]
+  },
+  {
+    "nome_time": "Bélgica",
+    "jogadores": [
+      {
+        "nickname": "raul--_--",
+        "faceit_guid": "6a917d94-8dd4-4d4d-a435-00dc6453c957"
+      },
+      {
+        "nickname": "Txrzinzww",
+        "faceit_guid": "75f1b0ac-912f-4cae-bae0-cd06e2635d7d"
+      },
+      {
+        "nickname": "lipebsk",
+        "faceit_guid": "f330dc37-d388-42b8-b6d8-266f4550e54f"
+      },
+      {
+        "nickname": "MaxS_--",
+        "faceit_guid": "188db909-4085-4dd7-9a27-c896cad497e9"
+      },
+      {
+        "nickname": "Finiinn",
+        "faceit_guid": "fd1b7ce3-7349-4b17-b94a-430dc0994b6b"
+      }
+    ]
+  },
+  {
+    "nome_time": "Croácia",
+    "jogadores": [
+      {
+        "nickname": "YuriCrv",
+        "faceit_guid": "8a4a4562-a96f-4ebb-a5de-01c7370e823b"
+      },
+      {
+        "nickname": "Ezy-",
+        "faceit_guid": "6ce94cc4-a394-49dc-8671-8e6c5a509ea2"
+      },
+      {
+        "nickname": "batatinhaa_",
+        "faceit_guid": "4f3d4c99-c452-4489-957b-1ac8b1b07276"
+      },
+      {
+        "nickname": "Mts212",
+        "faceit_guid": "b5a41f79-dc75-4e6d-aeac-de0f2d523168"
+      },
+      {
+        "nickname": "revoltedfx",
+        "faceit_guid": "cb5fb431-76ff-4b70-b7e0-2a0379f781a3"
+      }
+    ]
+  }
+]

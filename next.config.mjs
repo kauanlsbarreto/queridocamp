@@ -19,6 +19,28 @@ const nextConfig = {
       },
     ];
   },
+  async headers() {
+    return [
+      {
+        source: '/copadraft/times',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=300, s-maxage=3600, stale-while-revalidate=300',
+          },
+        ],
+      },
+      {
+        source: '/copadraft/rodadas',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=300, s-maxage=3600, stale-while-revalidate=300',
+          },
+        ],
+      },
+    ];
+  },
   assetPrefix: undefined,
 };
 

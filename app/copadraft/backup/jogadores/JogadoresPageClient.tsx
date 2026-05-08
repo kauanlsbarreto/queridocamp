@@ -18,6 +18,10 @@ function isAdmin(user: any) {
 	return user?.Admin === 1 || user?.Admin === 2 || user?.admin === 1 || user?.admin === 2;
 }
 
+function isAdminOne(user: any) {
+	return user?.Admin === 1 || user?.admin === 1;
+}
+
 function groupByPote(jogadores: any[]) {
 	const potes: Record<number, any[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
 	jogadores.forEach((j: any) => {
@@ -92,6 +96,7 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 	});
 
 	const isAdminUser = isAdmin(user);
+	const isAdmin1User = isAdminOne(user);
 	const isAdminView = isAdminUser && viewAs === 'admin';
 	const canSeeEscolherTab = isAdminView;
 	const canSeeTimesTab = true;
@@ -367,6 +372,50 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 		} finally {
 			setResettingAllData(false);
 		}
+	}
+
+	function handleDownloadTimesJson() {
+		if (!isAdmin1User) return;
+
+		const capitoes = (potes[1] || []).slice().sort((a: any, b: any) =>
+			normalizeText(a?.nick).localeCompare(normalizeText(b?.nick), 'pt-BR', { sensitivity: 'base' })
+		);
+
+		const payload = capitoes.map((capitao: any) => {
+			const jogadoresDoTime = [1, 2, 3, 4, 5]
+				.map((pote) => {
+					const jogadorDoPote = jogadoresState.find((j: any) => {
+						if (Number(j.pote) !== pote) return false;
+						if (pote === 1) {
+							return Number(j.id) === Number(capitao.id);
+						}
+						return Number(j.timeid) === Number(capitao.id);
+					});
+					return jogadorDoPote || null;
+				})
+				.map((j: any) => ({
+					nickname: normalizeText(j?.nick),
+					faceit_guid: normalizeText(j?.faceit_guid),
+				}));
+
+			return {
+				nome_time: `Time de ${normalizeText(capitao?.nick)}`,
+				jogadores: jogadoresDoTime,
+			};
+		});
+
+		const now = new Date();
+		const dateTag = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+		const fileName = `copadraft-times-${dateTag}.json`;
+		const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = fileName;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(url);
 	}
 
 	const potes = groupByPote(jogadoresState);
@@ -875,8 +924,18 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 			<div className="mb-6 md:mb-8">
 				<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 					<h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">Copa Draft - {jogadoresState.length} Jogadores</h1>
-					{isAdminUser && (
-						<div className="inline-flex rounded-xl border border-gold/35 bg-[#0E1724] p-1">
+					<div className="flex flex-wrap items-center gap-2">
+						{isAdmin1User && (
+							<button
+								type="button"
+								onClick={handleDownloadTimesJson}
+								className="rounded-lg border border-emerald-400/60 bg-emerald-500/20 text-emerald-200 text-xs font-semibold px-3 py-2 hover:bg-emerald-500/30 transition"
+							>
+								Baixar JSON dos Times
+							</button>
+						)}
+						{isAdminUser && (
+							<div className="inline-flex rounded-xl border border-gold/35 bg-[#0E1724] p-1">
 							<button
 								type="button"
 								onClick={() => setViewAs('admin')}
@@ -899,8 +958,9 @@ export default function JogadoresPageClient({ jogadores }: { jogadores: any[] })
 							>
 								Ver como Player
 							</button>
-						</div>
-					)}
+							</div>
+						)}
+					</div>
 				</div>
 				{jogadoresState.length === 0 && <p className="mt-2 text-xs text-zinc-400">Nenhum jogador encontrado no banco de dados.</p>}
 			</div>
