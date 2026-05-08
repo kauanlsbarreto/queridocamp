@@ -2,8 +2,12 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@10.11.1
+# Git personal access token (build-time secret)
+ARG GIT_TOKEN=""
+
+# Install pnpm and git
+RUN npm install -g pnpm@10.11.1 && \
+    apk add --no-cache git
 
 # Set build environment variables
 ENV NEXT_TELEMETRY_DISABLED=1

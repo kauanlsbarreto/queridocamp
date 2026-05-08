@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GIT_TOKEN: ${GIT_TOKEN:-}
     container_name: sitequerido-app
     restart: always
     # Remove exposed ports, use reverse proxy instead
@@ -26,6 +28,7 @@ services:
       GIT_AUTHOR_EMAIL: "docker@sitequerido.com"
       GIT_COMMITTER_NAME: "Docker Auto-Update"
       GIT_COMMITTER_EMAIL: "docker@sitequerido.com"
+      GIT_TOKEN: ${GIT_TOKEN:-}
       
       # Copa Draft Timeouts
       COPADRAFT_DESAFIAR_QUERY_TIMEOUT_MS: ${COPADRAFT_DESAFIAR_QUERY_TIMEOUT_MS:-5000}
