@@ -76,11 +76,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 2G
+          cpus: '${APP_CPU_LIMIT:-0.90}'
+          memory: ${APP_MEMORY_LIMIT:-1G}
         reservations:
-          cpus: '1'
-          memory: 1G
+          cpus: '${APP_CPU_RESERVATION:-0.25}'
+          memory: ${APP_MEMORY_RESERVATION:-256M}
     
     # Logging
     logging:

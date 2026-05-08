@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -83,11 +81,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 3G
+          cpus: '${APP_CPU_LIMIT:-0.90}'
+          memory: ${APP_MEMORY_LIMIT:-1G}
         reservations:
-          cpus: '1.5'
-          memory: 2G
+          cpus: '${APP_CPU_RESERVATION:-0.25}'
+          memory: ${APP_MEMORY_RESERVATION:-256M}
     
     logging:
       driver: "json-file"
@@ -109,11 +107,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 1G
+          cpus: '${REDIS_CPU_LIMIT:-0.25}'
+          memory: ${REDIS_MEMORY_LIMIT:-256M}
         reservations:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '${REDIS_CPU_RESERVATION:-0.10}'
+          memory: ${REDIS_MEMORY_RESERVATION:-64M}
     
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
