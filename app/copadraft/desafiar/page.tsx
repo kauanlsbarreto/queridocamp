@@ -1,8 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection, createJogadoresConnection } from "@/lib/db";
 import type { Env } from "@/lib/db";
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import { getCopaDraftTimes } from "@/lib/copadraft-times";
 import DesafiarPageClient, {
   type TeamCapitao,
   type TeamMember,
@@ -13,7 +12,6 @@ import DesafiarPageClient, {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 const PAGE_QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_QUERY_TIMEOUT_MS || 5000);
-const TIMES_JSON_CACHE_TTL_MS = Number(process.env.COPADRAFT_TIMES_CACHE_TTL_MS || 60000);
 const PAGE_CONNECT_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_CONNECT_TIMEOUT_MS || 4000);
 
 const MIGRATION_COLUMNS: Array<{ name: string; sql: string }> = [
@@ -74,29 +72,8 @@ function fmtTs(v: any) {
   return String(v).slice(0, 16);
 }
 
-let cachedTimesJson: {
-  expiresAt: number;
-  data: Array<{ nome_time: string; jogadores: Array<{ nickname: string; faceit_guid: string }> }>;
-} | null = null;
-
 async function loadTimesJsonCached() {
-  const now = Date.now();
-  if (cachedTimesJson && cachedTimesJson.expiresAt > now) {
-    return cachedTimesJson.data;
-  }
-
-  try {
-    const raw = await fs.readFile(path.join(process.cwd(), "copadraft-times.json"), "utf8");
-    const parsed = JSON.parse(raw);
-    const data = Array.isArray(parsed) ? parsed : [];
-    cachedTimesJson = {
-      expiresAt: now + TIMES_JSON_CACHE_TTL_MS,
-      data,
-    };
-    return data;
-  } catch {
-    return cachedTimesJson?.data || [];
-  }
+  return getCopaDraftTimes();
 }
 
 async function loadData(env: Env): Promise<{

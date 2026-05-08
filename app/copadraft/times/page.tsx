@@ -1,8 +1,7 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
 import type { Env } from "@/lib/db";
+import { getCopaDraftTimes } from "@/lib/copadraft-times";
 import TimesPageClient from "./TimesPageClient";
 
 type Player = {
@@ -17,14 +16,7 @@ type Team = {
 };
 
 async function loadTeams(): Promise<Team[]> {
-	try {
-		const filePath = path.join(process.cwd(), "copadraft-times.json");
-		const raw = await fs.readFile(filePath, "utf8");
-		const parsed = JSON.parse(raw);
-		return Array.isArray(parsed) ? parsed : [];
-	} catch {
-		return [];
-	}
+	return getCopaDraftTimes();
 }
 
 async function loadAvatarByGuid(env: Env, teams: Team[]): Promise<Map<string, string>> {

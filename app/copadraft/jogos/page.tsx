@@ -1,21 +1,13 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection, createJogadoresConnection } from "@/lib/db";
 import type { Env } from "@/lib/db";
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import { getTeamNameByCaptainGuidMap } from "@/lib/copadraft-times";
 import JogosPageClient, { type ConfirmedGame } from "./JogosPageClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_JOGOS_QUERY_TIMEOUT_MS || 5000);
-
-type TeamJson = {
-	nome_time: string;
-	jogadores: Array<{ nickname: string; faceit_guid: string }>;
-};
-
-let cachedTeamsMapByCaptainGuid: { expiresAt: number; data: Map<string, string> } | null = null;
 
 function toIsoDate(value: unknown) {
 	if (!value) return "";
@@ -45,35 +37,6 @@ function toHourMinute(value: unknown) {
 		return parsed.toISOString().slice(11, 16);
 	}
 	return raw.slice(0, 5);
-}
-
-async function loadTeamsMapByCaptainGuid() {
-	const now = Date.now();
-	if (cachedTeamsMapByCaptainGuid && cachedTeamsMapByCaptainGuid.expiresAt > now) {
-		return cachedTeamsMapByCaptainGuid.data;
-	}
-
-	const map = new Map<string, string>();
-	try {
-		const raw = await fs.readFile(path.join(process.cwd(), "copadraft-times.json"), "utf8");
-		const parsed = JSON.parse(raw);
-		const teams: TeamJson[] = Array.isArray(parsed) ? parsed : [];
-
-		for (const team of teams) {
-			const teamName = String(team?.nome_time || "").trim();
-			const captainGuid = String(team?.jogadores?.[0]?.faceit_guid || "").trim().toLowerCase();
-			if (teamName && captainGuid) map.set(captainGuid, teamName);
-		}
-	} catch {
-		// keep map empty and fallback to team ids
-	}
-
-	cachedTeamsMapByCaptainGuid = {
-		expiresAt: now + 60000,
-		data: map,
-	};
-
-	return map;
 }
 
 async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
@@ -118,7 +81,7 @@ async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
 				teamIds
 			);
 
-			const byGuid = await loadTeamsMapByCaptainGuid();
+			const byGuid = getTeamNameByCaptainGuidMap();
 			if (Array.isArray(captains)) {
 				for (const row of captains as any[]) {
 					const id = Number(row?.id || 0);

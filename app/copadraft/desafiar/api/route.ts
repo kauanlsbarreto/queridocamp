@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection, createJogadoresConnection } from "@/lib/db";
 import type { Env } from "@/lib/db";
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import { getTeamNameByCaptainGuidMap } from "@/lib/copadraft-times";
 import { sendDesafiarDiscordWebhook } from "@/lib/copadraft-desafiar-discord-webhooks";
 import { sendDesafiarErrorBrevoEmail } from "@/lib/copadraft-desafiar-brevo-error";
 
 const API_QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_API_QUERY_TIMEOUT_MS || 5000);
-const TIMES_JSON_CACHE_TTL_MS = Number(process.env.COPADRAFT_TIMES_CACHE_TTL_MS || 60000);
 
 async function queryWithTimeout(conn: any, sql: string, values?: any[]) {
   if (Array.isArray(values)) {
@@ -104,28 +102,8 @@ async function getActorNickname(mainConn: any, faceit_guid: string): Promise<str
   return faceit_guid;
 }
 
-let cachedTeamByCaptainGuid: { expiresAt: number; data: Map<string, string> } | null = null;
 async function loadTeamNameMapByCaptainGuid() {
-  const now = Date.now();
-  if (cachedTeamByCaptainGuid && cachedTeamByCaptainGuid.expiresAt > now) return cachedTeamByCaptainGuid.data;
-
-  const map = new Map<string, string>();
-  try {
-    const raw = await fs.readFile(path.join(process.cwd(), "copadraft-times.json"), "utf8");
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      for (const team of parsed) {
-        const teamName = String(team?.nome_time || "").trim();
-        const captainGuid = String(team?.jogadores?.[0]?.faceit_guid || "").trim().toLowerCase();
-        if (teamName && captainGuid) map.set(captainGuid, teamName);
-      }
-    }
-  } catch {
-    // keep empty map
-  }
-
-  cachedTeamByCaptainGuid = { data: map, expiresAt: now + TIMES_JSON_CACHE_TTL_MS };
-  return map;
+  return getTeamNameByCaptainGuidMap();
 }
 
 async function getTeamNamesByIds(jogadoresConn: any, teamIds: number[]) {
