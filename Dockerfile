@@ -35,10 +35,10 @@ WORKDIR /app
 RUN npm install -g pnpm@10.11.1
 
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=3001
 
 COPY --from=builder /app ./
 
-EXPOSE 3000
+EXPOSE 3001
 
 CMD ["pnpm", "start"]
