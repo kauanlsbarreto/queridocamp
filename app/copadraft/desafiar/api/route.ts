@@ -28,9 +28,9 @@ const MIGRATION_COLUMNS: Array<{ name: string; sql: string }> = [
 async function runMigrations(conn: any) {
   for (const migration of MIGRATION_COLUMNS) {
     try {
-      const [existsRows]: any = await conn.query("SHOW COLUMNS FROM matches LIKE ?", [migration.name]);
+      const [existsRows]: any = await queryWithTimeout(conn, "SHOW COLUMNS FROM matches LIKE ?", [migration.name]);
       if (Array.isArray(existsRows) && existsRows.length > 0) continue;
-      await conn.query(migration.sql);
+      await queryWithTimeout(conn, migration.sql);
     } catch {
       // Keep page/API resilient even if migration fails.
     }
@@ -252,7 +252,8 @@ export async function POST(req: NextRequest) {
       }
 
       // Check for existing active proposal between these teams for this rodada
-      const [existing]: any = await mainConn.query(
+      const [existing]: any = await queryWithTimeout(
+        mainConn,
         `SELECT id FROM matches
          WHERE ((challenger_team_id = ? AND challenged_team_id = ?)
              OR (challenger_team_id = ? AND challenged_team_id = ?))
@@ -266,14 +267,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Já existe uma proposta ativa para esta rodada entre estes times" }, { status: 409 });
       }
 
-      const [result]: any = await mainConn.query(
+      const [result]: any = await queryWithTimeout(
+        mainConn,
         `INSERT INTO matches (challenger_team_id, challenged_team_id, rodada, proposed_date, proposed_time, message, status)
          VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
         [teamChallenger, Number(challenged_team_id), rodada ?? null, proposed_date, proposed_time, message ?? null]
       );
 
       const newId = result.insertId;
-      const [newRows]: any = await mainConn.query("SELECT * FROM matches WHERE id = ? LIMIT 1", [newId]);
+      const [newRows]: any = await queryWithTimeout(mainConn, "SELECT * FROM matches WHERE id = ? LIMIT 1", [newId]);
       const match = Array.isArray(newRows) && newRows.length > 0 ? rowToMatch(newRows[0]) : null;
 
       if (match) {
@@ -313,7 +315,8 @@ export async function POST(req: NextRequest) {
       let actorNickname = faceitGuidForError || "Desconhecido";
       try {
         const conn = await createMainConnection(env);
-        const [rows]: any = await conn.query(
+        const [rows]: any = await queryWithTimeout(
+          conn,
           "SELECT nickname FROM players WHERE faceit_guid = ? LIMIT 1",
           [faceitGuidForError]
         );
@@ -375,7 +378,8 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ error: "Você precisa estar em um time para responder propostas" }, { status: 403 });
       }
 
-      const [matchRows]: any = await mainConn.query(
+      const [matchRows]: any = await queryWithTimeout(
+        mainConn,
         "SELECT * FROM matches WHERE id = ? LIMIT 1",
         [Number(match_id)]
       );
@@ -401,7 +405,8 @@ export async function PUT(req: NextRequest) {
           }
 
           // Admin 1 can only adjust confirmed date/time, preserving accepted status.
-          await mainConn.query(
+          await queryWithTimeout(
+            mainConn,
             `UPDATE matches SET
                proposed_date = ?,
                proposed_time = ?,
@@ -415,7 +420,7 @@ export async function PUT(req: NextRequest) {
             [counter_date, counter_time, counter_message ?? null, match.id]
           );
 
-          const [updAccepted]: any = await mainConn.query("SELECT * FROM matches WHERE id = ? LIMIT 1", [match.id]);
+          const [updAccepted]: any = await queryWithTimeout(mainConn, "SELECT * FROM matches WHERE id = ? LIMIT 1", [match.id]);
           try {
             const finalMatch = rowToMatch(updAccepted[0]);
             const actorNickname = await getActorNickname(mainConn, faceit_guid);
@@ -442,19 +447,21 @@ export async function PUT(req: NextRequest) {
         }
 
         if (action === "accept") {
-          await mainConn.query(
+          await queryWithTimeout(
+            mainConn,
             "UPDATE matches SET status = 'accepted', accepted_at = NOW() WHERE id = ?",
             [match.id]
           );
         } else if (action === "decline") {
-          await mainConn.query("UPDATE matches SET status = 'declined' WHERE id = ?", [match.id]);
+          await queryWithTimeout(mainConn, "UPDATE matches SET status = 'declined' WHERE id = ?", [match.id]);
         } else if (action === "cancel") {
-          await mainConn.query("UPDATE matches SET status = 'cancelled' WHERE id = ?", [match.id]);
+          await queryWithTimeout(mainConn, "UPDATE matches SET status = 'cancelled' WHERE id = ?", [match.id]);
         } else if (action === "counter") {
           if (!counter_date || !counter_time) {
             return NextResponse.json({ error: "Data e hora são obrigatórios na contraproposta" }, { status: 400 });
           }
-          await mainConn.query(
+          await queryWithTimeout(
+            mainConn,
             `UPDATE matches SET
                status = 'counter_proposal',
                counter_date = ?,
@@ -464,7 +471,7 @@ export async function PUT(req: NextRequest) {
             [counter_date, counter_time, counter_message ?? null, match.id]
           );
         }
-        const [upd]: any = await mainConn.query("SELECT * FROM matches WHERE id = ? LIMIT 1", [match.id]);
+        const [upd]: any = await queryWithTimeout(mainConn, "SELECT * FROM matches WHERE id = ? LIMIT 1", [match.id]);
         try {
           const finalMatch = rowToMatch(upd[0]);
           const actorNickname = await getActorNickname(mainConn, faceit_guid);
@@ -516,8 +523,8 @@ export async function PUT(req: NextRequest) {
         if (!isChallenger || match.status !== "pending") {
           return NextResponse.json({ error: "Não é possível cancelar esta proposta agora" }, { status: 400 });
         }
-        await mainConn.query("UPDATE matches SET status = 'cancelled' WHERE id = ?", [match.id]);
-        const [upd]: any = await mainConn.query("SELECT * FROM matches WHERE id = ? LIMIT 1", [match.id]);
+        await queryWithTimeout(mainConn, "UPDATE matches SET status = 'cancelled' WHERE id = ?", [match.id]);
+        const [upd]: any = await queryWithTimeout(mainConn, "SELECT * FROM matches WHERE id = ? LIMIT 1", [match.id]);
         return NextResponse.json({ ok: true, match: rowToMatch(upd[0]) });
       }
 
@@ -536,17 +543,19 @@ export async function PUT(req: NextRequest) {
       }
 
       if (action === "accept") {
-        await mainConn.query(
+        await queryWithTimeout(
+          mainConn,
           "UPDATE matches SET status = 'accepted', accepted_at = NOW() WHERE id = ?",
           [match.id]
         );
       } else if (action === "decline") {
-        await mainConn.query("UPDATE matches SET status = 'declined' WHERE id = ?", [match.id]);
+        await queryWithTimeout(mainConn, "UPDATE matches SET status = 'declined' WHERE id = ?", [match.id]);
       } else if (action === "counter") {
         if (!counter_date || !counter_time) {
           return NextResponse.json({ error: "Data e hora são obrigatórios na contraproposta" }, { status: 400 });
         }
-        await mainConn.query(
+        await queryWithTimeout(
+          mainConn,
           `UPDATE matches SET
              status = 'counter_proposal',
              counter_date = ?,
@@ -557,7 +566,7 @@ export async function PUT(req: NextRequest) {
         );
       }
 
-      const [upd]: any = await mainConn.query("SELECT * FROM matches WHERE id = ? LIMIT 1", [match.id]);
+      const [upd]: any = await queryWithTimeout(mainConn, "SELECT * FROM matches WHERE id = ? LIMIT 1", [match.id]);
       try {
         const finalMatch = rowToMatch(upd[0]);
         const actorNickname = await getActorNickname(mainConn, faceit_guid);
@@ -609,7 +618,8 @@ export async function PUT(req: NextRequest) {
       let actorNickname = faceitGuidForError || "Desconhecido";
       try {
         const conn = await createMainConnection(env);
-        const [rows]: any = await conn.query(
+        const [rows]: any = await queryWithTimeout(
+          conn,
           "SELECT nickname FROM players WHERE faceit_guid = ? LIMIT 1",
           [faceitGuidForError]
         );

@@ -16,18 +16,27 @@ export type Env = {
   DATABASE_URL?: string;
 };
 
+const DB_LOG_TIMEOUT_MS = Number(process.env.DB_QUERY_LOG_TIMEOUT_MS || 1200);
+const DB_LOG_ENABLED = String(process.env.DB_QUERY_LOG_ENABLED || "0") === "1";
+
 async function sendDiscordEmbed(payload: any) {
+  if (!DB_LOG_ENABLED) return;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DB_LOG_TIMEOUT_MS);
   try {
     await fetch(
       "https://discord.com/api/webhooks/1481144167462867035/fGpYRcgSnBaoXKRWl3-0AWTheqtDg7FARCRXQwr4vrE40WDc1oZ8o2hDJ4ZVq9G6q4QY",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify(payload),
       }
     );
   } catch (e) {
     console.warn("failed to send discord embed", e);
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -90,7 +99,8 @@ function wrapConnection(conn: Connection, dbLabel: string = "DATABASE"): Connect
                 },
               ],
             };
-            sendDiscordEmbed(embed);
+            // Fire-and-forget to avoid blocking the request lifecycle.
+            void sendDiscordEmbed(embed);
           }
         };
       }

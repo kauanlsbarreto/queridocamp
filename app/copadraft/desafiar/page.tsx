@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 const PAGE_QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_QUERY_TIMEOUT_MS || 5000);
 const TIMES_JSON_CACHE_TTL_MS = Number(process.env.COPADRAFT_TIMES_CACHE_TTL_MS || 60000);
+const PAGE_CONNECT_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_CONNECT_TIMEOUT_MS || 4000);
 
 const MIGRATION_COLUMNS: Array<{ name: string; sql: string }> = [
   { name: "rodada", sql: "ALTER TABLE matches ADD COLUMN rodada INT DEFAULT NULL" },
@@ -25,10 +26,25 @@ const MIGRATION_COLUMNS: Array<{ name: string; sql: string }> = [
 async function runMigrations(conn: any) {
   for (const migration of MIGRATION_COLUMNS) {
     try {
-      const [existsRows]: any = await conn.query("SHOW COLUMNS FROM matches LIKE ?", [migration.name]);
+      const [existsRows]: any = await conn.query(
+        { sql: "SHOW COLUMNS FROM matches LIKE ?", timeout: PAGE_QUERY_TIMEOUT_MS },
+        [migration.name]
+      );
       if (Array.isArray(existsRows) && existsRows.length > 0) continue;
-      await conn.query(migration.sql);
+      await conn.query({ sql: migration.sql, timeout: PAGE_QUERY_TIMEOUT_MS });
     } catch {}
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timeout after ${timeoutMs}ms`)), timeoutMs);
+    });
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -104,8 +120,8 @@ async function loadData(env: Env): Promise<{
   const guids = Array.from(guidToTime.keys());
 
   const [jogadoresConn, mainConn] = await Promise.all([
-    createJogadoresConnection(env),
-    createMainConnection(env),
+    withTimeout(createJogadoresConnection(env), PAGE_CONNECT_TIMEOUT_MS, "DB_JOGADORES connect"),
+    withTimeout(createMainConnection(env), PAGE_CONNECT_TIMEOUT_MS, "DB_PRINCIPAL connect"),
   ]);
 
   let teamsCapitaes: TeamCapitao[] = [];
