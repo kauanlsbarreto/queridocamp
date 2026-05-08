@@ -3,22 +3,13 @@ import { createMainConnection, createJogadoresConnection } from "@/lib/db";
 import type { Env } from "@/lib/db";
 import { getTeamNameByCaptainGuidMap } from "@/lib/copadraft-times";
 import JogosPageClient, { type ConfirmedGame } from "./JogosPageClient";
-import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 const QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_JOGOS_QUERY_TIMEOUT_MS || 5000);
 
-function hashData(data: ConfirmedGame[]): string {
-	return crypto
-		.createHash("md5")
-		.update(JSON.stringify(data))
-		.digest("hex");
-}
-
 let cachedJogosData: {
-	hash: string;
 	expiresAt: number;
 	data: ConfirmedGame[];
 } | null = null;
@@ -135,24 +126,17 @@ export default async function JogosPage() {
 	const now = Date.now();
 
 	try {
+		if (cachedJogosData && cachedJogosData.expiresAt > now) {
+			return <JogosPageClient games={cachedJogosData.data} />;
+		}
+
 		const ctx = await getCloudflareContext({ async: true });
 		const env = ctx.env as unknown as Env;
-		
-		const freshData = await loadConfirmedGames(env);
-		const freshHash = hashData(freshData);
-
-		// Se dados não mudaram (mesmo hash), reutiliza cache
-		if (cachedJogosData && cachedJogosData.hash === freshHash) {
-			games = cachedJogosData.data;
-		} else {
-			// Dados mudaram ou é primeira vez, usa dados novos
-			games = freshData;
-			cachedJogosData = {
-				hash: freshHash,
-				expiresAt: now + 60000,
-				data: games,
-			};
-		}
+		games = await loadConfirmedGames(env);
+		cachedJogosData = {
+			expiresAt: now + 60000,
+			data: games,
+		};
 	} catch {
 		games = [];
 	}

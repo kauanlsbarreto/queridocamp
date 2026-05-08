@@ -7,6 +7,13 @@ import { sendDesafiarDiscordWebhook } from "@/lib/copadraft-desafiar-discord-web
 import { sendDesafiarErrorBrevoEmail } from "@/lib/copadraft-desafiar-brevo-error";
 
 const API_QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_API_QUERY_TIMEOUT_MS || 5000);
+const API_GET_CACHE_TTL_MS = Number(process.env.COPADRAFT_DESAFIAR_GET_CACHE_TTL_MS || 15000);
+
+let cachedMatchesResponse: { expiresAt: number; matches: any[] } | null = null;
+
+function invalidateMatchesGetCache() {
+  cachedMatchesResponse = null;
+}
 
 async function queryWithTimeout(conn: any, sql: string, values?: any[]) {
   if (Array.isArray(values)) {
@@ -181,6 +188,18 @@ function rowToMatch(r: any) {
 
 // GET — fetch all matches for real-time polling
 export async function GET(req: NextRequest) {
+  const now = Date.now();
+  if (cachedMatchesResponse && cachedMatchesResponse.expiresAt > now) {
+    return NextResponse.json(
+      { matches: cachedMatchesResponse.matches, cached: true },
+      {
+        headers: {
+          "Cache-Control": "public, max-age=5, s-maxage=15, stale-while-revalidate=30",
+        },
+      }
+    );
+  }
+
   try {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as Env;
@@ -201,7 +220,19 @@ export async function GET(req: NextRequest) {
         ? (matchRows as any[]).map(rowToMatch)
         : [];
 
-      return NextResponse.json({ matches });
+      cachedMatchesResponse = {
+        expiresAt: now + API_GET_CACHE_TTL_MS,
+        matches,
+      };
+
+      return NextResponse.json(
+        { matches, cached: false },
+        {
+          headers: {
+            "Cache-Control": "public, max-age=5, s-maxage=15, stale-while-revalidate=30",
+          },
+        }
+      );
     } finally {
       await mainConn?.end?.();
     }
@@ -313,6 +344,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      invalidateMatchesGetCache();
       return NextResponse.json({ ok: true, match });
     } finally {
       await Promise.allSettled([jogadoresConn.end?.(), mainConn.end?.()]);
@@ -453,6 +485,7 @@ export async function PUT(req: NextRequest) {
           } catch (notifyError) {
             console.error("[desafiar/api PUT webhook accepted-counter]", notifyError);
           }
+          invalidateMatchesGetCache();
           return NextResponse.json({ ok: true, match: rowToMatch(updAccepted[0]) });
         }
 
@@ -521,6 +554,7 @@ export async function PUT(req: NextRequest) {
         } catch (notifyError) {
           console.error("[desafiar/api PUT webhook admin]", notifyError);
         }
+        invalidateMatchesGetCache();
         return NextResponse.json({ ok: true, match: rowToMatch(upd[0]) });
       }
 
@@ -535,6 +569,7 @@ export async function PUT(req: NextRequest) {
         }
         await queryWithTimeout(mainConn, "UPDATE matches SET status = 'cancelled' WHERE id = ?", [match.id]);
         const [upd]: any = await queryWithTimeout(mainConn, "SELECT * FROM matches WHERE id = ? LIMIT 1", [match.id]);
+        invalidateMatchesGetCache();
         return NextResponse.json({ ok: true, match: rowToMatch(upd[0]) });
       }
 
@@ -616,6 +651,7 @@ export async function PUT(req: NextRequest) {
       } catch (notifyError) {
         console.error("[desafiar/api PUT webhook user]", notifyError);
       }
+      invalidateMatchesGetCache();
       return NextResponse.json({ ok: true, match: rowToMatch(upd[0]) });
     } finally {
       await Promise.allSettled([jogadoresConn.end?.(), mainConn.end?.()]);
