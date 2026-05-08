@@ -20,19 +20,19 @@ type Props = {
 const GROUP_A = [
   "Alemanha",
   "Espanha",
-  "Belgica",
-  "Italia",
-  "Franca",
-  "Japao",
+  "Bélgica",
+  "Itália",
+  "França",
+  "Japão",
   "Portugal",
 ] as const;
 
 const GROUP_B = [
   "Brasil",
-  "Mexico",
+  "México",
   "Holanda",
   "Argentina",
-  "Croacia",
+  "Croácia",
   "Inglaterra",
   "Uruguai",
 ] as const;
