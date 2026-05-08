@@ -657,6 +657,31 @@ export default function DesafiarPageClient({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isAdmin1]);
 
+  useEffect(() => {
+    // Poll for match updates every 30s to see new challenges in real-time
+    const pollMatches = async () => {
+      try {
+        const res = await fetch("/copadraft/desafiar/api");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.matches)) {
+            setMatches(data.matches);
+            try {
+              sessionStorage.setItem("desafiar_matches_cache", JSON.stringify(data.matches));
+            } catch {
+              // ignore storage errors
+            }
+          }
+        }
+      } catch {
+        // ignore fetch errors
+      }
+    };
+
+    const interval = setInterval(pollMatches, 30000); // 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   const myGuid = String(
     user?.faceit_guid || user?.guid || ""
   )

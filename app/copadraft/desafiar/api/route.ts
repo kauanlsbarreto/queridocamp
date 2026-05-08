@@ -179,6 +179,38 @@ function rowToMatch(r: any) {
   };
 }
 
+// GET — fetch all matches for real-time polling
+export async function GET(req: NextRequest) {
+  try {
+    const ctx = await getCloudflareContext({ async: true });
+    const env = ctx.env as unknown as Env;
+    const mainConn = await createMainConnection(env);
+
+    try {
+      const [matchRows]: any = await queryWithTimeout(
+        mainConn,
+        `SELECT id, challenger_team_id, challenged_team_id, rodada,
+                proposed_date, proposed_time, message, status,
+                counter_date, counter_time, counter_message,
+                accepted_at, created_at
+         FROM matches
+         ORDER BY created_at DESC`
+      );
+
+      const matches = Array.isArray(matchRows)
+        ? (matchRows as any[]).map(rowToMatch)
+        : [];
+
+      return NextResponse.json({ matches });
+    } finally {
+      await mainConn?.end?.();
+    }
+  } catch (error) {
+    console.error("[desafiar/api GET]", error);
+    return NextResponse.json({ matches: [], error: "Erro ao carregar matches" }, { status: 500 });
+  }
+}
+
 // POST — create a new match proposal
 export async function POST(req: NextRequest) {
   let faceitGuidForError = "";
