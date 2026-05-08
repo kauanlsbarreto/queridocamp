@@ -1,8 +1,8 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
 import type { Env } from "@/lib/db";
 import { getCopaDraftTimes } from "@/lib/copadraft-times";
 import TimesPageClient from "./TimesPageClient";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 
 export const revalidate = 60;
 
@@ -95,8 +95,7 @@ export default async function CopaDraftTimesPage() {
 	let teamsWithAvatar = teamsData;
 
 	try {
-		const ctx = await getCloudflareContext({ async: true });
-		const env = ctx.env as unknown as Env;
+		const env = await getRuntimeEnv() as Env;
 		const avatarByGuid = await loadAvatarByGuid(env, teamsData);
 		teamsWithAvatar = mergeTeamsWithAvatar(teamsData, avatarByGuid);
 	} catch {

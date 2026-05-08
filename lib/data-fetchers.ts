@@ -1,5 +1,5 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "./db";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 
 function calculateSimilarity(str1: string, str2: string): number {
   const s1 = (str1 || "").toLowerCase().trim();
@@ -27,13 +27,7 @@ export async function getStatsData() {
   let connection: any;
 
   try {
-    try {
-      const ctx = await getCloudflareContext({ async: true });
-      env = ctx.env;
-    } catch (e) {
-      // Fallback for local development or build environments where Cloudflare context is missing
-      env = {};
-    }
+    env = await getRuntimeEnv();
 
     connection = await createMainConnection(env);
 

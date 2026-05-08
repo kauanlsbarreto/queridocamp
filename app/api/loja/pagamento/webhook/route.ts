@@ -262,7 +262,7 @@ export async function POST(request: Request) {
 
     try {
       const fs = await import("fs");
-      const path = require("path");
+      const path = await import("path");
       const logPath = path.resolve(process.cwd(), "pagbank-logs.txt");
       const now = new Date().toISOString();
       rawBody = await request.text();
@@ -510,7 +510,7 @@ export async function POST(request: Request) {
       // LOG PAGBANK: salva evento detalhado no TXT
       try {
         const fs = await import("fs");
-        const path = require("path");
+        const path = await import("path");
         const logPath = path.resolve(process.cwd(), "pagbank-logs.txt");
         const now = new Date().toISOString();
         const statusLabel = mappedStatus;

@@ -1,8 +1,8 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection, createJogadoresConnection } from "@/lib/db";
 import type { Env } from "@/lib/db";
 import { getTeamNameByCaptainGuidMap } from "@/lib/copadraft-times";
 import JogosPageClient, { type ConfirmedGame } from "./JogosPageClient";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
@@ -152,8 +152,7 @@ export default async function JogosPage() {
 			return <JogosPageClient games={cacheAtStart.data} />;
 		}
 
-		const ctx = await getCloudflareContext({ async: true });
-		const env = ctx.env as unknown as Env;
+		const env = await getRuntimeEnv() as Env;
 
 		const staleCache = cachedJogosData;
 		if (staleCache) {

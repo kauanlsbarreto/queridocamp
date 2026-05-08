@@ -1,8 +1,8 @@
 import PlayersList from './players-list';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection } from '@/lib/db';
 import { getDatabaseLastUpdate } from '@/lib/last-update';
 import type { Env } from '@/lib/db';
+import { getRuntimeEnv } from '@/lib/runtime-env';
 
 export const dynamic = 'force-dynamic';
 
@@ -137,8 +137,7 @@ export default async function PlayersPage(props: { searchParams: Promise<{ page?
   let lastUpdate = new Date().toISOString();
 
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as Env;
+    const env = await getRuntimeEnv() as Env;
 
     mainConnection = await createMainConnection(env);
     (mainConnection as any).setPage('/players');

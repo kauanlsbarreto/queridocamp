@@ -1,7 +1,7 @@
 import JogadoresPageClient from './JogadoresPageClient';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createJogadoresConnection, createMainConnection } from '@/lib/db';
 import type { Env } from '@/lib/db';
+import { getRuntimeEnv } from '@/lib/runtime-env';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -110,8 +110,7 @@ export default async function Page() {
   let jogadores: any[] = [];
 
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv() as Env;
 
     jogadores = await getJogadoresSnapshotRapido(env);
   } catch (error) {

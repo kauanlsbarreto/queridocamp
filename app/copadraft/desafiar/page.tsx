@@ -1,7 +1,7 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection, createJogadoresConnection } from "@/lib/db";
 import type { Env } from "@/lib/db";
 import { getCopaDraftTimes } from "@/lib/copadraft-times";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import DesafiarPageClient, {
   type TeamCapitao,
   type TeamMember,
@@ -258,8 +258,7 @@ export default async function DesafiarPage() {
     matches: [] as MatchRow[],
   };
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv() as Env;
     
     const now = Date.now();
     const cacheAtStart = cachedPageData;

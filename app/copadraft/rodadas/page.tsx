@@ -1,8 +1,8 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
 import type { Env } from "@/lib/db";
 import RodadasPageClient from "./RodadasPageClient";
 import type { Jogo } from "./RodadasPageClient";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 
 export const revalidate = 60;
 
@@ -37,8 +37,7 @@ export default async function RodadasPage() {
   const now = Date.now();
 
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv() as Env;
     
     if (cachedRodadasData && cachedRodadasData.expiresAt > now) {
       jogos = cachedRodadasData.data;

@@ -1,10 +1,10 @@
 import SideAds from "@/components/side-ads";
 import ClassificacaoLive from "./classificacao-live";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
 import { getDatabaseLastUpdate } from "@/lib/last-update";
 import type { RowDataPacket } from "mysql2";
 import PageAccessGate from '@/components/page-access-gate';
+import { getRuntimeEnv } from "@/lib/runtime-env";
 
 export const revalidate = 86400; 
 
@@ -37,8 +37,7 @@ async function getTeams(connection: any) {
 export default async function Classificacao() {
   let connection: any;
   try {
-    const ctx = await getCloudflareContext({ async: true }); 
-    const env = ctx.env as any;
+    const env = await getRuntimeEnv();
 
     connection = await createMainConnection(env);
 

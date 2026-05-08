@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import PerfilClient from './PerfilClient';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createMainConnection, type Env } from '@/lib/db';
+import { getRuntimeEnv } from '@/lib/runtime-env';
 
 async function getPlayerData(id: string, mainConn: any) {
   const [rows] = await mainConn.query('SELECT * FROM players WHERE id = ?', [id]) as [any[], any];
@@ -130,8 +130,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   let mainConnection: any;
 
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as Env;
+    const env = await getRuntimeEnv() as Env;
 
     mainConnection = await createMainConnection(env);
     (mainConnection as any).setPage(`/perfil/${id}`);

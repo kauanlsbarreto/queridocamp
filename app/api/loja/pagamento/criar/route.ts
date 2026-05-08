@@ -600,7 +600,7 @@ export async function POST(request: Request) {
       // LOG PAGBANK: salva request/response PIX
       try {
         const fs = await import("fs");
-        const path = require("path");
+        const path = await import("path");
         const logPath = path.resolve(process.cwd(), "pagbank-logs.txt");
         const now = new Date().toISOString();
         fs.appendFileSync(
@@ -659,7 +659,7 @@ export async function POST(request: Request) {
       // LOG PAGBANK: salva request/response CHECKOUT (cartão de crédito)
       try {
         const fs = await import("fs");
-        const path = require("path");
+        const path = await import("path");
         const logPath = path.resolve(process.cwd(), "pagbank-logs.txt");
         fs.appendFileSync(
           logPath,
