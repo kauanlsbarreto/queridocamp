@@ -16,8 +16,6 @@ type Team = {
 	jogadores: Player[];
 };
 
-export const revalidate = 3600;
-
 async function loadTeams(): Promise<Team[]> {
 	try {
 		const filePath = path.join(process.cwd(), "copadraft-times.json");

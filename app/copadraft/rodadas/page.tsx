@@ -4,8 +4,6 @@ import type { Env } from "@/lib/db";
 import RodadasPageClient from "./RodadasPageClient";
 import type { Jogo } from "./RodadasPageClient";
 
-export const revalidate = 3600;
-
 async function loadJogos(env: Env): Promise<Jogo[]> {
   let connection: any = null;
   try {
