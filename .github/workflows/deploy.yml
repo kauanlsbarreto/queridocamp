@@ -13,6 +13,20 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Upload files to Hostinger
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.HOSTINGER_SSH_PORT }}
+          source: "."
+          target: ${{ secrets.DEPLOY_PATH }}
+          overwrite: true
+
       - name: Deploy via SSH (Hostinger)
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -25,29 +39,19 @@ jobs:
             set -e
 
             DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
-            REPO_URL="${{ secrets.DEPLOY_REPO_URL }}"
-            BRANCH="main"
             IMAGE_NAME="sitequerido-app"
             TEMP_CONTAINER="sitequerido-app-next"
             ACTIVE_CONTAINER="sitequerido-app"
             TEMP_PORT="3002"
             FINAL_PORT="80"
 
-            if [ -z "$DEPLOY_PATH" ] || [ -z "$REPO_URL" ]; then
-              echo "DEPLOY_PATH ou DEPLOY_REPO_URL nao configurados nos secrets"
+            if [ -z "$DEPLOY_PATH" ]; then
+              echo "DEPLOY_PATH nao configurado nos secrets"
               exit 1
             fi
 
             mkdir -p "$DEPLOY_PATH"
             cd "$DEPLOY_PATH"
-
-            if [ ! -d .git ]; then
-              git clone "$REPO_URL" .
-            fi
-
-            git fetch origin "$BRANCH"
-            git checkout "$BRANCH"
-            git reset --hard "origin/$BRANCH"
 
             BUILD_TAG="${{ github.sha }}"
             DOCKER_BUILDKIT=1 docker build --progress=plain -t "$IMAGE_NAME:$BUILD_TAG" -t "$IMAGE_NAME:latest" .
