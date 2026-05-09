@@ -10,8 +10,6 @@ services:
         DB_PASSWORD: ${DB_PASSWORD:-}
         DB_PORT: ${DB_PORT:-3306}
         DB_NAME: ${DB_NAME:-bancoks}
-    volumes:
-      - /var/www/queridocamp:/app
     environment:
       DB_HOST: ${DB_HOST:-187.77.45.123}
       DB_USER: ${DB_USER:-botuser}

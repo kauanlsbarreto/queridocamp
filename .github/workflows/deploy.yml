@@ -54,13 +54,8 @@ jobs:
             IMAGE_NAME="sitequerido-app"
             TEMP_CONTAINER="sitequerido-app-next"
             ACTIVE_CONTAINER="sitequerido-app"
-            TEMP_PORT="3002"
-            FINAL_PORT="80"
-
-            if [ -z "$DEPLOY_PATH" ]; then
-              echo "DEPLOY_PATH nao configurado nos secrets"
-              exit 1
-            fi
+            TEMP_PORT="3002"     # Porta temporária do container
+            ACTIVE_PORT="3001"   # Porta que Nginx vai usar
 
             mkdir -p "$DEPLOY_PATH"
             cd "$DEPLOY_PATH"
@@ -78,7 +73,10 @@ jobs:
               exit 1
             fi
 
+            # Remove container temporário antigo
             docker rm -f "$TEMP_CONTAINER" >/dev/null 2>&1 || true
+
+            # Rodar container temporário na porta 3002
             docker run -d \
               --name "$TEMP_CONTAINER" \
               --env-file "$ENV_FILE" \
@@ -109,16 +107,14 @@ jobs:
               docker rm "$ACTIVE_CONTAINER" >/dev/null 2>&1 || true
             fi
 
-            # Libera a porta caso outro processo ainda esteja ocupando
-            fuser -k "${FINAL_PORT}/tcp" 2>/dev/null || true
-            sleep 3
-
+            # Rodar o container ativo na porta 3001 (Nginx fará proxy)
             docker run -d \
               --name "$ACTIVE_CONTAINER" \
               --env-file "$ENV_FILE" \
-              -p "$FINAL_PORT":3001 \
+              -p "$ACTIVE_PORT":3001 \
               --restart always \
               "$IMAGE_NAME:$BUILD_TAG"
 
+            # Limpeza
             docker rm -f "$TEMP_CONTAINER" >/dev/null 2>&1 || true
             docker image prune -af --filter "until=24h" || true
