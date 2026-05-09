@@ -25,8 +25,9 @@ async function loadJogos(env: Env): Promise<Jogo[]> {
       time2: String(row.time2 || ""),
       placar: row.placar != null ? String(row.placar) : null,
     }));
-  } catch {
-    return [];
+  } catch (err) {
+    console.error("[copadraft/rodadas] erro ao carregar jogos:", err);
+    throw err; // propaga para não cachear falha de DB
   } finally {
     await connection?.end?.();
   }
@@ -43,13 +44,15 @@ export default async function RodadasPage() {
       jogos = cachedRodadasData.data;
     } else {
       jogos = await loadJogos(env);
+      // Só cacheia quando DB respondeu com sucesso (loadJogos lança em caso de erro)
       cachedRodadasData = {
         expiresAt: now + 60000,
         data: jogos,
       };
     }
-  } catch {
-    // em build/prerender sem DB disponível, renderiza vazio
+  } catch (err) {
+    console.error("[copadraft/rodadas] erro na página:", err);
+    // em build/prerender sem DB disponível, renderiza vazio sem cachear
   }
 
   return <RodadasPageClient jogos={jogos} />;

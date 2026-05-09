@@ -98,7 +98,8 @@ export default async function CopaDraftTimesPage() {
 		const env = await getRuntimeEnv() as Env;
 		const avatarByGuid = await loadAvatarByGuid(env, teamsData);
 		teamsWithAvatar = mergeTeamsWithAvatar(teamsData, avatarByGuid);
-	} catch {
+	} catch (err) {
+		console.error("[copadraft/times] erro ao carregar avatares:", err);
 		teamsWithAvatar = mergeTeamsWithAvatar(teamsData, new Map<string, string>());
 	}
 

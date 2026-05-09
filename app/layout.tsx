@@ -9,6 +9,7 @@ import LocalhostWatcher from "@/components/localhost-watcher"
 import AnalyticsTracker from '@/components/analytics-tracker';
 import AnuncioModal from '@/components/AnuncioModal';
 import ImageProtection from "@/components/image-protection";
+import ClearSessionStorageButton from "@/components/clear-session-storage-button";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -32,6 +33,7 @@ export default function RootLayout({
         <NavbarClient />
         <AnuncioModal />
         <AnalyticsTracker />
+        <ClearSessionStorageButton />
         <ClientProviders>
           <main className="flex-grow pt-24">
             {children}

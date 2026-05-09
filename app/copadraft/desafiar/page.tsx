@@ -281,7 +281,7 @@ export default async function DesafiarPage() {
       const refreshedCache = cachedPageData;
       if (refreshedCache) data = refreshedCache.data;
     }
-  } catch {}
-
-  return <DesafiarPageClient {...data} />;
+  } catch (err) {
+    console.error("[copadraft/desafiar] erro na página:", err);
+  } {...data} />;
 }

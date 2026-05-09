@@ -111,8 +111,9 @@ export async function POST(req: Request) {
         dbNickname = String(rows[0]?.nickname || "").trim();
         dbAvatar = String(rows[0]?.avatar || "").trim();
       }
-    } catch {}
-    finally {
+    } catch (err) {
+      console.error("[copadraft/inscricao] erro ao buscar jogador no DB:", err);
+    } finally {
       if (connection) await connection.end().catch(() => {});
     }
   }

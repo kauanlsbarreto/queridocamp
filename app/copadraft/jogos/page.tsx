@@ -128,7 +128,7 @@ async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
 		});
 	} catch (error) {
 		console.error("[copadraft/jogos] erro ao carregar jogos confirmados:", error);
-		return [];
+		throw error; // propaga para não cachear falha de DB
 	} finally {
 		await Promise.allSettled([mainConn?.end?.(), jogadoresConn?.end?.()]);
 	}
@@ -171,7 +171,8 @@ export default async function JogosPage() {
 			const refreshedCache = cachedJogosData;
 			if (refreshedCache) games = refreshedCache.data;
 		}
-	} catch {
+	} catch (err) {
+		console.error("[copadraft/jogos] erro na página:", err);
 		games = [];
 	}
 
