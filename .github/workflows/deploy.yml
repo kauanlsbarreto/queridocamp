@@ -24,14 +24,29 @@ jobs:
           SSH_KEY: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
+          set -euo pipefail
+
+          for v in SSH_HOST SSH_USER SSH_KEY DEPLOY_PATH; do
+            if [ -z "${!v:-}" ]; then
+              echo "Secret ausente: $v"
+              exit 1
+            fi
+          done
+
           mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           SSH_PORT="${SSH_PORT:-22}"
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
+          SSH_OPTS="-i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=20"
+
+          # Valida acesso SSH e prepara pasta de deploy antes do rsync.
+          ssh $SSH_OPTS "$SSH_USER@$SSH_HOST" "mkdir -p '$DEPLOY_PATH' && echo 'SSH_OK'"
+
           rsync -az --delete --checksum \
-            -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT -o StrictHostKeyChecking=no" \
+            --itemize-changes \
+            -e "ssh $SSH_OPTS" \
             --exclude='.git' \
             --exclude='node_modules' \
             --exclude='.next' \
