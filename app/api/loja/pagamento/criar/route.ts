@@ -195,13 +195,92 @@ function normalizeMethod(method: unknown): LojaPaymentMethod | null {
   return null;
 }
 
+function onlyDigits(value: string) {
+  return String(value || "").replace(/\D+/g, "");
+}
+
+function isValidCpf(cpfRaw: string) {
+  const cpf = onlyDigits(cpfRaw);
+  if (cpf.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += Number(cpf[i]) * (10 - i);
+  let first = (sum * 10) % 11;
+  if (first === 10) first = 0;
+  if (first !== Number(cpf[9])) return false;
+
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += Number(cpf[i]) * (11 - i);
+  let second = (sum * 10) % 11;
+  if (second === 10) second = 0;
+  return second === Number(cpf[10]);
+}
+
+function isValidCnpj(cnpjRaw: string) {
+  const cnpj = onlyDigits(cnpjRaw);
+  if (cnpj.length !== 14) return false;
+  if (/^(\d)\1{13}$/.test(cnpj)) return false;
+
+  const calcDigit = (base: string, factors: number[]) => {
+    const total = base
+      .split("")
+      .reduce((acc, digit, idx) => acc + Number(digit) * factors[idx], 0);
+    const rest = total % 11;
+    return rest < 2 ? 0 : 11 - rest;
+  };
+
+  const d1 = calcDigit(cnpj.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const d2 = calcDigit(cnpj.slice(0, 12) + String(d1), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+
+  return d1 === Number(cnpj[12]) && d2 === Number(cnpj[13]);
+}
+
+function resolveValidTaxId(billingTaxId: string, defaultTaxId: string) {
+  const candidates = [billingTaxId, defaultTaxId].map(onlyDigits).filter(Boolean);
+  for (const candidate of candidates) {
+    if (candidate.length === 11 && isValidCpf(candidate)) return candidate;
+    if (candidate.length === 14 && isValidCnpj(candidate)) return candidate;
+  }
+  return "";
+}
+
 function getSiteUrl(request: Request) {
-  const envUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/^['\"]|['\"]$/g, "");
   if (envUrl) return envUrl.replace(/\/$/, "");
 
   const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000";
   const proto = request.headers.get("x-forwarded-proto") || "https";
   return `${proto}://${host}`;
+}
+
+function buildPagBankNotificationUrl(siteUrl: string) {
+  const override = String(process.env.PAGBANK_NOTIFICATION_URL || "")
+    .trim()
+    .replace(/^['\"]|['\"]$/g, "");
+  const base = override || `${siteUrl}/api/loja/pagamento/webhook`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(base);
+  } catch {
+    throw new Error("PAGBANK_NOTIFICATION_URL invalida. Use uma URL HTTPS publica.");
+  }
+
+  if (parsed.protocol !== "https:") {
+    throw new Error("notification_url do PagBank precisa usar HTTPS.");
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0") {
+    throw new Error("notification_url do PagBank nao pode apontar para localhost.");
+  }
+
+  // PagBank costuma rejeitar URLs com querystring para notificacao.
+  parsed.search = "";
+  parsed.hash = "";
+
+  return parsed.toString().replace(/\/$/, "");
 }
 
 function getProviderErrorMessage(data: any) {
@@ -548,12 +627,37 @@ export async function POST(request: Request) {
 
     const paymentRef = generatePaymentRef(paymentId);
     const siteUrl = getSiteUrl(request);
-    const webhookToken = String(process.env.PAGBANK_WEBHOOK_TOKEN || "").trim();
-    const webhookUrlBase = `${siteUrl}/api/loja/pagamento/webhook`;
-    const webhookUrl = webhookToken
-      ? `${webhookUrlBase}?token=${encodeURIComponent(webhookToken)}`
-      : webhookUrlBase;
+    const webhookUrl = buildPagBankNotificationUrl(siteUrl);
     const returnUrl = `${siteUrl}/loja/pagamento?paymentId=${paymentId}`;
+    const validTaxId = resolveValidTaxId(
+      String(billingProfile.billing_cpf_cnpj || ""),
+      String(process.env.PAGBANK_DEFAULT_TAX_ID || ""),
+    );
+
+    if (!validTaxId) {
+      await markPaymentFailed(paymentId, "CPF/CNPJ invalido para emissao do pagamento.");
+      await createPaymentLog(connection, {
+        paymentId,
+        paymentRef,
+        eventName: "CREATE_BLOCKED_INVALID_TAX_ID",
+        statusBefore: "PENDING",
+        statusAfter: "FAILED",
+        source: "api-criar",
+        message: "Pagamento bloqueado por CPF/CNPJ invalido.",
+        details: {
+          billingTaxId: billingProfile.billing_cpf_cnpj,
+          fallbackTaxId: process.env.PAGBANK_DEFAULT_TAX_ID || null,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          message: "CPF/CNPJ invalido. Atualize seus dados de cobranca para continuar.",
+          code: "BILLING_DOCUMENT_INVALID",
+        },
+        { status: 400 },
+      );
+    }
 
     let providerType: LojaProviderType = method === "PIX" ? "ORDER" : "CHECKOUT";
     let providerId = "";
@@ -568,7 +672,7 @@ export async function POST(request: Request) {
         customer: {
           name: String(billingProfile.billing_full_name || player.nickname || "Cliente Querido Camp"),
           email: String(player.email || `player${player.id}@queridocamp.com.br`),
-          tax_id: String(billingProfile.billing_cpf_cnpj || process.env.PAGBANK_DEFAULT_TAX_ID || "12345678909"),
+          tax_id: validTaxId,
         },
         items: [
           {
@@ -643,7 +747,6 @@ export async function POST(request: Request) {
         redirect_url: returnUrl,
         return_url: returnUrl,
         notification_urls: [webhookUrl],
-        payment_notification_urls: [webhookUrl],
       };
 
       const { response, data } = await createCheckout(checkoutPayload);
