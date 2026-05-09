@@ -27,6 +27,11 @@ jobs:
             DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
             REPO_URL="${{ secrets.DEPLOY_REPO_URL }}"
             BRANCH="main"
+            IMAGE_NAME="sitequerido-app"
+            TEMP_CONTAINER="sitequerido-app-next"
+            ACTIVE_CONTAINER="sitequerido-app"
+            TEMP_PORT="3002"
+            FINAL_PORT="80"
 
             if [ -z "$DEPLOY_PATH" ] || [ -z "$REPO_URL" ]; then
               echo "DEPLOY_PATH ou DEPLOY_REPO_URL nao configurados nos secrets"
@@ -44,6 +49,55 @@ jobs:
             git checkout "$BRANCH"
             git reset --hard "origin/$BRANCH"
 
-            docker compose -f docker-compose.prod.yaml pull || true
-            docker compose -f docker-compose.prod.yaml up -d --build --remove-orphans
+            BUILD_TAG="${{ github.sha }}"
+            DOCKER_BUILDKIT=1 docker build --progress=plain -t "$IMAGE_NAME:$BUILD_TAG" -t "$IMAGE_NAME:latest" .
+
+            ENV_FILE=".deploy-env"
+            if docker ps -a --format '{{.Names}}' | grep -qx "$ACTIVE_CONTAINER"; then
+              docker inspect "$ACTIVE_CONTAINER" --format '{{range .Config.Env}}{{println .}}{{end}}' > "$ENV_FILE"
+            elif [ -f .env ]; then
+              cp .env "$ENV_FILE"
+            else
+              echo "Nao foi possivel encontrar um container ativo nem arquivo .env"
+              exit 1
+            fi
+
+            docker rm -f "$TEMP_CONTAINER" >/dev/null 2>&1 || true
+            docker run -d \
+              --name "$TEMP_CONTAINER" \
+              --env-file "$ENV_FILE" \
+              -p "$TEMP_PORT":3001 \
+              "$IMAGE_NAME:$BUILD_TAG"
+
+            echo "Aguardando o novo container ficar saudavel..."
+            HEALTH_URL="http://127.0.0.1:$TEMP_PORT/api/health"
+            READY=0
+            for i in $(seq 1 90); do
+              if curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
+                READY=1
+                break
+              fi
+              sleep 2
+            done
+
+            if [ "$READY" -ne 1 ]; then
+              echo "Novo container nao ficou saudavel a tempo. Mantendo o antigo em execucao."
+              docker logs "$TEMP_CONTAINER" --tail 200 || true
+              docker rm -f "$TEMP_CONTAINER" >/dev/null 2>&1 || true
+              exit 1
+            fi
+
+            echo "Novo container pronto. Trocando o antigo pelo novo..."
+            if docker ps -a --format '{{.Names}}' | grep -qx "$ACTIVE_CONTAINER"; then
+              docker stop "$ACTIVE_CONTAINER" >/dev/null 2>&1 || true
+              docker rm "$ACTIVE_CONTAINER" >/dev/null 2>&1 || true
+            fi
+
+            docker run -d \
+              --name "$ACTIVE_CONTAINER" \
+              --env-file "$ENV_FILE" \
+              -p "$FINAL_PORT":3001 \
+              "$IMAGE_NAME:$BUILD_TAG"
+
+            docker rm -f "$TEMP_CONTAINER" >/dev/null 2>&1 || true
             docker image prune -af --filter "until=24h" || true
