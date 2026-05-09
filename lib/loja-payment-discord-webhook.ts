@@ -46,6 +46,7 @@ type LojaPaymentDiscordPayload = {
   providerData?: any;
   webhookBody?: any;
   payment: LojaPaymentDiscordContext;
+  webhookUrlOverride?: string;
 };
 
 export type LojaPaymentDiscordSendResult = {
@@ -233,7 +234,9 @@ function truncate(value: string, max = 1024) {
 export async function sendLojaPaymentDiscordWebhook(
   payload: LojaPaymentDiscordPayload,
 ): Promise<LojaPaymentDiscordSendResult> {
-  const webhookUrl = getDiscordWebhookUrl();
+  const webhookUrl =
+    String(payload.webhookUrlOverride || "").trim() ||
+    getDiscordWebhookUrl();
   if (!webhookUrl) {
     return { sent: false, skipped: true, reason: "DISCORD_WEBHOOK_URL_NAO_CONFIGURADA" };
   }

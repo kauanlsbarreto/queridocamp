@@ -23,8 +23,16 @@ import {
   toCents,
 } from "@/lib/pagbank-loja";
 import { deleteStalePendingPayments } from "@/lib/loja-payment-cleanup";
+import {
+  loadLojaPaymentDiscordContext,
+  sendLojaPaymentDiscordWebhook,
+} from "@/lib/loja-payment-discord-webhook";
 
 export const dynamic = "force-dynamic";
+
+const DISCORD_CREATE_WEBHOOK_URL =
+  process.env.LOJA_PAGAMENTO_CRIACAO_DISCORD_WEBHOOK_URL?.trim() ||
+  "https://discord.com/api/webhooks/1502721008413573282/ZW8Mzaq9u41BasaGULp4x_RCs6h9lpqAF-xLDsVItsMEppjr_zt93EttmLceTbV8Nu5A";
 
 type CreateBody = {
   item_id?: number;
@@ -316,6 +324,8 @@ function isInternalReturnUrl(candidateUrl: string, siteUrl: string) {
 export async function POST(request: Request) {
   let connection: any;
   let createdPaymentId: number | null = null;
+  let providerResponseData: any = null;
+  let providerHttpStatus: number | null = null;
 
   const markPaymentFailed = async (paymentId: number, reason: string) => {
     if (!connection || !paymentId) return;
@@ -709,6 +719,8 @@ export async function POST(request: Request) {
       };
 
       const { response, data } = await createOrder(pixPayload);
+      providerResponseData = data;
+      providerHttpStatus = response.status;
       // LOG PAGBANK: salva request/response PIX
       try {
         const fs = await import("fs");
@@ -767,6 +779,8 @@ export async function POST(request: Request) {
       };
 
       const { response, data } = await createCheckout(checkoutPayload);
+      providerResponseData = data;
+      providerHttpStatus = response.status;
       // LOG PAGBANK: salva request/response CHECKOUT (cartão de crédito)
       try {
         const fs = await import("fs");
@@ -946,6 +960,37 @@ export async function POST(request: Request) {
         hasPixQr: Boolean(qrCodeUrl || qrCodeText),
       },
     });
+
+    const createdPaymentContext = await loadLojaPaymentDiscordContext(connection, paymentId);
+    if (createdPaymentContext) {
+      const createDispatch = await sendLojaPaymentDiscordWebhook({
+        eventName: "CREATE_PAYMENT_CREATED",
+        source: "api-criar",
+        statusBefore: "PENDING",
+        statusAfter: localStatus,
+        providerStatus: String(providerResponseData?.status || providerResponseData?.charges?.[0]?.status || "").toUpperCase(),
+        providerData: providerResponseData,
+        payment: createdPaymentContext,
+        webhookUrlOverride: DISCORD_CREATE_WEBHOOK_URL,
+      });
+
+      await createPaymentLog(connection, {
+        paymentId,
+        paymentRef,
+        eventName: createDispatch.sent ? "DISCORD_CREATE_WEBHOOK_SENT" : "DISCORD_CREATE_WEBHOOK_FAILED",
+        statusBefore: "PENDING",
+        statusAfter: localStatus,
+        source: "api-criar",
+        message: createDispatch.sent
+          ? "Webhook Discord de criacao enviado com sucesso."
+          : createDispatch.reason || createDispatch.error || "Falha ao enviar webhook Discord de criacao.",
+        details: {
+          ...createDispatch,
+          target: "payment-create",
+          providerHttpStatus,
+        },
+      });
+    }
 
     return NextResponse.json(
       {
