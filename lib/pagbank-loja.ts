@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import path from "path";
 
 export type LojaPaymentMethod = "PIX" | "CREDIT_CARD" | "DEBIT_CARD" | "BOLETO";
 export type LojaPaymentStatus =
@@ -78,10 +79,10 @@ export function extractPayLink(links: any[] = []) {
 }
 
 export function extractCheckoutPaymentUrl(checkoutData: any) {
+  // Prefer provider payment links first. redirect_url usually points back to our own site.
   const directCandidates = [
     checkoutData?.checkout_url,
     checkoutData?.payment_url,
-    checkoutData?.redirect_url,
     checkoutData?.url,
   ];
 
@@ -106,6 +107,10 @@ export function extractCheckoutPaymentUrl(checkoutData: any) {
   // Try extracting from links array (primary source)
   const extractedLink = extractPayLink(links);
   if (extractedLink) return extractedLink;
+
+  // redirect_url is useful only as a final fallback.
+  const redirectUrl = String(checkoutData?.redirect_url || "").trim();
+  if (/^https?:\/\//i.test(redirectUrl)) return redirectUrl;
 
   // Fallback: construct URL from checkout ID if all else fails
   if (checkoutData?.id) {
@@ -145,8 +150,14 @@ export function isFinalStatus(statusRaw: unknown) {
 async function tryAppendPagBankLog(entry: string) {
   try {
     const fs = await import("fs");
-    fs.appendFileSync(PAGBANK_LOG_FILE, entry);
-  } catch {
+    const logPath = path.resolve(process.cwd(), PAGBANK_LOG_FILE);
+    fs.appendFileSync(logPath, entry, { encoding: "utf8" });
+  } catch (error) {
+    console.error("[pagbank-log] falha ao gravar arquivo", {
+      file: PAGBANK_LOG_FILE,
+      cwd: process.cwd(),
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 

@@ -13,9 +13,9 @@ import {
  * DEBUG ENDPOINT: Test checkout creation with the current token
  * Call: POST /api/loja/pagamento/debug-criar
  */
-export async function POST(request: Request) {
+async function runDebugCheckout() {
   try {
-    const env = await getRuntimeEnv();
+    await getRuntimeEnv();
 
     if (!hasPagBankToken()) {
       return NextResponse.json(
@@ -76,4 +76,12 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+export async function POST() {
+  return runDebugCheckout();
+}
+
+export async function GET() {
+  return runDebugCheckout();
 }
