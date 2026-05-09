@@ -5,6 +5,10 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -68,6 +72,18 @@ jobs:
 
             # Remove container antigo antes de rodar o novo
             docker rm -f "$ACTIVE_CONTAINER" || true
+
+            # Libera a porta caso outro container ainda esteja publicado nela
+            PORT_CONTAINERS=$(docker ps --filter "publish=$ACTIVE_PORT" --format '{{.ID}}')
+            if [ -n "$PORT_CONTAINERS" ]; then
+              echo "Removendo containers que ocupam a porta $ACTIVE_PORT"
+              docker rm -f $PORT_CONTAINERS || true
+            fi
+
+            # Fallback: encerra processo local que possa estar prendendo a porta
+            if command -v fuser >/dev/null 2>&1; then
+              fuser -k "${ACTIVE_PORT}/tcp" 2>/dev/null || true
+            fi
 
             # Rodar container ativo novo
             docker run -d \
