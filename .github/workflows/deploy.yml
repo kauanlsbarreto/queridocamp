@@ -16,16 +16,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Upload files to Hostinger
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.HOSTINGER_HOST }}
-          username: ${{ secrets.HOSTINGER_USER }}
-          key: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
-          port: ${{ secrets.HOSTINGER_SSH_PORT }}
-          source: "."
-          target: ${{ secrets.DEPLOY_PATH }}
-          overwrite: true
+      - name: Upload files to Hostinger (rsync - somente alterados)
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ secrets.HOSTINGER_SSH_PORT }} -H ${{ secrets.HOSTINGER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+          rsync -az --delete --checksum \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.HOSTINGER_SSH_PORT }} -o StrictHostKeyChecking=no" \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.next' \
+            --exclude='.open-next' \
+            --exclude='.deploy-env' \
+            ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }}:${{ secrets.DEPLOY_PATH }}/
 
       - name: Deploy via SSH (Hostinger)
         uses: appleboy/ssh-action@v1.2.0
