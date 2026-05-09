@@ -61,10 +61,11 @@ jobs:
             DOCKER_BUILDKIT=1 docker build --progress=plain -t "$IMAGE_NAME:$BUILD_TAG" -t "$IMAGE_NAME:latest" .
 
             ENV_FILE=".deploy-env"
-            if docker ps -a --format '{{.Names}}' | grep -qx "$ACTIVE_CONTAINER"; then
-              docker inspect "$ACTIVE_CONTAINER" --format '{{range .Config.Env}}{{println .}}{{end}}' > "$ENV_FILE"
-            elif [ -f .env ]; then
+            if [ -f .env ]; then
               cp .env "$ENV_FILE"
+            elif docker ps -a --format '{{.Names}}' | grep -qx "$ACTIVE_CONTAINER"; then
+              # Fallback only: preserve last known env when .env is unavailable.
+              docker inspect "$ACTIVE_CONTAINER" --format '{{range .Config.Env}}{{println .}}{{end}}' > "$ENV_FILE"
             else
               echo "Nao foi possivel encontrar um container ativo nem arquivo .env"
               exit 1
