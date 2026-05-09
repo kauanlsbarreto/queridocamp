@@ -91,7 +91,36 @@ export function extractCheckoutPaymentUrl(checkoutData: any) {
   }
 
   const links = Array.isArray(checkoutData?.links) ? checkoutData.links : [];
-  return extractPayLink(links);
+  // Try additional field names (PagBank v3 variants)
+  const additionalCandidates = [
+    checkoutData?.pay_url,
+    checkoutData?.payment_link,
+    checkoutData?.payUrl,
+  ];
+
+  for (const candidate of additionalCandidates) {
+    const value = String(candidate || "").trim();
+    if (/^https?:\/\//i.test(value)) return value;
+  }
+
+  // Try extracting from links array (primary source)
+  const extractedLink = extractPayLink(links);
+  if (extractedLink) return extractedLink;
+
+  // Fallback: construct URL from checkout ID if all else fails
+  if (checkoutData?.id) {
+    const checkoutId = String(checkoutData.id || "").trim();
+    if (checkoutId) {
+      let code = checkoutId;
+      if (checkoutId.startsWith("CHEC_")) {
+        code = checkoutId.substring(5);
+      }
+      code = code.toLowerCase();
+      return `https://pagamento.pagbank.com.br/pagamento?code=${code}`;
+    }
+  }
+
+  return "";
 }
 
 export function mapProviderStatusToLocal(statusRaw: unknown): LojaPaymentStatus {

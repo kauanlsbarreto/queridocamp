@@ -297,6 +297,22 @@ function getProviderErrorMessage(data: any) {
   );
 }
 
+function isInternalReturnUrl(candidateUrl: string, siteUrl: string) {
+  const value = String(candidateUrl || "").trim();
+  if (!value) return false;
+
+  try {
+    const candidate = new URL(value);
+    const site = new URL(siteUrl);
+    if (candidate.origin !== site.origin) return false;
+
+    // This route is our post-checkout landing page, not the provider checkout page.
+    return candidate.pathname === "/loja/pagamento";
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: Request) {
   let connection: any;
   let createdPaymentId: number | null = null;
@@ -812,7 +828,70 @@ export async function POST(request: Request) {
       providerType = "CHECKOUT";
       providerId = String(data?.id || "");
       checkoutUrl = extractCheckoutPaymentUrl(data);
+      if (isInternalReturnUrl(checkoutUrl, siteUrl)) {
+        checkoutUrl = "";
+      }
       localStatus = mapProviderStatusToLocal(data?.status);
+
+      // DEBUG: Log detailed checkout response structure
+      if (!checkoutUrl) {
+        const debugInfo = {
+          hasLinks: Array.isArray(data?.links),
+          linksCount: Array.isArray(data?.links) ? data.links.length : 0,
+          firstLink: Array.isArray(data?.links) ? data.links[0] : null,
+          directFields: {
+            checkout_url: data?.checkout_url,
+            payment_url: data?.payment_url,
+            redirect_url: data?.redirect_url,
+            url: data?.url,
+          },
+          dataKeys: Object.keys(data || {}).slice(0, 20),
+        };
+        await createPaymentLog(connection, {
+          paymentId,
+          paymentRef,
+          eventName: "CHECKOUT_URL_EXTRACTION_DEBUG",
+          statusBefore: "PENDING",
+          statusAfter: "PENDING",
+          source: "api-criar",
+          message: "Falha ao extrair URL de checkout - verificar estrutura da resposta",
+          details: debugInfo,
+        });
+      }
+
+      if (method === "CREDIT_CARD" && providerId && !checkoutUrl) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          const { response: checkoutResp, data: checkoutData } = await getCheckout(providerId);
+
+          if (checkoutResp.ok) {
+            const recoveredUrl = extractCheckoutPaymentUrl(checkoutData);
+            if (recoveredUrl && !isInternalReturnUrl(recoveredUrl, siteUrl)) {
+              checkoutUrl = recoveredUrl;
+              localStatus = mapProviderStatusToLocal(
+                extractCheckoutStatus(checkoutData) || checkoutData?.status,
+              );
+
+              await createPaymentLog(connection, {
+                paymentId,
+                paymentRef,
+                eventName: "CHECKOUT_URL_RECOVERED",
+                statusBefore: "PENDING",
+                statusAfter: localStatus,
+                source: "api-criar",
+                message: `URL do checkout recuperada por GET /checkouts na tentativa ${attempt}.`,
+                details: {
+                  attempt,
+                  providerId,
+                  providerStatus: checkoutResp.status,
+                },
+              });
+              break;
+            }
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, attempt * 300));
+        }
+      }
 
       if (method === "CREDIT_CARD" && !checkoutUrl) {
         const providerError = getProviderErrorMessage(data);
