@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import PremiumCard from "@/components/premium-card";
 
@@ -71,7 +70,6 @@ export default function QueridaFilaClassificacaoClient({
   initialLeaderboardId?: string;
   activeLeaderboardId?: string;
 }) {
-  const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'premium'>('all');
   const [selectedLeaderboard, setSelectedLeaderboard] = useState<'geral' | string>(initialLeaderboardId || 'geral');
   const [currentPage, setCurrentPage] = useState(1);
@@ -102,13 +100,6 @@ export default function QueridaFilaClassificacaoClient({
       setLoggedUserId("");
     }
   }, []);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      router.refresh();
-    }, 30000);
-    return () => clearInterval(timer);
-  }, [router]);
 
   const sourcePlayers = useMemo(
     () => (dynamicPlayers !== null ? dynamicPlayers : players),
@@ -172,8 +163,8 @@ export default function QueridaFilaClassificacaoClient({
 
   // Buscar ranking de leaderboard selecionada (exceto ranking geral, que ja vem do SSR)
 
-  const fetchLeaderboardPlayers = useCallback(async (leaderboardId: string, premium: boolean) => {
-    setLoading(true);
+  const fetchLeaderboardPlayers = useCallback(async (leaderboardId: string, premium: boolean, silent = false) => {
+    if (!silent) setLoading(true);
     try {
       let url = '';
       if (leaderboardId === 'geral') {
@@ -185,7 +176,7 @@ export default function QueridaFilaClassificacaoClient({
           ? `/queridafila/api/leaderboard/${leaderboardId}?premium=1`
           : `/queridafila/api/leaderboard/${leaderboardId}`;
       }
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error('Erro ao buscar leaderboard');
       const data = await res.json();
 
@@ -224,18 +215,21 @@ export default function QueridaFilaClassificacaoClient({
     } catch (e) {
       setDynamicPlayers([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (selectedLeaderboard === 'geral') {
-      setDynamicPlayers(null);
-    } else {
-      fetchLeaderboardPlayers(selectedLeaderboard, filter === 'premium');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLeaderboard, filter]);
+    fetchLeaderboardPlayers(selectedLeaderboard, filter === 'premium');
+  }, [selectedLeaderboard, filter, fetchLeaderboardPlayers]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      fetchLeaderboardPlayers(selectedLeaderboard, filter === 'premium', true);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [selectedLeaderboard, filter, fetchLeaderboardPlayers]);
 
   return (
     <section className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black py-12">

@@ -82,17 +82,24 @@ export const UserProfile = ({
     if (!steamId && !guid) return;
 
     try {
-      const query = new URLSearchParams();
-      if (steamId) {
-        query.set('steamid', steamId);
-      } else if (guid) {
-        query.set('faceit_guid', guid);
+      let data: any = null;
+
+      // Esta rota suporta faceit_guid; consulta por guid primeiro evita falha silenciosa.
+      if (guid) {
+        const byGuid = await fetch(`/api/admin/players?faceit_guid=${encodeURIComponent(guid)}`, { cache: 'no-store' });
+        if (byGuid.ok) {
+          data = await byGuid.json();
+        }
       }
 
-      const res = await fetch(`/api/admin/players?${query.toString()}`, { cache: 'no-store' });
-      if (!res.ok) return;
+      // Fallback futuro caso a API passe a aceitar steamid.
+      if (!data && steamId) {
+        const bySteamId = await fetch(`/api/admin/players?steamid=${encodeURIComponent(steamId)}`, { cache: 'no-store' });
+        if (bySteamId.ok) {
+          data = await bySteamId.json();
+        }
+      }
 
-      const data = await res.json();
       if (!data || typeof data.admin !== 'number') return;
 
       const nextPoints = normalizePoints(data.points);
@@ -125,7 +132,8 @@ export const UserProfile = ({
   }, [faceit_guid, steam_id_64]);
 
   useEffect(() => {
-    setUserPoints(points ?? 0);
+    if (typeof points === 'undefined' || points === null) return;
+    setUserPoints(normalizePoints(points));
   }, [points]);
 
   useEffect(() => {
@@ -143,7 +151,7 @@ export const UserProfile = ({
     };
 
     syncTick();
-    const intervalId = window.setInterval(syncTick, 5000);
+    const intervalId = window.setInterval(syncTick, 2000);
 
     return () => {
       isUnmounted = true;

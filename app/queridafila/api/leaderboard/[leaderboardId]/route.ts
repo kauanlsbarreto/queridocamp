@@ -1,8 +1,14 @@
 import { NextRequest } from "next/server";
+import { getRuntimeEnv } from "@/lib/runtime-env";
+import { createMainConnection } from "@/lib/db";
+import type { RowDataPacket } from "mysql2";
 
 const FACEIT_API_BASE = "https://open.faceit.com/data/v4";
 const FACEIT_API_KEY = process.env.FACEIT_API_KEY || "7b080715-fe0b-461d-a1f1-62cfd0c47e63";
 const HUB_ID = "c23c971b-677a-4046-8203-26023e283529";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type FaceitLeaderboardPlayer = {
   position?: number;
@@ -56,6 +62,14 @@ type MappedLeaderboardPlayer = {
     faceit_url?: string;
   };
   isPremium: boolean;
+};
+
+type DbPlayerRow = RowDataPacket & {
+  id: number;
+  faceit_guid: string | null;
+  nickname: string | null;
+  avatar: string | null;
+  points: number | null;
 };
 
 type FaceitHubRole = {
@@ -191,6 +205,55 @@ async function fetchGeneralLeaderboardItems(): Promise<FaceitLeaderboardPlayer[]
   return allItems;
 }
 
+async function fetchGeneralLeaderboardFromDb(
+  premiumUserIds: Set<string>,
+  premiumOnly: boolean,
+): Promise<MappedLeaderboardPlayer[]> {
+  let connection: Awaited<ReturnType<typeof createMainConnection>> | null = null;
+  try {
+    const env = await getRuntimeEnv();
+    connection = await createMainConnection(env);
+
+    const [rows] = await connection.query<DbPlayerRow[]>(
+      `SELECT id, faceit_guid, nickname, avatar, points
+       FROM players
+       WHERE points IS NOT NULL
+       ORDER BY points DESC, id ASC`,
+    );
+
+    let players = rows.map((row, index) => {
+      const userId = String(row.faceit_guid || row.id || "");
+      return {
+        position: index + 1,
+        points: Number(row.points || 0),
+        played: 0,
+        won: 0,
+        lost: 0,
+        draw: 0,
+        win_rate: 0,
+        current_streak: 0,
+        player: {
+          user_id: userId,
+          nickname: String(row.nickname || `Jogador ${row.id}`),
+          avatar: String(row.avatar || ""),
+          country: "",
+        },
+        isPremium: premiumUserIds.has(userId),
+      } satisfies MappedLeaderboardPlayer;
+    });
+
+    if (premiumOnly) {
+      players = players.filter((row) => row.isPremium).map((row, index) => ({ ...row, position: index + 1 }));
+    }
+
+    return players;
+  } finally {
+    if (connection) {
+      await connection.end();
+    }
+  }
+}
+
 async function fetchLeaderboardItemsById(leaderboardId: string): Promise<FaceitLeaderboardPlayer[]> {
   const limit = 50;
   const headers = {
@@ -273,26 +336,35 @@ export async function GET(
   }
 
   try {
-    const premiumUserIds = await fetchPremiumUserIdsFromHub();
+    let premiumUserIds = new Set<string>();
+    try {
+      premiumUserIds = await fetchPremiumUserIdsFromHub();
+    } catch (error) {
+      console.error("Falha ao carregar usuarios premium:", error);
+    }
     let players: MappedLeaderboardPlayer[] = [];
 
     if (leaderboardId === "geral") {
-      const items = await fetchGeneralLeaderboardItems();
-      players = mapItemsToPlayers(items, premiumUserIds);
+      players = await fetchGeneralLeaderboardFromDb(premiumUserIds, premiumOnly);
     } else {
       const items = await fetchLeaderboardItemsById(leaderboardId);
       players = mapItemsToPlayers(items, premiumUserIds);
+
+      if (premiumOnly) {
+        players = players.filter((row) => Boolean(row.isPremium));
+        players = players.map((row, index) => ({
+          ...row,
+          position: index + 1,
+        }));
+      }
     }
 
-    if (premiumOnly) {
-      players = players.filter((row) => Boolean(row.isPremium));
-      players = players.map((row, index) => ({
-        ...row,
-        position: index + 1,
-      }));
-    }
-
-    return new Response(JSON.stringify({ players }), { status: 200 });
+    return new Response(JSON.stringify({ players }), {
+      status: 200,
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      },
+    });
 
   } catch (error: unknown) {
     // Retorna um erro genérico em caso de falha na requisição

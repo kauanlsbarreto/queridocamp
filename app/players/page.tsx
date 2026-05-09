@@ -17,8 +17,14 @@ function parseAdicionadosCodes(raw: any): string[] {
   return raw.split(/[,;|\n]/).map((s: string) => s.trim()).filter(Boolean);
 }
 
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
+
 async function getPlayersData(mainConn: any, offset: number, search: string) {
-  const searchPattern = search ? `%${search}%` : null;
+  const sanitizedSearch = search.trim();
+  const searchPattern = sanitizedSearch ? `%${escapeLike(sanitizedSearch)}%` : null;
+  const numericSearch = /^\d+$/.test(sanitizedSearch) ? Number(sanitizedSearch) : null;
   const displayNameExpr = "COALESCE(NULLIF(nickname, ''), apelido)";
   const specialOrderClause = `CASE
       WHEN faceit_guid = '${SPECIAL_ROLE_GUIDS[0]}' THEN 0
@@ -26,12 +32,22 @@ async function getPlayersData(mainConn: any, offset: number, search: string) {
       ELSE 2
     END`;
 
+  const whereClause = searchPattern
+    ? `WHERE (
+        ${displayNameExpr} COLLATE utf8mb4_general_ci LIKE ? ESCAPE '\\\\'
+        OR faceit_guid COLLATE utf8mb4_general_ci LIKE ? ESCAPE '\\\\'
+        OR CAST(id AS CHAR) LIKE ? ESCAPE '\\\\'
+        ${numericSearch !== null ? 'OR id = ?' : ''}
+      )`
+    : '';
+  const whereParams = searchPattern
+    ? (numericSearch !== null ? [searchPattern, searchPattern, searchPattern, numericSearch] : [searchPattern, searchPattern, searchPattern])
+    : [];
+
   const [[countResult], [conquistaCounts], [adicionadosDetails], [codigosSistemaRows]] = await Promise.all([
     mainConn.query(
-      searchPattern
-        ? `SELECT COUNT(*) as count FROM players WHERE ${displayNameExpr} LIKE ?`
-        : 'SELECT COUNT(*) as count FROM players',
-      searchPattern ? [searchPattern] : []
+      `SELECT COUNT(*) as count FROM players ${whereClause}`,
+      whereParams
     ),
     mainConn.query(
       'SELECT resgatado_por, tipo, nome FROM codigos_conquistas'
@@ -44,10 +60,12 @@ async function getPlayersData(mainConn: any, offset: number, search: string) {
   const totalPages = Math.ceil(totalPlayers / ITEMS_PER_PAGE);
 
   const [playersRows]: any = await mainConn.query(
-    searchPattern
-      ? `SELECT id, ${displayNameExpr} AS nickname, avatar, faceit_guid, adicionados, punicao, fundoperfil FROM players WHERE ${displayNameExpr} LIKE ? ORDER BY ${specialOrderClause}, ${displayNameExpr} ASC LIMIT ? OFFSET ?`
-      : `SELECT id, ${displayNameExpr} AS nickname, avatar, faceit_guid, adicionados, punicao, fundoperfil FROM players ORDER BY ${specialOrderClause}, ${displayNameExpr} ASC LIMIT ? OFFSET ?`,
-    searchPattern ? [searchPattern, ITEMS_PER_PAGE, offset] : [ITEMS_PER_PAGE, offset]
+    `SELECT id, ${displayNameExpr} AS nickname, avatar, faceit_guid, adicionados, punicao, fundoperfil
+     FROM players
+     ${whereClause}
+     ORDER BY ${specialOrderClause}, ${displayNameExpr} ASC
+     LIMIT ? OFFSET ?`,
+    [...whereParams, ITEMS_PER_PAGE, offset]
   );
 
   const adicionadosMap = new Map<string, any>(

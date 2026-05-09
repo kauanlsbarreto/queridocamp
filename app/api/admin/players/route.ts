@@ -18,8 +18,11 @@ type Env = {
 type PlayerRow = RowDataPacket & {
   id: number;
   faceit_guid: string;
+  steamid?: string | null;
   nickname: string;
   avatar: string;
+  admin?: number;
+  points?: number;
   email?: string;
   senha?: string;
   created_at: string;
@@ -33,16 +36,18 @@ export async function GET(req: Request) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const guid = searchParams.get("faceit_guid");
+    const guid = searchParams.get("faceit_guid")?.trim() || "";
+    const steamId = searchParams.get("steamid")?.trim() || "";
 
-    if (!guid) {
-      return NextResponse.json({ message: "GUID é obrigatório." }, { status: 400 });
+    if (!guid && !steamId) {
+      return NextResponse.json({ message: "Informe faceit_guid ou steamid." }, { status: 400 });
     }
 
-    const [rows] = await connection.query<PlayerRow[]>(
-      "SELECT * FROM players WHERE faceit_guid = ?",
-      [guid]
-    );
+    const sql = guid
+      ? "SELECT * FROM players WHERE faceit_guid = ? LIMIT 1"
+      : "SELECT * FROM players WHERE steamid = ? LIMIT 1";
+    const bind = guid ? [guid] : [steamId];
+    const [rows] = await connection.query<PlayerRow[]>(sql, bind);
 
     return NextResponse.json(rows[0] || { message: "Jogador não encontrado" }, { status: rows[0] ? 200 : 404 });
   } catch (error) {
