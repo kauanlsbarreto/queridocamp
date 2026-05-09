@@ -109,10 +109,15 @@ jobs:
               docker rm "$ACTIVE_CONTAINER" >/dev/null 2>&1 || true
             fi
 
+            # Libera a porta caso outro processo ainda esteja ocupando
+            fuser -k "${FINAL_PORT}/tcp" 2>/dev/null || true
+            sleep 3
+
             docker run -d \
               --name "$ACTIVE_CONTAINER" \
               --env-file "$ENV_FILE" \
               -p "$FINAL_PORT":3001 \
+              --restart always \
               "$IMAGE_NAME:$BUILD_TAG"
 
             docker rm -f "$TEMP_CONTAINER" >/dev/null 2>&1 || true
