@@ -13,6 +13,7 @@ import {
   createCheckout,
   createOrder,
   extractCheckoutStatus,
+  extractCheckoutPaymentUrl,
   extractPayLink,
   extractPixData,
   generatePaymentRef,
@@ -494,7 +495,7 @@ export async function POST(request: Request) {
               const checkoutPageStatus = String(data?.status || "").toUpperCase();
               const providerStatus = extractCheckoutStatus(data);
               const localProviderStatus = mapProviderStatusToLocal(providerStatus || checkoutPageStatus);
-              const refreshedCheckoutUrl = extractPayLink(data?.links);
+              const refreshedCheckoutUrl = extractCheckoutPaymentUrl(data);
 
               if (refreshedCheckoutUrl && refreshedCheckoutUrl !== String(existing.provider_checkout_url || "")) {
                 await connection.query(
@@ -810,8 +811,36 @@ export async function POST(request: Request) {
 
       providerType = "CHECKOUT";
       providerId = String(data?.id || "");
-      checkoutUrl = extractPayLink(data?.links);
+      checkoutUrl = extractCheckoutPaymentUrl(data);
       localStatus = mapProviderStatusToLocal(data?.status);
+
+      if (method === "CREDIT_CARD" && !checkoutUrl) {
+        const providerError = getProviderErrorMessage(data);
+        await markPaymentFailed(
+          paymentId,
+          `Checkout sem URL de pagamento (${response.status}): ${providerError}`,
+        );
+        await createPaymentLog(connection, {
+          paymentId,
+          paymentRef,
+          eventName: "CHECKOUT_MISSING_PAYMENT_URL",
+          statusBefore: "PENDING",
+          statusAfter: "FAILED",
+          source: "api-criar",
+          message: "PagBank nao retornou URL de pagamento para checkout de credito.",
+          details: {
+            providerStatus: response.status,
+            providerResponse: data,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            message: "PagBank nao retornou URL de pagamento para cartao de credito. Tente novamente.",
+          },
+          { status: 502 },
+        );
+      }
     }
 
     await connection.query(

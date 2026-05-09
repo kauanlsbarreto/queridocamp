@@ -42,8 +42,56 @@ export function generatePaymentRef(localId: number) {
 }
 
 export function extractPayLink(links: any[] = []) {
-  const pay = links.find(l => l.rel === "PAY");
-  return pay?.href || "";
+  if (!Array.isArray(links)) return "";
+
+  const hrefFrom = (entry: any) => String(entry?.href || entry?.url || "").trim();
+  const isHttpUrl = (value: string) => /^https?:\/\//i.test(value);
+
+  // First pass: explicit payment relation.
+  for (const link of links) {
+    const rel = String(link?.rel || "").toUpperCase();
+    const media = String(link?.media || "").toLowerCase();
+    const href = hrefFrom(link);
+    if (!isHttpUrl(href)) continue;
+
+    if (rel === "PAY" || rel === "PAYMENT") return href;
+    if (media.includes("text/html") && (rel.includes("CHECKOUT") || rel.includes("PAY"))) {
+      return href;
+    }
+  }
+
+  // Second pass: common aliases seen in provider payloads.
+  for (const link of links) {
+    const rel = String(link?.rel || "").toUpperCase();
+    const href = hrefFrom(link);
+    if (!isHttpUrl(href)) continue;
+    if (rel.includes("CHECKOUT") || rel.includes("REDIRECT") || rel.includes("APPROVE")) return href;
+  }
+
+  // Last resort: first valid HTTP URL.
+  for (const link of links) {
+    const href = hrefFrom(link);
+    if (isHttpUrl(href)) return href;
+  }
+
+  return "";
+}
+
+export function extractCheckoutPaymentUrl(checkoutData: any) {
+  const directCandidates = [
+    checkoutData?.checkout_url,
+    checkoutData?.payment_url,
+    checkoutData?.redirect_url,
+    checkoutData?.url,
+  ];
+
+  for (const candidate of directCandidates) {
+    const value = String(candidate || "").trim();
+    if (/^https?:\/\//i.test(value)) return value;
+  }
+
+  const links = Array.isArray(checkoutData?.links) ? checkoutData.links : [];
+  return extractPayLink(links);
 }
 
 export function mapProviderStatusToLocal(statusRaw: unknown): LojaPaymentStatus {
