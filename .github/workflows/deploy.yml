@@ -5,10 +5,6 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-concurrency:
-  group: deploy-main
-  cancel-in-progress: true
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -16,7 +12,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Upload files to Hostinger (rsync - somente alterados)
+      - name: Upload files to Hostinger
         env:
           SSH_HOST: ${{ secrets.HOSTINGER_HOST }}
           SSH_USER: ${{ secrets.HOSTINGER_USER }}
@@ -46,18 +42,15 @@ jobs:
           username: ${{ secrets.HOSTINGER_USER }}
           key: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
           port: ${{ secrets.HOSTINGER_SSH_PORT }}
-          command_timeout: 60m
+          command_timeout: 30m
           script: |
             set -e
 
             DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
             IMAGE_NAME="sitequerido-app"
-            TEMP_CONTAINER="sitequerido-app-next"
             ACTIVE_CONTAINER="sitequerido-app"
-            TEMP_PORT="3002"     # Porta temporária do container
-            ACTIVE_PORT="3001"   # Porta que Nginx vai usar
+            ACTIVE_PORT="3001"
 
-            mkdir -p "$DEPLOY_PATH"
             cd "$DEPLOY_PATH"
 
             BUILD_TAG="${{ github.sha }}"
@@ -73,41 +66,10 @@ jobs:
               exit 1
             fi
 
-            # Remove container temporário antigo
-            docker rm -f "$TEMP_CONTAINER" >/dev/null 2>&1 || true
+            # Remove container antigo antes de rodar o novo
+            docker rm -f "$ACTIVE_CONTAINER" || true
 
-            # Rodar container temporário na porta 3002
-            docker run -d \
-              --name "$TEMP_CONTAINER" \
-              --env-file "$ENV_FILE" \
-              -p "$TEMP_PORT":3001 \
-              "$IMAGE_NAME:$BUILD_TAG"
-
-            echo "Aguardando o novo container ficar saudavel..."
-            HEALTH_URL="http://127.0.0.1:$TEMP_PORT/api/health"
-            READY=0
-            for i in $(seq 1 90); do
-              if curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
-                READY=1
-                break
-              fi
-              sleep 2
-            done
-
-            if [ "$READY" -ne 1 ]; then
-              echo "Novo container nao ficou saudavel a tempo. Mantendo o antigo em execucao."
-              docker logs "$TEMP_CONTAINER" --tail 200 || true
-              docker rm -f "$TEMP_CONTAINER" >/dev/null 2>&1 || true
-              exit 1
-            fi
-
-            echo "Novo container pronto. Trocando o antigo pelo novo..."
-            if docker ps -a --format '{{.Names}}' | grep -qx "$ACTIVE_CONTAINER"; then
-              docker stop "$ACTIVE_CONTAINER" >/dev/null 2>&1 || true
-              docker rm "$ACTIVE_CONTAINER" >/dev/null 2>&1 || true
-            fi
-
-            # Rodar o container ativo na porta 3001 (Nginx fará proxy)
+            # Rodar container ativo novo
             docker run -d \
               --name "$ACTIVE_CONTAINER" \
               --env-file "$ENV_FILE" \
@@ -115,6 +77,4 @@ jobs:
               --restart always \
               "$IMAGE_NAME:$BUILD_TAG"
 
-            # Limpeza
-            docker rm -f "$TEMP_CONTAINER" >/dev/null 2>&1 || true
             docker image prune -af --filter "until=24h" || true
