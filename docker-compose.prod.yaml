@@ -5,7 +5,6 @@ services:
       dockerfile: Dockerfile
       args:
         GIT_TOKEN: ${GIT_TOKEN:-}
-    container_name: sitequerido-app
     restart: always
     # Remove exposed ports, use reverse proxy instead
     environment:
@@ -94,7 +93,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: sitequerido-redis
     restart: always
     networks:
       - sitequerido-network

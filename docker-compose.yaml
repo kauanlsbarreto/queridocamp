@@ -10,7 +10,6 @@ services:
         DB_PASSWORD: ${DB_PASSWORD:-}
         DB_PORT: ${DB_PORT:-3306}
         DB_NAME: ${DB_NAME:-bancoks}
-    container_name: sitequerido-app
     volumes:
       - /var/www/queridocamp:/app
     environment:
