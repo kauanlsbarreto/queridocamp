@@ -283,5 +283,7 @@ export default async function DesafiarPage() {
     }
   } catch (err) {
     console.error("[copadraft/desafiar] erro na página:", err);
-  } {...data} />;
+  }
+
+  return <DesafiarPageClient {...data} />;
 }
