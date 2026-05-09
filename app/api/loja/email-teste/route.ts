@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import { ensureBillingColumns } from "@/lib/loja-billing";
 import { sendLojaPurchaseBrevoEmail } from "@/lib/loja-brevo-email";
@@ -16,8 +16,7 @@ async function isAdminOneOrTwo(connection: any, faceitGuid: string) {
 export async function POST(request: Request) {
   let connection: any;
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
     await ensureBillingColumns(connection);
 

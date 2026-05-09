@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createJogadoresConnection } from '@/lib/db';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getRuntimeEnv } from '@/lib/runtime-env';
 import type { Env } from '@/lib/db';
 
 export async function PUT(req: Request) {
@@ -19,8 +19,8 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'pote invalido. Use 1 a 5.' }, { status: 400 });
     }
 
-    const ctx = await getCloudflareContext({ async: true });
-    conn = await createJogadoresConnection(ctx.env as unknown as Env);
+    const env = await getRuntimeEnv();
+    conn = await createJogadoresConnection(env as unknown as Env);
     const [result]: any = await conn.query(
       'UPDATE jogadores SET pote = ?, dinheiro = CASE WHEN ? = 1 THEN 500000 ELSE dinheiro END WHERE id = ? LIMIT 1',
       [pote, pote, jogadorId]

@@ -1,27 +1,10 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 import { randomBytes } from "crypto";
 
 export const dynamic = "force-dynamic";
-
-type Env = {
-  DB_PRINCIPAL?: {
-    host: string;
-    user: string;
-    password: string;
-    database: string;
-    port: number;
-  };
-  DB_JOGADORES?: {
-    host: string;
-    user: string;
-    password: string;
-    database: string;
-    port: number;
-  };
-};
 
 type CodigoRow = RowDataPacket & {
   id: number;
@@ -31,38 +14,8 @@ type CodigoRow = RowDataPacket & {
   created_at: string;
 };
 
-// Fallback para desenvolvimento local sem Hyperdrive
-function getLocalEnv(): Env {
-  if (process.env.NODE_ENV === "development") {
-    return {
-      DB_PRINCIPAL: {
-        host: "127.0.0.1",
-        user: "root",
-        password: "senha",
-        database: "meu_db",
-        port: 3306,
-      },
-      DB_JOGADORES: {
-        host: "127.0.0.1",
-        user: "root",
-        password: "senha",
-        database: "meu_db",
-        port: 3306,
-      },
-    };
-  }
-  return {};
-}
-
-async function getEnv(): Promise<Env> {
-  const ctx = await getCloudflareContext({ async: true });
-  const env = ctx.env as Env;
-
-  if (!env.DB_PRINCIPAL) {
-    throw new Error("DB_PRINCIPAL não configurado no Hyperdrive");
-  }
-
-  return env;
+async function getEnv() {
+  return await getRuntimeEnv();
 }
 
 async function ensureAchievementsTable(connection: any) {
@@ -81,8 +34,6 @@ export async function POST(req: Request) {
   let connection: any;
   try {
     const env = await getEnv();
-    if (!env.DB_PRINCIPAL) throw new Error("DB_PRINCIPAL não configurado");
-
     connection = await createMainConnection(env);
 
     const { tipo, nome, codigo } = await req.json();
@@ -113,8 +64,6 @@ export async function GET() {
   let connection: any;
   try {
     const env = await getEnv();
-    if (!env.DB_PRINCIPAL) throw new Error("DB_PRINCIPAL não configurado");
-
     connection = await createMainConnection(env);
 
     const [rowsRaw] = await connection.query("SELECT * FROM codigos_sistema ORDER BY created_at DESC");
@@ -133,8 +82,6 @@ export async function PUT(req: Request) {
   let connection: any;
   try {
     const env = await getEnv();
-    if (!env.DB_PRINCIPAL) throw new Error("DB_PRINCIPAL não configurado");
-
     connection = await createMainConnection(env);
 
     const { id, nome, codigo } = await req.json();
@@ -160,8 +107,6 @@ export async function DELETE(req: Request) {
   let connection: any;
   try {
     const env = await getEnv();
-    if (!env.DB_PRINCIPAL) throw new Error("DB_PRINCIPAL não configurado");
-
     connection = await createMainConnection(env);
 
     const { id } = await req.json();

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 
@@ -34,8 +34,7 @@ export async function GET() {
     const dbPromise = notificacoesInFlight || (async () => {
       let connection: any;
       try {
-        const ctx = await getCloudflareContext({ async: true });
-        const env = ctx.env as any;
+        const env = await getRuntimeEnv();
         connection = await createMainConnection(env);
 
         const [rows] = await connection.query(
@@ -82,8 +81,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Titulo, descricao e identificacao do admin sao obrigatorios." }, { status: 400 });
     }
 
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
     const [players] = await connection.query(

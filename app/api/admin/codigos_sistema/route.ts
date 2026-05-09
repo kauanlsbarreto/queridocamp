@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
@@ -32,8 +32,7 @@ type CodigoRow = RowDataPacket & {
 
 export async function GET() {
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
     const connection = await createMainConnection(env);
 
     const [rows] = await connection.query<CodigoRow[]>(
@@ -54,8 +53,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
     const connection = await createMainConnection(env);
 
     const { tipo, nome, codigo } = await req.json();
@@ -100,8 +98,7 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
     const connection = await createMainConnection(env);
 
     const { id, nome, codigo } = await req.json();
@@ -133,8 +130,7 @@ export async function PUT(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
     const connection = await createMainConnection(env);
 
     const { id } = await req.json();

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getRuntimeEnv } from '@/lib/runtime-env';
 import { createMainConnection } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -66,9 +66,7 @@ export async function GET(request: Request) {
   let connection;
 
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
-
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
     // MODO 1: LISTA DE JOGADORES (Se não tiver ID)

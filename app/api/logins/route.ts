@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
@@ -33,8 +33,7 @@ export async function POST(req: Request) {
   try {
     const body: LoginLogBody = await req.json();
     console.log("/api/logins received", body);
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
     const connection = await createMainConnection(env);
 
     await connection.query(`

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getJogadoresEnriquecidos } from '@/lib/getJogadoresEnriquecidos';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getRuntimeEnv } from '@/lib/runtime-env';
 import { createJogadoresConnection } from '@/lib/db';
 import type { Env } from '@/lib/db';
 
@@ -313,8 +313,7 @@ async function syncJogadoresLevels(env: Env) {
 export async function GET(request: Request) {
   let env: Env | null = null;
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    env = ctx.env as unknown as Env;
+    env = await getRuntimeEnv();
 
     const url = new URL(request.url);
     const isFastMode = url.searchParams.get('fast') === '1';

@@ -6,9 +6,7 @@ import { sendDesafiarErrorBrevoEmail } from "@/lib/copadraft-desafiar-brevo-erro
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
 
     await sendDesafiarErrorBrevoEmail(
       {

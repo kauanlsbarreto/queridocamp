@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getRuntimeEnv } from '@/lib/runtime-env';
 import { createMainConnection } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -247,8 +247,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: 'faceit_guid ausente.' }, { status: 400 });
     }
 
-    const ctx = await getCloudflareContext({ async: true });
-    connection = await createMainConnection(ctx.env as any);
+    const env = await getRuntimeEnv();
+    connection = await createMainConnection(env);
 
     const allowed = await ensureAdminAccess(connection, faceitGuid, authHeader);
     if (!allowed) {
@@ -341,8 +341,8 @@ export async function POST(request: Request) {
 
     const authHeader = request.headers.get('Authorization');
 
-    const ctx = await getCloudflareContext({ async: true });
-    connection = await createMainConnection(ctx.env as any);
+    const env = await getRuntimeEnv();
+    connection = await createMainConnection(env);
 
     const allowed = await ensureAdminAccess(connection, faceit_guid, authHeader);
     if (!allowed) {
@@ -500,8 +500,8 @@ export async function DELETE(request: Request) {
 
     const authHeader = request.headers.get('Authorization');
 
-    const ctx = await getCloudflareContext({ async: true });
-    connection = await createMainConnection(ctx.env as any);
+    const env = await getRuntimeEnv();
+    connection = await createMainConnection(env);
 
     const allowed = await ensureAdminAccess(connection, faceit_guid, authHeader);
     if (!allowed) {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getRuntimeEnv } from '@/lib/runtime-env';
 import { createMainConnection } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -12,9 +12,7 @@ const faceitApiKey = '7b080715-fe0b-461d-a1f1-62cfd0c47e63';
 export async function POST(request: Request) {
   let connection;
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
-
+    const env = await getRuntimeEnv();
     const body = await request.json().catch(() => ({}));
     const { faceit_guid, path: specificPath, name: specificName } = body;
 

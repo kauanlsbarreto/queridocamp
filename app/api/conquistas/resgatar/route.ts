@@ -30,8 +30,7 @@ type CodigoSistemaRow = RowDataPacket & {
 
 export async function POST(req: Request) {
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
     const connection = await createMainConnection(env);
 
     const { codigo, playerId } = await req.json();

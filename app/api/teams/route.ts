@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getRuntimeEnv } from '@/lib/runtime-env';
 import { createMainConnection, Env } from '@/lib/db';
 import { unstable_cache } from 'next/cache';
 
@@ -93,8 +93,7 @@ const getTeamsData = unstable_cache(async (connection: any): Promise<TeamData[]>
 export async function GET() {
     let connection;
     try {
-        const ctx = getCloudflareContext();
-        const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
         connection = await createMainConnection(env);
         const teams = await getTeamsData(connection);
         return NextResponse.json(teams);

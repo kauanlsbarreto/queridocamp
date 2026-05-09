@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import {
   EMPTY_BILLING_PROFILE,
@@ -73,8 +73,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "faceit_guid obrigatorio." }, { status: 400 });
     }
 
-    const ctx = await getCloudflareContext({ async: true });
-    connection = await createMainConnection(ctx.env as any);
+    const env = await getRuntimeEnv();
+    connection = await createMainConnection(env);
     await ensureBillingColumns(connection);
 
     const result = await loadBillingProfile(connection, faceitGuid);
@@ -116,8 +116,8 @@ export async function PUT(request: Request) {
       );
     }
 
-    const ctx = await getCloudflareContext({ async: true });
-    connection = await createMainConnection(ctx.env as any);
+    const env = await getRuntimeEnv();
+    connection = await createMainConnection(env);
     await ensureBillingColumns(connection);
 
     const existing = await loadBillingProfile(connection, faceitGuid);

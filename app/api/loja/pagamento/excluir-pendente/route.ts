@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -74,8 +74,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "payment_id invalido." }, { status: 400 });
     }
 
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
     await ensurePaymentsTable(connection);

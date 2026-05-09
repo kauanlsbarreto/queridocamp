@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
@@ -28,8 +28,7 @@ type PlayerRow = RowDataPacket & {
 
 // Handler para GET (conforme indicado no erro do log)
 export async function GET(req: Request) {
-  const ctx = await getCloudflareContext({ async: true });
-  const env = ctx.env as unknown as Env;
+  const env = await getRuntimeEnv();
   const connection = await createMainConnection(env);
 
   try {
@@ -56,8 +55,7 @@ export async function GET(req: Request) {
 
 // Handler para POST
 export async function POST(req: Request) {
-  const ctx = await getCloudflareContext({ async: true });
-  const env = ctx.env as unknown as Env;
+  const env = await getRuntimeEnv();
   const connection = await createMainConnection(env);
 
   try {

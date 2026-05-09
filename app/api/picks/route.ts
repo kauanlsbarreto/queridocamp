@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
+import type { Env } from "@/lib/db";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export const dynamic = "force-dynamic";
@@ -98,7 +99,7 @@ function shouldPhaseBeLocked(
   return dbLocked; // Fora do prazo ou sem atingir acertos, respeita o status individual no banco
 }
 
-async function triggerBackgroundUpdates(env: Env, gate: any, ctx?: any, logMsg?: string) {
+async function triggerBackgroundUpdates(env: Env, gate: any, logMsg?: string) {
   // Lógica de sincronização global do banco de dados em segundo plano
   const runBackgroundUpdates = async () => {
     let bgConn: any;
@@ -139,8 +140,7 @@ async function triggerBackgroundUpdates(env: Env, gate: any, ctx?: any, logMsg?:
     }
   };
 
-  if (ctx?.waitUntil) ctx.waitUntil(runBackgroundUpdates());
-  else runBackgroundUpdates(); // Em desenvolvimento local, roda de forma assíncrona
+  runBackgroundUpdates(); // Em desenvolvimento local, roda de forma assíncrona
 }
 
 function getPhaseName(phase: string) {
@@ -150,16 +150,6 @@ function getPhaseName(phase: string) {
   if (phase === "winner") return "Ganhador";
   return phase;
 }
-
-type Env = {
-  DB_PRINCIPAL: {
-    host: string;
-    user: string;
-    password: string;
-    database: string;
-    port: number;
-  };
-};
 
 const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1481321464547377224/dlWkywyCkGRbOrTZRMDLa2SDiYV1FeEXHy8c2xbbW67H8XIGkm8bsw9ac-ZI_gNUfTO5";
 
@@ -179,8 +169,7 @@ export async function POST(request: Request) {
   let connection: any;
 
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
 
     connection = await createMainConnection(env);
 
@@ -263,7 +252,7 @@ export async function POST(request: Request) {
       }
 
       // Dispara atualizações de segundo plano (Discord, Locks, Cache) sem esperar
-      await triggerBackgroundUpdates(env, gate, ctx, logMsg);
+      await triggerBackgroundUpdates(env, gate, logMsg);
 
       return NextResponse.json({ success: true });
     }
@@ -291,7 +280,7 @@ export async function POST(request: Request) {
       const phaseName = getPhaseName(phase);
       const logMsg = ` **Fase Confirmada**\n **Usuário:** ${nickname}\n **Etapa:** ${phaseName}`;
       
-      await triggerBackgroundUpdates(env, gate, ctx, logMsg);
+      await triggerBackgroundUpdates(env, gate, logMsg);
 
       return NextResponse.json({ success: true });
     }
@@ -317,8 +306,7 @@ export async function POST(request: Request) {
       const phaseName = getPhaseName(phase);
       const statusText = targetStatus ? "BLOQUEADO 🔒" : "DESBLOQUEADO 🔓";
       const logMsg = ` **Admin: Alteração Global**\n **Admin:** ${nickname}\n **Etapa:** ${phaseName}\n**Status:** ${statusText}`;
-      if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
-      else await sendDiscordLog(logMsg);
+      await sendDiscordLog(logMsg);
 
       revalidatePath("/redondo");
       return NextResponse.json({ success: true });
@@ -361,7 +349,7 @@ export async function POST(request: Request) {
       let jogadoresConn: any = null;
       let faceitPlayers: { faceit_nickname: string; faceit_guid: string }[] = [];
       try {
-        jogadoresConn = await createMainConnection(ctx.env as any);
+        jogadoresConn = await createMainConnection(env);
         const [fpRows]: any = await jogadoresConn.query(
           `SELECT faceit_nickname, faceit_guid FROM faceit_players WHERE faceit_guid IS NOT NULL AND faceit_guid != ''`
         );
@@ -422,8 +410,7 @@ export async function POST(request: Request) {
       if (jogadoresConn) await jogadoresConn.end().catch(console.error);
 
       const logMsg = ` **Admin: Sync GUIDs**\n **Admin:** ${nickname}\n **Atualizados:** ${updated}\n **Não encontrados (${notFound}):** ${notFoundList.join(", ") || "nenhum"}`;
-      if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
-      else await sendDiscordLog(logMsg);
+      await sendDiscordLog(logMsg);
 
       return NextResponse.json({ success: true, updated, notFound, notFoundList, total: (missing as any[]).length });
     }
@@ -493,8 +480,7 @@ export async function POST(request: Request) {
       }
 
       const logMsg = ` **Admin: Premiar Redondo**\n **Admin:** ${nickname}\n **Atualizados:** ${updated}\n **Já tinham:** ${alreadyHad}\n **Sem player vinculado:** ${missingPlayers.length}`;
-      if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
-      else await sendDiscordLog(logMsg);
+      await sendDiscordLog(logMsg);
 
       return NextResponse.json({
         success: true,
@@ -609,7 +595,7 @@ export async function POST(request: Request) {
       }
 
       const logMsg = ` **Admin: Premiar Acertos**\n **Admin:** ${nickname}\n **Jogadores Premiados:** ${awardedCount}\n **Detalhes:**\n${logDetails.join('\n') || 'nenhum'}`;
-      await triggerBackgroundUpdates(env, gate, ctx, logMsg);
+      await triggerBackgroundUpdates(env, gate, logMsg);
 
       return NextResponse.json({ success: true, awardedCount, total: participants.length });
     }
@@ -652,8 +638,7 @@ export async function POST(request: Request) {
       const phaseName = getPhaseName(phaseToUse);
       const actionText = type === "unlock" ? "Destravou fase" : "Limpou e Destravou fase";
       const logMsg = ` **Admin: Gerenciar Usuário**\n **Admin:** ${nickname}\n **Alvo:** ${targetNickname}\n **Ação:** ${actionText}\n **Etapa:** ${phaseName}`;
-      if (ctx && (ctx as any).waitUntil) (ctx as any).waitUntil(sendDiscordLog(logMsg));
-      else await sendDiscordLog(logMsg);
+      await sendDiscordLog(logMsg);
 
       revalidatePath("/redondo");
       return NextResponse.json({ success: true });

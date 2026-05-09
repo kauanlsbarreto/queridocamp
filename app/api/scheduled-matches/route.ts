@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getRuntimeEnv } from '@/lib/runtime-env';
 import { createMainConnection, Env } from '@/lib/db';
 import mysql from 'mysql2';
 
@@ -7,8 +7,8 @@ import mysql from 'mysql2';
 export async function GET() {
     let connection;
     try {
-        const ctx = getCloudflareContext();
-        connection = await createMainConnection(ctx.env as unknown as Env);
+        const env = await getRuntimeEnv();
+        connection = await createMainConnection(env);
         const [rows] = await connection.query('SELECT * FROM scheduled_matches ORDER BY scheduled_time ASC');
         return NextResponse.json(rows);
     } catch (error) {
@@ -29,8 +29,8 @@ export async function POST(request: Request) {
         // Converte a string de datetime-local (YYYY-MM-DDTHH:mm) para o formato DATETIME do MySQL (YYYY-MM-DD HH:MI:SS)
         const mysqlScheduledTime = scheduled_time.replace('T', ' ') + ':00';
 
-        const ctx = getCloudflareContext();
-        connection = await createMainConnection(ctx.env as unknown as Env);
+        const env = await getRuntimeEnv();
+        connection = await createMainConnection(env);
 
         const query = `
             INSERT INTO scheduled_matches (team1_name, team1_avatar, team2_name, team2_avatar, scheduled_time, live_enabled, live_platform)

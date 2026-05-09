@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getRuntimeEnv } from '@/lib/runtime-env';
 import { createMainConnection, Env } from '@/lib/db';
 import mysql from 'mysql2';
 
@@ -17,8 +17,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
         // Converte a string de datetime-local (YYYY-MM-DDTHH:mm) para o formato DATETIME do MySQL (YYYY-MM-DD HH:MI:SS)
         const mysqlScheduledTime = scheduled_time.replace('T', ' ') + ':00';
 
-        const ctx = getCloudflareContext();
-        connection = await createMainConnection(ctx.env as unknown as Env);
+        const env = await getRuntimeEnv();
+        connection = await createMainConnection(env);
 
         const query = `
             UPDATE scheduled_matches
@@ -44,8 +44,8 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     try {
         const { id } = await params;
 
-        const ctx = getCloudflareContext();
-        connection = await createMainConnection(ctx.env as unknown as Env);
+        const env = await getRuntimeEnv();
+        connection = await createMainConnection(env);
 
         const query = 'DELETE FROM scheduled_matches WHERE id = ?';
         const formattedQuery = mysql.format(query, [id]);

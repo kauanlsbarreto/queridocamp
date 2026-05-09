@@ -285,14 +285,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "paymentId invalido." }, { status: 400 });
     }
 
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
-    if (!process.env.LOJA_PAGAMENTO_DISCORD_WEBHOOK_URL && env?.LOJA_PAGAMENTO_DISCORD_WEBHOOK_URL) {
-      process.env.LOJA_PAGAMENTO_DISCORD_WEBHOOK_URL = String(env.LOJA_PAGAMENTO_DISCORD_WEBHOOK_URL);
-    }
-    if (!process.env.LOJA_WEBHOOK_URL && env?.LOJA_WEBHOOK_URL) {
-      process.env.LOJA_WEBHOOK_URL = String(env.LOJA_WEBHOOK_URL);
-    }
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
     await ensurePaymentsTable(connection);

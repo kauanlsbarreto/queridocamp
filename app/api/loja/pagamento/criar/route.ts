@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import {
   ensureBillingColumns,
@@ -232,16 +232,7 @@ export async function POST(request: Request) {
   };
 
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
-
-    if (!process.env.TOKEN_PAGSEGURO && env?.TOKEN_PAGSEGURO) {
-      process.env.TOKEN_PAGSEGURO = String(env.TOKEN_PAGSEGURO);
-    }
-
-    if (!process.env.NEXT_PUBLIC_SITE_URL && env?.NEXT_PUBLIC_SITE_URL) {
-      process.env.NEXT_PUBLIC_SITE_URL = String(env.NEXT_PUBLIC_SITE_URL);
-    }
+    const env = await getRuntimeEnv();
 
     if (!hasPagBankToken()) {
       return NextResponse.json(
