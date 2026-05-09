@@ -18,7 +18,8 @@ type Env = {
 type PlayerRow = RowDataPacket & {
   id: number;
   faceit_guid: string;
-  steamid?: string | null;
+  steamid?: string | number | bigint | null;
+  steam_id?: string | number | bigint | null;
   nickname: string;
   avatar: string;
   admin?: number;
@@ -29,12 +30,28 @@ type PlayerRow = RowDataPacket & {
   updated_at: string;
 };
 
+function toJsonSafe<T>(value: T): T {
+  return JSON.parse(
+    JSON.stringify(value, (_key, currentValue) =>
+      typeof currentValue === "bigint" ? currentValue.toString() : currentValue,
+    ),
+  ) as T;
+}
+
+function isUnknownColumnError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = (error as { code?: string }).code;
+  return code === "ER_BAD_FIELD_ERROR";
+}
+
 // Handler para GET (conforme indicado no erro do log)
 export async function GET(req: Request) {
-  const env = await getRuntimeEnv();
-  const connection = await createMainConnection(env);
+  let connection: Awaited<ReturnType<typeof createMainConnection>> | null = null;
 
   try {
+    const env = await getRuntimeEnv();
+    connection = await createMainConnection(env);
+
     const { searchParams } = new URL(req.url);
     const guid = searchParams.get("faceit_guid")?.trim() || "";
     const steamId = searchParams.get("steamid")?.trim() || "";
@@ -43,18 +60,43 @@ export async function GET(req: Request) {
       return NextResponse.json({ message: "Informe faceit_guid ou steamid." }, { status: 400 });
     }
 
-    const sql = guid
-      ? "SELECT * FROM players WHERE faceit_guid = ? LIMIT 1"
-      : "SELECT * FROM players WHERE steamid = ? LIMIT 1";
-    const bind = guid ? [guid] : [steamId];
-    const [rows] = await connection.query<PlayerRow[]>(sql, bind);
+    let rows: PlayerRow[] = [];
 
-    return NextResponse.json(rows[0] || { message: "Jogador não encontrado" }, { status: rows[0] ? 200 : 404 });
+    if (guid) {
+      const [result] = await connection.query<PlayerRow[]>(
+        "SELECT * FROM players WHERE faceit_guid = ? LIMIT 1",
+        [guid],
+      );
+      rows = result;
+    } else {
+      try {
+        const [result] = await connection.query<PlayerRow[]>(
+          "SELECT * FROM players WHERE steamid = ? LIMIT 1",
+          [steamId],
+        );
+        rows = result;
+      } catch (error) {
+        if (!isUnknownColumnError(error)) {
+          throw error;
+        }
+
+        const [result] = await connection.query<PlayerRow[]>(
+          "SELECT * FROM players WHERE steam_id = ? LIMIT 1",
+          [steamId],
+        );
+        rows = result;
+      }
+    }
+
+    const payload = rows[0] ? toJsonSafe(rows[0]) : { message: "Jogador não encontrado" };
+    return NextResponse.json(payload, { status: rows[0] ? 200 : 404 });
   } catch (error) {
     console.error("GET Error:", error);
     return NextResponse.json({ message: "Erro interno do servidor" }, { status: 500 });
   } finally {
-    await connection.end(); // Garante que a conexão feche e o Worker não trave
+    if (connection) {
+      await connection.end(); // Garante que a conexão feche e o Worker não trave
+    }
   }
 }
 
