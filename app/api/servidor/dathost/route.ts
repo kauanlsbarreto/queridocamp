@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection, type Env } from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
 import { Client } from "basic-ftp";
@@ -82,8 +82,7 @@ function hasFolder(entries: Array<{ name: string }>, folderName: string) {
 async function loadLvlServidor(faceitGuid: string): Promise<number> {
   if (!faceitGuid) return 0;
 
-  const ctx = await getCloudflareContext({ async: true });
-  const env = ctx.env as unknown as Env;
+  const env = await getRuntimeEnv();
   const connection = await createMainConnection(env);
 
   try {
@@ -575,8 +574,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ ok: true, lvlservidor: 0, canUseRestrictedAreas: false });
       }
 
-      const ctx = await getCloudflareContext({ async: true });
-      const env = ctx.env as unknown as Env;
+      const env = await getRuntimeEnv();
       const connection = await createMainConnection(env);
 
       try {
@@ -606,8 +604,7 @@ export async function GET(req: NextRequest) {
       const direction = String(searchParams.get("direction") || "initial").trim().toLowerCase();
       const cursorId = Number(searchParams.get("cursor_id") || 0);
 
-      const ctx = await getCloudflareContext({ async: true });
-      const env = ctx.env as unknown as Env;
+      const env = await getRuntimeEnv();
       const connection = await createMainConnection(env);
 
       try {
@@ -702,8 +699,7 @@ export async function GET(req: NextRequest) {
       const rawLimit = Number(searchParams.get("limit") || 80);
       const limit = Math.min(Math.max(rawLimit, 1), 200);
 
-      const ctx = await getCloudflareContext({ async: true });
-      const env = ctx.env as unknown as Env;
+      const env = await getRuntimeEnv();
       const connection = await createMainConnection(env);
 
       try {
@@ -841,8 +837,7 @@ export async function POST(req: NextRequest) {
         return jsonError("Sem permissao para gerenciar admins.", 403, { lvlservidor: lvlServidor });
       }
 
-      const ctx = await getCloudflareContext({ async: true });
-      const env = ctx.env as unknown as Env;
+      const env = await getRuntimeEnv();
       const connection = await createMainConnection(env);
 
       try {
@@ -975,8 +970,7 @@ export async function POST(req: NextRequest) {
 
     const shouldLogCommand = body?.log_command !== false;
     if (shouldLogCommand) {
-      const ctx = await getCloudflareContext({ async: true });
-      const env = ctx.env as unknown as Env;
+      const env = await getRuntimeEnv();
       const connection = await createMainConnection(env);
 
       try {

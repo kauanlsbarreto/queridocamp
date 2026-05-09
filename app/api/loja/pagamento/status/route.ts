@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import {
   extractCheckoutOrderIds,

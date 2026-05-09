@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import type { Env } from "@/lib/db";
 import { sendDesafiarErrorBrevoEmail } from "@/lib/copadraft-desafiar-brevo-error";
 

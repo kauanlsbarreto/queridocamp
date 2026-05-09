@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import { mapProviderStatusToLocal } from "@/lib/pagbank-loja";
 import {
@@ -238,20 +238,11 @@ export async function POST(request: Request) {
 
   let connection: any;
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
-
-    const configuredToken = String(process.env.PAGBANK_WEBHOOK_TOKEN || env?.PAGBANK_WEBHOOK_TOKEN || "").trim();
+    const env = await getRuntimeEnv();
+    const configuredToken = String(process.env.PAGBANK_WEBHOOK_TOKEN || "").trim();
     const hmacSecret = String(
-      process.env.PAGBANK_WEBHOOK_HMAC_SECRET || env?.PAGBANK_WEBHOOK_HMAC_SECRET || "",
+      process.env.PAGBANK_WEBHOOK_HMAC_SECRET || "",
     ).trim();
-
-    if (!process.env.LOJA_PAGAMENTO_DISCORD_WEBHOOK_URL && env?.LOJA_PAGAMENTO_DISCORD_WEBHOOK_URL) {
-      process.env.LOJA_PAGAMENTO_DISCORD_WEBHOOK_URL = String(env.LOJA_PAGAMENTO_DISCORD_WEBHOOK_URL);
-    }
-    if (!process.env.LOJA_WEBHOOK_URL && env?.LOJA_WEBHOOK_URL) {
-      process.env.LOJA_WEBHOOK_URL = String(env.LOJA_WEBHOOK_URL);
-    }
 
     const url = new URL(request.url);
     const queryToken = String(url.searchParams.get("token") || "").trim();

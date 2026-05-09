@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection, type Env } from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
 
@@ -34,8 +34,7 @@ export async function GET(request: Request) {
 
     teamName = teamName.trim();
 
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
 
     connection = await createMainConnection(env);
 

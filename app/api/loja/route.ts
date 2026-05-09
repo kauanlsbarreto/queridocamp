@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import { LOJA_RELEASE_AT_ISO, LOJA_RELEASE_LABEL } from "@/lib/release-gates";
 
@@ -180,8 +180,7 @@ async function isAdminOneOrTwo(connection: any, faceitGuid: string) {
 export async function GET(request: Request) {
   let connection: any;
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
     await ensureTable(connection);
@@ -245,8 +244,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   let connection: any;
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
     await ensureTable(connection);
@@ -301,8 +299,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   let connection: any;
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
     await ensureTable(connection);

@@ -1,19 +1,49 @@
-name: Deploy Frontend
+name: Deploy Hostinger
+
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
+      - name: Deploy via SSH (Hostinger)
+        uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.SERVER_IP }}     # Cadastre o IP nos secrets também
-          username: "ubuntu"                 # Usuário padrão do Lightsail Ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.HOSTINGER_SSH_PORT }}
           command_timeout: 60m
           script: |
-            # Comandos para atualizar
-            cd /home/ubuntu
-            ./atualizar_frontend.sh
+            set -e
+
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+            REPO_URL="${{ secrets.DEPLOY_REPO_URL }}"
+            BRANCH="main"
+
+            if [ -z "$DEPLOY_PATH" ] || [ -z "$REPO_URL" ]; then
+              echo "DEPLOY_PATH ou DEPLOY_REPO_URL nao configurados nos secrets"
+              exit 1
+            fi
+
+            mkdir -p "$DEPLOY_PATH"
+            cd "$DEPLOY_PATH"
+
+            if [ ! -d .git ]; then
+              git clone "$REPO_URL" .
+            fi
+
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+
+            docker compose -f docker-compose.prod.yaml pull || true
+            docker compose -f docker-compose.prod.yaml up -d --build --remove-orphans
+            docker image prune -af --filter "until=24h" || true

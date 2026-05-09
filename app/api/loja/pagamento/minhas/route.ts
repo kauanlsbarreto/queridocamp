@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import { deleteStalePendingPayments } from "@/lib/loja-payment-cleanup";
 
@@ -106,8 +106,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "faceit_guid obrigatorio." }, { status: 400 });
     }
 
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
     await ensurePaymentsTable(connection);

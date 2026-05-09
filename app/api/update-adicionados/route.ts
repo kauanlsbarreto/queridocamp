@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -7,8 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function PUT(request: Request) {
   let env: any = {};
   try {
-    const ctx = await getCloudflareContext();
-    env = ctx.env;
+    env = await getRuntimeEnv();
   } catch (e) { }
 
   // Cria a conexão usando o padrão Hyperdrive

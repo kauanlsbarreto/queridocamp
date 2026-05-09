@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection, createJogadoresConnection } from "@/lib/db";
 import type { Env } from "@/lib/db";
 import { getTeamNameByCaptainGuidMap } from "@/lib/copadraft-times";
@@ -201,8 +201,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
     const mainConn = await createMainConnection(env);
 
     try {
@@ -256,8 +255,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
     }
 
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
 
     const [jogadoresConn, mainConn] = await Promise.all([
       createJogadoresConnection(env),
@@ -352,8 +350,7 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     console.error("[desafiar/api POST]", e);
     try {
-      const ctx = await getCloudflareContext({ async: true });
-      const env = ctx.env as unknown as Env;
+      const env = await getRuntimeEnv();
       let actorNickname = faceitGuidForError || "Desconhecido";
       try {
         const conn = await createMainConnection(env);
@@ -405,8 +402,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Ação inválida" }, { status: 400 });
     }
 
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
 
     const [jogadoresConn, mainConn] = await Promise.all([
       createJogadoresConnection(env),
@@ -659,8 +655,7 @@ export async function PUT(req: NextRequest) {
   } catch (e) {
     console.error("[desafiar/api PUT]", e);
     try {
-      const ctx = await getCloudflareContext({ async: true });
-      const env = ctx.env as unknown as Env;
+      const env = await getRuntimeEnv();
       let actorNickname = faceitGuidForError || "Desconhecido";
       try {
         const conn = await createMainConnection(env);

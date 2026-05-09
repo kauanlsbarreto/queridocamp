@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { createMainConnection } from "@/lib/db";
 import type { Connection, RowDataPacket } from "mysql2/promise";
 
@@ -41,8 +41,7 @@ export async function GET(req: Request) {
   let connection: Connection | null = null;
 
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
     const url = new URL(req.url);
@@ -122,8 +121,7 @@ export async function GET(req: Request) {
 export async function DELETE(req: Request) {
   let connection: Connection | null = null;
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as Env;
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
     const body = (await req.json()) as {

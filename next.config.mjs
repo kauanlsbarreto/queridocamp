@@ -59,7 +59,6 @@ const nextConfig = {
       },
     ];
   },
-  assetPrefix: undefined,
 };
 
 export default nextConfig;

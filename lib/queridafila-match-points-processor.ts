@@ -1,4 +1,3 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createMainConnection } from "@/lib/db";
 import {
   calculateQueridaFilaPoints,
@@ -298,8 +297,8 @@ export async function getQueridaFilaMatchProcessingStatus(matchId: string): Prom
   let connection: any;
 
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
+    const { getRuntimeEnv } = await import("@/lib/runtime-env");
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
     await ensureProcessedTable(connection);
 
@@ -329,8 +328,8 @@ export async function getUnprocessedMatchIds(matchIds: string[]): Promise<string
 
   let connection: any;
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
+    const { getRuntimeEnv } = await import("@/lib/runtime-env");
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
     await ensureProcessedTable(connection);
 
@@ -418,8 +417,8 @@ export async function processQueridaFilaMatchPoints(params: MatchPointsProcessPa
       };
     }
 
-    const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as any;
+    const { getRuntimeEnv } = await import("@/lib/runtime-env");
+    const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
     await ensureProcessedTable(connection);
 

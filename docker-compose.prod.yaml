@@ -9,13 +9,8 @@ services:
     restart: always
     # Remove exposed ports, use reverse proxy instead
     environment:
-      # Database Hostinger
-      DB_HOST: ${DB_HOST:-187.77.45.123}
-      DB_USER: ${DB_USER:-botuser}
-      DB_PASSWORD: ${DB_PASSWORD:-}
-      DB_PORT: ${DB_PORT:-3306}
-      DB_NAME: ${DB_NAME:-bancoks}
-      CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_hostinger: "mysql://${DB_USER:-botuser}:${DB_PASSWORD:-}@${DB_HOST:-187.77.45.123}:${DB_PORT:-3306}/${DB_NAME:-bancoks}"
+      # Database Hostinger - Use DATABASE_URL como fonte única
+      DATABASE_URL: ${DATABASE_URL:-mysql://botuser:aF!0_%40MM360J@187.77.45.123:3306/bancoks}
       
       # Node environment
       NODE_ENV: ${NODE_ENV:-production}

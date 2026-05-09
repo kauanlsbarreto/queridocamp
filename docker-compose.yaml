@@ -5,79 +5,54 @@ services:
       dockerfile: Dockerfile
       args:
         GIT_TOKEN: ${GIT_TOKEN:-}
-
-        # ENV usadas DURANTE O BUILD
         DB_HOST: ${DB_HOST:-187.77.45.123}
         DB_USER: ${DB_USER:-botuser}
         DB_PASSWORD: ${DB_PASSWORD:-}
         DB_PORT: ${DB_PORT:-3306}
         DB_NAME: ${DB_NAME:-bancoks}
-
     container_name: sitequerido-app
-
-    restart: unless-stopped
-
-    ports:
-      - "3001:3001"
-
-
+    volumes:
+      - /var/www/queridocamp:/app
     environment:
-      # Database
       DB_HOST: ${DB_HOST:-187.77.45.123}
       DB_USER: ${DB_USER:-botuser}
       DB_PASSWORD: ${DB_PASSWORD:-}
       DB_PORT: ${DB_PORT:-3306}
       DB_NAME: ${DB_NAME:-bancoks}
-
-      CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_hostinger: "mysql://${DB_USER:-botuser}:${DB_PASSWORD:-}@${DB_HOST:-187.77.45.123}:${DB_PORT:-3306}/${DB_NAME:-bancoks}"
-
-      # Node
+      CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_hostinger: mysql://${DB_USER:-botuser}:${DB_PASSWORD:-}@${DB_HOST:-187.77.45.123}:${DB_PORT:-3306}/${DB_NAME:-bancoks}
       NODE_ENV: production
-      NEXT_TELEMETRY_DISABLED: "1"
-
-      # Evita crash de memória
-      NODE_OPTIONS: "--max-old-space-size=1024"
-
-      # Git
-      GIT_AUTHOR_NAME: "Docker Auto-Update"
-      GIT_AUTHOR_EMAIL: "docker@sitequerido.com"
-      GIT_COMMITTER_NAME: "Docker Auto-Update"
-      GIT_COMMITTER_EMAIL: "docker@sitequerido.com"
+      NEXT_TELEMETRY_DISABLED: 1
+      NODE_OPTIONS: --max-old-space-size=1024
+      GIT_AUTHOR_NAME: Docker Auto-Update
+      GIT_AUTHOR_EMAIL: docker@sitequerido.com
+      GIT_COMMITTER_NAME: Docker Auto-Update
+      GIT_COMMITTER_EMAIL: docker@sitequerido.com
       GIT_TOKEN: ${GIT_TOKEN:-}
-
-      # APIs
       FACEIT_API_KEY: ${FACEIT_API_KEY:-}
       API_BREVO: ${API_BREVO:-}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
-
-      # PagBank
       TOKEN_PAGSEGURO: ${TOKEN_PAGSEGURO:-}
       PAGBANK_WEBHOOK_TOKEN: ${PAGBANK_WEBHOOK_TOKEN:-}
       PAGBANK_WEBHOOK_HMAC_SECRET: ${PAGBANK_WEBHOOK_HMAC_SECRET:-}
       PAGBANK_API_BASE_URL: ${PAGBANK_API_BASE_URL:-https://api.pagseguro.com/}
       PAGBANK_DEFAULT_TAX_ID: ${PAGBANK_DEFAULT_TAX_ID:-}
-
-      # Discord
       LOJA_PAGAMENTO_DISCORD_WEBHOOK_URL: ${LOJA_PAGAMENTO_DISCORD_WEBHOOK_URL:-}
       LOJA_WEBHOOK_URL: ${LOJA_WEBHOOK_URL:-}
       LOJA_PURCHASE_WEBHOOK_URL: ${LOJA_PURCHASE_WEBHOOK_URL:-}
-
-      # CS2
       CS2_IP: ${CS2_IP:-217.196.63.100}
       CS2_PORT: ${CS2_PORT:-27015}
       CS2_PASSWORD: ${CS2_PASSWORD:-}
       DATHOST_EMAIL: ${DATHOST_EMAIL:-}
       DATHOST_PASSWORD: ${DATHOST_PASSWORD:-}
-
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: 3
+    restart: unless-stopped
+    ports:
+      - 80:3001
     networks:
       - sitequerido-network
-
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
 networks:
-  sitequerido-network:
-    driver: bridge
+  sitequerido-network: 

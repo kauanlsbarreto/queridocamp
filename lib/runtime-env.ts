@@ -37,11 +37,8 @@ function resolveFromProcessEnv(): Env {
   const dbPort = parsePort(process.env.DB_PORT, 3306);
 
   const databaseUrl = String(process.env.DATABASE_URL || "").trim();
-  const hyperdriveUrl = String(
-    process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_hostinger || ""
-  ).trim();
 
-  const hostingerFromUrl = resolveFromDatabaseUrl(hyperdriveUrl || databaseUrl);
+  const hostingerFromUrl = resolveFromDatabaseUrl(databaseUrl);
 
   if (hostingerFromUrl) {
     return {
@@ -53,7 +50,7 @@ function resolveFromProcessEnv(): Env {
   if (dbHost && dbUser && dbName) {
     return {
       hostinger: {
-        connectionString: hyperdriveUrl || databaseUrl || undefined,
+        connectionString: databaseUrl || undefined,
         host: dbHost,
         user: dbUser,
         password: dbPassword,
@@ -70,15 +67,6 @@ function resolveFromProcessEnv(): Env {
 }
 
 export async function getRuntimeEnv(): Promise<Env> {
-  try {
-    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
-    const ctx = await getCloudflareContext({ async: true });
-    if (ctx?.env) {
-      return ctx.env as Env;
-    }
-  } catch {
-    // Running outside Cloudflare (e.g. Docker/Node runtime).
-  }
-
+  // Always use process environment (Node.js/Docker mode)
   return resolveFromProcessEnv();
 }

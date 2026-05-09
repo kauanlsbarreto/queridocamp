@@ -1,6 +1,6 @@
 import { createConnection, Connection } from "mysql2/promise";
 
-export type HyperdriveBinding = {
+export type DatabaseBinding = {
   connectionString?: string;
   host: string;
   user: string;
@@ -10,9 +10,7 @@ export type HyperdriveBinding = {
 };
 
 export type Env = {
-  hostinger?: HyperdriveBinding;
-  DB_PRINCIPAL?: HyperdriveBinding;
-  DB_JOGADORES?: HyperdriveBinding;
+  hostinger?: DatabaseBinding;
   DATABASE_URL?: string;
 };
 
@@ -115,7 +113,7 @@ function wrapConnection(conn: Connection, dbLabel: string = "DATABASE"): Connect
   return proxy;
 }
 
-function isHyperdriveBinding(value: unknown): value is HyperdriveBinding {
+function isDatabaseBinding(value: unknown): value is DatabaseBinding {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -151,69 +149,37 @@ function parseDatabaseUrl(databaseUrl: string) {
   };
 }
 
-function getDatabaseBinding(env: Env, label?: "DB_PRINCIPAL" | "DB_JOGADORES") {
-  // hostinger always takes priority over any other binding.
-  if (isHyperdriveBinding(env.hostinger)) {
-    return {
-      binding: env.hostinger,
-      label: "hostinger",
-    };
-  }
-
-  if (label === "DB_JOGADORES" && isHyperdriveBinding(env.DB_JOGADORES)) {
-    return {
-      binding: env.DB_JOGADORES,
-      label: "DB_JOGADORES",
-    };
-  }
-
-  if (label === "DB_PRINCIPAL" && isHyperdriveBinding(env.DB_PRINCIPAL)) {
-    return {
-      binding: env.DB_PRINCIPAL,
-      label: "DB_PRINCIPAL",
-    };
-  }
-
-  if (isHyperdriveBinding(env.DB_PRINCIPAL)) {
-    return {
-      binding: env.DB_PRINCIPAL,
-      label: "DB_PRINCIPAL",
-    };
-  }
-
-  if (isHyperdriveBinding(env.DB_JOGADORES)) {
-    return {
-      binding: env.DB_JOGADORES,
-      label: "DB_JOGADORES",
-    };
+function getDatabaseBinding(env: Env): DatabaseBinding | null {
+  // hostinger always takes priority
+  if (isDatabaseBinding(env.hostinger)) {
+    return env.hostinger;
   }
 
   return null;
 }
 
-export async function createDatabaseConnection(
-  env: Env,
-  label?: "DB_PRINCIPAL" | "DB_JOGADORES"
-): Promise<Connection> {
-  const hyperdriveConfig = getDatabaseBinding(env, label);
+export async function createDatabaseConnection(env: Env): Promise<Connection> {
+  const databaseBinding = getDatabaseBinding(env);
 
-  if (hyperdriveConfig) {
+  if (databaseBinding) {
     const conn = await createConnection({
-      host: hyperdriveConfig.binding.host,
-      user: hyperdriveConfig.binding.user,
-      password: hyperdriveConfig.binding.password,
-      database: hyperdriveConfig.binding.database,
-      port: hyperdriveConfig.binding.port,
+      host: databaseBinding.host,
+      user: databaseBinding.user,
+      password: databaseBinding.password,
+      database: databaseBinding.database,
+      port: databaseBinding.port,
       disableEval: true,
     });
 
-    return wrapConnection(conn, hyperdriveConfig.label);
+    return wrapConnection(conn, "DATABASE");
   }
 
   const dbUrl = process.env.DATABASE_URL || env.DATABASE_URL;
 
   if (!dbUrl) {
-    throw new Error("Nenhuma binding Hyperdrive ou DATABASE_URL foi definida");
+    throw new Error(
+      "DATABASE_URL não foi definida. Use a variável de ambiente DATABASE_URL ou configure as variáveis individuais (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT)"
+    );
   }
 
   try {
@@ -226,7 +192,9 @@ export async function createDatabaseConnection(
     return wrapConnection(conn, "DATABASE_URL");
   } catch (error) {
     if (error instanceof TypeError && (error as any).code === "ERR_INVALID_URL") {
-      throw new Error("DATABASE_URL format inválido. Use: mysql://user:password@host:port/database");
+      throw new Error(
+        "DATABASE_URL inválida. Use o formato: mysql://user:password@host:port/database"
+      );
     }
     throw error;
   }
@@ -237,9 +205,9 @@ export async function connectToDB(env: Env): Promise<Connection> {
 }
 
 export async function createMainConnection(env: Env): Promise<Connection> {
-  return createDatabaseConnection(env, "DB_PRINCIPAL");
+  return createDatabaseConnection(env);
 }
 
 export async function createJogadoresConnection(env: Env): Promise<Connection> {
-  return createDatabaseConnection(env, "DB_JOGADORES");
+  return createDatabaseConnection(env);
 }
