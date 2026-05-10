@@ -89,7 +89,7 @@ services:
         labels: "service=app,env=production"
     
     volumes:
-      - ./public:/app/public
+      - /var/www/queridocamp/public:/app/public
 
   redis:
     image: redis:7-alpine

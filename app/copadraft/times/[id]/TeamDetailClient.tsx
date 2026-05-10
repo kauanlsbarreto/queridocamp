@@ -340,7 +340,7 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, initialBann
     () => players.some((player) => String(player.faceitGuid || "").trim().toLowerCase() === faceitGuid.toLowerCase()),
     [faceitGuid, players]
   );
-  const canManagePlayerOrder = isAdmin1 && isTeamMember;
+  const canManagePlayerOrder = isAdmin1;
   const ownGuid = normalizeGuid(faceitGuid);
   const canNonAdminPickOwnAvatar = isTeamMember && !isAdmin1;
 
@@ -728,7 +728,7 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, initialBann
 
   async function savePlayerOrder() {
     if (!canManagePlayerOrder) {
-      setOrderMessage("Somente Admin 1 do proprio time pode alterar a ordem.");
+      setOrderMessage("Somente Admin 1 pode alterar a ordem.");
       return;
     }
 

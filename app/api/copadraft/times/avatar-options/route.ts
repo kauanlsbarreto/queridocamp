@@ -39,6 +39,18 @@ function mimeTypeFromName(filename: string) {
   return "image/jpeg";
 }
 
+async function isAdminOne(connection: any, faceitGuid: string) {
+  const [rows] = await connection.query(
+    "SELECT Admin FROM players WHERE faceit_guid = ? LIMIT 1",
+    [faceitGuid]
+  );
+
+  const row = Array.isArray(rows) ? (rows as Array<{ Admin: number | string | null }>)[0] : null;
+  if (!row) return false;
+
+  return Number(row.Admin) === 1;
+}
+
 export async function GET(request: Request) {
   let connection: any = null;
 
@@ -54,7 +66,9 @@ export async function GET(request: Request) {
     const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
-    if (!isPlayerInTeam(faceitGuid, teamName)) {
+    const isAdmin = await isAdminOne(connection, faceitGuid);
+
+    if (!isAdmin && !isPlayerInTeam(faceitGuid, teamName)) {
       return NextResponse.json({ message: "Somente membros do proprio time podem listar fotos." }, { status: 403 });
     }
 

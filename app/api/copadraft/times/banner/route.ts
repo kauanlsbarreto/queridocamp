@@ -145,10 +145,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Apenas Admin 1 pode salvar o banner." }, { status: 403 });
     }
 
-    if (changingOrder && !isTeamMember(faceitGuid, time)) {
-      return NextResponse.json({ message: "Apenas Admin 1 do proprio time pode alterar a ordem." }, { status: 403 });
-    }
-
     const [existingRows] = await connection.query(
       "SELECT id, ordem FROM banner WHERE time = ? LIMIT 1",
       [time]

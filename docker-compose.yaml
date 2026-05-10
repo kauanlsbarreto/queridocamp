@@ -49,6 +49,8 @@ services:
     restart: unless-stopped
     ports:
       - 80:3001
+    volumes:
+      - /var/www/queridocamp/public:/app/public
     networks:
       - sitequerido-network
 networks:

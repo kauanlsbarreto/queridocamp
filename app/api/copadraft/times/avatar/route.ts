@@ -164,11 +164,11 @@ export async function POST(request: Request) {
     const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
-    if (!isPlayerInTeam(ownGuid, teamName)) {
+    const isAdmin = await isAdminOne(connection, ownGuid);
+    if (!isAdmin && !isPlayerInTeam(ownGuid, teamName)) {
       return NextResponse.json({ message: "Somente membros do proprio time podem salvar avatar." }, { status: 403 });
     }
 
-    const isAdmin = await isAdminOne(connection, ownGuid);
     if (!isAdmin && targetGuid !== ownGuid) {
       return NextResponse.json({ message: "Usuario nao admin so pode salvar a propria foto." }, { status: 403 });
     }
