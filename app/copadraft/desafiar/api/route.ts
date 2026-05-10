@@ -7,12 +7,11 @@ import { sendDesafiarDiscordWebhook } from "@/lib/copadraft-desafiar-discord-web
 import { sendDesafiarErrorBrevoEmail } from "@/lib/copadraft-desafiar-brevo-error";
 
 const API_QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_API_QUERY_TIMEOUT_MS || 5000);
-const API_GET_CACHE_TTL_MS = Number(process.env.COPADRAFT_DESAFIAR_GET_CACHE_TTL_MS || 15000);
-
-let cachedMatchesResponse: { expiresAt: number; matches: any[] } | null = null;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function invalidateMatchesGetCache() {
-  cachedMatchesResponse = null;
+  // No-op: GET caching was removed.
 }
 
 async function queryWithTimeout(conn: any, sql: string, values?: any[]) {
@@ -188,18 +187,6 @@ function rowToMatch(r: any) {
 
 // GET — fetch all matches for real-time polling
 export async function GET(req: NextRequest) {
-  const now = Date.now();
-  if (cachedMatchesResponse && cachedMatchesResponse.expiresAt > now) {
-    return NextResponse.json(
-      { matches: cachedMatchesResponse.matches, cached: true },
-      {
-        headers: {
-          "Cache-Control": "public, max-age=5, s-maxage=15, stale-while-revalidate=30",
-        },
-      }
-    );
-  }
-
   try {
     const env = await getRuntimeEnv();
     const mainConn = await createMainConnection(env);
@@ -219,16 +206,11 @@ export async function GET(req: NextRequest) {
         ? (matchRows as any[]).map(rowToMatch)
         : [];
 
-      cachedMatchesResponse = {
-        expiresAt: now + API_GET_CACHE_TTL_MS,
-        matches,
-      };
-
       return NextResponse.json(
         { matches, cached: false },
         {
           headers: {
-            "Cache-Control": "public, max-age=5, s-maxage=15, stale-while-revalidate=30",
+            "Cache-Control": "no-store, no-cache, must-revalidate",
           },
         }
       );

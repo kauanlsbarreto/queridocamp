@@ -10,23 +10,10 @@ import DesafiarPageClient, {
 } from "./DesafiarPageClient";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 60;
+export const revalidate = 0;
 const PAGE_QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_QUERY_TIMEOUT_MS || 5000);
 const PAGE_CONNECT_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_CONNECT_TIMEOUT_MS || 4000);
 const PAGE_LOAD_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_LOAD_TIMEOUT_MS || 3500);
-const PAGE_CACHE_TTL_MS = Number(process.env.COPADRAFT_DESAFIAR_CACHE_TTL_MS || 60000);
-
-// SWR-style cache: keeps data in memory for 60s to avoid refetch on navigation
-let cachedPageData: {
-  expiresAt: number;
-  data: {
-    teamsCapitaes: TeamCapitao[];
-    teamMembers: TeamMember[];
-    jogos: JogoRow[];
-    matches: MatchRow[];
-  };
-} | null = null;
-let refreshingPageDataPromise: Promise<void> | null = null;
 
 const MIGRATION_COLUMNS: Array<{ name: string; sql: string }> = [
   { name: "rodada", sql: "ALTER TABLE matches ADD COLUMN rodada INT DEFAULT NULL" },
@@ -239,15 +226,11 @@ async function loadData(env: Env): Promise<{
 }
 
 async function refreshPageData(env: Env) {
-  const freshData = await withTimeout(
+  return withTimeout(
     loadData(env),
     PAGE_LOAD_TIMEOUT_MS,
     "desafiar page load"
   );
-  cachedPageData = {
-    expiresAt: Date.now() + PAGE_CACHE_TTL_MS,
-    data: freshData,
-  };
 }
 
 export default async function DesafiarPage() {
@@ -259,28 +242,7 @@ export default async function DesafiarPage() {
   };
   try {
     const env = await getRuntimeEnv() as Env;
-    
-    const now = Date.now();
-    const cacheAtStart = cachedPageData;
-    if (cacheAtStart && cacheAtStart.expiresAt > now) {
-      data = cacheAtStart.data;
-    } else if (cacheAtStart) {
-      // Return stale immediately and refresh in background to avoid blocking navigation.
-      data = cacheAtStart.data;
-      if (!refreshingPageDataPromise) {
-        refreshingPageDataPromise = refreshPageData(env)
-          .catch((err) => {
-            console.error("[desafiar page background refresh]", err);
-          })
-          .finally(() => {
-            refreshingPageDataPromise = null;
-          });
-      }
-    } else {
-      await refreshPageData(env);
-      const refreshedCache = cachedPageData;
-      if (refreshedCache) data = refreshedCache.data;
-    }
+    data = await refreshPageData(env);
   } catch (err) {
     console.error("[copadraft/desafiar] erro na página:", err);
   }

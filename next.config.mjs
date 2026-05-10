@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['mysql2'],
+  serverExternalPackages: ['mysql2', '@tensorflow-models/body-pix'],
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -26,7 +26,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=60, s-maxage=180, stale-while-revalidate=300',
+            value: 'no-store, no-cache, must-revalidate',
           },
         ],
       },
@@ -35,7 +35,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=30, s-maxage=120, stale-while-revalidate=300',
+            value: 'no-store, no-cache, must-revalidate',
           },
         ],
       },
@@ -44,7 +44,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=15, s-maxage=60, stale-while-revalidate=120',
+            value: 'no-store, no-cache, must-revalidate',
           },
         ],
       },
@@ -53,7 +53,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=5, s-maxage=15, stale-while-revalidate=30',
+            value: 'no-store, no-cache, must-revalidate',
           },
         ],
       },

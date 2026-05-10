@@ -5,17 +5,10 @@ import JogosPageClient, { type ConfirmedGame } from "./JogosPageClient";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 60;
+export const revalidate = 0;
 
 const QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_JOGOS_QUERY_TIMEOUT_MS || 5000);
-const JOGOS_CACHE_TTL_MS = Number(process.env.COPADRAFT_JOGOS_CACHE_TTL_MS || 60000);
 const JOGOS_LOAD_TIMEOUT_MS = Number(process.env.COPADRAFT_JOGOS_LOAD_TIMEOUT_MS || 3500);
-
-let cachedJogosData: {
-	expiresAt: number;
-	data: ConfirmedGame[];
-} | null = null;
-let refreshingJogosPromise: Promise<void> | null = null;
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -135,42 +128,15 @@ async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
 }
 
 async function refreshJogosData(env: Env) {
-	const freshData = await withTimeout(loadConfirmedGames(env), JOGOS_LOAD_TIMEOUT_MS, "jogos page load");
-	cachedJogosData = {
-		expiresAt: Date.now() + JOGOS_CACHE_TTL_MS,
-		data: freshData,
-	};
+	return withTimeout(loadConfirmedGames(env), JOGOS_LOAD_TIMEOUT_MS, "jogos page load");
 }
 
 export default async function JogosPage() {
 	let games: ConfirmedGame[] = [];
-	const now = Date.now();
 
 	try {
-		const cacheAtStart = cachedJogosData;
-		if (cacheAtStart && cacheAtStart.expiresAt > now) {
-			return <JogosPageClient games={cacheAtStart.data} />;
-		}
-
 		const env = await getRuntimeEnv() as Env;
-
-		const staleCache = cachedJogosData;
-		if (staleCache) {
-			games = staleCache.data;
-			if (!refreshingJogosPromise) {
-				refreshingJogosPromise = refreshJogosData(env)
-					.catch((err) => {
-						console.error("[copadraft/jogos] background refresh error:", err);
-					})
-					.finally(() => {
-						refreshingJogosPromise = null;
-					});
-			}
-		} else {
-			await refreshJogosData(env);
-			const refreshedCache = cachedJogosData;
-			if (refreshedCache) games = refreshedCache.data;
-		}
+		games = await refreshJogosData(env);
 	} catch (err) {
 		console.error("[copadraft/jogos] erro na página:", err);
 		games = [];

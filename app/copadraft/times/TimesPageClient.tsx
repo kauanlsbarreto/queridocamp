@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 type Player = {
@@ -43,6 +44,12 @@ function normalizeName(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase();
+}
+
+function teamSlug(value: string) {
+  return normalizeName(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function TeamFlag({ teamName }: { teamName: string }) {
@@ -106,6 +113,15 @@ function TeamRow({
 
       {isOpen && (
         <div className="rounded-xl border border-cyan-300/35 bg-[#081430]/90 p-3">
+          <div className="mb-3 flex justify-end">
+            <Link
+              href={`/copadraft/times/${teamSlug(team.nome_time)}`}
+              className="rounded-md border border-cyan-200/50 bg-cyan-300/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-cyan-100 transition hover:bg-cyan-300/25"
+            >
+              Ver pagina do time
+            </Link>
+          </div>
+
           {team.jogadores.length > 0 ? (
             <div className="grid gap-2 sm:grid-cols-2">
               {team.jogadores.map((player) => {
