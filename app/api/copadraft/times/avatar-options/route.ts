@@ -39,6 +39,16 @@ function mimeTypeFromName(filename: string) {
   return "image/jpeg";
 }
 
+async function resolveCaseInsensitiveDir(baseDir: string, folderName: string) {
+  const entries = await readdir(baseDir, { withFileTypes: true }).catch(() => []);
+  const exact = entries.find((entry) => entry.isDirectory() && entry.name === folderName);
+  if (exact) return path.join(baseDir, exact.name);
+
+  const wanted = folderName.toLowerCase();
+  const ci = entries.find((entry) => entry.isDirectory() && entry.name.toLowerCase() === wanted);
+  return ci ? path.join(baseDir, ci.name) : null;
+}
+
 async function isAdminOne(connection: any, faceitGuid: string) {
   const [rows] = await connection.query(
     "SELECT Admin FROM players WHERE faceit_guid = ? LIMIT 1",
@@ -73,8 +83,13 @@ export async function GET(request: Request) {
     }
 
     const teamFolder = slugify(teamName) || "time";
-    const absoluteDir = path.join(PHOTO_DIR, teamFolder);
+    const absoluteDir = await resolveCaseInsensitiveDir(PHOTO_DIR, teamFolder);
+    if (!absoluteDir) {
+      return NextResponse.json({ photos: [] });
+    }
+
     const entries = await readdir(absoluteDir, { withFileTypes: true }).catch(() => []);
+    const publicTeamFolder = path.basename(absoluteDir);
 
     const photos = entries
       .filter((entry) => entry.isFile())
@@ -85,7 +100,7 @@ export async function GET(request: Request) {
         id: name,
         name,
         mimeType: mimeTypeFromName(name),
-        previewUrl: `/fotostime/${teamFolder}/${encodeURIComponent(name)}`,
+        previewUrl: `/api/fotostime?path=${encodeURIComponent(`/fotostime/${publicTeamFolder}/${name}`)}`,
       }));
 
     return NextResponse.json({ photos });
