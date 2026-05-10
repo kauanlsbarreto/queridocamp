@@ -86,6 +86,18 @@ function toNumber(value: unknown) {
 	return Number.isFinite(n) ? n : 0;
 }
 
+function toAvatarRenderUrl(rawPath: string) {
+	const pathValue = String(rawPath || "").trim();
+	if (!pathValue) return pathValue;
+	if (!pathValue.toLowerCase().startsWith("/fotostime/")) return pathValue;
+
+	const hasQuery = pathValue.includes("?");
+	if (hasQuery) return pathValue;
+
+	const encoded = encodeURIComponent(pathValue);
+	return `/api/fotostime?path=${encoded}&v=${Date.now()}`;
+}
+
 async function resolveBannerImageUrl(teamName: string) {
 	try {
 		const files = await readdir(BANNER_DIR, { withFileTypes: true });
@@ -198,10 +210,12 @@ async function loadTeamPlayers(env: Env, team: Team, bannerConfig: BannerRow | n
 			const top = statsByGuid.get(guid);
 			const bannerAvatar = String(teamAvatars[index] || "").trim();
 
+			const resolvedAvatar = String(bannerAvatar || dbPlayer?.avatar || DEFAULT_AVATAR);
+
 			return {
 				faceitGuid: guid,
 				nickname: String(dbPlayer?.nickname || rawPlayer?.nickname || "Jogador"),
-				avatar: String(bannerAvatar || dbPlayer?.avatar || DEFAULT_AVATAR),
+				avatar: toAvatarRenderUrl(resolvedAvatar),
 				stats: {
 					kills: Math.trunc(toNumber(top?.k)),
 					deaths: Math.trunc(toNumber(top?.d)),

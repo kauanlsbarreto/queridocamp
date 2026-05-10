@@ -147,7 +147,8 @@ function normalizeGuid(value: unknown) {
 }
 
 function isCustomTeamAvatarPath(value: unknown) {
-  return String(value || "").trim().toLowerCase().startsWith("/fotostime/");
+  const url = String(value || "").trim().toLowerCase();
+  return url.startsWith("/fotostime/") || url.startsWith("/api/fotostime?");
 }
 
 async function blobToDataUrl(blob: Blob) {
