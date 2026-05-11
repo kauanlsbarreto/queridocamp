@@ -687,19 +687,6 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, initialBann
     setAvatarMessage("");
 
     try {
-      let dataUrl = "";
-      if (avatarFilterMode !== "none") {
-        const fileResponse = await fetch(selected.previewUrl, { method: "GET", cache: "no-store" });
-        if (!fileResponse.ok) {
-          setAvatarMessage("Nao foi possivel baixar a foto selecionada.");
-          return;
-        }
-
-        const sourceBlob = await fileResponse.blob();
-        const processedBlob = await applyAvatarFilter(sourceBlob, avatarFilterMode);
-        dataUrl = await blobToDataUrl(processedBlob);
-      }
-
       const response = await fetch("/api/copadraft/times/avatar", {
         method: "POST",
         headers: {
@@ -713,7 +700,6 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, initialBann
           time: teamName,
           filter_mode: avatarFilterMode,
           filename: selected.name,
-          file_base64: dataUrl || undefined,
         }),
       });
 

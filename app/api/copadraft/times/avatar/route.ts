@@ -1,4 +1,4 @@
-import { mkdir, readdir, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { NextResponse } from "next/server";
@@ -99,6 +99,13 @@ function extFromFilename(filename: string) {
     return ext === ".jpeg" ? ".jpg" : ext;
   }
   return "";
+}
+
+function mimeTypeFromFilename(filename: string) {
+  const ext = extFromFilename(filename);
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  return "image/jpeg";
 }
 
 function decodeBase64Image(fileBase64: string) {
@@ -319,32 +326,38 @@ export async function POST(request: Request) {
       fileName = resolvedName;
       publicPath = `/fotostime/${publicTeamFolder}/${resolvedName}`;
     } else {
-      if (!fileBase64) {
+      const resolvedName = await resolveSelectedImagePath(teamDir, filename);
+      if (!resolvedName) {
         notifyAvatarSaveError({
           faceitGuid: reporterFaceitGuid,
           nickname: reporterNickname,
           steamId: reporterSteamId,
-          errorMessage: `file_base64 vazio para modo ${filterMode}.\nfilename: ${filename}\ntime: ${teamName}`,
+          errorMessage: `Arquivo base nao encontrado para filtro.\nfilename: ${filename}\ntime: ${teamName}\nmode: ${filterMode}`,
         }).catch(() => {});
-        return NextResponse.json({ message: "Nenhuma imagem enviada." }, { status: 400 });
+        return NextResponse.json({ message: "Imagem selecionada nao encontrada na pasta do time." }, { status: 400 });
       }
 
-      const decoded = decodeBase64Image(fileBase64);
-      if (!decoded || !decoded.bytes.length) {
-        notifyAvatarSaveError({
-          faceitGuid: reporterFaceitGuid,
-          nickname: reporterNickname,
-          steamId: reporterSteamId,
-          errorMessage: `Base64 invalido ou vazio.\nfilename: ${filename}\ntime: ${teamName}\nmode: ${filterMode}`,
-        }).catch(() => {});
-        return NextResponse.json({ message: "Imagem invalida." }, { status: 400 });
-      }
+      let bytes = await readFile(path.join(teamDir, resolvedName)).catch(() => Buffer.alloc(0));
+      let mimeType = mimeTypeFromFilename(resolvedName);
 
-      let bytes = decoded.bytes;
-      let mimeType = decoded.mimeType;
+      // Mantem compatibilidade com clientes antigos que ainda enviam base64.
+      if (fileBase64) {
+        const decoded = decodeBase64Image(fileBase64);
+        if (!decoded || !decoded.bytes.length) {
+          notifyAvatarSaveError({
+            faceitGuid: reporterFaceitGuid,
+            nickname: reporterNickname,
+            steamId: reporterSteamId,
+            errorMessage: `Base64 invalido recebido.\nfilename: ${filename}\ntime: ${teamName}\nmode: ${filterMode}`,
+          }).catch(() => {});
+          return NextResponse.json({ message: "Imagem invalida." }, { status: 400 });
+        }
+        bytes = decoded.bytes;
+        mimeType = decoded.mimeType;
+      }
 
       if (filterMode === "remove-white") {
-        const removed = await removeBackgroundWithSlazzer(decoded.bytes, filename, mimeType);
+        const removed = await removeBackgroundWithSlazzer(bytes, resolvedName, mimeType);
         bytes = removed.bytes;
         mimeType = removed.mimeType;
       }

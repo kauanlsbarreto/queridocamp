@@ -11,7 +11,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "fotostime:sync": "bash ./scripts/fotostime-discord-sync.sh",
+    "fotostime:watch": "WATCH_MODE=1 WATCH_INTERVAL_SECONDS=10 bash ./scripts/fotostime-discord-sync.sh"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "1.2.1",
