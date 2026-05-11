@@ -697,6 +697,7 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, initialBann
           nickname: faceitNickname,
           steam_id_64: steamId64,
           player_faceit_guid: selectedAvatarTargetGuid,
+          player_nickname: selectedAvatarTargetName,
           time: teamName,
           filter_mode: avatarFilterMode,
           filename: selected.name,

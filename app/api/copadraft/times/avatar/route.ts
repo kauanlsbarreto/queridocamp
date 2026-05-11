@@ -15,6 +15,18 @@ const PHOTO_DIR = path.join(process.cwd(), "public", "fotostime");
 type AvatarFilterMode = "none" | "remove-white" | "white-bg";
 const AVATAR_ERROR_WEBHOOK_URL =
   "https://discord.com/api/webhooks/1503419113056505977/2jdHJf2aOk6oia6FmB0Sn_q3e1HAYoNIHU9CaI7l9se1vVLCj4P0QwXVUy0Ug743G7fE";
+const AVATAR_BOT_WEBHOOK_URL = String(
+  process.env.DISCORD_BOT_AVATAR_WEBHOOK_URL ||
+  "https://bot-queridocamp-production.up.railway.app/queridocamp/avatar-saved"
+).trim();
+const SITE_PUBLIC_BASE_URL = String(process.env.SITE_PUBLIC_BASE_URL || "https://queridocamp.com.br").replace(/\/+$/, "");
+
+function toAbsoluteSiteUrl(value: string) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `${SITE_PUBLIC_BASE_URL}${raw.startsWith("/") ? "" : "/"}${raw}`;
+}
 
 function normalizeText(value: unknown) {
   return String(value || "")
@@ -240,6 +252,50 @@ async function notifyAvatarSaveError(details: {
   });
 }
 
+async function notifyBotAvatarSaved(details: {
+  avatarPath: string;
+  avatarPathVersioned: string;
+  teamName: string;
+  playerNickname: string;
+  actorNickname: string;
+  filterMode: AvatarFilterMode;
+}) {
+  if (!AVATAR_BOT_WEBHOOK_URL) return;
+
+  const syncToken = String(process.env.AVATAR_SYNC_TOKEN || process.env.DISCORD_BOT_SYNC_SECRET || "").trim();
+  if (!syncToken) return;
+
+  const avatarPath = String(details.avatarPath || "").trim();
+  const avatarPathVersioned = String(details.avatarPathVersioned || "").trim();
+  const avatarUrl = toAbsoluteSiteUrl(avatarPathVersioned || avatarPath);
+  if (!avatarUrl) return;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+  try {
+    await fetch(AVATAR_BOT_WEBHOOK_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${syncToken}`,
+        "x-bot-sync-token": syncToken,
+      },
+      body: JSON.stringify({
+        avatarUrl,
+        avatarPath,
+        teamName: details.teamName,
+        playerNickname: details.playerNickname,
+        actorNickname: details.actorNickname,
+        filterMode: details.filterMode,
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function POST(request: Request) {
   let connection: any = null;
   let reporterFaceitGuid = "";
@@ -255,6 +311,7 @@ export async function POST(request: Request) {
     reporterSteamId = String(payload?.steam_id_64 || payload?.steam || "").trim();
     const teamName = String(payload?.time || "").trim();
     const playerGuid = String(payload?.player_faceit_guid || "").trim().toLowerCase();
+    const playerNickname = String(payload?.player_nickname || "").trim() || reporterNickname || "Jogador";
     const filename = String(payload?.filename || "").trim();
     const fileBase64 = String(payload?.file_base64 || "").trim();
     const filterModeRaw = String(payload?.filter_mode || "none").trim().toLowerCase();
@@ -391,6 +448,19 @@ export async function POST(request: Request) {
         `INSERT INTO banner (time, zoom, x, y, largura, altura, ordem, ${avatarColumn}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [teamName, 1, 0, 0, 1100, 280, "", publicPath]
       );
+    }
+
+    try {
+      await notifyBotAvatarSaved({
+        avatarPath: publicPath,
+        avatarPathVersioned: versionedPublicPath,
+        teamName,
+        playerNickname,
+        actorNickname: reporterNickname || "Sistema",
+        filterMode,
+      });
+    } catch {
+      // Nao bloqueia o fluxo principal caso o bot esteja offline.
     }
 
     return NextResponse.json({
