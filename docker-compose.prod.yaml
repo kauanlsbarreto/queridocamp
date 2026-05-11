@@ -90,6 +90,7 @@ services:
     
     volumes:
       - /var/www/queridocamp/public:/app/public
+      - fotostime_uploads:/app/public/fotostime
 
   redis:
     image: redis:7-alpine
@@ -126,6 +127,8 @@ services:
 
 volumes:
   redis-data-prod:
+    driver: local
+  fotostime_uploads:
     driver: local
 
 networks:
