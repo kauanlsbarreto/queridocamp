@@ -624,11 +624,13 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, initialBann
     setAvatarMessage("");
     setSelectedAvatarTargetGuid(targetGuid);
     setSelectedAvatarTargetName(String(targetPlayer.nickname || "Jogador"));
+    setAvatarPhotos([]);
+    setSelectedAvatarPhotoId("");
     setLoadingAvatarPhotos(true);
 
     try {
       const response = await fetch(
-        `/api/copadraft/times/avatar-options?time=${encodeURIComponent(teamName)}&faceit_guid=${encodeURIComponent(faceitGuid)}`,
+        `/api/copadraft/times/avatar-options?time=${encodeURIComponent(teamName)}&faceit_guid=${encodeURIComponent(faceitGuid)}&_t=${Date.now()}`,
         { method: "GET", cache: "no-store" }
       );
       const data = await response.json().catch(() => ({}));

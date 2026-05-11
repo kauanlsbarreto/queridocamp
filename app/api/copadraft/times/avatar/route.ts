@@ -307,6 +307,12 @@ export async function POST(request: Request) {
     if (filterMode === "none") {
       const resolvedName = await resolveSelectedImagePath(teamDir, filename);
       if (!resolvedName) {
+        notifyAvatarSaveError({
+          faceitGuid: reporterFaceitGuid,
+          nickname: reporterNickname,
+          steamId: reporterSteamId,
+          errorMessage: `Arquivo nao encontrado na pasta do time.\nfilename: ${filename}\ntime: ${teamName}`,
+        }).catch(() => {});
         return NextResponse.json({ message: "Imagem selecionada nao encontrada na pasta do time." }, { status: 400 });
       }
 
@@ -314,11 +320,23 @@ export async function POST(request: Request) {
       publicPath = `/fotostime/${publicTeamFolder}/${resolvedName}`;
     } else {
       if (!fileBase64) {
+        notifyAvatarSaveError({
+          faceitGuid: reporterFaceitGuid,
+          nickname: reporterNickname,
+          steamId: reporterSteamId,
+          errorMessage: `file_base64 vazio para modo ${filterMode}.\nfilename: ${filename}\ntime: ${teamName}`,
+        }).catch(() => {});
         return NextResponse.json({ message: "Nenhuma imagem enviada." }, { status: 400 });
       }
 
       const decoded = decodeBase64Image(fileBase64);
       if (!decoded || !decoded.bytes.length) {
+        notifyAvatarSaveError({
+          faceitGuid: reporterFaceitGuid,
+          nickname: reporterNickname,
+          steamId: reporterSteamId,
+          errorMessage: `Base64 invalido ou vazio.\nfilename: ${filename}\ntime: ${teamName}\nmode: ${filterMode}`,
+        }).catch(() => {});
         return NextResponse.json({ message: "Imagem invalida." }, { status: 400 });
       }
 
@@ -332,6 +350,12 @@ export async function POST(request: Request) {
       }
 
       if (!bytes.length || bytes.length > 12 * 1024 * 1024) {
+        notifyAvatarSaveError({
+          faceitGuid: reporterFaceitGuid,
+          nickname: reporterNickname,
+          steamId: reporterSteamId,
+          errorMessage: `Imagem muito grande ou vazia apos processamento.\nbytes: ${bytes.length}\nfilename: ${filename}\ntime: ${teamName}`,
+        }).catch(() => {});
         return NextResponse.json({ message: "Imagem muito grande ou vazia." }, { status: 400 });
       }
 
