@@ -15,18 +15,7 @@ const PHOTO_DIR = path.join(process.cwd(), "public", "fotostime");
 type AvatarFilterMode = "none" | "remove-white" | "white-bg";
 const AVATAR_ERROR_WEBHOOK_URL =
   "https://discord.com/api/webhooks/1503419113056505977/2jdHJf2aOk6oia6FmB0Sn_q3e1HAYoNIHU9CaI7l9se1vVLCj4P0QwXVUy0Ug743G7fE";
-const AVATAR_BOT_WEBHOOK_URL = String(
-  process.env.DISCORD_BOT_AVATAR_WEBHOOK_URL ||
-  "https://bot-queridocamp-production.up.railway.app/queridocamp/avatar-saved"
-).trim();
-const SITE_PUBLIC_BASE_URL = String(process.env.SITE_PUBLIC_BASE_URL || "https://queridocamp.com.br").replace(/\/+$/, "");
-
-function toAbsoluteSiteUrl(value: string) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  if (/^https?:\/\//i.test(raw)) return raw;
-  return `${SITE_PUBLIC_BASE_URL}${raw.startsWith("/") ? "" : "/"}${raw}`;
-}
+const IMGBB_API_KEY = String(process.env.IMGBB_API_KEY || "").trim();
 
 function normalizeText(value: unknown) {
   return String(value || "")
@@ -183,6 +172,29 @@ async function removeBackgroundWithSlazzer(inputBytes: Buffer, filename: string,
   };
 }
 
+async function uploadBufferToImgbb(bytes: Buffer, imageName: string) {
+  if (!IMGBB_API_KEY) {
+    throw new Error("IMGBB_API_KEY nao configurada.");
+  }
+
+  const form = new FormData();
+  form.append("image", bytes.toString("base64"));
+  form.append("name", imageName.slice(0, 100));
+
+  const uploadUrl = `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`;
+  const response = await fetch(uploadUrl, {
+    method: "POST",
+    body: form,
+  });
+
+  const data = await response.json().catch(() => ({} as any));
+  if (!response.ok || !data?.success || !data?.data?.url) {
+    throw new Error(data?.error?.message || "Falha ao enviar imagem para ImgBB.");
+  }
+
+  return String(data.data.url);
+}
+
 async function isAdminOne(connection: any, faceitGuid: string) {
   const [rows] = await connection.query(
     "SELECT Admin FROM players WHERE faceit_guid = ? LIMIT 1",
@@ -252,50 +264,6 @@ async function notifyAvatarSaveError(details: {
   });
 }
 
-async function notifyBotAvatarSaved(details: {
-  avatarPath: string;
-  avatarPathVersioned: string;
-  teamName: string;
-  playerNickname: string;
-  actorNickname: string;
-  filterMode: AvatarFilterMode;
-}) {
-  if (!AVATAR_BOT_WEBHOOK_URL) return;
-
-  const syncToken = String(process.env.AVATAR_SYNC_TOKEN || process.env.DISCORD_BOT_SYNC_SECRET || "").trim();
-  if (!syncToken) return;
-
-  const avatarPath = String(details.avatarPath || "").trim();
-  const avatarPathVersioned = String(details.avatarPathVersioned || "").trim();
-  const avatarUrl = toAbsoluteSiteUrl(avatarPathVersioned || avatarPath);
-  if (!avatarUrl) return;
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-  try {
-    await fetch(AVATAR_BOT_WEBHOOK_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${syncToken}`,
-        "x-bot-sync-token": syncToken,
-      },
-      body: JSON.stringify({
-        avatarUrl,
-        avatarPath,
-        teamName: details.teamName,
-        playerNickname: details.playerNickname,
-        actorNickname: details.actorNickname,
-        filterMode: details.filterMode,
-      }),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
 export async function POST(request: Request) {
   let connection: any = null;
   let reporterFaceitGuid = "";
@@ -311,7 +279,6 @@ export async function POST(request: Request) {
     reporterSteamId = String(payload?.steam_id_64 || payload?.steam || "").trim();
     const teamName = String(payload?.time || "").trim();
     const playerGuid = String(payload?.player_faceit_guid || "").trim().toLowerCase();
-    const playerNickname = String(payload?.player_nickname || "").trim() || reporterNickname || "Jogador";
     const filename = String(payload?.filename || "").trim();
     const fileBase64 = String(payload?.file_base64 || "").trim();
     const filterModeRaw = String(payload?.filter_mode || "none").trim().toLowerCase();
@@ -429,15 +396,20 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: "Imagem muito grande ou vazia." }, { status: 400 });
       }
 
-      const ext = filterMode === "remove-white" ? ".png" : extFromFilename(filename) || extFromMimeType(mimeType);
       const baseName = sanitizeFileStem(filename);
-      const suffix = filterMode === "remove-white" ? "bg" : "edit";
-      fileName = `${baseName}-${suffix}-${Date.now()}${ext}`;
-      const absolutePath = path.join(teamDir, fileName);
 
-      await clearExistingSlotFiles(teamDir, slot);
-      await writeFile(absolutePath, bytes);
-      publicPath = `/fotostime/${publicTeamFolder}/${fileName}`;
+      if (filterMode === "remove-white") {
+        fileName = `${baseName}-bg-${Date.now()}.png`;
+        publicPath = await uploadBufferToImgbb(bytes, fileName);
+      } else {
+        const ext = extFromFilename(filename) || extFromMimeType(mimeType);
+        fileName = `${baseName}-edit-${Date.now()}${ext}`;
+        const absolutePath = path.join(teamDir, fileName);
+
+        await clearExistingSlotFiles(teamDir, slot);
+        await writeFile(absolutePath, bytes);
+        publicPath = `/fotostime/${publicTeamFolder}/${fileName}`;
+      }
     }
 
     const versionedPublicPath = `${publicPath}?v=${Date.now()}`;
@@ -448,19 +420,6 @@ export async function POST(request: Request) {
         `INSERT INTO banner (time, zoom, x, y, largura, altura, ordem, ${avatarColumn}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [teamName, 1, 0, 0, 1100, 280, "", publicPath]
       );
-    }
-
-    try {
-      await notifyBotAvatarSaved({
-        avatarPath: publicPath,
-        avatarPathVersioned: versionedPublicPath,
-        teamName,
-        playerNickname,
-        actorNickname: reporterNickname || "Sistema",
-        filterMode,
-      });
-    } catch {
-      // Nao bloqueia o fluxo principal caso o bot esteja offline.
     }
 
     return NextResponse.json({
