@@ -137,6 +137,20 @@ export const UserProfile = ({
   }, [points]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const storedSession = localStorage.getItem('faceit_user');
+      if (!storedSession) return;
+
+      const currentUser = JSON.parse(storedSession);
+      setUserPoints(normalizePoints(currentUser?.points));
+    } catch {
+      // silencioso por pedido: sem logs no bootstrap
+    }
+  }, []);
+
+  useEffect(() => {
     if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
       setUserAdminLevel(Admin || admin || 0);
       setUserPoints(points ?? 0);
@@ -151,7 +165,7 @@ export const UserProfile = ({
     };
 
     syncTick();
-    const intervalId = window.setInterval(syncTick, 2000);
+    const intervalId = window.setInterval(syncTick, 15000);
 
     return () => {
       isUnmounted = true;

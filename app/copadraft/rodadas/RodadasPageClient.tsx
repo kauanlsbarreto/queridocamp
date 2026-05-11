@@ -127,24 +127,32 @@ function RoundCard({ rodada, jogos }: { rodada: number; jogos: Jogo[] }) {
 }
 
 export default function RodadasPageClient({ jogos }: Props) {
-  const [cachedJogos, setCachedJogos] = useState<Jogo[]>(jogos);
+  const [isClearingCache, setIsClearingCache] = useState(false);
 
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem("rodadas_page_cache");
-      if (cached) {
-        setCachedJogos(JSON.parse(cached));
-      } else {
-        sessionStorage.setItem("rodadas_page_cache", JSON.stringify(jogos));
+      const legacyKeys = ["rodadas_page_cache", "jogos_page_cache", "desafiar_matches_cache"];
+      const hasLegacyCache = legacyKeys.some((key) => sessionStorage.getItem(key) !== null);
+      if (!hasLegacyCache) return;
+
+      setIsClearingCache(true);
+      for (const key of legacyKeys) {
+        sessionStorage.removeItem(key);
       }
+
+      const timer = window.setTimeout(() => {
+        window.location.reload();
+      }, 900);
+
+      return () => window.clearTimeout(timer);
     } catch {
-      // ignore cache errors
+      // ignore storage access errors
     }
-  }, [jogos]);
+  }, []);
 
   const byRound = new Map<number, Jogo[]>();
   for (let r = 1; r <= TOTAL_RODADAS; r++) byRound.set(r, []);
-  for (const jogo of cachedJogos) {
+  for (const jogo of jogos) {
     const r = Number(jogo.rodada);
     if (r >= 1 && r <= TOTAL_RODADAS) {
       byRound.get(r)!.push(jogo);
@@ -157,6 +165,12 @@ export default function RodadasPageClient({ jogos }: Props) {
       <div className="pointer-events-none absolute inset-0 opacity-40 [background:linear-gradient(120deg,transparent_0%,transparent_35%,rgba(56,189,248,0.35)_50%,transparent_65%,transparent_100%)]" />
 
       <div className="relative mx-auto max-w-6xl">
+        {isClearingCache && (
+          <div className="mb-4 rounded-lg border border-amber-300/50 bg-amber-300/10 px-4 py-2 text-center text-sm font-bold uppercase tracking-wide text-amber-200">
+            Limpando cache
+          </div>
+        )}
+
         <header className="mb-8 text-center">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-200/90">Copa Draft</p>
           <h1 className="mt-2 text-3xl font-black uppercase tracking-tight text-white md:text-5xl">

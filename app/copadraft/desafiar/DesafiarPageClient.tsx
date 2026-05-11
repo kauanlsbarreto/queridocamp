@@ -532,6 +532,7 @@ export default function DesafiarPageClient({
 }: Props) {
   const [user, setUser] = useState<any>(null);
   const [matches, setMatches] = useState<MatchRow[]>(initialMatches);
+  const [isClearingCache, setIsClearingCache] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [adminMode, setAdminMode] = useState(false);
   const sentErrorFingerprintsRef = useRef<Set<string>>(new Set());
@@ -561,16 +562,24 @@ export default function DesafiarPageClient({
 
   useEffect(() => {
     setUser(readStoredUser());
-    
-    // Restore previous session data if user navigates back
+
     try {
-      const cached = sessionStorage.getItem("desafiar_matches_cache");
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        setMatches(parsed);
+      const legacyKeys = ["rodadas_page_cache", "jogos_page_cache", "desafiar_matches_cache"];
+      const hasLegacyCache = legacyKeys.some((key) => sessionStorage.getItem(key) !== null);
+      if (!hasLegacyCache) return;
+
+      setIsClearingCache(true);
+      for (const key of legacyKeys) {
+        sessionStorage.removeItem(key);
       }
+
+      const timer = window.setTimeout(() => {
+        window.location.reload();
+      }, 900);
+
+      return () => window.clearTimeout(timer);
     } catch {
-      // ignore cache restore errors
+      // ignore storage access errors
     }
   }, []);
 
@@ -666,11 +675,6 @@ export default function DesafiarPageClient({
           const data = await res.json();
           if (Array.isArray(data.matches)) {
             setMatches(data.matches);
-            try {
-              sessionStorage.setItem("desafiar_matches_cache", JSON.stringify(data.matches));
-            } catch {
-              // ignore storage errors
-            }
           }
         }
       } catch {
@@ -732,12 +736,6 @@ export default function DesafiarPageClient({
       } else {
         next = [updated, ...prev];
       }
-      // Persist to session cache so navigation doesn't lose state
-      try {
-        sessionStorage.setItem("desafiar_matches_cache", JSON.stringify(next));
-      } catch {
-        // ignore storage errors (quota, etc)
-      }
       return next;
     });
   }
@@ -779,6 +777,12 @@ export default function DesafiarPageClient({
     showToast("Proposta enviada com sucesso!");
     setProposalModal({
       open: false,
+            {isClearingCache && (
+              <div className="mb-4 rounded-lg border border-amber-300/50 bg-amber-300/10 px-4 py-2 text-center text-sm font-bold uppercase tracking-wide text-amber-200">
+                Limpando cache
+              </div>
+            )}
+
       rodada: null,
       opponentId: null,
       opponentName: "",

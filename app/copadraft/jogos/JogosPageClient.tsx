@@ -121,30 +121,38 @@ function DateSection({ date, games }: { date: string; games: ConfirmedGame[] }) 
 }
 
 export default function JogosPageClient({ games }: Props) {
-  const [cachedGames, setCachedGames] = useState<ConfirmedGame[]>(games);
+  const [isClearingCache, setIsClearingCache] = useState(false);
 
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem("jogos_page_cache");
-      if (cached) {
-        setCachedGames(JSON.parse(cached));
-      } else {
-        sessionStorage.setItem("jogos_page_cache", JSON.stringify(games));
+      const legacyKeys = ["rodadas_page_cache", "jogos_page_cache", "desafiar_matches_cache"];
+      const hasLegacyCache = legacyKeys.some((key) => sessionStorage.getItem(key) !== null);
+      if (!hasLegacyCache) return;
+
+      setIsClearingCache(true);
+      for (const key of legacyKeys) {
+        sessionStorage.removeItem(key);
       }
+
+      const timer = window.setTimeout(() => {
+        window.location.reload();
+      }, 900);
+
+      return () => window.clearTimeout(timer);
     } catch {
-      // ignore cache errors
+      // ignore storage access errors
     }
-  }, [games]);
+  }, []);
 
   const grouped = useMemo(() => {
     const map = new Map<string, ConfirmedGame[]>();
-    for (const game of cachedGames) {
+    for (const game of games) {
       const dateKey = String(game.date || "").slice(0, 10);
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(game);
     }
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [cachedGames]);
+  }, [games]);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#030a1e] px-4 py-10 text-white">
@@ -152,6 +160,12 @@ export default function JogosPageClient({ games }: Props) {
       <div className="pointer-events-none absolute inset-0 opacity-40 [background:linear-gradient(120deg,transparent_0%,transparent_35%,rgba(56,189,248,0.35)_50%,transparent_65%,transparent_100%)]" />
 
       <div className="relative mx-auto max-w-6xl">
+        {isClearingCache && (
+          <div className="mb-4 rounded-lg border border-amber-300/50 bg-amber-300/10 px-4 py-2 text-center text-sm font-bold uppercase tracking-wide text-amber-200">
+            Limpando cache
+          </div>
+        )}
+
         <header className="mb-8 text-center">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-200/90">Copa Draft</p>
           <h1 className="mt-2 text-3xl font-black uppercase tracking-tight text-white md:text-5xl">Jogos</h1>
