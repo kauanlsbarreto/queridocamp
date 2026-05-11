@@ -1,4 +1,4 @@
-import { mkdir, readdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { NextResponse } from "next/server";
@@ -13,6 +13,8 @@ export const runtime = "nodejs";
 const AVATAR_COLUMNS = ["avatar0", "avatar1", "avatar2", "avatar3", "avatar4"] as const;
 const PHOTO_DIR = path.join(process.cwd(), "public", "fotostime");
 type AvatarFilterMode = "none" | "remove-white" | "white-bg";
+const AVATAR_ERROR_WEBHOOK_URL =
+  "https://discord.com/api/webhooks/1503419113056505977/2jdHJf2aOk6oia6FmB0Sn_q3e1HAYoNIHU9CaI7l9se1vVLCj4P0QwXVUy0Ug743G7fE";
 
 function normalizeText(value: unknown) {
   return String(value || "")
@@ -27,6 +29,60 @@ function slugify(value: unknown) {
   return normalizeText(value)
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function sanitizeFileStem(value: string) {
+  const stem = String(value || "")
+    .trim()
+    .replace(/\.[a-z0-9]+$/i, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return stem || "avatar";
+}
+
+function sanitizeImageName(value: unknown) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  const basename = path.basename(raw);
+  if (basename.includes("..") || basename.includes("/") || basename.includes("\\")) return "";
+
+  return /\.(png|jpe?g|webp)$/i.test(basename) ? basename : "";
+}
+
+async function resolveBestTeamDir(baseDir: string, teamName: string) {
+  const entries = await readdir(baseDir, { withFileTypes: true }).catch(() => []);
+  const dirs = entries.filter((entry) => entry.isDirectory());
+  if (!dirs.length) return null;
+
+  const rawName = String(teamName || "").trim();
+  const teamSlug = slugify(teamName);
+  const wantedNorm = normalizeText(teamName);
+
+  const exactRaw = dirs.find((entry) => entry.name === rawName);
+  if (exactRaw) return path.join(baseDir, exactRaw.name);
+
+  const exactSlug = dirs.find((entry) => entry.name === teamSlug);
+  if (exactSlug) return path.join(baseDir, exactSlug.name);
+
+  const rawLower = rawName.toLowerCase();
+  const slugLower = teamSlug.toLowerCase();
+  const ci = dirs.find((entry) => {
+    const entryLower = entry.name.toLowerCase();
+    return entryLower === rawLower || entryLower === slugLower;
+  });
+  if (ci) return path.join(baseDir, ci.name);
+
+  const normalized = dirs.find((entry) => {
+    const entryName = String(entry.name || "");
+    return normalizeText(entryName) === wantedNorm || slugify(entryName) === teamSlug;
+  });
+
+  return normalized ? path.join(baseDir, normalized.name) : null;
 }
 
 function extFromMimeType(mimeType: string) {
@@ -131,13 +187,65 @@ async function clearExistingSlotFiles(dir: string, slot: number) {
   );
 }
 
+async function resolveSelectedImagePath(teamDir: string, filename: string) {
+  const safeName = sanitizeImageName(filename);
+  if (!safeName) return null;
+
+  const absolutePath = path.join(teamDir, safeName);
+  try {
+    const info = await stat(absolutePath);
+    if (!info.isFile()) return null;
+    return safeName;
+  } catch {
+    const entries = await readdir(teamDir, { withFileTypes: true }).catch(() => []);
+    const wanted = safeName.toLowerCase();
+    const found = entries.find((entry) => entry.isFile() && entry.name.toLowerCase() === wanted);
+    return found?.name || null;
+  }
+}
+
+async function notifyAvatarSaveError(details: {
+  faceitGuid: string;
+  nickname: string;
+  steamId: string;
+  errorMessage: string;
+}) {
+  const faceitGuid = String(details.faceitGuid || "").trim() || "(vazio)";
+  const nickname = String(details.nickname || "").trim() || "(vazio)";
+  const steamId = String(details.steamId || "").trim() || "(vazio)";
+  const errorMessage = String(details.errorMessage || "Erro desconhecido").trim();
+
+  const content = [
+    "[COPADRAFT] Erro ao salvar foto no editar time",
+    `faceit_guid: ${faceitGuid}`,
+    `nickname: ${nickname}`,
+    `steam: ${steamId}`,
+    "erro:",
+    errorMessage,
+  ].join("\n");
+
+  await fetch(AVATAR_ERROR_WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      content: content.length > 1900 ? `${content.slice(0, 1900)}...` : content,
+    }),
+  });
+}
+
 export async function POST(request: Request) {
   let connection: any = null;
+  let reporterFaceitGuid = "";
+  let reporterNickname = "";
+  let reporterSteamId = "";
 
   try {
     const payload = await request.json().catch(() => null);
 
     const faceitGuid = String(payload?.faceit_guid || "").trim();
+    reporterFaceitGuid = faceitGuid;
+    reporterNickname = String(payload?.nickname || "").trim();
+    reporterSteamId = String(payload?.steam_id_64 || payload?.steam || "").trim();
     const teamName = String(payload?.time || "").trim();
     const playerGuid = String(payload?.player_faceit_guid || "").trim().toLowerCase();
     const filename = String(payload?.filename || "").trim();
@@ -148,10 +256,6 @@ export async function POST(request: Request) {
 
     if (!faceitGuid || !teamName) {
       return NextResponse.json({ message: "faceit_guid e time sao obrigatorios." }, { status: 400 });
-    }
-
-    if (!fileBase64) {
-      return NextResponse.json({ message: "Nenhuma imagem enviada." }, { status: 400 });
     }
 
     const ownGuid = faceitGuid.toLowerCase();
@@ -192,36 +296,56 @@ export async function POST(request: Request) {
       }
     }
 
-    const decoded = decodeBase64Image(fileBase64);
-    if (!decoded || !decoded.bytes.length) {
-      return NextResponse.json({ message: "Imagem invalida." }, { status: 400 });
+    const existingTeamDir = await resolveBestTeamDir(PHOTO_DIR, teamName);
+    const teamDir = existingTeamDir || path.join(PHOTO_DIR, slugify(teamName) || "time");
+    await mkdir(teamDir, { recursive: true });
+    const publicTeamFolder = path.basename(teamDir);
+
+    let publicPath = "";
+    let fileName = "";
+
+    if (filterMode === "none") {
+      const resolvedName = await resolveSelectedImagePath(teamDir, filename);
+      if (!resolvedName) {
+        return NextResponse.json({ message: "Imagem selecionada nao encontrada na pasta do time." }, { status: 400 });
+      }
+
+      fileName = resolvedName;
+      publicPath = `/fotostime/${publicTeamFolder}/${resolvedName}`;
+    } else {
+      if (!fileBase64) {
+        return NextResponse.json({ message: "Nenhuma imagem enviada." }, { status: 400 });
+      }
+
+      const decoded = decodeBase64Image(fileBase64);
+      if (!decoded || !decoded.bytes.length) {
+        return NextResponse.json({ message: "Imagem invalida." }, { status: 400 });
+      }
+
+      let bytes = decoded.bytes;
+      let mimeType = decoded.mimeType;
+
+      if (filterMode === "remove-white") {
+        const removed = await removeBackgroundWithSlazzer(decoded.bytes, filename, mimeType);
+        bytes = removed.bytes;
+        mimeType = removed.mimeType;
+      }
+
+      if (!bytes.length || bytes.length > 12 * 1024 * 1024) {
+        return NextResponse.json({ message: "Imagem muito grande ou vazia." }, { status: 400 });
+      }
+
+      const ext = filterMode === "remove-white" ? ".png" : extFromFilename(filename) || extFromMimeType(mimeType);
+      const baseName = sanitizeFileStem(filename);
+      const suffix = filterMode === "remove-white" ? "bg" : "edit";
+      fileName = `${baseName}-${suffix}-${Date.now()}${ext}`;
+      const absolutePath = path.join(teamDir, fileName);
+
+      await clearExistingSlotFiles(teamDir, slot);
+      await writeFile(absolutePath, bytes);
+      publicPath = `/fotostime/${publicTeamFolder}/${fileName}`;
     }
 
-    let bytes = decoded.bytes;
-    let mimeType = decoded.mimeType;
-
-    if (filterMode === "remove-white") {
-      const removed = await removeBackgroundWithSlazzer(decoded.bytes, filename, mimeType);
-      bytes = removed.bytes;
-      mimeType = removed.mimeType;
-    }
-
-    if (!bytes.length || bytes.length > 12 * 1024 * 1024) {
-      return NextResponse.json({ message: "Imagem muito grande ou vazia." }, { status: 400 });
-    }
-
-    const ext = filterMode === "remove-white" ? ".png" : extFromFilename(filename) || extFromMimeType(mimeType);
-    const teamFolder = slugify(teamName) || "time";
-    const dir = path.join(PHOTO_DIR, teamFolder);
-    await mkdir(dir, { recursive: true });
-
-    await clearExistingSlotFiles(dir, slot);
-
-    const fileName = filterMode === "remove-white" ? `${slot}bg${ext}` : `${slot}${ext}`;
-    const absolutePath = path.join(dir, fileName);
-    await writeFile(absolutePath, bytes);
-
-    const publicPath = `/fotostime/${teamFolder}/${fileName}`;
     const versionedPublicPath = `${publicPath}?v=${Date.now()}`;
     if (existing?.id) {
       await connection.query(`UPDATE banner SET ${avatarColumn} = ? WHERE id = ?`, [publicPath, existing.id]);
@@ -242,6 +366,19 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro ao salvar avatar.";
+    const fullError = error instanceof Error ? `${error.message}\n${error.stack || ""}` : String(error);
+
+    try {
+      await notifyAvatarSaveError({
+        faceitGuid: reporterFaceitGuid,
+        nickname: reporterNickname,
+        steamId: reporterSteamId,
+        errorMessage: fullError || message,
+      });
+    } catch {
+      // Evita quebrar a resposta da API quando o webhook falhar
+    }
+
     return NextResponse.json({ message }, { status: 500 });
   } finally {
     await connection?.end?.();

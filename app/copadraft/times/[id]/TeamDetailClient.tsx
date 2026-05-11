@@ -305,6 +305,8 @@ async function detectFacesBannerConfig(imageUrl: string, baseConfig: BannerConfi
 export default function TeamDetailClient({ teamName, bannerImageUrl, initialBannerConfig, players }: Props) {
   const bannerHostRef = useRef<HTMLDivElement | null>(null);
   const [faceitGuid, setFaceitGuid] = useState("");
+  const [faceitNickname, setFaceitNickname] = useState("");
+  const [steamId64, setSteamId64] = useState("");
   const [adminLevel, setAdminLevel] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -352,15 +354,22 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, initialBann
 
       const parsed = JSON.parse(raw) as {
         faceit_guid?: string;
+        nickname?: string;
+        steam_id_64?: string;
+        steam?: string;
         Admin?: number | string;
         admin?: number | string;
       };
 
       setFaceitGuid(String(parsed?.faceit_guid || "").trim());
+      setFaceitNickname(String(parsed?.nickname || "").trim());
+      setSteamId64(String(parsed?.steam_id_64 || parsed?.steam || "").trim());
       const level = Number(parsed?.Admin ?? parsed?.admin ?? 0);
       setAdminLevel(Number.isFinite(level) ? level : 0);
     } catch {
       setFaceitGuid("");
+      setFaceitNickname("");
+      setSteamId64("");
       setAdminLevel(0);
     }
   }, []);
@@ -676,15 +685,18 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, initialBann
     setAvatarMessage("");
 
     try {
-      const fileResponse = await fetch(selected.previewUrl, { method: "GET", cache: "no-store" });
-      if (!fileResponse.ok) {
-        setAvatarMessage("Nao foi possivel baixar a foto selecionada.");
-        return;
-      }
+      let dataUrl = "";
+      if (avatarFilterMode !== "none") {
+        const fileResponse = await fetch(selected.previewUrl, { method: "GET", cache: "no-store" });
+        if (!fileResponse.ok) {
+          setAvatarMessage("Nao foi possivel baixar a foto selecionada.");
+          return;
+        }
 
-      const sourceBlob = await fileResponse.blob();
-      const processedBlob = await applyAvatarFilter(sourceBlob, avatarFilterMode);
-      const dataUrl = await blobToDataUrl(processedBlob);
+        const sourceBlob = await fileResponse.blob();
+        const processedBlob = await applyAvatarFilter(sourceBlob, avatarFilterMode);
+        dataUrl = await blobToDataUrl(processedBlob);
+      }
 
       const response = await fetch("/api/copadraft/times/avatar", {
         method: "POST",
@@ -693,11 +705,13 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, initialBann
         },
         body: JSON.stringify({
           faceit_guid: faceitGuid,
+          nickname: faceitNickname,
+          steam_id_64: steamId64,
           player_faceit_guid: selectedAvatarTargetGuid,
           time: teamName,
           filter_mode: avatarFilterMode,
           filename: selected.name,
-          file_base64: dataUrl,
+          file_base64: dataUrl || undefined,
         }),
       });
 
@@ -719,7 +733,7 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, initialBann
 
       setAvatarMessage("Foto de perfil salva com sucesso.");
       setOrderMessage(`Foto de perfil de ${selectedAvatarTargetName || "jogador"} atualizada com sucesso.`);
-      setIsAvatarModalOpen(false);
+      window.location.reload();
     } catch {
       setAvatarMessage("Erro inesperado ao salvar avatar.");
     } finally {

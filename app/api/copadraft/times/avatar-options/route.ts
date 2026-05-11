@@ -39,14 +39,35 @@ function mimeTypeFromName(filename: string) {
   return "image/jpeg";
 }
 
-async function resolveCaseInsensitiveDir(baseDir: string, folderName: string) {
+async function resolveBestTeamDir(baseDir: string, teamName: string) {
   const entries = await readdir(baseDir, { withFileTypes: true }).catch(() => []);
-  const exact = entries.find((entry) => entry.isDirectory() && entry.name === folderName);
-  if (exact) return path.join(baseDir, exact.name);
+  const dirs = entries.filter((entry) => entry.isDirectory());
+  if (!dirs.length) return null;
 
-  const wanted = folderName.toLowerCase();
-  const ci = entries.find((entry) => entry.isDirectory() && entry.name.toLowerCase() === wanted);
-  return ci ? path.join(baseDir, ci.name) : null;
+  const rawName = String(teamName || "").trim();
+  const teamSlug = slugify(teamName);
+  const wantedNorm = normalizeText(teamName);
+
+  const exactRaw = dirs.find((entry) => entry.name === rawName);
+  if (exactRaw) return path.join(baseDir, exactRaw.name);
+
+  const exactSlug = dirs.find((entry) => entry.name === teamSlug);
+  if (exactSlug) return path.join(baseDir, exactSlug.name);
+
+  const rawLower = rawName.toLowerCase();
+  const slugLower = teamSlug.toLowerCase();
+  const ci = dirs.find((entry) => {
+    const entryLower = entry.name.toLowerCase();
+    return entryLower === rawLower || entryLower === slugLower;
+  });
+  if (ci) return path.join(baseDir, ci.name);
+
+  const normalized = dirs.find((entry) => {
+    const entryName = String(entry.name || "");
+    return normalizeText(entryName) === wantedNorm || slugify(entryName) === teamSlug;
+  });
+
+  return normalized ? path.join(baseDir, normalized.name) : null;
 }
 
 async function isAdminOne(connection: any, faceitGuid: string) {
@@ -67,6 +88,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const faceitGuid = String(url.searchParams.get("faceit_guid") || "").trim();
+    const normalizedGuid = faceitGuid.toLowerCase();
     const teamName = String(url.searchParams.get("time") || "").trim();
 
     if (!faceitGuid || !teamName) {
@@ -76,14 +98,13 @@ export async function GET(request: Request) {
     const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
 
-    const isAdmin = await isAdminOne(connection, faceitGuid);
+    const isAdmin = await isAdminOne(connection, normalizedGuid);
 
-    if (!isAdmin && !isPlayerInTeam(faceitGuid, teamName)) {
+    if (!isAdmin && !isPlayerInTeam(normalizedGuid, teamName)) {
       return NextResponse.json({ message: "Somente membros do proprio time podem listar fotos." }, { status: 403 });
     }
 
-    const teamFolder = slugify(teamName) || "time";
-    const absoluteDir = await resolveCaseInsensitiveDir(PHOTO_DIR, teamFolder);
+    const absoluteDir = await resolveBestTeamDir(PHOTO_DIR, teamName);
     if (!absoluteDir) {
       return NextResponse.json({ photos: [] });
     }
@@ -91,11 +112,18 @@ export async function GET(request: Request) {
     const entries = await readdir(absoluteDir, { withFileTypes: true }).catch(() => []);
     const publicTeamFolder = path.basename(absoluteDir);
 
-    const photos = entries
+    const allImages = entries
       .filter((entry) => entry.isFile())
       .map((entry) => entry.name)
-      .filter((name) => isImageFile(name) && !SLOT_FILE_REGEX.test(name))
+      .filter((name) => isImageFile(name))
       .sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }))
+    ;
+
+    // Prefer source images, but fallback to all files when folder only has slot-like names.
+    const sourceImages = allImages.filter((name) => !SLOT_FILE_REGEX.test(name));
+    const effectiveImages = sourceImages.length > 0 ? sourceImages : allImages;
+
+    const photos = effectiveImages
       .map((name) => ({
         id: name,
         name,
