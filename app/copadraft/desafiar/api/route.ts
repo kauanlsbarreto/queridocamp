@@ -366,21 +366,31 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PUT — respond to a proposal (accept | decline | cancel | counter)
+// PUT — respond to a proposal (accept | decline | cancel | counter | admin_reschedule)
 export async function PUT(req: NextRequest) {
   let faceitGuidForError = "";
   let requestUrlForError = "";
   try {
     const body = await req.json();
     requestUrlForError = String(req.url || "");
-    const { faceit_guid, match_id, action, counter_date, counter_time, counter_message } = body;
+    const {
+      faceit_guid,
+      match_id,
+      action,
+      counter_date,
+      counter_time,
+      counter_message,
+      reschedule_date,
+      reschedule_time,
+      reschedule_message,
+    } = body;
     faceitGuidForError = String(faceit_guid || "").trim().toLowerCase();
 
     if (!faceit_guid || !match_id || !action) {
       return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
     }
 
-    if (!["accept", "decline", "cancel", "counter"].includes(action)) {
+    if (!["accept", "decline", "cancel", "counter", "admin_reschedule"].includes(action)) {
       return NextResponse.json({ error: "Ação inválida" }, { status: 400 });
     }
 
@@ -414,15 +424,17 @@ export async function PUT(req: NextRequest) {
 
       if (admin1) {
         if (match.status === "accepted") {
-          if (action !== "counter") {
+          if (action !== "admin_reschedule") {
             return NextResponse.json(
               { error: "Partida confirmada não pode ser alterada. Apenas ajuste de data é permitido para Admin 1." },
               { status: 400 }
             );
           }
-          if (!counter_date || !counter_time) {
+          if (!reschedule_date || !reschedule_time) {
             return NextResponse.json({ error: "Data e hora são obrigatórios para alterar data" }, { status: 400 });
           }
+
+          const oldMatch = rowToMatch(match);
 
           // Admin 1 can only adjust confirmed date/time, preserving accepted status.
           await queryWithTimeout(
@@ -437,7 +449,7 @@ export async function PUT(req: NextRequest) {
                counter_time = NULL,
                counter_message = NULL
              WHERE id = ?`,
-            [counter_date, counter_time, counter_message ?? null, match.id]
+            [reschedule_date, reschedule_time, reschedule_message ?? null, match.id]
           );
 
           const [updAccepted]: any = await queryWithTimeout(mainConn, "SELECT * FROM matches WHERE id = ? LIMIT 1", [match.id]);
@@ -449,7 +461,8 @@ export async function PUT(req: NextRequest) {
               Number(finalMatch.challenged_team_id),
             ]);
             await sendDesafiarDiscordWebhook({
-              event: "counter",
+              event: "decision",
+              decision: "accepted",
               matchId: Number(finalMatch.id),
               rodada: finalMatch.rodada,
               challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
@@ -458,13 +471,24 @@ export async function PUT(req: NextRequest) {
               actorGuid: String(faceit_guid || "").trim().toLowerCase(),
               date: finalMatch.proposed_date,
               time: finalMatch.proposed_time,
-              message: counter_message ?? "Admin 1 alterou data/horario",
+              message: reschedule_message ?? "Admin 1 alterou data/horario",
+              forceColor: "orange",
+              adminChangedAcceptedMatch: true,
+              beforeDate: oldMatch.proposed_date,
+              beforeTime: oldMatch.proposed_time,
             });
           } catch (notifyError) {
-            console.error("[desafiar/api PUT webhook accepted-counter]", notifyError);
+            console.error("[desafiar/api PUT webhook accepted-reschedule]", notifyError);
           }
           invalidateMatchesGetCache();
           return NextResponse.json({ ok: true, match: rowToMatch(updAccepted[0]) });
+        }
+
+        if (action === "admin_reschedule") {
+          return NextResponse.json(
+            { error: "Admin só pode alterar data com essa ação em partidas confirmadas" },
+            { status: 400 }
+          );
         }
 
         if (action === "accept") {

@@ -306,6 +306,138 @@ function ProposalModal({
   );
 }
 
+function AdminRescheduleModal({
+  title,
+  subtitle,
+  initialDate = "",
+  initialTime = "",
+  originalProposal,
+  onClose,
+  onSubmit,
+}: {
+  title: string;
+  subtitle: string;
+  initialDate?: string;
+  initialTime?: string;
+  originalProposal?: { date: string | null; time: string | null };
+  onClose: () => void;
+  onSubmit: (date: string, time: string, msg: string) => Promise<void>;
+}) {
+  const [date, setDate] = useState(isoToDateBR(initialDate));
+  const [time, setTime] = useState(initialTime);
+  const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+  const validDate = isValidDateBR(date);
+  const validTime = isValidTime24(time);
+
+  async function handle() {
+    if (!validDate || !validTime) return;
+    setLoading(true);
+    try {
+      await onSubmit(dateBRToIso(date), time, msg);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-amber-300/40 bg-[#2a1808] p-5 shadow-[0_20px_55px_rgba(0,0,0,0.6)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <p className="text-lg font-black text-amber-100">{title}</p>
+            <p className="mt-0.5 text-xs text-amber-200/80">{subtitle}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="px-1 text-xl text-amber-300/70 hover:text-amber-100"
+          >
+            x
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {originalProposal && (
+            <div className="rounded-lg border border-amber-300/30 bg-amber-500/10 p-3 text-xs text-amber-100">
+              <div className="mb-1 font-bold uppercase tracking-[0.12em] text-amber-300">
+                Data atual aceita
+              </div>
+              <div>
+                {fmtDate(originalProposal.date)} as {fmtTime(originalProposal.time)}
+              </div>
+            </div>
+          )}
+          <div>
+            <label className="mb-1 block text-xs text-amber-200/80">Nova data (DD/MM/AAAA) *</label>
+            <input
+              type="text"
+              value={date}
+              onChange={(e) => setDate(normalizeDateBR(e.target.value))}
+              inputMode="numeric"
+              placeholder="DD/MM/AAAA"
+              maxLength={10}
+              className="w-full rounded-lg border border-amber-300/30 bg-[#3a2411] px-3 py-2 text-sm text-amber-50 outline-none focus:border-amber-300"
+            />
+            {!validDate && date && (
+              <p className="mt-1 text-[11px] text-red-300">Use formato DD/MM/AAAA (ex: 05/08/2026)</p>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-amber-200/80">Novo horario (24h) *</label>
+            <input
+              type="text"
+              value={time}
+              onChange={(e) => setTime(normalizeTime24(e.target.value))}
+              inputMode="numeric"
+              placeholder="HH:mm"
+              maxLength={5}
+              className="w-full rounded-lg border border-amber-300/30 bg-[#3a2411] px-3 py-2 text-sm text-amber-50 outline-none focus:border-amber-300"
+            />
+            {!validTime && time && (
+              <p className="mt-1 text-[11px] text-red-300">Use formato 24h: HH:mm (ex: 21:30)</p>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-amber-200/80">
+              Motivo da alteracao (opcional)
+            </label>
+            <textarea
+              value={msg}
+              onChange={(e) => setMsg(e.target.value)}
+              rows={3}
+              placeholder="Ex: Ajuste solicitado pela organizacao"
+              className="w-full resize-none rounded-lg border border-amber-300/30 bg-[#3a2411] px-3 py-2 text-sm text-amber-50 outline-none focus:border-amber-300"
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-lg border border-amber-300/30 px-4 py-2 text-sm text-amber-200 transition hover:bg-amber-500/15"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handle}
+            disabled={loading || !validDate || !validTime}
+            className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-50"
+          >
+            {loading ? "Salvando..." : "Salvar nova data"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function GameCard({
   jogo,
   myTeam,
@@ -559,6 +691,14 @@ export default function DesafiarPageClient({
     originalDate: string | null;
     originalTime: string | null;
   }>({ open: false, matchId: null, opponentName: "", originalDate: null, originalTime: null });
+
+  const [adminRescheduleModal, setAdminRescheduleModal] = useState<{
+    open: boolean;
+    matchId: number | null;
+    gameLabel: string;
+    originalDate: string | null;
+    originalTime: string | null;
+  }>({ open: false, matchId: null, gameLabel: "", originalDate: null, originalTime: null });
 
   useEffect(() => {
     setUser(readStoredUser());
@@ -842,6 +982,30 @@ export default function DesafiarPageClient({
     setCounterModal({ open: false, matchId: null, opponentName: "", originalDate: null, originalTime: null });
   }
 
+  async function handleAdminReschedule(date: string, time: string, msg: string) {
+    if (!myGuid || !adminRescheduleModal.matchId) return;
+    const res = await fetch("/copadraft/desafiar/api", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        faceit_guid: myGuid,
+        match_id: adminRescheduleModal.matchId,
+        action: "admin_reschedule",
+        reschedule_date: date,
+        reschedule_time: time,
+        reschedule_message: msg || null,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error ?? "Erro ao alterar data", false);
+      return;
+    }
+    if (data.match) upsertMatch(data.match);
+    showToast("Data alterada com sucesso!");
+    setAdminRescheduleModal({ open: false, matchId: null, gameLabel: "", originalDate: null, originalTime: null });
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#030a1e] px-4 py-10 text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(56,189,248,0.22),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(16,185,129,0.18),transparent_35%),linear-gradient(125deg,rgba(14,165,233,0.18),transparent_35%)]" />
@@ -1015,15 +1179,15 @@ export default function DesafiarPageClient({
                           <div className="grid grid-cols-1 gap-2">
                             <button
                               onClick={() =>
-                                setCounterModal({
+                                setAdminRescheduleModal({
                                   open: true,
                                   matchId: match.id,
-                                  opponentName: `${jogo.time1} x ${jogo.time2}`,
+                                  gameLabel: `${jogo.time1} x ${jogo.time2}`,
                                   originalDate: match.proposed_date,
                                   originalTime: match.proposed_time,
                                 })
                               }
-                              className="rounded-md border border-amber-400/50 bg-amber-500/20 px-2 py-1.5 text-xs font-bold text-amber-200 hover:bg-amber-500/30"
+                              className="rounded-md border border-orange-400/50 bg-orange-500/20 px-2 py-1.5 text-xs font-bold text-orange-200 hover:bg-orange-500/30"
                             >
                               Alterar data
                             </button>
@@ -1093,6 +1257,20 @@ export default function DesafiarPageClient({
             setCounterModal({ open: false, matchId: null, opponentName: "", originalDate: null, originalTime: null })
           }
           onSubmit={handleCounter}
+        />
+      )}
+
+      {adminRescheduleModal.open && (
+        <AdminRescheduleModal
+          title="Alterar Data Confirmada"
+          subtitle={adminRescheduleModal.gameLabel}
+          initialDate={adminRescheduleModal.originalDate ?? ""}
+          initialTime={adminRescheduleModal.originalTime ?? ""}
+          originalProposal={{ date: adminRescheduleModal.originalDate, time: adminRescheduleModal.originalTime }}
+          onClose={() =>
+            setAdminRescheduleModal({ open: false, matchId: null, gameLabel: "", originalDate: null, originalTime: null })
+          }
+          onSubmit={handleAdminReschedule}
         />
       )}
     </main>

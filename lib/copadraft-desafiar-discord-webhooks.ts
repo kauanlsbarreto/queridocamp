@@ -13,6 +13,10 @@ type DesafiarDiscordPayload = {
   date: string | null;
   time: string | null;
   message?: string | null;
+  forceColor?: "orange";
+  adminChangedAcceptedMatch?: boolean;
+  beforeDate?: string | null;
+  beforeTime?: string | null;
 };
 
 const WEBHOOK_SENT =
@@ -31,12 +35,14 @@ function getWebhookByEvent(event: DesafiarWebhookEvent) {
 function getTitle(payload: DesafiarDiscordPayload) {
   if (payload.event === "sent") return "CopaDraft - Proposta enviada";
   if (payload.event === "counter") return "CopaDraft - Contraproposta enviada";
+  if (payload.adminChangedAcceptedMatch) return "CopaDraft - Data alterada em partida aceita";
   return payload.decision === "accepted"
     ? "CopaDraft - Proposta aceita"
     : "CopaDraft - Proposta recusada";
 }
 
 function getColor(payload: DesafiarDiscordPayload) {
+  if (payload.forceColor === "orange") return 0xf59e0b;
   if (payload.event === "sent") return 0x38bdf8;
   if (payload.event === "counter") return 0x3b82f6;
   return payload.decision === "accepted" ? 0x22c55e : 0xef4444;
@@ -49,20 +55,34 @@ function safe(value: unknown) {
 
 export async function sendDesafiarDiscordWebhook(payload: DesafiarDiscordPayload) {
   const url = getWebhookByEvent(payload.event);
+  const isAdminAcceptedChange = payload.adminChangedAcceptedMatch;
+  const beforeText = `${safe(payload.beforeDate)} as ${safe(payload.beforeTime)}`;
+  const afterText = `${safe(payload.date)} as ${safe(payload.time)}`;
+  const fields = [
+    { name: "Confronto", value: `${safe(payload.challengerTeam)} x ${safe(payload.challengedTeam)}` },
+    { name: "Quem fez", value: `${safe(payload.actorNickname)} (${safe(payload.actorGuid)})` },
+    { name: "Rodada", value: safe(payload.rodada), inline: true },
+    { name: "Data", value: safe(payload.date), inline: true },
+    { name: "Horario", value: safe(payload.time), inline: true },
+    { name: "Match ID", value: safe(payload.matchId), inline: true },
+  ] as Array<{ name: string; value: string; inline?: boolean }>;
+
+  if (isAdminAcceptedChange) {
+    fields.push(
+      { name: "Jogo alterado", value: `${safe(payload.challengerTeam)} x ${safe(payload.challengedTeam)} (Rodada ${safe(payload.rodada)})` },
+      { name: "Antes", value: beforeText, inline: true },
+      { name: "Depois", value: afterText, inline: true },
+    );
+  }
+
+  fields.push({ name: "Mensagem", value: safe(payload.message) });
+
   const body = {
     embeds: [
       {
         title: getTitle(payload),
         color: getColor(payload),
-        fields: [
-          { name: "Confronto", value: `${safe(payload.challengerTeam)} x ${safe(payload.challengedTeam)}` },
-          { name: "Quem fez", value: `${safe(payload.actorNickname)} (${safe(payload.actorGuid)})` },
-          { name: "Rodada", value: safe(payload.rodada), inline: true },
-          { name: "Data", value: safe(payload.date), inline: true },
-          { name: "Horario", value: safe(payload.time), inline: true },
-          { name: "Match ID", value: safe(payload.matchId), inline: true },
-          { name: "Mensagem", value: safe(payload.message) },
-        ],
+        fields,
         timestamp: new Date().toISOString(),
       },
     ],
