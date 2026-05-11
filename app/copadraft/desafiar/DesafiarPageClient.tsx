@@ -777,12 +777,6 @@ export default function DesafiarPageClient({
     showToast("Proposta enviada com sucesso!");
     setProposalModal({
       open: false,
-            {isClearingCache && (
-              <div className="mb-4 rounded-lg border border-amber-300/50 bg-amber-300/10 px-4 py-2 text-center text-sm font-bold uppercase tracking-wide text-amber-200">
-                Limpando cache
-              </div>
-            )}
-
       rodada: null,
       opponentId: null,
       opponentName: "",
@@ -866,6 +860,12 @@ export default function DesafiarPageClient({
       )}
 
       <div className="relative mx-auto max-w-4xl">
+        {isClearingCache && (
+          <div className="mb-4 rounded-lg border border-amber-300/50 bg-amber-300/10 px-4 py-2 text-center text-sm font-bold uppercase tracking-wide text-amber-200">
+            Limpando cache
+          </div>
+        )}
+
         <header className="mb-8 text-center">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-200/90">
             Copa Draft
