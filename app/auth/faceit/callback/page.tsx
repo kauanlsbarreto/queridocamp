@@ -74,11 +74,21 @@ export default function Callback() {
         }
         const dbUser = await dbRes.json()
 
+        const normalizePoints = (value: unknown): number => {
+          if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+          if (typeof value === 'string') {
+            const parsed = Number(value.replace(',', '.'))
+            return Number.isFinite(parsed) ? parsed : 0
+          }
+          return 0
+        }
+
         const fullUser = {
           ...partialUser,
           id: dbUser.id ?? dbUser.ID,
-          Admin: dbUser.Admin,
-          admin: dbUser.admin,
+          Admin: dbUser.Admin ?? dbUser.admin ?? 0,
+          admin: dbUser.admin ?? dbUser.Admin ?? 0,
+          points: normalizePoints(dbUser.points),
         }
 
         // Garante steamid no banco já no login (se faltar, busca via API Faceit no backend).

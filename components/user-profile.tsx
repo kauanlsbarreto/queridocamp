@@ -44,6 +44,19 @@ function normalizePoints(value: unknown): number {
   return 0;
 }
 
+function normalizeAdmin(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value.trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 export const UserProfile = ({
   id,
   ID,
@@ -77,11 +90,32 @@ export const UserProfile = ({
   }, [clearSessionAndLogout]);
 
   const syncUserFromDatabase = useCallback(async () => {
-    const steamId = typeof steam_id_64 === 'string' ? steam_id_64.trim() : '';
-    const guid = typeof faceit_guid === 'string' ? faceit_guid.trim() : '';
-    if (!steamId && !guid) return;
+    const steamIdFromProps = typeof steam_id_64 === 'string' ? steam_id_64.trim() : '';
+    const guidFromProps = typeof faceit_guid === 'string' ? faceit_guid.trim() : '';
 
     try {
+      let storedSessionUser: any = null;
+      try {
+        const storedSession = localStorage.getItem('faceit_user');
+        if (storedSession) {
+          storedSessionUser = JSON.parse(storedSession);
+        }
+      } catch {
+        storedSessionUser = null;
+      }
+
+      const steamId = steamIdFromProps || (typeof storedSessionUser?.steam_id_64 === 'string' ? storedSessionUser.steam_id_64.trim() : '');
+      const guid = guidFromProps || (typeof storedSessionUser?.faceit_guid === 'string' ? storedSessionUser.faceit_guid.trim() : '');
+      const userId = Number((storedSessionUser?.id ?? id ?? ID) || 0);
+      const hasUserId = Number.isFinite(userId) && userId > 0;
+      const nicknameCandidate = typeof storedSessionUser?.nickname === 'string'
+        ? storedSessionUser.nickname.trim()
+        : (typeof nickname === 'string' ? nickname.trim() : '');
+
+      if (!steamId && !guid && !hasUserId && !nicknameCandidate) {
+        return;
+      }
+
       let data: any = null;
 
       // Esta rota suporta faceit_guid; consulta por guid primeiro evita falha silenciosa.
@@ -100,10 +134,28 @@ export const UserProfile = ({
         }
       }
 
-      if (!data || typeof data.admin !== 'number') return;
+      if (!data && hasUserId) {
+        const byId = await fetch(`/api/admin/players?id=${userId}`, { cache: 'no-store' });
+        if (byId.ok) {
+          data = await byId.json();
+        }
+      }
 
-      const nextPoints = normalizePoints(data.points);
-      setUserAdminLevel(data.admin);
+      if (!data && nicknameCandidate) {
+        const byNickname = await fetch(`/api/admin/players?nickname=${encodeURIComponent(nicknameCandidate)}`, { cache: 'no-store' });
+        if (byNickname.ok) {
+          data = await byNickname.json();
+        }
+      }
+
+      if (!data || typeof data !== 'object') return;
+
+      const nextAdminLevel = normalizeAdmin((data as any).admin ?? (data as any).Admin);
+      const nextPoints = normalizePoints((data as any).points);
+
+      if (nextAdminLevel !== null) {
+        setUserAdminLevel(nextAdminLevel);
+      }
       setUserPoints(nextPoints);
 
       const storedSession = localStorage.getItem('faceit_user');
@@ -111,13 +163,15 @@ export const UserProfile = ({
 
       try {
         const currentUser = JSON.parse(storedSession);
-        if (currentUser.Admin !== data.admin || currentUser.id !== data.id || currentUser.points !== data.points) {
+        const currentAdmin = normalizeAdmin(currentUser?.admin ?? currentUser?.Admin);
+        if (currentAdmin !== nextAdminLevel || currentUser.id !== (data as any).id || normalizePoints(currentUser?.points) !== nextPoints) {
           const updatedUser = {
             ...currentUser,
-            Admin: data.admin,
-            id: data.id,
-            nickname: data.nickname,
-            avatar: data.avatar || currentUser.avatar,
+            Admin: nextAdminLevel ?? currentUser.Admin,
+            admin: nextAdminLevel ?? currentUser.admin,
+            id: (data as any).id,
+            nickname: (data as any).nickname,
+            avatar: (data as any).avatar || currentUser.avatar,
             points: nextPoints,
           };
           localStorage.setItem('faceit_user', JSON.stringify(updatedUser));
@@ -129,7 +183,7 @@ export const UserProfile = ({
     } catch {
       // silencioso por pedido: sem logs no polling
     }
-  }, [faceit_guid, steam_id_64]);
+  }, [faceit_guid, steam_id_64, id, ID, nickname]);
 
   useEffect(() => {
     if (typeof points === 'undefined' || points === null) return;
@@ -151,11 +205,8 @@ export const UserProfile = ({
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-      setUserAdminLevel(Admin || admin || 0);
-      setUserPoints(points ?? 0);
-      return;
-    }
+    setUserAdminLevel(Admin || admin || 0);
+    setUserPoints(normalizePoints(points));
 
     let isUnmounted = false;
 

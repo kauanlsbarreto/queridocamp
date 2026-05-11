@@ -28,7 +28,21 @@ type PlayerRow = RowDataPacket & {
   senha?: string;
   created_at: string;
   updated_at: string;
+  Admin?: number | string | null;
 };
+
+function toNumberOrNull(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value.trim().replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
 
 function toJsonSafe<T>(value: T): T {
   return JSON.parse(
@@ -55,9 +69,12 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const guid = searchParams.get("faceit_guid")?.trim() || "";
     const steamId = searchParams.get("steamid")?.trim() || "";
+    const nickname = searchParams.get("nickname")?.trim() || "";
+    const idRaw = searchParams.get("id")?.trim() || "";
+    const playerId = Number(idRaw);
 
-    if (!guid && !steamId) {
-      return NextResponse.json({ message: "Informe faceit_guid ou steamid." }, { status: 400 });
+    if (!guid && !steamId && !nickname && !(Number.isFinite(playerId) && playerId > 0)) {
+      return NextResponse.json({ message: "Informe faceit_guid, steamid, id ou nickname." }, { status: 400 });
     }
 
     let rows: PlayerRow[] = [];
@@ -66,6 +83,18 @@ export async function GET(req: Request) {
       const [result] = await connection.query<PlayerRow[]>(
         "SELECT * FROM players WHERE faceit_guid = ? LIMIT 1",
         [guid],
+      );
+      rows = result;
+    } else if (Number.isFinite(playerId) && playerId > 0) {
+      const [result] = await connection.query<PlayerRow[]>(
+        "SELECT * FROM players WHERE id = ? LIMIT 1",
+        [playerId],
+      );
+      rows = result;
+    } else if (nickname) {
+      const [result] = await connection.query<PlayerRow[]>(
+        "SELECT * FROM players WHERE nickname = ? LIMIT 1",
+        [nickname],
       );
       rows = result;
     } else {
@@ -88,7 +117,14 @@ export async function GET(req: Request) {
       }
     }
 
-    const payload = rows[0] ? toJsonSafe(rows[0]) : { message: "Jogador não encontrado" };
+    const row = rows[0] ? toJsonSafe(rows[0]) : null;
+    const payload = row
+      ? {
+          ...row,
+          admin: toNumberOrNull((row as PlayerRow).admin ?? (row as PlayerRow).Admin) ?? 0,
+          points: toNumberOrNull((row as PlayerRow).points) ?? 0,
+        }
+      : { message: "Jogador não encontrado" };
     return NextResponse.json(payload, { status: rows[0] ? 200 : 404 });
   } catch (error) {
     console.error("GET Error:", error);
