@@ -17,14 +17,15 @@ interface NavbarProps {
 }
 
 const VOLUME_STORAGE_KEY = 'site_volume'
+const DEFAULT_SITE_VOLUME = 0.6
 
 const Navbar = ({ user, onAuthChange }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [liveMatches, setLiveMatches] = useState<any[]>([])
   const [liveMatchesLoading, setLiveMatchesLoading] = useState(true)
-  const [volume, setVolume] = useState(1)
-  const [lastNonZeroVolume, setLastNonZeroVolume] = useState(1)
+  const [volume, setVolume] = useState(DEFAULT_SITE_VOLUME)
+  const [lastNonZeroVolume, setLastNonZeroVolume] = useState(DEFAULT_SITE_VOLUME)
   
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(user)
 
@@ -100,8 +101,15 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
 
   useEffect(() => {
     const raw = localStorage.getItem(VOLUME_STORAGE_KEY)
+    if (raw === null) {
+      localStorage.setItem(VOLUME_STORAGE_KEY, String(DEFAULT_SITE_VOLUME))
+      setVolume(DEFAULT_SITE_VOLUME)
+      setLastNonZeroVolume(DEFAULT_SITE_VOLUME)
+      return
+    }
+
     const parsed = Number(raw)
-    const safe = Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : 1
+    const safe = Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : DEFAULT_SITE_VOLUME
     setVolume(safe)
     if (safe > 0) setLastNonZeroVolume(safe)
   }, [])
@@ -116,7 +124,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
 
   const toggleMute = () => {
     if (volume <= 0) {
-      applyVolume(lastNonZeroVolume > 0 ? lastNonZeroVolume : 1)
+      applyVolume(lastNonZeroVolume > 0 ? lastNonZeroVolume : DEFAULT_SITE_VOLUME)
       return
     }
 

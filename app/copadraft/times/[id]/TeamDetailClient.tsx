@@ -352,11 +352,17 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUr
 
   useEffect(() => {
     const localStorageKey = "site_volume";
+    const defaultVolume = 0.6;
 
     const getStoredVolume = () => {
       const raw = localStorage.getItem(localStorageKey);
+      if (raw === null) {
+        localStorage.setItem(localStorageKey, String(defaultVolume));
+        return defaultVolume;
+      }
+
       const parsed = Number(raw);
-      if (!Number.isFinite(parsed)) return 1;
+      if (!Number.isFinite(parsed)) return defaultVolume;
       return Math.min(1, Math.max(0, parsed));
     };
 
