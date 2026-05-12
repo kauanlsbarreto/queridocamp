@@ -5,8 +5,8 @@ import { createMainConnection, type Env } from "@/lib/db";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import StatsCardsClient from "./StatsCardsClient";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const dynamic = "force-static";
+export const revalidate = 300;
 
 const STATS_DIR = path.join(process.cwd(), "public", "stats-json");
 const COPADRAFT_TIMES_FILE = path.join(process.cwd(), "copadraft-times.json");

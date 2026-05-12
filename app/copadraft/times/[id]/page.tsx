@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { notFound } from "next/navigation";
 
@@ -11,6 +11,8 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const BANNER_DIR = path.join(process.cwd(), "public", "timesbanner");
+const AUDIO_DIR = path.join(process.cwd(), "public", "audios");
+const STATS_DIR = path.join(process.cwd(), "public", "stats-json");
 const DEFAULT_AVATAR = "/images/cs2-player.png";
 
 type TeamPlayer = {
@@ -39,18 +41,31 @@ type BannerRow = {
 };
 
 type PlayerRow = {
+	steamid: string | null;
 	faceit_guid: string | null;
 	nickname: string | null;
 	avatar: string | null;
 };
 
-type Top90Row = {
-	faceit_guild: string | null;
-	k: number | string | null;
-	d: number | string | null;
-	kd: number | string | null;
-	kr: number | string | null;
-	adr: number | string | null;
+type RawPlayerStats = {
+	steamId?: string | number;
+	steamid?: string | number;
+	name?: string;
+	killCount?: number;
+	deathCount?: number;
+	averageKillsPerRound?: number;
+	averageDamagePerRound?: number;
+
+	hltvRating2?: number;
+};
+
+type JsonStatsSummary = {
+	kills: number;
+	deaths: number;
+	kd: number;
+	kr: number;
+	adr: number;
+	hltvRating: number;
 };
 
 type TeamPlayerView = {
@@ -63,7 +78,22 @@ type TeamPlayerView = {
 		kd: number;
 		kr: number;
 		adr: number;
-	};
+		hltvRating: number;
+	} | null;
+};
+
+type StatsAccumulator = {
+	appearances: number;
+	kills: number;
+	deaths: number;
+	krTotal: number;
+	adrTotal: number;
+	hltvRatingTotal: number;
+};
+
+type StatsIndex = {
+	bySteamId: Map<string, JsonStatsSummary>;
+	byNickname: Map<string, JsonStatsSummary>;
 };
 
 function normalizeText(value: unknown) {
@@ -86,10 +116,17 @@ function toNumber(value: unknown) {
 	return Number.isFinite(n) ? n : 0;
 }
 
+function toSteamId(value: unknown) {
+	return String(value || "").trim();
+}
+
 function toAvatarRenderUrl(rawPath: string) {
 	const pathValue = String(rawPath || "").trim();
 	if (!pathValue) return pathValue;
-	if (!pathValue.toLowerCase().startsWith("/fotostime/")) return pathValue;
+
+	const lowerPath = pathValue.toLowerCase();
+	if (lowerPath.startsWith("https://i.ibb.co/")) return pathValue;
+	if (!lowerPath.startsWith("/fotostime/")) return pathValue;
 
 	const hasQuery = pathValue.includes("?");
 	if (hasQuery) return pathValue;
@@ -119,6 +156,130 @@ async function resolveBannerImageUrl(teamName: string) {
 	}
 
 	return null;
+}
+
+async function resolveTeamAudioUrl(teamName: string) {
+	try {
+		const files = await readdir(AUDIO_DIR, { withFileTypes: true });
+		const wanted = normalizeText(teamName);
+
+		for (const file of files) {
+			if (!file.isFile()) continue;
+
+			const ext = path.extname(file.name).toLowerCase();
+			if (ext !== ".mp3") continue;
+
+			const base = file.name.slice(0, file.name.length - ext.length).trim();
+			if (normalizeText(base) === wanted) {
+				return `/audios/${encodeURIComponent(file.name)}`;
+			}
+		}
+	} catch {
+		return null;
+	}
+
+	return null;
+}
+
+function extractPlayers(payload: any): RawPlayerStats[] {
+	if (Array.isArray(payload?.players)) return payload.players as RawPlayerStats[];
+
+	if (Array.isArray(payload?.teams)) {
+		return (payload.teams as any[])
+			.flatMap((team) => (Array.isArray(team?.players) ? team.players : []))
+			.filter(Boolean) as RawPlayerStats[];
+	}
+
+	if (Array.isArray(payload?.playerStats)) return payload.playerStats as RawPlayerStats[];
+
+	return [];
+}
+
+function accumulateStats(target: Map<string, StatsAccumulator>, key: string, player: RawPlayerStats) {
+	if (!key) return;
+
+	const current =
+		target.get(key) ||
+		({
+			appearances: 0,
+			kills: 0,
+			deaths: 0,
+			krTotal: 0,
+			adrTotal: 0,
+			hltvRatingTotal: 0,
+		} satisfies StatsAccumulator);
+
+	current.appearances += 1;
+	current.kills += Math.trunc(toNumber(player?.killCount));
+	current.deaths += Math.trunc(toNumber(player?.deathCount));
+	current.krTotal += toNumber(player?.averageKillsPerRound);
+	current.adrTotal += toNumber(player?.averageDamagePerRound);
+	current.hltvRatingTotal += toNumber(player?.hltvRating2);
+
+	target.set(key, current);
+}
+
+function finalizeStatsIndex(source: Map<string, StatsAccumulator>) {
+	const result = new Map<string, JsonStatsSummary>();
+
+	Array.from(source.entries()).forEach(([key, value]) => {
+		const appearances = Math.max(1, value.appearances);
+		const kd = value.deaths > 0 ? value.kills / value.deaths : value.kills > 0 ? value.kills : 0;
+
+		result.set(key, {
+			kills: value.kills,
+			deaths: value.deaths,
+			kd,
+			kr: value.krTotal / appearances,
+			adr: value.adrTotal / appearances,
+			hltvRating: value.hltvRatingTotal / appearances,
+		});
+	});
+
+	return result;
+}
+
+async function loadJsonStatsIndex(): Promise<StatsIndex> {
+	const bySteamAccumulator = new Map<string, StatsAccumulator>();
+	const byNicknameAccumulator = new Map<string, StatsAccumulator>();
+
+	let fileNames: string[] = [];
+
+	try {
+		const entries = await readdir(STATS_DIR, { withFileTypes: true });
+		fileNames = entries
+			.filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".json"))
+			.map((entry) => entry.name);
+	} catch {
+		return {
+			bySteamId: new Map<string, JsonStatsSummary>(),
+			byNickname: new Map<string, JsonStatsSummary>(),
+		};
+	}
+
+	await Promise.all(
+		fileNames.map(async (fileName) => {
+			try {
+				const content = await readFile(path.join(STATS_DIR, fileName), "utf-8");
+				const parsed = JSON.parse(content);
+
+				for (const player of extractPlayers(parsed)) {
+					const steamId = toSteamId(player?.steamId ?? player?.steamid);
+					const nickname = normalizeText(player?.name);
+
+					if (steamId) accumulateStats(bySteamAccumulator, steamId, player);
+					if (nickname) accumulateStats(byNicknameAccumulator, nickname, player);
+				}
+			} catch {
+				// ignora arquivo invalido para nao quebrar a pagina
+			}
+		})
+	);
+
+	return {
+		bySteamId: finalizeStatsIndex(bySteamAccumulator),
+		byNickname: finalizeStatsIndex(byNicknameAccumulator),
+	};
 }
 
 async function loadBannerConfig(env: Env, teamName: string): Promise<BannerRow | null> {
@@ -155,7 +316,12 @@ async function loadBannerConfig(env: Env, teamName: string): Promise<BannerRow |
 	}
 }
 
-async function loadTeamPlayers(env: Env, team: Team, bannerConfig: BannerRow | null): Promise<TeamPlayerView[]> {
+async function loadTeamPlayers(
+	env: Env,
+	team: Team,
+	bannerConfig: BannerRow | null,
+	statsIndex: StatsIndex
+): Promise<TeamPlayerView[]> {
 	const guids = Array.from(
 		new Set(
 			(team.jogadores || [])
@@ -172,13 +338,8 @@ async function loadTeamPlayers(env: Env, team: Team, bannerConfig: BannerRow | n
 		connection = await createMainConnection(env);
 
 		const placeholders = guids.map(() => "?").join(",");
-
 		const [playerRows] = await connection.query(
-			`SELECT faceit_guid, nickname, avatar FROM players WHERE faceit_guid IN (${placeholders})`,
-			guids
-		);
-		const [topRows] = await connection.query(
-			`SELECT faceit_guild, k, d, kd, kr, adr FROM top90_stats WHERE faceit_guild IN (${placeholders})`,
+			`SELECT steamid, faceit_guid, nickname, avatar FROM players WHERE faceit_guid IN (${placeholders})`,
 			guids
 		);
 
@@ -187,13 +348,6 @@ async function loadTeamPlayers(env: Env, team: Team, bannerConfig: BannerRow | n
 			const guid = String(row?.faceit_guid || "").trim().toLowerCase();
 			if (!guid) continue;
 			byGuid.set(guid, row);
-		}
-
-		const statsByGuid = new Map<string, Top90Row>();
-		for (const row of (Array.isArray(topRows) ? topRows : []) as Top90Row[]) {
-			const guid = String(row?.faceit_guild || "").trim().toLowerCase();
-			if (!guid) continue;
-			statsByGuid.set(guid, row);
 		}
 
 		const teamAvatars = [
@@ -207,22 +361,27 @@ async function loadTeamPlayers(env: Env, team: Team, bannerConfig: BannerRow | n
 		return (team.jogadores || []).map((rawPlayer, index) => {
 			const guid = String(rawPlayer?.faceit_guid || "").trim().toLowerCase();
 			const dbPlayer = byGuid.get(guid);
-			const top = statsByGuid.get(guid);
 			const bannerAvatar = String(teamAvatars[index] || "").trim();
-
 			const resolvedAvatar = String(bannerAvatar || dbPlayer?.avatar || DEFAULT_AVATAR);
+			const stats =
+				statsIndex.bySteamId.get(toSteamId(dbPlayer?.steamid)) ||
+				statsIndex.byNickname.get(normalizeText(dbPlayer?.nickname || rawPlayer?.nickname)) ||
+				null;
 
 			return {
 				faceitGuid: guid,
 				nickname: String(dbPlayer?.nickname || rawPlayer?.nickname || "Jogador"),
 				avatar: toAvatarRenderUrl(resolvedAvatar),
-				stats: {
-					kills: Math.trunc(toNumber(top?.k)),
-					deaths: Math.trunc(toNumber(top?.d)),
-					kd: toNumber(top?.kd),
-					kr: toNumber(top?.kr),
-					adr: toNumber(top?.adr),
-				},
+				stats: stats
+					? {
+						kills: stats.kills,
+						deaths: stats.deaths,
+						kd: stats.kd,
+						kr: stats.kr,
+						adr: stats.adr,
+						hltvRating: stats.hltvRating,
+					}
+					: null,
 			};
 		});
 	} catch {
@@ -230,13 +389,7 @@ async function loadTeamPlayers(env: Env, team: Team, bannerConfig: BannerRow | n
 			faceitGuid: String(rawPlayer?.faceit_guid || "").trim().toLowerCase(),
 			nickname: String(rawPlayer?.nickname || "Jogador"),
 			avatar: DEFAULT_AVATAR,
-			stats: {
-				kills: 0,
-				deaths: 0,
-				kd: 0,
-				kr: 0,
-				adr: 0,
-			},
+			stats: null,
 		}));
 	} finally {
 		await connection?.end?.();
@@ -262,17 +415,20 @@ export default async function CopaDraftTeamPage({ params }: { params: Promise<{ 
 		env = null;
 	}
 
-	const [bannerImageUrl, bannerConfig] = await Promise.all([
+	const [bannerImageUrl, teamAudioUrl, bannerConfig, statsIndex] = await Promise.all([
 		resolveBannerImageUrl(team.nome_time),
+		resolveTeamAudioUrl(team.nome_time),
 		env ? loadBannerConfig(env, team.nome_time) : Promise.resolve(null),
+		loadJsonStatsIndex(),
 	]);
 
-	const players = env ? await loadTeamPlayers(env, team, bannerConfig) : [];
+	const players = env ? await loadTeamPlayers(env, team, bannerConfig, statsIndex) : [];
 
 	return (
 		<TeamDetailClient
 			teamName={team.nome_time}
 			bannerImageUrl={bannerImageUrl}
+			teamAudioUrl={teamAudioUrl}
 			initialBannerConfig={bannerConfig}
 			players={players}
 		/>

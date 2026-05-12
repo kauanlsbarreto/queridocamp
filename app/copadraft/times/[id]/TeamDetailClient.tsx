@@ -31,7 +31,8 @@ type TeamPlayerView = {
     kd: number;
     kr: number;
     adr: number;
-  };
+    hltvRating: number;
+  } | null;
 };
 
 type LocalPhotoOption = {
@@ -46,6 +47,7 @@ type AvatarFilterMode = "none" | "remove-white" | "white-bg";
 type Props = {
   teamName: string;
   bannerImageUrl: string | null;
+  teamAudioUrl: string | null;
   initialBannerConfig: BannerConfig | null;
   players: TeamPlayerView[];
 };
@@ -148,7 +150,7 @@ function normalizeGuid(value: unknown) {
 
 function isCustomTeamAvatarPath(value: unknown) {
   const url = String(value || "").trim().toLowerCase();
-  return url.startsWith("/fotostime/") || url.startsWith("/api/fotostime?");
+  return url.startsWith("/fotostime/") || url.startsWith("/api/fotostime?") || url.startsWith("https://i.ibb.co/");
 }
 
 async function blobToDataUrl(blob: Blob) {
@@ -302,7 +304,8 @@ async function detectFacesBannerConfig(imageUrl: string, baseConfig: BannerConfi
   }
 }
 
-export default function TeamDetailClient({ teamName, bannerImageUrl, initialBannerConfig, players }: Props) {
+export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUrl, initialBannerConfig, players }: Props) {
+  const teamAudioRef = useRef<HTMLAudioElement | null>(null);
   const bannerHostRef = useRef<HTMLDivElement | null>(null);
   const [faceitGuid, setFaceitGuid] = useState("");
   const [faceitNickname, setFaceitNickname] = useState("");
@@ -346,6 +349,72 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, initialBann
   const canManagePlayerOrder = isAdmin1;
   const ownGuid = normalizeGuid(faceitGuid);
   const canNonAdminPickOwnAvatar = isTeamMember && !isAdmin1;
+
+  useEffect(() => {
+    const localStorageKey = "site_volume";
+
+    const getStoredVolume = () => {
+      const raw = localStorage.getItem(localStorageKey);
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed)) return 1;
+      return Math.min(1, Math.max(0, parsed));
+    };
+
+    const currentAudio = teamAudioRef.current;
+    if (currentAudio) {
+      currentAudio.pause();
+      teamAudioRef.current = null;
+    }
+
+    if (!teamAudioUrl) return;
+
+    const audio = new Audio(teamAudioUrl);
+    audio.loop = false;
+    audio.preload = "auto";
+    audio.volume = getStoredVolume();
+    teamAudioRef.current = audio;
+
+    const tryPlay = () => {
+      if (!teamAudioRef.current) return;
+      if (teamAudioRef.current.volume <= 0) return;
+      void teamAudioRef.current.play().catch(() => {});
+    };
+
+    const handleVolumeChanged = (event: Event) => {
+      const customEvent = event as CustomEvent<{ volume?: number }>;
+      const nextVolume = Number(customEvent?.detail?.volume);
+      const safeVolume = Number.isFinite(nextVolume)
+        ? Math.min(1, Math.max(0, nextVolume))
+        : getStoredVolume();
+
+      if (!teamAudioRef.current) return;
+      teamAudioRef.current.volume = safeVolume;
+
+      if (safeVolume <= 0) {
+        teamAudioRef.current.pause();
+        return;
+      }
+
+      tryPlay();
+    };
+
+    tryPlay();
+    window.addEventListener("click", tryPlay, { once: true });
+    window.addEventListener("keydown", tryPlay, { once: true });
+    window.addEventListener("touchstart", tryPlay, { once: true });
+    window.addEventListener("siteVolumeChanged", handleVolumeChanged as EventListener);
+
+    return () => {
+      window.removeEventListener("click", tryPlay);
+      window.removeEventListener("keydown", tryPlay);
+      window.removeEventListener("touchstart", tryPlay);
+      window.removeEventListener("siteVolumeChanged", handleVolumeChanged as EventListener);
+      audio.pause();
+      if (teamAudioRef.current === audio) {
+        teamAudioRef.current = null;
+      }
+    };
+  }, [teamAudioUrl]);
 
   useEffect(() => {
     try {
@@ -1033,13 +1102,15 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, initialBann
                                   </button>
                                 ) : null}
 
-                                <div className="space-y-1 text-xs text-zinc-200">
-                                  <p><span className="text-zinc-400">Kills:</span> <span className="font-bold text-white">{player.stats.kills}</span></p>
-                                  <p><span className="text-zinc-400">Mortes:</span> <span className="font-bold text-white">{player.stats.deaths}</span></p>
-                                  <p><span className="text-zinc-400">K/D:</span> <span className="font-bold text-white">{player.stats.kd.toFixed(2)}</span></p>
-                                  <p><span className="text-zinc-400">K/R:</span> <span className="font-bold text-white">{player.stats.kr.toFixed(2)}</span></p>
-                                  <p><span className="text-zinc-400">ADR:</span> <span className="font-bold text-white">{player.stats.adr.toFixed(1)}</span></p>
-                                </div>
+                                {player.stats ? (
+                                  <div className="space-y-1 text-xs text-zinc-200">
+                                    <p><span className="text-zinc-400">Kills:</span> <span className="font-bold text-white">{player.stats.kills}</span></p>
+                                    <p><span className="text-zinc-400">Mortes:</span> <span className="font-bold text-white">{player.stats.deaths}</span></p>
+                                    <p><span className="text-zinc-400">K/D:</span> <span className="font-bold text-white">{player.stats.kd.toFixed(2)}</span></p>
+                                    <p><span className="text-zinc-400">ADR:</span> <span className="font-bold text-white">{player.stats.adr.toFixed(1)}</span></p>
+                                    <p><span className="text-zinc-400">HLTV 2.0:</span> <span className="font-bold text-white">{player.stats.hltvRating.toFixed(2)}</span></p>
+                                  </div>
+                                ) : null}
                               </article>
                             );
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { writeFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { revalidatePath } from "next/cache";
 
 import { createMainConnection } from "@/lib/db";
 import { getRuntimeEnv } from "@/lib/runtime-env";
@@ -312,6 +313,8 @@ export async function POST(request: Request) {
     await mkdir(STATS_DIR, { recursive: true });
     const destPath = path.join(STATS_DIR, safeFileName);
     await writeFile(destPath, raw);
+
+    revalidatePath("/copadraft/stats");
 
     return NextResponse.json({
       success: true,

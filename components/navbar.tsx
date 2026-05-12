@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Menu, X, ChevronDown, Radio } from 'lucide-react'
+import { Menu, X, ChevronDown, Radio, Volume2, VolumeX } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import FaceitLogin from './FaceitLogin'
@@ -10,18 +10,21 @@ import { Button } from './ui/button'
 import { Notifications } from './notifications'
 import { UserProfile } from './user-profile'
 import { UpdateDataButton } from './UpdateDataButton'
-import { Nav } from 'react-day-picker'
 
 interface NavbarProps {
   user: UserProfile | null
   onAuthChange: () => void
 }
 
+const VOLUME_STORAGE_KEY = 'site_volume'
+
 const Navbar = ({ user, onAuthChange }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [liveMatches, setLiveMatches] = useState<any[]>([])
   const [liveMatchesLoading, setLiveMatchesLoading] = useState(true)
+  const [volume, setVolume] = useState(1)
+  const [lastNonZeroVolume, setLastNonZeroVolume] = useState(1)
   
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(user)
 
@@ -95,6 +98,31 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
     return () => window.removeEventListener('liveMatchesUpdated', handleMatchesUpdate)
   }, [])
 
+  useEffect(() => {
+    const raw = localStorage.getItem(VOLUME_STORAGE_KEY)
+    const parsed = Number(raw)
+    const safe = Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : 1
+    setVolume(safe)
+    if (safe > 0) setLastNonZeroVolume(safe)
+  }, [])
+
+  const applyVolume = useCallback((nextVolume: number) => {
+    const safe = Math.min(1, Math.max(0, nextVolume))
+    setVolume(safe)
+    if (safe > 0) setLastNonZeroVolume(safe)
+    localStorage.setItem(VOLUME_STORAGE_KEY, String(safe))
+    window.dispatchEvent(new CustomEvent('siteVolumeChanged', { detail: { volume: safe } }))
+  }, [])
+
+  const toggleMute = () => {
+    if (volume <= 0) {
+      applyVolume(lastNonZeroVolume > 0 ? lastNonZeroVolume : 1)
+      return
+    }
+
+    applyVolume(0)
+  }
+
   const handleLocalAuthChange = () => {
     syncUserFromStorage()
     onAuthChange()
@@ -106,6 +134,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
 
   const hasLiveMatches = liveMatches.length > 0
   const isAdmin = currentUser?.Admin && currentUser.Admin >= 1 && currentUser.Admin <= 5
+  const volumePercent = Math.round(volume * 100)
 
   const showLiveMatchesButton = !liveMatchesLoading && (hasLiveMatches || isAdmin)
 
@@ -162,6 +191,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#060D15]/95 backdrop-blur-xl border border-gold/20 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top flex flex-col p-4 text-center">
                   <DropdownLink href="/copadraft/times">Times</DropdownLink>
                   <DropdownLink href="/copadraft/classificacao">Classificacao</DropdownLink>
+                  <DropdownLink href="/copadraft/stats">Estatísticas</DropdownLink>
                   <DropdownLink href="/copadraft/rodadas">Rodadas</DropdownLink>
                   <DropdownLink href="/copadraft/desafiar">Desafiar</DropdownLink>
                   <DropdownLink href="/copadraft/jogos">Jogos</DropdownLink>
@@ -172,6 +202,28 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
 
           <div className="flex-none flex items-center gap-6 md:gap-8 relative z-10">
             <div className="hidden md:flex items-center gap-6 md:gap-8">
+              <div className="flex flex-col items-center gap-1 rounded-xl border border-white/15 bg-black/30 px-1.5 py-1">
+                <button
+                  type="button"
+                  onClick={toggleMute}
+                  className="text-zinc-200 hover:text-gold transition-colors"
+                  title={volume <= 0 ? 'Ativar som' : 'Silenciar'}
+                  aria-label={volume <= 0 ? 'Ativar som' : 'Silenciar'}
+                >
+                  {volume <= 0 ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={volumePercent}
+                  onChange={(event) => applyVolume(Number(event.target.value) / 100)}
+                  className="h-10 w-3 cursor-pointer accent-gold [writing-mode:vertical-lr] [direction:rtl]"
+                  aria-label="Volume do site"
+                />
+              </div>
+
               {showLiveMatchesButton && (
                 <Button onClick={openLiveMatchesModal} variant="outline" size="icon" className={`border-red-500 text-red-500 hover:bg-red-500 hover:text-white relative ${hasLiveMatches ? 'animate-pulse' : ''}`}>
                   <Radio className="h-5 w-5" />
@@ -225,9 +277,35 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
               <div className="grid grid-cols-1 gap-2">
                 <MobileGridLink href="/copadraft/times">Times</MobileGridLink>
                 <MobileGridLink href="/copadraft/classificacao">Classificacao</MobileGridLink>
+                <MobileGridLink href="/copadraft/stats">Estatísticas</MobileGridLink>
                 <MobileGridLink href="/copadraft/rodadas">Rodadas</MobileGridLink>
                 <MobileGridLink href="/copadraft/desafiar">Desafiar</MobileGridLink>
                 <MobileGridLink href="/copadraft/jogos">Jogos</MobileGridLink>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-white/15 bg-black/30 px-3 py-2">
+              <div className="mb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-300">Volume do som</div>
+              <div className="flex flex-col items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleMute}
+                  className="text-zinc-200 hover:text-gold transition-colors"
+                  title={volume <= 0 ? 'Ativar som' : 'Silenciar'}
+                  aria-label={volume <= 0 ? 'Ativar som' : 'Silenciar'}
+                >
+                  {volume <= 0 ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={volumePercent}
+                  onChange={(event) => applyVolume(Number(event.target.value) / 100)}
+                  className="h-12 w-4 cursor-pointer accent-gold [writing-mode:vertical-lr] [direction:rtl]"
+                  aria-label="Volume do site"
+                />
               </div>
             </div>
 

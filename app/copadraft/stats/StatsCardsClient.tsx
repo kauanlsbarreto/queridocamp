@@ -103,6 +103,15 @@ const ROUND_OPTIONS = [
   { label: "Rodada 7", value: "7" },
 ] as const;
 
+const SORT_OPTIONS = [
+  { label: "HLTV", value: "hltv" },
+  { label: "Kills", value: "kills" },
+  { label: "ADR", value: "adr" },
+  { label: "Score", value: "score" },
+] as const;
+
+type SortOption = (typeof SORT_OPTIONS)[number]["value"];
+
 function toNumber(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -290,7 +299,7 @@ function PlayerCard({
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-xs">
-        <StatLine label="HLTV" value={player.hltvRating2.toFixed(2)} />
+        <StatLine label="HLTV 2.0" value={player.hltvRating2.toFixed(2)} />
         <StatLine label="Kills" value={player.killCount} />
         <StatLine label="Mortes" value={player.deathCount} />
         <StatLine label="ADR" value={player.averageDamagePerRound.toFixed(1)} />
@@ -319,7 +328,7 @@ function PlayerCard({
                       <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-cyan-200/90">Rodada {roundItem.round}</p>
                       <div className="grid grid-cols-1 gap-1.5">
                         <EqStatLine
-                          label="HLTV (M1 + M2)"
+                          label="HLTV 2.0 (M1 + M2)"
                           left={mapAvgFormatted(roundItem.map1, "hltvRating2", 2)}
                           right={mapAvgFormatted(roundItem.map2, "hltvRating2", 2)}
                           total={roundItem.totals.hltvRating2.toFixed(2)}
@@ -397,6 +406,7 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
   const router = useRouter();
   const [selectedPote, setSelectedPote] = useState<number>(0);
   const [selectedRound, setSelectedRound] = useState<string>("geral");
+  const [selectedSort, setSelectedSort] = useState<SortOption>("hltv");
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [faceitGuid, setFaceitGuid] = useState<string>("");
   const [adminLevel, setAdminLevel] = useState<number>(0);
@@ -556,7 +566,7 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
           killCount: entry.killCount,
           assistCount: entry.assistCount,
           deathCount: entry.deathCount,
-          killDeathRatio: entry.killDeathRatio,
+          killDeathRatio: 0,
           damageHealth: entry.damageHealth,
           averageDamagePerRound: entry.averageDamagePerRound,
           utilityDamage: entry.utilityDamage,
@@ -670,7 +680,6 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
       current.killCount += entry.killCount;
       current.assistCount += entry.assistCount;
       current.deathCount += entry.deathCount;
-      current.killDeathRatio += entry.killDeathRatio;
       current.damageHealth += entry.damageHealth;
       current.averageDamagePerRound += entry.averageDamagePerRound;
       current.utilityDamage += entry.utilityDamage;
@@ -782,7 +791,7 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
       const count = Math.max(1, player.appearances);
       const hltv = player.hltvRating2 / count;
       const adr = player.averageDamagePerRound / count;
-      const score = player.score / count;
+      const score = selectedRound === "geral" ? player.score / count : player.score / 2;
       const headshotPct = player.headshotPercentage / count;
       const kast = player.kast / count;
       const roundTotalsByRound = playerRoundTotals.get(key) || new Map();
@@ -804,13 +813,15 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
               averageDamagePerRound: totals.averageDamagePerRound / perRoundCount,
               headshotPercentage: totals.headshotPercentage / perRoundCount,
               kast: totals.kast / perRoundCount,
-              score: totals.score / perRoundCount,
+              score: totals.score / 2,
               killCount: totals.killCount,
               deathCount: totals.deathCount,
             },
           };
         })
         .sort((a, b) => a.round - b.round);
+
+      const kd = player.deathCount > 0 ? player.killCount / player.deathCount : (player.killCount > 0 ? player.killCount : 0);
 
       return {
         steamId: player.steamId,
@@ -823,7 +834,7 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
         killCount: player.killCount,
         assistCount: player.assistCount,
         deathCount: player.deathCount,
-        killDeathRatio: player.killDeathRatio,
+        killDeathRatio: kd,
         damageHealth: player.damageHealth,
         averageDamagePerRound: adr,
         utilityDamage: player.utilityDamage,
@@ -847,14 +858,35 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
     });
 
     result.sort((a, b) => {
-      if (b.killCount !== a.killCount) return b.killCount - a.killCount;
+      if (selectedSort === "kills") {
+        if (b.killCount !== a.killCount) return b.killCount - a.killCount;
+        if (b.hltvRating2 !== a.hltvRating2) return b.hltvRating2 - a.hltvRating2;
+        if (b.averageDamagePerRound !== a.averageDamagePerRound) return b.averageDamagePerRound - a.averageDamagePerRound;
+        return a.deathCount - b.deathCount;
+      }
+
+      if (selectedSort === "adr") {
+        if (b.averageDamagePerRound !== a.averageDamagePerRound) return b.averageDamagePerRound - a.averageDamagePerRound;
+        if (b.hltvRating2 !== a.hltvRating2) return b.hltvRating2 - a.hltvRating2;
+        if (b.killCount !== a.killCount) return b.killCount - a.killCount;
+        return a.deathCount - b.deathCount;
+      }
+
+      if (selectedSort === "score") {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.hltvRating2 !== a.hltvRating2) return b.hltvRating2 - a.hltvRating2;
+        if (b.killCount !== a.killCount) return b.killCount - a.killCount;
+        return a.deathCount - b.deathCount;
+      }
+
       if (b.hltvRating2 !== a.hltvRating2) return b.hltvRating2 - a.hltvRating2;
+      if (b.killCount !== a.killCount) return b.killCount - a.killCount;
       if (b.averageDamagePerRound !== a.averageDamagePerRound) return b.averageDamagePerRound - a.averageDamagePerRound;
       return a.deathCount - b.deathCount;
     });
 
     return result;
-  }, [entries, selectedPote, selectedRound]);
+  }, [entries, selectedPote, selectedRound, selectedSort]);
 
   return (
     <section className="rounded-2xl border border-cyan-300/20 bg-[#071331]/85 p-4 shadow-[0_24px_55px_rgba(0,0,0,0.35)] backdrop-blur-sm md:p-5">
@@ -883,33 +915,65 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
         </div>
 
         {hasAnyData ? (
-          <div className="flex items-center gap-2">
-            <label htmlFor="rodada-filter" className="text-xs font-bold uppercase tracking-wider text-cyan-200/90">
-              Rodada
-            </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label htmlFor="rodada-filter" className="text-xs font-bold uppercase tracking-wider text-cyan-200/90">
+                Rodada
+              </label>
 
-            <div className="relative">
-              <select
-                id="rodada-filter"
-                value={selectedRound}
-                onChange={(event) => {
-                  setSelectedRound(event.target.value);
-                  setOpenCardId(null);
-                }}
-                className="appearance-none rounded-lg border border-cyan-300/40 bg-gradient-to-b from-[#0c234f] to-[#081936] py-2 pl-3 pr-9 text-xs font-black uppercase tracking-wider text-cyan-100 shadow-[0_8px_20px_rgba(0,0,0,0.35)] outline-none transition focus:border-cyan-200/80"
-              >
-                {ROUND_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  id="rodada-filter"
+                  value={selectedRound}
+                  onChange={(event) => {
+                    setSelectedRound(event.target.value);
+                    setOpenCardId(null);
+                  }}
+                  className="appearance-none rounded-lg border border-cyan-300/40 bg-gradient-to-b from-[#0c234f] to-[#081936] py-2 pl-3 pr-9 text-xs font-black uppercase tracking-wider text-cyan-100 shadow-[0_8px_20px_rgba(0,0,0,0.35)] outline-none transition focus:border-cyan-200/80"
+                >
+                  {ROUND_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
 
-              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-cyan-200">
-                <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path d="M5.25 7.5a.75.75 0 0 1 1.06 0L10 11.19l3.69-3.69a.75.75 0 1 1 1.06 1.06l-4.22 4.22a.75.75 0 0 1-1.06 0L5.25 8.56a.75.75 0 0 1 0-1.06Z" />
-                </svg>
-              </span>
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-cyan-200">
+                  <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M5.25 7.5a.75.75 0 0 1 1.06 0L10 11.19l3.69-3.69a.75.75 0 1 1 1.06 1.06l-4.22 4.22a.75.75 0 0 1-1.06 0L5.25 8.56a.75.75 0 0 1 0-1.06Z" />
+                  </svg>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label htmlFor="sort-filter" className="text-xs font-bold uppercase tracking-wider text-cyan-200/90">
+                Ordem
+              </label>
+
+              <div className="relative">
+                <select
+                  id="sort-filter"
+                  value={selectedSort}
+                  onChange={(event) => {
+                    setSelectedSort(event.target.value as SortOption);
+                    setOpenCardId(null);
+                  }}
+                  className="appearance-none rounded-lg border border-cyan-300/40 bg-gradient-to-b from-[#0c234f] to-[#081936] py-2 pl-3 pr-9 text-xs font-black uppercase tracking-wider text-cyan-100 shadow-[0_8px_20px_rgba(0,0,0,0.35)] outline-none transition focus:border-cyan-200/80"
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-cyan-200">
+                  <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M5.25 7.5a.75.75 0 0 1 1.06 0L10 11.19l3.69-3.69a.75.75 0 1 1 1.06 1.06l-4.22 4.22a.75.75 0 0 1-1.06 0L5.25 8.56a.75.75 0 0 1 0-1.06Z" />
+                  </svg>
+                </span>
+              </div>
             </div>
           </div>
         ) : null}
