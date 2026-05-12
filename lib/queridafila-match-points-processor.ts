@@ -14,6 +14,7 @@ const DISCORD_POINTS_WEBHOOK_URL =
 type MatchDetails = {
   match_id: string;
   competition_id?: string;
+  status?: string;
   started_at?: number;
   finished_at?: number;
   faceit_url?: string;
@@ -29,6 +30,10 @@ type MatchDetails = {
   };
   results?: {
     winner?: string;
+    score?: {
+      faction1?: number | string;
+      faction2?: number | string;
+    };
   };
 };
 
@@ -240,6 +245,120 @@ async function ensureProcessedTable(connection: any) {
   `);
 }
 
+async function ensureSalvarJogoTable(connection: any) {
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS salvarjogo (
+      id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      match_id VARCHAR(100) NOT NULL,
+      queue_id VARCHAR(100) NULL,
+      status VARCHAR(32) NULL,
+      started_at INT NULL,
+      finished_at INT NULL,
+      winner_team_id VARCHAR(100) NULL,
+      team1_id VARCHAR(100) NULL,
+      team2_id VARCHAR(100) NULL,
+      team1_score INT NULL,
+      team2_score INT NULL,
+      payload_json JSON NULL,
+      points_processed TINYINT(1) NOT NULL DEFAULT 0,
+      points_processed_at TIMESTAMP NULL,
+      error_message TEXT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_salvarjogo_match_id (match_id),
+      KEY idx_salvarjogo_finished_at (finished_at),
+      KEY idx_salvarjogo_points_processed (points_processed)
+    )
+  `);
+
+  const migrations: Array<{ name: string; sql: string }> = [
+    { name: "queue_id", sql: "ALTER TABLE salvarjogo ADD COLUMN queue_id VARCHAR(100) NULL" },
+    { name: "status", sql: "ALTER TABLE salvarjogo ADD COLUMN status VARCHAR(32) NULL" },
+    { name: "started_at", sql: "ALTER TABLE salvarjogo ADD COLUMN started_at INT NULL" },
+    { name: "finished_at", sql: "ALTER TABLE salvarjogo ADD COLUMN finished_at INT NULL" },
+    { name: "winner_team_id", sql: "ALTER TABLE salvarjogo ADD COLUMN winner_team_id VARCHAR(100) NULL" },
+    { name: "team1_id", sql: "ALTER TABLE salvarjogo ADD COLUMN team1_id VARCHAR(100) NULL" },
+    { name: "team2_id", sql: "ALTER TABLE salvarjogo ADD COLUMN team2_id VARCHAR(100) NULL" },
+    { name: "team1_score", sql: "ALTER TABLE salvarjogo ADD COLUMN team1_score INT NULL" },
+    { name: "team2_score", sql: "ALTER TABLE salvarjogo ADD COLUMN team2_score INT NULL" },
+    { name: "payload_json", sql: "ALTER TABLE salvarjogo ADD COLUMN payload_json JSON NULL" },
+    { name: "points_processed", sql: "ALTER TABLE salvarjogo ADD COLUMN points_processed TINYINT(1) NOT NULL DEFAULT 0" },
+    { name: "points_processed_at", sql: "ALTER TABLE salvarjogo ADD COLUMN points_processed_at TIMESTAMP NULL" },
+    { name: "error_message", sql: "ALTER TABLE salvarjogo ADD COLUMN error_message TEXT NULL" },
+    { name: "created_at", sql: "ALTER TABLE salvarjogo ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP" },
+    {
+      name: "updated_at",
+      sql: "ALTER TABLE salvarjogo ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+    },
+  ];
+
+  for (const migration of migrations) {
+    try {
+      const [existsRows] = await connection.query("SHOW COLUMNS FROM salvarjogo LIKE ?", [migration.name]);
+      if (Array.isArray(existsRows) && existsRows.length > 0) continue;
+      await connection.query(migration.sql);
+    } catch {
+      // Keep processor resilient if a column migration fails.
+    }
+  }
+}
+
+function truncateErrorMessage(input: string): string {
+  return input.slice(0, 1800);
+}
+
+async function upsertSalvarJogoMatch(connection: any, details: MatchDetails, queueId: string) {
+  const winner = String(details.results?.winner || "").trim() || null;
+  const team1Id = details.teams?.faction1?.faction_id || null;
+  const team2Id = details.teams?.faction2?.faction_id || null;
+  const team1Score = toNumber(details.results?.score?.faction1 ?? null);
+  const team2Score = toNumber(details.results?.score?.faction2 ?? null);
+
+  await connection.query(
+    `INSERT INTO salvarjogo (
+       match_id, queue_id, status, started_at, finished_at,
+       winner_team_id, team1_id, team2_id, team1_score, team2_score,
+       payload_json, points_processed, error_message
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
+     ON DUPLICATE KEY UPDATE
+       queue_id = VALUES(queue_id),
+       status = VALUES(status),
+       started_at = VALUES(started_at),
+       finished_at = VALUES(finished_at),
+       winner_team_id = VALUES(winner_team_id),
+       team1_id = VALUES(team1_id),
+       team2_id = VALUES(team2_id),
+       team1_score = VALUES(team1_score),
+       team2_score = VALUES(team2_score),
+       payload_json = VALUES(payload_json)`,
+    [
+      details.match_id,
+      queueId || details.competition_id || null,
+      details.status || null,
+      toNumber(details.started_at || 0) || null,
+      toNumber(details.finished_at || 0) || null,
+      winner,
+      team1Id,
+      team2Id,
+      team1Score || null,
+      team2Score || null,
+      JSON.stringify(details),
+    ],
+  );
+}
+
+async function markSalvarJogoNotComputed(connection: any, matchId: string, reason: string, queueId?: string) {
+  await connection.query(
+    `UPDATE salvarjogo
+     SET points_processed = 0,
+         points_processed_at = NULL,
+         error_message = ?,
+         queue_id = COALESCE(?, queue_id)
+     WHERE match_id = ?`,
+    [truncateErrorMessage(reason), queueId || null, matchId],
+  );
+}
+
 async function sendDiscordPointsWebhook(payload: {
   matchId: string;
   faceitUrl: string;
@@ -300,7 +419,18 @@ export async function getQueridaFilaMatchProcessingStatus(matchId: string): Prom
     const { getRuntimeEnv } = await import("@/lib/runtime-env");
     const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
+    await ensureSalvarJogoTable(connection);
     await ensureProcessedTable(connection);
+
+    const [salvarRows] = await connection.query(
+      "SELECT points_processed FROM salvarjogo WHERE match_id = ? LIMIT 1",
+      [matchId],
+    );
+
+    if (Array.isArray(salvarRows) && salvarRows.length > 0) {
+      const processed = Number((salvarRows as Array<{ points_processed?: number }>)[0]?.points_processed || 0) === 1;
+      return { processed };
+    }
 
     const [rows] = await connection.query(
       "SELECT match_id FROM processed_faceit_matches WHERE match_id = ? LIMIT 1",
@@ -331,17 +461,24 @@ export async function getUnprocessedMatchIds(matchIds: string[]): Promise<string
     const { getRuntimeEnv } = await import("@/lib/runtime-env");
     const env = await getRuntimeEnv();
     connection = await createMainConnection(env);
+    await ensureSalvarJogoTable(connection);
     await ensureProcessedTable(connection);
 
     const placeholders = matchIds.map(() => "?").join(",");
-    const [rows] = await connection.query(
+    const [salvarRows] = await connection.query(
+      `SELECT match_id FROM salvarjogo WHERE match_id IN (${placeholders}) AND points_processed = 1`,
+      matchIds,
+    );
+
+    const [legacyRows] = await connection.query(
       `SELECT match_id FROM processed_faceit_matches WHERE match_id IN (${placeholders})`,
       matchIds,
     );
 
-    const processedSet = new Set(
-      (rows as Array<{ match_id: string }>).map((r) => r.match_id),
-    );
+    const processedSet = new Set<string>([
+      ...(salvarRows as Array<{ match_id: string }>).map((r) => r.match_id),
+      ...(legacyRows as Array<{ match_id: string }>).map((r) => r.match_id),
+    ]);
     return matchIds.filter((id) => !processedSet.has(id));
   } catch (error) {
     console.error("[faceit-webhook] erro ao verificar partidas em lote:", error);
@@ -375,6 +512,12 @@ export async function processQueridaFilaMatchPoints(params: MatchPointsProcessPa
       };
     }
 
+    const { getRuntimeEnv } = await import("@/lib/runtime-env");
+    const env = await getRuntimeEnv();
+    connection = await createMainConnection(env);
+    await ensureSalvarJogoTable(connection);
+    await ensureProcessedTable(connection);
+
     const queueCandidates = [
       matchData.details.competition_id,
       params.queueIdHint,
@@ -382,7 +525,15 @@ export async function processQueridaFilaMatchPoints(params: MatchPointsProcessPa
 
     const queueId = queueCandidates.find((candidate) => candidate === TARGET_QUEUE_ID) || queueCandidates[0] || "";
 
+    await upsertSalvarJogoMatch(connection, matchData.details, queueId);
+
     if (!queueCandidates.includes(TARGET_QUEUE_ID)) {
+      await markSalvarJogoNotComputed(
+        connection,
+        params.matchId,
+        "Partida ignorada por nao pertencer a fila alvo.",
+        queueId,
+      );
       return {
         ...baseResult,
         success: false,
@@ -395,6 +546,12 @@ export async function processQueridaFilaMatchPoints(params: MatchPointsProcessPa
 
     const matchFinishedAt = toNumber(matchData.details.finished_at || matchData.details.started_at || 0);
     if (matchFinishedAt < POINTS_START_DATE_UNIX) {
+      await markSalvarJogoNotComputed(
+        connection,
+        params.matchId,
+        "Partida ignorada por ser anterior a data de inicio da pontuacao.",
+        queueId,
+      );
       return {
         ...baseResult,
         success: false,
@@ -407,6 +564,12 @@ export async function processQueridaFilaMatchPoints(params: MatchPointsProcessPa
 
     const winnerScores = calculateWinnerPoints(matchData.details, matchData.stats);
     if (winnerScores.length === 0) {
+      await markSalvarJogoNotComputed(
+        connection,
+        params.matchId,
+        "Nao foi possivel calcular pontos dos vencedores.",
+        queueId,
+      );
       return {
         ...baseResult,
         success: false,
@@ -417,20 +580,18 @@ export async function processQueridaFilaMatchPoints(params: MatchPointsProcessPa
       };
     }
 
-    const { getRuntimeEnv } = await import("@/lib/runtime-env");
-    const env = await getRuntimeEnv();
-    connection = await createMainConnection(env);
-    await ensureProcessedTable(connection);
-
     await connection.beginTransaction();
 
-    try {
-      await connection.query(
-        "INSERT INTO processed_faceit_matches (match_id, queue_id) VALUES (?, ?)",
-        [params.matchId, queueId],
+      const [currentRows] = await connection.query(
+        "SELECT points_processed FROM salvarjogo WHERE match_id = ? LIMIT 1 FOR UPDATE",
+        [params.matchId],
       );
-    } catch (e: any) {
-      if (e?.code === "ER_DUP_ENTRY") {
+      const alreadyProcessed =
+        Array.isArray(currentRows) &&
+        currentRows.length > 0 &&
+        Number((currentRows as Array<{ points_processed?: number }>)[0]?.points_processed || 0) === 1;
+
+      if (alreadyProcessed) {
         await connection.rollback();
         return {
           ...baseResult,
@@ -441,9 +602,6 @@ export async function processQueridaFilaMatchPoints(params: MatchPointsProcessPa
           queueCandidates,
         };
       }
-
-      throw e;
-    }
 
     const winnerIds = winnerScores.map((p) => p.playerId);
     const placeholders = winnerIds.map(() => "?").join(",");
@@ -488,6 +646,22 @@ export async function processQueridaFilaMatchPoints(params: MatchPointsProcessPa
       });
     }
 
+    await connection.query(
+      `UPDATE salvarjogo
+       SET points_processed = 1,
+           points_processed_at = NOW(),
+           error_message = NULL,
+           queue_id = COALESCE(?, queue_id)
+       WHERE match_id = ?`,
+      [queueId, params.matchId],
+    );
+
+    // Compatibilidade com fluxos legados que ainda consultam esta tabela.
+    await connection.query(
+      "INSERT IGNORE INTO processed_faceit_matches (match_id, queue_id) VALUES (?, ?)",
+      [params.matchId, queueId],
+    );
+
     await connection.commit();
 
     const faceitUrl = (matchData.details.faceit_url || `https://www.faceit.com/en/cs2/room/${params.matchId}`).replace(
@@ -523,6 +697,19 @@ export async function processQueridaFilaMatchPoints(params: MatchPointsProcessPa
       try {
         await connection.rollback();
       } catch {}
+
+      try {
+        await connection.query(
+          `UPDATE salvarjogo
+           SET points_processed = 0,
+               points_processed_at = NULL,
+               error_message = ?
+           WHERE match_id = ?`,
+          [truncateErrorMessage(error instanceof Error ? error.message : String(error)), params.matchId],
+        );
+      } catch {
+        // ignore secondary errors while persisting failure reason
+      }
     }
 
     console.error("[faceit-webhook] erro ao processar partida:", error);

@@ -17,6 +17,33 @@ const MAX_PROCESS_PER_RUN = 8;
 // Máximo de páginas para paginar partidas (100 itens cada).
 const MAX_PAGES = 15;
 
+function parseStartDateToUnix(input: string | null | undefined): number | null {
+  const raw = String(input || "").trim();
+  if (!raw) return null;
+
+  // Aceita DD/MM/AAAA
+  const br = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (br) {
+    const day = Number(br[1]);
+    const month = Number(br[2]);
+    const year = Number(br[3]);
+    const dt = new Date(Date.UTC(year, month - 1, day, 3, 0, 0)); // 00:00 BRT
+    if (!Number.isFinite(dt.getTime())) return null;
+    return Math.floor(dt.getTime() / 1000);
+  }
+
+  // Aceita ISO ou data parseável
+  const dt = new Date(raw);
+  if (!Number.isFinite(dt.getTime())) return null;
+  return Math.floor(dt.getTime() / 1000);
+}
+
+function parsePositiveInt(input: string | null | undefined, fallback: number, max: number): number {
+  const n = Number(input || "");
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.min(Math.floor(n), max);
+}
+
 function isAuthorized(request: Request): boolean {
   const authHeader = request.headers.get("Authorization");
   const botHeaderToken = request.headers.get("x-bot-sync-token");
@@ -41,12 +68,12 @@ type FaceitQueueMatch = {
  * Para de paginar assim que encontra partidas mais antigas que a data de início.
  * Retorna em ordem cronológica (mais antigas primeiro).
  */
-async function getAllFinishedMatchesSinceStart(): Promise<FaceitQueueMatch[]> {
+async function getAllFinishedMatchesSinceStart(startUnix: number, maxPages: number): Promise<FaceitQueueMatch[]> {
   const PAGE_SIZE = 100;
   const result: FaceitQueueMatch[] = [];
   let offset = 0;
 
-  for (let page = 0; page < MAX_PAGES; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const res = await fetch(
       `https://open.faceit.com/data/v4/hubs/${TARGET_QUEUE_ID}/matches?type=past&offset=${offset}&limit=${PAGE_SIZE}`,
       { headers: { Authorization: `Bearer ${API_KEY_FACEIT}` }, cache: "no-store" },
@@ -68,7 +95,7 @@ async function getAllFinishedMatchesSinceStart(): Promise<FaceitQueueMatch[]> {
 
       // A API retorna do mais recente para o mais antigo; assim que passarmos
       // da data de início podemos parar de paginar.
-      if (finishedAt > 0 && finishedAt < POINTS_START_DATE_UNIX) {
+      if (finishedAt > 0 && finishedAt < startUnix) {
         hitOlderThanStart = true;
         break;
       }
@@ -97,15 +124,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Nao autorizado." }, { status: 401 });
     }
 
+    const url = new URL(request.url);
+    const startDateParam = url.searchParams.get("startDate") || url.searchParams.get("from");
+    const startUnix = parseStartDateToUnix(startDateParam) ?? POINTS_START_DATE_UNIX;
+    const maxPerRun = parsePositiveInt(url.searchParams.get("maxPerRun"), MAX_PROCESS_PER_RUN, 150);
+    const maxPages = parsePositiveInt(url.searchParams.get("maxPages"), MAX_PAGES, 60);
+
     // 1. Busca todas as partidas finalizadas desde o início da pontuação.
-    const allFinished = await getAllFinishedMatchesSinceStart();
+    const allFinished = await getAllFinishedMatchesSinceStart(startUnix, maxPages);
     const allMatchIds = allFinished.map((m) => m.match_id);
 
     // 2. Consulta o banco de uma vez para saber quais AINDA não foram processadas.
     const unprocessedIds = new Set(await getUnprocessedMatchIds(allMatchIds));
     const toProcess = allFinished
       .filter((m) => unprocessedIds.has(m.match_id))
-      .slice(0, MAX_PROCESS_PER_RUN);
+      .slice(0, maxPerRun);
 
     let processedCount = 0;
     let skippedCount = 0;
@@ -152,6 +185,10 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       queueId: TARGET_QUEUE_ID,
+      startUnix,
+      startDateUsed: new Date(startUnix * 1000).toISOString(),
+      maxPerRun,
+      maxPages,
       totalFinishedSinceStart: allFinished.length,
       pendingBeforeRun: unprocessedIds.size,
       processedThisRun: processedCount,
