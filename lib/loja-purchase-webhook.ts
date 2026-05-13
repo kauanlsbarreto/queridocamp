@@ -9,6 +9,8 @@ export type StorePurchaseWebhookPayload = {
   playerNickname: string;
   playerAvatar: string;
   playerAdmin: number;
+  storeSection?: string;
+  purchaseChannel?: string;
   itemId: number;
   itemName: string;
   itemCategory: string;
@@ -32,8 +34,10 @@ export type StorePurchaseWebhookPayload = {
   referer: string;
 };
 
-export async function sendStorePurchaseWebhook(payload: StorePurchaseWebhookPayload) {
-  if (!DISCORD_WEBHOOK_URL) return;
+export async function sendStorePurchaseWebhook(
+  payload: StorePurchaseWebhookPayload
+): Promise<{ sent: boolean; reason?: string; error?: string }> {
+  if (!DISCORD_WEBHOOK_URL) return { sent: false, reason: "DISCORD_WEBHOOK_URL não configurada." };
 
   const purchaseAt = new Date().toISOString();
   const color = 0xf1c40f;
@@ -60,6 +64,8 @@ export async function sendStorePurchaseWebhook(payload: StorePurchaseWebhookPayl
           { name: "Item", value: payload.itemName || "-", inline: true },
           { name: "Categoria", value: payload.itemCategory || "-", inline: true },
           { name: "Tipo", value: payload.itemType || "-", inline: true },
+          { name: "Área", value: payload.storeSection || "-", inline: true },
+          { name: "Canal", value: payload.purchaseChannel || "-", inline: true },
 
           { name: "Preco (R$)", value: `R$ ${Number(payload.itemPreco || 0).toFixed(2)}`, inline: true },
           { name: "Custo em Moedas", value: String(payload.itemMoedas || 0), inline: true },
@@ -95,6 +101,8 @@ export async function sendStorePurchaseWebhook(payload: StorePurchaseWebhookPayl
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
-    throw new Error(`Discord webhook retornou ${response.status}: ${errorText}`);
+    return { sent: false, error: `Discord webhook retornou ${response.status}: ${errorText}` };
   }
+
+  return { sent: true };
 }

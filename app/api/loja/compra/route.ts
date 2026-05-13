@@ -279,6 +279,8 @@ export async function POST(request: Request) {
         playerNickname,
         playerAvatar,
         playerAdmin,
+        storeSection: "Perfil",
+        purchaseChannel: "Moedas",
         itemId: item.id,
         itemName: item.nome,
         itemCategory: String(item.categoria || ""),

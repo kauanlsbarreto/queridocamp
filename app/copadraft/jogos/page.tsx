@@ -7,6 +7,22 @@ import { getRuntimeEnv } from "@/lib/runtime-env";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+type MatchRow = {
+	id: number;
+	challenger_team_id: number;
+	challenged_team_id: number;
+	rodada: number | null;
+	proposed_date: unknown;
+	proposed_time: unknown;
+};
+
+type JogoScoreRow = {
+	rodada: number | null;
+	time1: string;
+	time2: string;
+	placar: string | null;
+};
+
 const QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_JOGOS_QUERY_TIMEOUT_MS || 5000);
 const JOGOS_LOAD_TIMEOUT_MS = Number(process.env.COPADRAFT_JOGOS_LOAD_TIMEOUT_MS || 3500);
 
@@ -52,6 +68,27 @@ function toHourMinute(value: unknown) {
 	return raw.slice(0, 5);
 }
 
+function normalizeText(value: unknown) {
+	return String(value || "")
+		.trim()
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "");
+}
+
+function buildGameKey(rodada: number | null, team1: string, team2: string) {
+	if (!Number.isInteger(rodada) || Number(rodada) <= 0) return "";
+	const names = [normalizeText(team1), normalizeText(team2)].filter(Boolean).sort();
+	if (names.length !== 2) return "";
+	return `${Number(rodada)}::${names[0]}::${names[1]}`;
+}
+
+function buildTeamsOnlyKey(team1: string, team2: string) {
+	const names = [normalizeText(team1), normalizeText(team2)].filter(Boolean).sort();
+	if (names.length !== 2) return "";
+	return `${names[0]}::${names[1]}`;
+}
+
 async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
 	let mainConn: any = null;
 	let jogadoresConn: any = null;
@@ -69,8 +106,25 @@ async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
 			timeout: QUERY_TIMEOUT_MS,
 		});
 
-		const matches = Array.isArray(rows) ? rows : [];
+		const matches = (Array.isArray(rows) ? rows : []) as MatchRow[];
 		if (matches.length === 0) return [];
+
+		const [jogosRowsRaw]: any = await mainConn.query({
+			sql: "SELECT rodada, time1, time2, placar FROM jogos",
+			timeout: QUERY_TIMEOUT_MS,
+		});
+		const jogosRows = (Array.isArray(jogosRowsRaw) ? jogosRowsRaw : []) as JogoScoreRow[];
+		const scoreByGameKey = new Map<string, string>();
+		const scoreByTeamsOnlyKey = new Map<string, string>();
+
+		for (const row of jogosRows) {
+			const score = String(row?.placar || "").trim();
+			if (!score) continue;
+			const key = buildGameKey(Number(row?.rodada || 0), row?.time1, row?.time2);
+			if (key) scoreByGameKey.set(key, score);
+			const teamsOnlyKey = buildTeamsOnlyKey(row?.time1, row?.time2);
+			if (teamsOnlyKey) scoreByTeamsOnlyKey.set(teamsOnlyKey, score);
+		}
 
 		const teamIds = Array.from(
 			new Set(
@@ -104,21 +158,34 @@ async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
 			}
 		}
 
-		return matches.map((m: any) => {
+		const resolvedGames = matches.map((m: MatchRow) => {
 			const team1Id = Number(m?.challenger_team_id || 0);
 			const team2Id = Number(m?.challenged_team_id || 0);
+			const team1Name = teamIdToName.get(team1Id) || `Time ${team1Id}`;
+			const team2Name = teamIdToName.get(team2Id) || `Time ${team2Id}`;
+			const rodada = m?.rodada != null ? Number(m.rodada) : null;
+			const scoreKey = buildGameKey(rodada, team1Name, team2Name);
+			const teamsOnlyKey = buildTeamsOnlyKey(team1Name, team2Name);
+			const score =
+				(scoreKey ? scoreByGameKey.get(scoreKey) : undefined) ||
+				(teamsOnlyKey ? scoreByTeamsOnlyKey.get(teamsOnlyKey) : undefined) ||
+				null;
 			const date = toIsoDate(m?.proposed_date);
 			const time = toHourMinute(m?.proposed_time);
 
 			return {
 				id: Number(m?.id || 0),
-				rodada: m?.rodada != null ? Number(m.rodada) : null,
+				rodada,
 				date,
 				time,
-				team1: teamIdToName.get(team1Id) || `Time ${team1Id}`,
-				team2: teamIdToName.get(team2Id) || `Time ${team2Id}`,
+				team1: team1Name,
+				team2: team2Name,
+				score,
+				isPlayed: Boolean(score),
 			} satisfies ConfirmedGame;
 		});
+
+		return resolvedGames;
 	} catch (error) {
 		console.error("[copadraft/jogos] erro ao carregar jogos confirmados:", error);
 		throw error; // propaga para não cachear falha de DB

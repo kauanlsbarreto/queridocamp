@@ -9,6 +9,8 @@ export type ConfirmedGame = {
   time: string;
   team1: string;
   team2: string;
+  score: string | null;
+  isPlayed: boolean;
 };
 
 type Props = {
@@ -68,6 +70,8 @@ function TeamFlag({ teamName }: { teamName: string }) {
 }
 
 function GameCard({ game }: { game: ConfirmedGame }) {
+  const hasScore = Boolean(String(game.score || "").trim());
+
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#071940]/90 to-[#0a2256]/80 px-4 py-5 shadow-[0_12px_30px_rgba(0,0,0,0.4)] backdrop-blur-sm transition-all duration-200 hover:border-cyan-400/30 hover:shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.12),transparent_65%)]" />
@@ -87,8 +91,30 @@ function GameCard({ game }: { game: ConfirmedGame }) {
           <span className="text-xs font-black uppercase tracking-widest text-white md:text-sm">{game.team1}</span>
         </div>
 
-        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-cyan-300/40 bg-[#050e28] shadow-[0_0_18px_rgba(34,211,238,0.3)] md:h-12 md:w-12">
-          <span className="text-[11px] font-black uppercase tracking-widest text-cyan-300 md:text-xs">VS</span>
+        <div className="flex flex-col items-center gap-1 px-1">
+          {hasScore ? (
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="flex items-center gap-1.5 rounded-xl border border-cyan-300/30 bg-[#050e28] px-3 py-1.5 shadow-[0_0_18px_rgba(34,211,238,0.25)]">
+                {(() => {
+                  const parts = String(game.score).split(/\s*x\s*/i);
+                  const s1 = parts[0]?.trim() ?? "?";
+                  const s2 = parts[1]?.trim() ?? "?";
+                  return (
+                    <>
+                      <span className="text-lg font-black tabular-nums text-white md:text-xl">{s1}</span>
+                      <span className="text-xs font-bold text-cyan-400">x</span>
+                      <span className="text-lg font-black tabular-nums text-white md:text-xl">{s2}</span>
+                    </>
+                  );
+                })()}
+              </div>
+              <span className="text-[9px] uppercase tracking-[0.15em] text-cyan-400/70">Placar</span>
+            </div>
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-cyan-300/40 bg-[#050e28] shadow-[0_0_18px_rgba(34,211,238,0.3)] md:h-12 md:w-12">
+              <span className="text-[11px] font-black uppercase tracking-widest text-cyan-300 md:text-xs">VS</span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-1 flex-col items-center gap-2 text-center">
@@ -122,6 +148,7 @@ function DateSection({ date, games }: { date: string; games: ConfirmedGame[] }) 
 
 export default function JogosPageClient({ games }: Props) {
   const [isClearingCache, setIsClearingCache] = useState(false);
+  const [activeTab, setActiveTab] = useState<"upcoming" | "played">("upcoming");
 
   useEffect(() => {
     try {
@@ -144,15 +171,29 @@ export default function JogosPageClient({ games }: Props) {
     }
   }, []);
 
-  const grouped = useMemo(() => {
+  const upcomingGrouped = useMemo(() => {
     const map = new Map<string, ConfirmedGame[]>();
-    for (const game of games) {
+    for (const game of games.filter((item) => !item.isPlayed)) {
       const dateKey = String(game.date || "").slice(0, 10);
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey)!.push(game);
     }
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [games]);
+
+  const playedGrouped = useMemo(() => {
+    const map = new Map<string, ConfirmedGame[]>();
+    for (const game of games.filter((item) => item.isPlayed)) {
+      const dateKey = String(game.date || "").slice(0, 10);
+      if (!map.has(dateKey)) map.set(dateKey, []);
+      map.get(dateKey)!.push(game);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [games]);
+
+  const activeGrouped = activeTab === "upcoming" ? upcomingGrouped : playedGrouped;
+  const upcomingCount = games.filter((item) => !item.isPlayed).length;
+  const playedCount = games.filter((item) => item.isPlayed).length;
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#030a1e] px-4 py-10 text-white">
@@ -173,13 +214,40 @@ export default function JogosPageClient({ games }: Props) {
           </p>
         </header>
 
-        {grouped.length === 0 ? (
+        <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("upcoming")}
+            className={`rounded-lg border px-4 py-2 text-xs font-black uppercase tracking-wider transition ${
+              activeTab === "upcoming"
+                ? "border-cyan-300/70 bg-cyan-400/15 text-cyan-100"
+                : "border-white/15 bg-white/5 text-zinc-300 hover:border-cyan-300/40"
+            }`}
+          >
+            Próximos jogos ({upcomingCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("played")}
+            className={`rounded-lg border px-4 py-2 text-xs font-black uppercase tracking-wider transition ${
+              activeTab === "played"
+                ? "border-cyan-300/70 bg-cyan-400/15 text-cyan-100"
+                : "border-white/15 bg-white/5 text-zinc-300 hover:border-cyan-300/40"
+            }`}
+          >
+            Jogos já realizados ({playedCount})
+          </button>
+        </div>
+
+        {activeGrouped.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-[#071331]/85 p-8 text-center text-zinc-300">
-            Nenhum jogo confirmado encontrado.
+            {activeTab === "upcoming"
+              ? "Nenhum próximo jogo confirmado encontrado."
+              : "Nenhum jogo realizado com placar encontrado."}
           </div>
         ) : (
           <div className="flex flex-col gap-6">
-            {grouped.map(([date, dateGames]) => (
+            {activeGrouped.map(([date, dateGames]) => (
               <DateSection key={date} date={date} games={dateGames} />
             ))}
           </div>

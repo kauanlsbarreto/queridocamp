@@ -14,6 +14,7 @@ import {
   loadLojaPaymentDiscordContext,
   sendLojaPaymentDiscordWebhook,
 } from "@/lib/loja-payment-discord-webhook";
+import { sendStorePurchaseWebhook } from "@/lib/loja-purchase-webhook";
 import { deleteStalePendingPayments } from "@/lib/loja-payment-cleanup";
 
 export const dynamic = "force-dynamic";
@@ -108,6 +109,54 @@ async function createPaymentLog(
       payload.details ? JSON.stringify(payload.details) : null,
     ],
   );
+}
+
+async function hasStorePurchaseWebhookSent(connection: any, paymentId: number) {
+  const [rows] = await connection.query(
+    `SELECT id
+     FROM loja_pagamentos_logs
+     WHERE payment_id = ?
+       AND event_name = 'STORE_PURCHASE_WEBHOOK_SENT'
+     ORDER BY id DESC
+     LIMIT 1`,
+    [paymentId],
+  );
+
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+function normalizeStorePath(raw: string | null | undefined) {
+  const value = String(raw || "").trim().replace(/\\/g, "/");
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+
+  let normalized = value;
+  if (normalized.toLowerCase().startsWith("public/")) {
+    normalized = normalized.slice("public".length);
+  }
+  if (!normalized.startsWith("/")) {
+    normalized = `/${normalized}`;
+  }
+  return normalized;
+}
+
+function resolvePrimaryStoreImage(raw: string | null | undefined) {
+  const value = String(raw || "").trim();
+  if (!value) return "";
+
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      for (const entry of parsed) {
+        const normalized = normalizeStorePath(typeof entry === "string" ? entry : "");
+        if (normalized) return normalized;
+      }
+      return "";
+    }
+  } catch {
+  }
+
+  return normalizeStorePath(value);
 }
 
 async function hasPaidDiscordWebhookSent(connection: any, paymentId: number) {
@@ -539,6 +588,70 @@ export async function GET(request: Request) {
               ...dispatch,
             },
           });
+        }
+
+        const alreadySentStoreWebhook = await hasStorePurchaseWebhookSent(connection, payment.id);
+        if (!alreadySentStoreWebhook && notificationPayment) {
+          const [storeRows] = await connection.query(
+            "SELECT id, nome, preco, moedas, estoque, categoria, tipo_item, imagem_url FROM estoque WHERE id = ? LIMIT 1",
+            [payment.estoque_id],
+          );
+          const storeItems = Array.isArray(storeRows) ? storeRows as Array<{
+            id: number;
+            nome: string;
+            preco: number;
+            moedas: number;
+            estoque: number;
+            categoria: string | null;
+            tipo_item: string | null;
+            imagem_url: string | null;
+          }> : [];
+          const storeItem = storeItems[0] || null;
+
+          if (storeItem) {
+            const storeWebhook = await sendStorePurchaseWebhook({
+              purchaseId: payment.id,
+              faceitGuid: notificationPayment.faceit_guid,
+              playerId: notificationPayment.player_id,
+              playerNickname: notificationPayment.player_nickname || "",
+              playerAvatar: "",
+              playerAdmin: 0,
+              itemId: storeItem.id,
+              itemName: storeItem.nome,
+              itemCategory: String(storeItem.categoria || ""),
+              itemType: String(storeItem.tipo_item || ""),
+              itemPreco: Number(storeItem.preco || 0),
+              itemMoedas: Number(storeItem.moedas || 0),
+              estoqueBefore: Math.max(0, Number(storeItem.estoque || 0) + 1),
+              estoqueAfter: Math.max(0, Number(storeItem.estoque || 0)),
+              requiredPoints: 0,
+              pointsBefore: 0,
+              pointsAfter: 0,
+              labelText: notificationPayment.player_nickname || storeItem.nome,
+              imageUrl: resolvePrimaryStoreImage(storeItem.imagem_url),
+              imageName: storeItem.nome,
+              imageSizeBytes: 0,
+              imageMimeType: "store-item",
+              requestUrl: request.url,
+              method: request.method,
+              ip: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "",
+              userAgent: request.headers.get("user-agent") || "",
+              referer: request.headers.get("referer") || "",
+            });
+
+            await createPaymentLog(connection, {
+              paymentId: payment.id,
+              paymentRef: payment.payment_ref,
+              eventName: storeWebhook.sent ? "STORE_PURCHASE_WEBHOOK_SENT" : "STORE_PURCHASE_WEBHOOK_FAILED",
+              statusBefore: String(payment.status || "").toUpperCase(),
+              statusAfter: "PAID",
+              source: "api-status",
+              message: storeWebhook.sent
+                ? "Webhook da compra da loja enviado com sucesso."
+                : storeWebhook.reason || storeWebhook.error || "Falha ao enviar webhook da compra da loja.",
+              details: storeWebhook,
+            });
+          }
         }
       }
     }

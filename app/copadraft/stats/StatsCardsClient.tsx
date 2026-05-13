@@ -204,13 +204,15 @@ function PlayerCard({
   player,
   isOpen,
   onToggle,
+  selectedRound,
 }: {
   player: AggregatedPlayer;
   isOpen: boolean;
   onToggle: () => void;
+  selectedRound: string;
 }) {
   const equationRounds = player.roundBreakdown.filter((item) => item.map1 || item.map2);
-  const canShowEquation = equationRounds.length > 0;
+  const canShowEquation = selectedRound !== "geral" && equationRounds.length > 0;
   const roundsLabel =
     player.roundsPlayed.length > 0
       ? `Rodadas: ${player.roundsPlayed.slice().sort((a, b) => a - b).join(", ")}`
@@ -1019,6 +1021,7 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
                 player={player}
                 isOpen={isOpen}
                 onToggle={() => setOpenCardId((prev) => (prev === cardId ? null : cardId))}
+                selectedRound={selectedRound}
               />
             );
           })}

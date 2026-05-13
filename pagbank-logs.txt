@@ -147,3 +147,153 @@
   ],
   "origin": "CHECKOUT_WEB"
 }
+
+[PAGBANK][REQUEST] /orders
+{
+  "reference_id": "LOJA_PAY_1_cd1dea73",
+  "customer": {
+    "name": "-Sh4yan777",
+    "email": "kauanlsbarreto@gmail.com",
+    "tax_id": "07476775570"
+  },
+  "items": [
+    {
+      "reference_id": "PALPITE_LIBERACAO",
+      "name": "Liberacao de Palpites Copa Draft",
+      "quantity": 1,
+      "unit_amount": 1500
+    }
+  ],
+  "qr_codes": [
+    {
+      "amount": {
+        "value": 1500
+      },
+      "expiration_date": "2026-05-13T00:18:02.715Z"
+    }
+  ]
+}
+
+[PAGBANK][RESPONSE] /orders
+{
+  "id": "ORDE_76B1A4D5-124F-4261-BA39-9B5CA5DC0511",
+  "reference_id": "LOJA_PAY_1_cd1dea73",
+  "created_at": "2026-05-12T20:33:03.130-03:00",
+  "customer": {
+    "name": "-Sh4yan777",
+    "email": "kauanlsbarreto@gmail.com",
+    "tax_id": "07476775570"
+  },
+  "items": [
+    {
+      "reference_id": "PALPITE_LIBERACAO",
+      "name": "Liberacao de Palpites Copa Draft",
+      "quantity": 1,
+      "unit_amount": 1500
+    }
+  ],
+  "qr_codes": [
+    {
+      "id": "QRCO_82C4ECAD-DAA1-4023-97B2-EE262EB309DF",
+      "expiration_date": "2026-05-12T21:18:02.000-03:00",
+      "amount": {
+        "value": 1500
+      },
+      "text": "00020101021226830014br.gov.bcb.pix2561api.pagseguro.com/pix/v2/82C4ECAD-DAA1-4023-97B2-EE262EB309DF5204799153039865802BR592263.790.373 DENIS LIMA 6007Aracaju62070503***63041240",
+      "arrangements": [
+        "PIX"
+      ],
+      "links": [
+        {
+          "rel": "QRCODE.PNG",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_82C4ECAD-DAA1-4023-97B2-EE262EB309DF/png",
+          "media": "image/png",
+          "type": "GET"
+        },
+        {
+          "rel": "QRCODE.BASE64",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_82C4ECAD-DAA1-4023-97B2-EE262EB309DF/base64",
+          "media": "text/plain",
+          "type": "GET"
+        }
+      ]
+    }
+  ],
+  "notification_urls": [],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/orders/ORDE_76B1A4D5-124F-4261-BA39-9B5CA5DC0511",
+      "media": "application/json",
+      "type": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://api.pagseguro.com/orders/ORDE_76B1A4D5-124F-4261-BA39-9B5CA5DC0511/pay",
+      "media": "application/json",
+      "type": "POST"
+    }
+  ]
+}
+
+[PAGBANK][REQUEST] /checkouts
+{
+  "reference_id": "LOJA_PAY_2_082ebdfc",
+  "expiration_date": "2026-05-13T00:20:19.061Z",
+  "items": [
+    {
+      "reference_id": "PALPITE_LIBERACAO",
+      "name": "Liberacao de Palpites Copa Draft",
+      "quantity": 1,
+      "unit_amount": 1500
+    }
+  ],
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ]
+}
+
+[PAGBANK][RESPONSE] /checkouts
+{
+  "id": "CHEC_7CB62C25-4798-47F7-9256-C4428C6D5F2D",
+  "reference_id": "LOJA_PAY_2_082ebdfc",
+  "expiration_date": "2026-05-13T00:20:19.061Z",
+  "created_at": "2026-05-12T20:35:19-03:00",
+  "status": "ACTIVE",
+  "customer_modifiable": true,
+  "items": [
+    {
+      "reference_id": "PALPITE_LIBERACAO",
+      "name": "Liberacao de Palpites Copa Draft",
+      "quantity": 1,
+      "unit_amount": 1500
+    }
+  ],
+  "additional_amount": 0,
+  "discount_amount": 0,
+  "payment_methods": [
+    {
+      "type": "CREDIT_CARD"
+    }
+  ],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_7CB62C25-4798-47F7-9256-C4428C6D5F2D",
+      "method": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://pagamento.pagbank.com.br/pagamento?code=7cb62c25-4798-47f7-9256-c4428c6d5f2d",
+      "method": "GET"
+    },
+    {
+      "rel": "INACTIVATE",
+      "href": "https://api.pagseguro.com/checkouts/CHEC_7CB62C25-4798-47F7-9256-C4428C6D5F2D/inactivate",
+      "method": "POST"
+    }
+  ],
+  "origin": "CHECKOUT_WEB"
+}
