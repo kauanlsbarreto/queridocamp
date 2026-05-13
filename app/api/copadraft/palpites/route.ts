@@ -54,6 +54,10 @@ type PlayerAdminRow = {
   admin: number | null;
 };
 
+type PaidPaymentAccessRow = {
+  id: number;
+};
+
 type AdminPalpiteItem = {
   id: number;
   jogo_id: number;
@@ -255,6 +259,63 @@ async function ensurePlayersPalpitarColumn(mainConn: any) {
   }
 }
 
+async function ensurePalpitesPaymentsTable(mainConn: any) {
+  await mainConn.query({
+    sql: `CREATE TABLE IF NOT EXISTS copadraft_palpites_pagamentos (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      payment_ref VARCHAR(120) NOT NULL UNIQUE,
+      provider_type VARCHAR(20) NOT NULL,
+      provider_id VARCHAR(120) DEFAULT NULL,
+      provider_checkout_url TEXT,
+      provider_qr_code_url TEXT,
+      provider_qr_code_text TEXT,
+      faceit_guid VARCHAR(255) NOT NULL,
+      player_id INT NOT NULL,
+      metodo VARCHAR(20) NOT NULL,
+      amount_cents INT NOT NULL,
+      status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+      expires_at DATETIME DEFAULT NULL,
+      paid_at DATETIME DEFAULT NULL,
+      failure_reason TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_faceit_status (faceit_guid, status),
+      KEY idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    timeout: QUERY_TIMEOUT_MS,
+  });
+}
+
+async function restorePalpiteAccessFromPaid(mainConn: any, faceitGuid: string) {
+  if (!faceitGuid) return false;
+
+  const [paidRows] = await mainConn.query(
+    {
+      sql: `SELECT id
+            FROM copadraft_palpites_pagamentos
+            WHERE faceit_guid = ?
+              AND status = 'PAID'
+            ORDER BY paid_at DESC, id DESC
+            LIMIT 1`,
+      timeout: QUERY_TIMEOUT_MS,
+    },
+    [faceitGuid]
+  );
+
+  const rows = (Array.isArray(paidRows) ? paidRows : []) as PaidPaymentAccessRow[];
+  if (!rows.length) return false;
+
+  await mainConn.query(
+    {
+      sql: "UPDATE players SET palpitar = 1 WHERE faceit_guid = ? AND COALESCE(palpitar, 0) <> 1",
+      timeout: QUERY_TIMEOUT_MS,
+    },
+    [faceitGuid]
+  );
+
+  return true;
+}
+
 async function resolvePalpiteAccess(mainConn: any, faceitGuid: string) {
   if (!faceitGuid) {
     return {
@@ -279,9 +340,25 @@ async function resolvePalpiteAccess(mainConn: any, faceitGuid: string) {
     };
   }
 
+  const alreadyUnlocked = Number(rows[0]?.palpitar || 0) === 1;
+  if (alreadyUnlocked) {
+    return {
+      hasAccess: true,
+      reason: "OK",
+    };
+  }
+
+  const restored = await restorePalpiteAccessFromPaid(mainConn, faceitGuid);
+  if (restored) {
+    return {
+      hasAccess: true,
+      reason: "RESTORED_FROM_PAID",
+    };
+  }
+
   return {
-    hasAccess: Number(rows[0]?.palpitar || 0) === 1,
-    reason: Number(rows[0]?.palpitar || 0) === 1 ? "OK" : "PAYMENT_REQUIRED",
+    hasAccess: false,
+    reason: "PAYMENT_REQUIRED",
   };
 }
 
@@ -434,6 +511,7 @@ export async function GET(request: NextRequest) {
 
     await ensureTables(mainConn);
     await ensurePlayersPalpitarColumn(mainConn);
+    await ensurePalpitesPaymentsTable(mainConn);
 
     const faceitGuid = normalizeGuid(request.nextUrl.searchParams.get("faceit_guid"));
     const access = await resolvePalpiteAccess(mainConn, faceitGuid);
@@ -662,6 +740,7 @@ export async function POST(request: NextRequest) {
 
     await ensureTables(mainConn);
     await ensurePlayersPalpitarColumn(mainConn);
+    await ensurePalpitesPaymentsTable(mainConn);
 
     const body = await request.json().catch(() => ({}));
     const faceitGuid = normalizeGuid(body?.faceit_guid);

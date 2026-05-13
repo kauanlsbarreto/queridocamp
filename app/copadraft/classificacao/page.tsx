@@ -1,5 +1,6 @@
 import { createMainConnection, type Env } from "@/lib/db";
 import { getRuntimeEnv } from "@/lib/runtime-env";
+import ClassificacaoAdGate from "./ClassificacaoAdGate";
 import TeamFlagImage from "./TeamFlagImage";
 
 export const dynamic = "force-dynamic";
@@ -196,22 +197,24 @@ export default async function CopaDraftClassificacaoPage() {
 		]);
 
 		return (
-			<main className="relative min-h-screen overflow-hidden bg-[#030a1e] px-4 py-10 text-white">
-				<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(56,189,248,0.22),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(16,185,129,0.18),transparent_35%),linear-gradient(125deg,rgba(14,165,233,0.18),transparent_35%)]" />
-				<div className="pointer-events-none absolute inset-0 opacity-40 [background:linear-gradient(120deg,transparent_0%,transparent_35%,rgba(56,189,248,0.35)_50%,transparent_65%,transparent_100%)]" />
+			<ClassificacaoAdGate>
+				<main className="relative min-h-screen overflow-hidden bg-[#030a1e] px-4 py-10 text-white">
+					<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(56,189,248,0.22),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(16,185,129,0.18),transparent_35%),linear-gradient(125deg,rgba(14,165,233,0.18),transparent_35%)]" />
+					<div className="pointer-events-none absolute inset-0 opacity-40 [background:linear-gradient(120deg,transparent_0%,transparent_35%,rgba(56,189,248,0.35)_50%,transparent_65%,transparent_100%)]" />
 
-				<div className="relative mx-auto max-w-6xl">
-					<header className="mb-8 text-center">
-						<p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-100/90">Copa Draft</p>
-						<h1 className="mt-2 text-3xl font-black uppercase tracking-[0.1em] text-white md:text-5xl">Classificacao</h1>
-					</header>
+					<div className="relative mx-auto max-w-6xl">
+						<header className="mb-8 text-center">
+							<p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-100/90">Copa Draft</p>
+							<h1 className="mt-2 text-3xl font-black uppercase tracking-[0.1em] text-white md:text-5xl">Classificacao</h1>
+						</header>
 
-					<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-						<GroupTable title="Grupo A" rows={groupA} />
-						<GroupTable title="Grupo B" rows={groupB} />
+						<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+							<GroupTable title="Grupo A" rows={groupA} />
+							<GroupTable title="Grupo B" rows={groupB} />
+						</div>
 					</div>
-				</div>
-			</main>
+				</main>
+			</ClassificacaoAdGate>
 		);
 	} catch (error) {
 		console.error("[copadraft/classificacao] erro ao carregar pagina:", error);

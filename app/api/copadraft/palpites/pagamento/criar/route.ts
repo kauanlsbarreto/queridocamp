@@ -34,6 +34,10 @@ type PendingPaymentRow = {
   expires_at: string | null;
 };
 
+type PaidPaymentRow = {
+  id: number;
+};
+
 function normalizeGuid(value: unknown) {
   return String(value || "").trim().toLowerCase();
 }
@@ -157,6 +161,36 @@ export async function POST(request: NextRequest) {
     const player = players[0];
     if (Number(player?.palpitar || 0) === 1) {
       return NextResponse.json({ ok: true, alreadyUnlocked: true, message: "Palpites ja liberados." });
+    }
+
+    const [paidRows] = await connection.query(
+      {
+        sql: `SELECT id
+              FROM copadraft_palpites_pagamentos
+              WHERE faceit_guid = ?
+                AND status = 'PAID'
+              ORDER BY paid_at DESC, id DESC
+              LIMIT 1`,
+        timeout: QUERY_TIMEOUT_MS,
+      },
+      [faceitGuid]
+    );
+
+    const paidPayments = (Array.isArray(paidRows) ? paidRows : []) as PaidPaymentRow[];
+    if (paidPayments.length > 0) {
+      await connection.query(
+        {
+          sql: "UPDATE players SET palpitar = 1 WHERE faceit_guid = ? AND COALESCE(palpitar, 0) <> 1",
+          timeout: QUERY_TIMEOUT_MS,
+        },
+        [faceitGuid]
+      );
+
+      return NextResponse.json({
+        ok: true,
+        alreadyUnlocked: true,
+        message: "Pagamento ja confirmado. Acesso aos palpites restaurado.",
+      });
     }
 
     const [pendingRows] = await connection.query(
