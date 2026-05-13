@@ -97,7 +97,7 @@ function parseSerie(value: string | null | undefined): PalpiteValues {
 }
 
 function onlyDigits(value: string) {
-  return value.replace(/\D+/g, "").slice(0, 2);
+  return value.replace(/[^0-3]+/g, "").slice(0, 1);
 }
 
 function toMinutes(hhmm: string) {
@@ -588,7 +588,7 @@ export default function PalpitesPageClient() {
                                     onChange={(event) => setValue(date, game.jogo_id, "score1", event.target.value)}
                                     placeholder="1"
                                     inputMode="numeric"
-                                    maxLength={2}
+                                    maxLength={1}
                                     disabled={disabled}
                                     className="w-10 rounded-md border border-cyan-300/20 bg-[#010513] px-2 py-1 text-center text-sm font-black text-white outline-none transition focus:border-cyan-300/55 focus:shadow-[0_0_0_2px_rgba(34,211,238,0.12)] placeholder:text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60"
                                   />
@@ -598,7 +598,7 @@ export default function PalpitesPageClient() {
                                     onChange={(event) => setValue(date, game.jogo_id, "score2", event.target.value)}
                                     placeholder="1"
                                     inputMode="numeric"
-                                    maxLength={2}
+                                    maxLength={1}
                                     disabled={disabled}
                                     className="w-10 rounded-md border border-cyan-300/20 bg-[#010513] px-2 py-1 text-center text-sm font-black text-white outline-none transition focus:border-cyan-300/55 focus:shadow-[0_0_0_2px_rgba(34,211,238,0.12)] placeholder:text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60"
                                   />
