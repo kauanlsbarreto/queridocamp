@@ -5,6 +5,7 @@ import type { Env } from "@/lib/db";
 import { getTeamNameByCaptainGuidMap } from "@/lib/copadraft-times";
 import { sendDesafiarDiscordWebhook } from "@/lib/copadraft-desafiar-discord-webhooks";
 import { sendDesafiarErrorBrevoEmail } from "@/lib/copadraft-desafiar-brevo-error";
+import { sendDesafiarEventBrevoEmail } from "@/lib/copadraft-desafiar-brevo-events";
 
 const API_QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_DESAFIAR_API_QUERY_TIMEOUT_MS || 5000);
 export const dynamic = "force-dynamic";
@@ -319,6 +320,22 @@ export async function POST(req: NextRequest) {
             time: match.proposed_time,
             message: match.message,
           });
+
+          await sendDesafiarEventBrevoEmail(
+            {
+              eventType: "challenge_sent",
+              matchId: Number(match.id),
+              rodada: match.rodada,
+              challengerTeam: teamNames.get(Number(match.challenger_team_id)) || `Time ${match.challenger_team_id}`,
+              challengedTeam: teamNames.get(Number(match.challenged_team_id)) || `Time ${match.challenged_team_id}`,
+              actorNickname,
+              actorGuid: String(faceit_guid || "").trim().toLowerCase(),
+              date: match.proposed_date,
+              time: match.proposed_time,
+              message: match.message,
+            },
+            env,
+          );
         } catch (notifyError) {
           console.error("[desafiar/api POST webhook]", notifyError);
         }
@@ -477,6 +494,24 @@ export async function PUT(req: NextRequest) {
               beforeDate: oldMatch.proposed_date,
               beforeTime: oldMatch.proposed_time,
             });
+
+            await sendDesafiarEventBrevoEmail(
+              {
+                eventType: "rescheduled",
+                matchId: Number(finalMatch.id),
+                rodada: finalMatch.rodada,
+                challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
+                challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
+                actorNickname,
+                actorGuid: String(faceit_guid || "").trim().toLowerCase(),
+                date: finalMatch.proposed_date,
+                time: finalMatch.proposed_time,
+                message: reschedule_message ?? finalMatch.message,
+                beforeDate: oldMatch.proposed_date,
+                beforeTime: oldMatch.proposed_time,
+              },
+              env,
+            );
           } catch (notifyError) {
             console.error("[desafiar/api PUT webhook accepted-reschedule]", notifyError);
           }
@@ -539,6 +574,24 @@ export async function PUT(req: NextRequest) {
               time: finalMatch.proposed_time,
               message: finalMatch.message,
             });
+
+            if (action === "decline") {
+              await sendDesafiarEventBrevoEmail(
+                {
+                  eventType: "declined",
+                  matchId: Number(finalMatch.id),
+                  rodada: finalMatch.rodada,
+                  challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
+                  challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
+                  actorNickname,
+                  actorGuid: String(faceit_guid || "").trim().toLowerCase(),
+                  date: finalMatch.proposed_date,
+                  time: finalMatch.proposed_time,
+                  message: finalMatch.message,
+                },
+                env,
+              );
+            }
           } else if (action === "counter") {
             await sendDesafiarDiscordWebhook({
               event: "counter",
@@ -552,6 +605,22 @@ export async function PUT(req: NextRequest) {
               time: finalMatch.counter_time || finalMatch.proposed_time,
               message: finalMatch.counter_message || finalMatch.message,
             });
+
+            await sendDesafiarEventBrevoEmail(
+              {
+                eventType: "counter_proposal",
+                matchId: Number(finalMatch.id),
+                rodada: finalMatch.rodada,
+                challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
+                challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
+                actorNickname,
+                actorGuid: String(faceit_guid || "").trim().toLowerCase(),
+                date: finalMatch.counter_date || finalMatch.proposed_date,
+                time: finalMatch.counter_time || finalMatch.proposed_time,
+                message: finalMatch.counter_message || finalMatch.message,
+              },
+              env,
+            );
           }
         } catch (notifyError) {
           console.error("[desafiar/api PUT webhook admin]", notifyError);
@@ -636,6 +705,24 @@ export async function PUT(req: NextRequest) {
             time: finalMatch.proposed_time,
             message: finalMatch.message,
           });
+
+          if (action === "decline") {
+            await sendDesafiarEventBrevoEmail(
+              {
+                eventType: "declined",
+                matchId: Number(finalMatch.id),
+                rodada: finalMatch.rodada,
+                challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
+                challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
+                actorNickname,
+                actorGuid: String(faceit_guid || "").trim().toLowerCase(),
+                date: finalMatch.proposed_date,
+                time: finalMatch.proposed_time,
+                message: finalMatch.message,
+              },
+              env,
+            );
+          }
         } else if (action === "counter") {
           await sendDesafiarDiscordWebhook({
             event: "counter",
@@ -649,6 +736,22 @@ export async function PUT(req: NextRequest) {
             time: finalMatch.counter_time || finalMatch.proposed_time,
             message: finalMatch.counter_message || finalMatch.message,
           });
+
+          await sendDesafiarEventBrevoEmail(
+            {
+              eventType: "counter_proposal",
+              matchId: Number(finalMatch.id),
+              rodada: finalMatch.rodada,
+              challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
+              challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
+              actorNickname,
+              actorGuid: String(faceit_guid || "").trim().toLowerCase(),
+              date: finalMatch.counter_date || finalMatch.proposed_date,
+              time: finalMatch.counter_time || finalMatch.proposed_time,
+              message: finalMatch.counter_message || finalMatch.message,
+            },
+            env,
+          );
         }
       } catch (notifyError) {
         console.error("[desafiar/api PUT webhook user]", notifyError);
