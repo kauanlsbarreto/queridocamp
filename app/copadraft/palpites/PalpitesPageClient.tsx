@@ -34,14 +34,30 @@ type MyPalpite = {
   status: MyPalpiteStatus;
 };
 
+type AdminPalpite = {
+  id: number;
+  jogo_id: number;
+  data: string;
+  hora: string;
+  time1: string;
+  time2: string;
+  palpite: string | null;
+  faceit_guid: string;
+  nickname: string;
+  admin: number;
+};
+
 type ApiResponse = {
   ok: boolean;
   hasAccess?: boolean;
   accessReason?: string;
+  adminLevel?: number;
+  canViewAllPalpites?: boolean;
   games: Game[];
   lockedDates: string[];
   existingPalpites: StoredPalpite[];
   myPalpites?: MyPalpite[];
+  adminPalpites?: AdminPalpite[];
   message?: string;
 };
 
@@ -172,14 +188,16 @@ function TeamFlag({ teamName }: { teamName: string }) {
 
 export default function PalpitesPageClient() {
   const [faceitGuid, setFaceitGuid] = useState("");
+  const [adminLevel, setAdminLevel] = useState(0);
   const [hasAccess, setHasAccess] = useState(false);
   const [accessReason, setAccessReason] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"PIX" | "CREDIT_CARD">("PIX");
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
-  const [activeTab, setActiveTab] = useState<"upcoming" | "past" | "mine">("upcoming");
+  const [activeTab, setActiveTab] = useState<"upcoming" | "past" | "mine" | "admin">("upcoming");
   const [games, setGames] = useState<Game[]>([]);
   const [myPalpites, setMyPalpites] = useState<MyPalpite[]>([]);
+  const [adminPalpites, setAdminPalpites] = useState<AdminPalpite[]>([]);
   const [submittedKeys, setSubmittedKeys] = useState<Record<string, true>>({});
   const [form, setForm] = useState<Record<string, PalpiteValues>>({});
   const [loading, setLoading] = useState(true);
@@ -194,9 +212,11 @@ export default function PalpitesPageClient() {
     try {
       const raw = localStorage.getItem("faceit_user");
       if (!raw) return;
-      const parsed = JSON.parse(raw) as { faceit_guid?: string };
+      const parsed = JSON.parse(raw) as { faceit_guid?: string; Admin?: number; admin?: number };
       const guid = String(parsed?.faceit_guid || "").trim().toLowerCase();
       if (guid) setFaceitGuid(guid);
+      const level = Number(parsed?.Admin ?? parsed?.admin ?? 0);
+      setAdminLevel(Number.isFinite(level) ? level : 0);
     } catch {
       // ignore localStorage parsing errors
     }
@@ -205,6 +225,9 @@ export default function PalpitesPageClient() {
   useEffect(() => {
     void loadData(faceitGuid);
   }, [faceitGuid]);
+
+  const canViewAdminPalpites = adminLevel >= 1 && adminLevel <= 5;
+  const canUseFullPage = hasAccess || canViewAdminPalpites;
 
   useEffect(() => {
     if (!paymentInfo || !faceitGuid) return;
@@ -241,6 +264,7 @@ export default function PalpitesPageClient() {
         setFeedback(data?.message || "Falha ao carregar dados de palpites.");
         setGames([]);
         setMyPalpites([]);
+        setAdminPalpites([]);
         setSubmittedKeys({});
         setForm({});
         return;
@@ -253,6 +277,7 @@ export default function PalpitesPageClient() {
       if (!granted) {
         setGames([]);
         setMyPalpites([]);
+        setAdminPalpites([]);
         setSubmittedKeys({});
         setForm({});
         return;
@@ -261,6 +286,7 @@ export default function PalpitesPageClient() {
       const loadedGames = Array.isArray(data.games) ? data.games : [];
       const loadedExisting = Array.isArray(data.existingPalpites) ? data.existingPalpites : [];
       const loadedMine = Array.isArray(data.myPalpites) ? data.myPalpites : [];
+      const loadedAdmin = Array.isArray(data.adminPalpites) ? data.adminPalpites : [];
 
       const gameDateById = new Map<number, string>();
       for (const game of loadedGames) {
@@ -292,12 +318,14 @@ export default function PalpitesPageClient() {
 
       setGames(loadedGames);
       setMyPalpites(loadedMine);
+      setAdminPalpites(loadedAdmin);
       setSubmittedKeys(nextSubmittedKeys);
       setForm(nextForm);
     } catch {
       setFeedback("Erro inesperado ao carregar os palpites.");
       setGames([]);
       setMyPalpites([]);
+      setAdminPalpites([]);
       setSubmittedKeys({});
       setForm({});
     } finally {
@@ -357,6 +385,256 @@ export default function PalpitesPageClient() {
   );
 
   const myCount = myPalpites.length;
+
+  const adminGrouped = useMemo(() => {
+    const map = new Map<string, AdminPalpite[]>();
+    for (const item of adminPalpites) {
+      const key = `${String(item.data || "").slice(0, 10)}::${item.jogo_id}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)?.push(item);
+    }
+
+    return Array.from(map.entries())
+      .map(([key, items]) => {
+        const [date, jogoIdRaw] = key.split("::");
+        const first = items[0];
+        return {
+          key,
+          date,
+          jogoId: Number(jogoIdRaw || 0),
+          time1: first?.time1 || "Time A",
+          time2: first?.time2 || "Time B",
+          hora: first?.hora || "",
+          items: items.slice().sort((a, b) => String(a.nickname || "").localeCompare(String(b.nickname || ""))),
+        };
+      })
+      .sort((a, b) => {
+        const dateCmp = String(b.date || "").localeCompare(String(a.date || ""));
+        if (dateCmp !== 0) return dateCmp;
+        return Number(b.jogoId || 0) - Number(a.jogoId || 0);
+      });
+  }, [adminPalpites]);
+
+  const adminCount = adminPalpites.length;
+
+  const gamesContent = loading ? (
+    <div className="rounded-2xl border border-white/10 bg-[#071331]/85 p-8 text-center text-zinc-300">Carregando jogos...</div>
+  ) : activeTab === "mine" ? (
+    myPalpites.length === 0 ? (
+      <div className="rounded-2xl border border-white/10 bg-[#071331]/85 p-8 text-center text-zinc-300">
+        Voce ainda nao enviou palpites.
+      </div>
+    ) : (
+      <div className="grid gap-3">
+        {myPalpites.map((item) => (
+          <article
+            key={`${item.id}::${item.jogo_id}`}
+            className="rounded-xl border border-cyan-300/20 bg-[#071331]/85 p-4 shadow-[0_18px_36px_rgba(0,0,0,0.3)]"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-black uppercase tracking-wider text-cyan-100">
+                {item.time1} x {item.time2}
+              </h3>
+              <span
+                className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${myPalpiteStatusClass(item.status)}`}
+              >
+                {myPalpiteStatusLabel(item.status)}
+              </span>
+            </div>
+
+            <p className="mt-1 text-xs text-zinc-300">
+              {dateLabel(item.data)} {item.hora ? `as ${item.hora}` : ""}
+            </p>
+
+            <div className="mt-3 grid gap-2 text-xs md:grid-cols-2">
+              <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                <p className="uppercase tracking-wider text-zinc-400">Seu palpite</p>
+                <p className="mt-1 text-sm font-black text-cyan-100">{item.palpite || "-"}</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                <p className="uppercase tracking-wider text-zinc-400">Resultado oficial</p>
+                <p className="mt-1 text-sm font-black text-cyan-100">{item.resultado || "Aguardando"}</p>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    )
+  ) : activeTab === "admin" ? (
+    adminPalpites.length === 0 ? (
+      <div className="rounded-2xl border border-white/10 bg-[#071331]/85 p-8 text-center text-zinc-300">
+        Nenhum palpite encontrado para auditoria.
+      </div>
+    ) : (
+      <div className="grid gap-4">
+        {adminGrouped.map((group) => (
+          <section
+            key={group.key}
+            className="rounded-2xl border border-fuchsia-300/20 bg-[#071331]/85 p-4 shadow-[0_18px_36px_rgba(0,0,0,0.3)] md:p-5"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wider text-fuchsia-100 md:text-base">
+                  {dateLabel(group.date)}
+                </h3>
+                <p className="mt-1 text-xs text-zinc-300">
+                  {group.hora ? `Horário ${group.hora} · ` : ""}Jogo #{group.jogoId}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <TeamFlag teamName={group.time1} />
+                <span className="max-w-[110px] truncate text-[11px] font-bold uppercase tracking-wide text-cyan-100/90">
+                  {group.time1}
+                </span>
+                <span className="text-xs font-black uppercase tracking-[0.2em] text-fuchsia-200">x</span>
+                <span className="max-w-[110px] truncate text-[11px] font-bold uppercase tracking-wide text-cyan-100/90">
+                  {group.time2}
+                </span>
+                <TeamFlag teamName={group.time2} />
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {group.items.map((item) => (
+                <div
+                  key={`${item.id}::${item.faceit_guid}`}
+                  className="flex flex-col gap-2 rounded-xl border border-white/10 bg-black/20 p-3 md:flex-row md:items-center md:justify-between"
+                >
+                  <div>
+                    <p className="text-sm font-black text-white">{item.nickname || item.faceit_guid}</p>
+                  </div>
+
+                  <div className="rounded-lg border border-fuchsia-300/30 bg-fuchsia-300/10 px-3 py-2 text-right">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-fuchsia-100/80">Palpite</p>
+                    <p className="text-sm font-black text-fuchsia-100">{item.palpite || "-"}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    )
+  ) : activeGrouped.length === 0 ? (
+    <div className="rounded-2xl border border-white/10 bg-[#071331]/85 p-8 text-center text-zinc-300">
+      {activeTab === "upcoming"
+        ? "Nenhum proximo jogo disponivel para palpites."
+        : "Nenhum jogo passado encontrado."}
+    </div>
+  ) : (
+    <div className="flex flex-col gap-6">
+      {activeGrouped.map(([date, dateGames]) => {
+        const isLocked = dateGames.every((game) => submittedKeys[`${date}::${game.jogo_id}`]);
+        const isPastDate = date < todayIso;
+        const areAllGamesClosed = dateGames.every((game) => isGameClosed(game.data, game.hora, todayIso, nowMinutes));
+
+        return (
+          <section key={date} className="rounded-2xl border border-cyan-300/20 bg-[#071331]/85 p-4 shadow-[0_24px_55px_rgba(0,0,0,0.35)] md:p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-black uppercase tracking-wider text-cyan-200 md:text-base">{dateLabel(date)}</h2>
+              <span
+                className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${
+                  isPastDate || areAllGamesClosed
+                    ? "border-zinc-300/40 bg-zinc-300/10 text-zinc-200"
+                    : isLocked
+                      ? "border-amber-300/50 bg-amber-300/10 text-amber-200"
+                      : "border-emerald-300/50 bg-emerald-300/10 text-emerald-200"
+                }`}
+              >
+                {isPastDate || areAllGamesClosed ? "Palpite encerrado" : isLocked ? "Palpite bloqueado" : "Aguardando envio"}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="mx-auto w-fit border-separate border-spacing-y-1.5 text-sm">
+                <thead>
+                  <tr className="text-center text-[11px] uppercase tracking-wider text-zinc-300">
+                    <th className="px-1 py-1">Jogo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dateGames.map((game) => {
+                    const key = `${date}::${game.jogo_id}`;
+                    const values = form[key] || {
+                      score1: "",
+                      score2: "",
+                    };
+                    const gameClosed = isGameClosed(game.data, game.hora, todayIso, nowMinutes);
+                    const isSent = Boolean(submittedKeys[key]);
+                    const isSendingThisGame = sendingGameKey === key;
+                    const disabled = isSent || isSendingThisGame || gameClosed;
+
+                    return (
+                      <tr key={key} className="rounded-lg border border-white/10 bg-black/20">
+                        <td className="px-2 py-2 text-center">
+                          <div className="flex flex-col items-center gap-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200/90">
+                              {game.hora || "-"}
+                            </span>
+
+                            <div className="flex w-fit max-w-full items-center gap-2 rounded-2xl border border-cyan-300/25 bg-[linear-gradient(145deg,rgba(4,11,33,0.96),rgba(3,9,30,0.92))] px-3 py-2 shadow-[0_8px_28px_rgba(2,10,30,0.45)] backdrop-blur-sm md:gap-3 md:px-4">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <TeamFlag teamName={game.time1} />
+                                <span className="max-w-[88px] truncate text-[11px] font-bold uppercase tracking-wide text-cyan-100/90 md:max-w-[120px]">
+                                  {game.time1}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-col items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 rounded-xl bg-[#02071b]/80 px-2 py-1.5 md:px-2.5">
+                                  <input
+                                    value={values.score1}
+                                    onChange={(event) => setValue(date, game.jogo_id, "score1", event.target.value)}
+                                    placeholder="1"
+                                    inputMode="numeric"
+                                    maxLength={2}
+                                    disabled={disabled}
+                                    className="w-10 rounded-md border border-cyan-300/20 bg-[#010513] px-2 py-1 text-center text-sm font-black text-white outline-none transition focus:border-cyan-300/55 focus:shadow-[0_0_0_2px_rgba(34,211,238,0.12)] placeholder:text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                  />
+                                  <span className="text-xs font-black uppercase tracking-wider text-cyan-300">x</span>
+                                  <input
+                                    value={values.score2}
+                                    onChange={(event) => setValue(date, game.jogo_id, "score2", event.target.value)}
+                                    placeholder="1"
+                                    inputMode="numeric"
+                                    maxLength={2}
+                                    disabled={disabled}
+                                    className="w-10 rounded-md border border-cyan-300/20 bg-[#010513] px-2 py-1 text-center text-sm font-black text-white outline-none transition focus:border-cyan-300/55 focus:shadow-[0_0_0_2px_rgba(34,211,238,0.12)] placeholder:text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                  />
+                                </div>
+
+                                <button
+                                  type="button"
+                                  disabled={disabled || !faceitGuid}
+                                  onClick={() => void submitGame(date, game)}
+                                  className="rounded-md border border-cyan-300/45 bg-cyan-400/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-55"
+                                >
+                                  {gameClosed ? "Encerrado" : isSent ? "Enviado" : isSendingThisGame ? "Enviando" : "Enviar"}
+                                </button>
+                              </div>
+
+                              <div className="flex items-center gap-2 min-w-0">
+                                <TeamFlag teamName={game.time2} />
+                                <span className="max-w-[88px] truncate text-[11px] font-bold uppercase tracking-wide text-cyan-100/90 md:max-w-[120px]">
+                                  {game.time2}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+          </section>
+        );
+      })}
+    </div>
+  );
 
   async function submitGame(date: string, game: Game) {
     if (!hasAccess) {
@@ -555,7 +833,7 @@ export default function PalpitesPageClient() {
           <div className="mb-4 rounded-lg border border-cyan-300/40 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100">{feedback}</div>
         ) : null}
 
-        {!loading && !hasAccess ? (
+        {!loading && !canUseFullPage ? (
           <section className="rounded-2xl border border-cyan-300/20 bg-[#071331]/85 p-5 shadow-[0_24px_55px_rgba(0,0,0,0.35)] md:p-6">
             <h2 className="text-lg font-black uppercase tracking-wide text-cyan-100">Acesso aos Palpites</h2>
             <p className="mt-2 text-sm text-cyan-100/80">
@@ -682,238 +960,88 @@ export default function PalpitesPageClient() {
           </section>
         ) : null}
 
-        {!loading && !hasAccess ? null : (
-          <>
-        <div className="grid gap-4 lg:grid-cols-[1fr_minmax(0,3fr)_340px] lg:items-start lg:gap-8">
-        <div className="hidden lg:block" />
-        <div className="w-full lg:max-w-3xl lg:justify-self-end">
-        <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab("upcoming")}
-            className={`rounded-lg border px-4 py-2 text-xs font-black uppercase tracking-wider transition ${
-              activeTab === "upcoming"
-                ? "border-cyan-300/70 bg-cyan-400/15 text-cyan-100"
-                : "border-white/15 bg-white/5 text-zinc-300 hover:border-cyan-300/40"
-            }`}
-          >
-            Proximos Jogos ({upcomingCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("past")}
-            className={`rounded-lg border px-4 py-2 text-xs font-black uppercase tracking-wider transition ${
-              activeTab === "past"
-                ? "border-cyan-300/70 bg-cyan-400/15 text-cyan-100"
-                : "border-white/15 bg-white/5 text-zinc-300 hover:border-cyan-300/40"
-            }`}
-          >
-            Jogos ja passados ({pastCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("mine")}
-            className={`rounded-lg border px-4 py-2 text-xs font-black uppercase tracking-wider transition ${
-              activeTab === "mine"
-                ? "border-cyan-300/70 bg-cyan-400/15 text-cyan-100"
-                : "border-white/15 bg-white/5 text-zinc-300 hover:border-cyan-300/40"
-            }`}
-          >
-            Meus Palpites ({myCount})
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="rounded-2xl border border-white/10 bg-[#071331]/85 p-8 text-center text-zinc-300">Carregando jogos...</div>
-        ) : activeTab === "mine" ? (
-          myPalpites.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-[#071331]/85 p-8 text-center text-zinc-300">
-              Voce ainda nao enviou palpites.
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {myPalpites.map((item) => (
-                <article
-                  key={`${item.id}::${item.jogo_id}`}
-                  className="rounded-xl border border-cyan-300/20 bg-[#071331]/85 p-4 shadow-[0_18px_36px_rgba(0,0,0,0.3)]"
+        {!loading && !canUseFullPage ? null : (
+          <div className="grid gap-4 lg:grid-cols-[1fr_minmax(0,3fr)_340px] lg:items-start lg:gap-8">
+            <div className="hidden lg:block" />
+            <div className="w-full lg:max-w-3xl lg:justify-self-end">
+              <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("upcoming")}
+                  className={`rounded-lg border px-4 py-2 text-xs font-black uppercase tracking-wider transition ${
+                    activeTab === "upcoming"
+                      ? "border-cyan-300/70 bg-cyan-400/15 text-cyan-100"
+                      : "border-white/15 bg-white/5 text-zinc-300 hover:border-cyan-300/40"
+                  }`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-sm font-black uppercase tracking-wider text-cyan-100">
-                      {item.time1} x {item.time2}
-                    </h3>
-                    <span
-                      className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${myPalpiteStatusClass(item.status)}`}
-                    >
-                      {myPalpiteStatusLabel(item.status)}
-                    </span>
-                  </div>
+                  Proximos Jogos ({upcomingCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("past")}
+                  className={`rounded-lg border px-4 py-2 text-xs font-black uppercase tracking-wider transition ${
+                    activeTab === "past"
+                      ? "border-cyan-300/70 bg-cyan-400/15 text-cyan-100"
+                      : "border-white/15 bg-white/5 text-zinc-300 hover:border-cyan-300/40"
+                  }`}
+                >
+                  Jogos ja passados ({pastCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("mine")}
+                  className={`rounded-lg border px-4 py-2 text-xs font-black uppercase tracking-wider transition ${
+                    activeTab === "mine"
+                      ? "border-cyan-300/70 bg-cyan-400/15 text-cyan-100"
+                      : "border-white/15 bg-white/5 text-zinc-300 hover:border-cyan-300/40"
+                  }`}
+                >
+                  Meus Palpites ({myCount})
+                </button>
+                {canViewAdminPalpites ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("admin")}
+                    className={`rounded-lg border px-4 py-2 text-xs font-black uppercase tracking-wider transition ${
+                      activeTab === "admin"
+                        ? "border-fuchsia-300/70 bg-fuchsia-400/15 text-fuchsia-100"
+                        : "border-white/15 bg-white/5 text-zinc-300 hover:border-fuchsia-300/40"
+                    }`}
+                  >
+                    Histórico ({adminCount})
+                  </button>
+                ) : null}
+              </div>
 
-                  <p className="mt-1 text-xs text-zinc-300">
-                    {dateLabel(item.data)} {item.hora ? `as ${item.hora}` : ""}
+              {gamesContent}
+            </div>
+
+            <aside className="w-full lg:sticky lg:top-4 lg:w-[340px] lg:justify-self-end">
+              <section className="rounded-2xl border border-cyan-300/30 bg-[#061a3a]/90 p-4 shadow-[0_24px_45px_rgba(0,0,0,0.35)]">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200/90">Como Palpitar</p>
+                <h3 className="mt-1 text-sm font-black uppercase tracking-wider text-cyan-100">Passo a passo rapido</h3>
+
+                <div className="mt-3 space-y-2 text-xs text-zinc-200">
+                  <p>
+                    <span className="font-black text-cyan-100">1.</span> Escolha a aba <strong>Proximos Jogos</strong>.
                   </p>
+                  <p>
+                    <span className="font-black text-cyan-100">2.</span> Em cada partida, preencha o placar da serie no formato <strong>x</strong>.
+                  </p>
+                  <p>
+                    <span className="font-black text-cyan-100">3.</span> Clique em <strong>Enviar</strong> para registrar o palpite daquele jogo.
+                  </p>
+                  <p>
+                    <span className="font-black text-cyan-100">4.</span> Depois acompanhe em <strong>Meus Palpites</strong> se acertou, errou ou aguarda resultado.
+                  </p>
+                </div>
 
-                  <div className="mt-3 grid gap-2 text-xs md:grid-cols-2">
-                    <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-                      <p className="uppercase tracking-wider text-zinc-400">Seu palpite</p>
-                      <p className="mt-1 text-sm font-black text-cyan-100">{item.palpite || "-"}</p>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-                      <p className="uppercase tracking-wider text-zinc-400">Resultado oficial</p>
-                      <p className="mt-1 text-sm font-black text-cyan-100">{item.resultado || "Aguardando"}</p>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )
-        ) : activeGrouped.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-[#071331]/85 p-8 text-center text-zinc-300">
-            {activeTab === "upcoming"
-              ? "Nenhum proximo jogo disponivel para palpites."
-              : "Nenhum jogo passado encontrado."}
+                <div className="mt-3 rounded-lg border border-amber-300/35 bg-amber-300/10 px-3 py-2 text-[11px] text-amber-100">
+                  Dica: voce so pode enviar um palpite por jogo, entao revise antes de confirmar.
+                </div>
+              </section>
+            </aside>
           </div>
-        ) : (
-          <div className="flex flex-col gap-6">
-            {activeGrouped.map(([date, dateGames]) => {
-              const isLocked = dateGames.every((game) => submittedKeys[`${date}::${game.jogo_id}`]);
-              const isPastDate = date < todayIso;
-              const areAllGamesClosed = dateGames.every((game) => isGameClosed(game.data, game.hora, todayIso, nowMinutes));
-
-              return (
-                <section key={date} className="rounded-2xl border border-cyan-300/20 bg-[#071331]/85 p-4 shadow-[0_24px_55px_rgba(0,0,0,0.35)] md:p-5">
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-sm font-black uppercase tracking-wider text-cyan-200 md:text-base">{dateLabel(date)}</h2>
-                    <span
-                      className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${
-                        isPastDate || areAllGamesClosed
-                          ? "border-zinc-300/40 bg-zinc-300/10 text-zinc-200"
-                          : isLocked
-                            ? "border-amber-300/50 bg-amber-300/10 text-amber-200"
-                            : "border-emerald-300/50 bg-emerald-300/10 text-emerald-200"
-                      }`}
-                    >
-                      {isPastDate || areAllGamesClosed ? "Palpite encerrado" : isLocked ? "Palpite bloqueado" : "Aguardando envio"}
-                    </span>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="mx-auto w-fit border-separate border-spacing-y-1.5 text-sm">
-                      <thead>
-                        <tr className="text-center text-[11px] uppercase tracking-wider text-zinc-300">
-                          <th className="px-1 py-1">Jogo</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dateGames.map((game) => {
-                          const key = `${date}::${game.jogo_id}`;
-                          const values = form[key] || {
-                            score1: "",
-                            score2: "",
-                          };
-                          const gameClosed = isGameClosed(game.data, game.hora, todayIso, nowMinutes);
-                          const isSent = Boolean(submittedKeys[key]);
-                          const isSendingThisGame = sendingGameKey === key;
-                          const disabled = isSent || isSendingThisGame || gameClosed;
-
-                          return (
-                            <tr key={key} className="rounded-lg border border-white/10 bg-black/20">
-                              <td className="px-2 py-2 text-center">
-                                <div className="flex flex-col items-center gap-1.5">
-                                  <span className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200/90">
-                                    {game.hora || "-"}
-                                  </span>
-
-                                  <div className="flex w-fit max-w-full items-center gap-2 rounded-2xl border border-cyan-300/25 bg-[linear-gradient(145deg,rgba(4,11,33,0.96),rgba(3,9,30,0.92))] px-3 py-2 shadow-[0_8px_28px_rgba(2,10,30,0.45)] backdrop-blur-sm md:gap-3 md:px-4">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <TeamFlag teamName={game.time1} />
-                                    <span className="max-w-[88px] truncate text-[11px] font-bold uppercase tracking-wide text-cyan-100/90 md:max-w-[120px]">
-                                      {game.time1}
-                                    </span>
-                                  </div>
-
-                                  <div className="flex flex-col items-center gap-1.5">
-                                    <div className="flex items-center gap-1.5 rounded-xl bg-[#02071b]/80 px-2 py-1.5 md:px-2.5">
-                                      <input
-                                        value={values.score1}
-                                        onChange={(event) => setValue(date, game.jogo_id, "score1", event.target.value)}
-                                        placeholder="1"
-                                        inputMode="numeric"
-                                        maxLength={2}
-                                        disabled={disabled}
-                                        className="w-10 rounded-md border border-cyan-300/20 bg-[#010513] px-2 py-1 text-center text-sm font-black text-white outline-none transition focus:border-cyan-300/55 focus:shadow-[0_0_0_2px_rgba(34,211,238,0.12)] placeholder:text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60"
-                                      />
-                                      <span className="text-xs font-black uppercase tracking-wider text-cyan-300">x</span>
-                                      <input
-                                        value={values.score2}
-                                        onChange={(event) => setValue(date, game.jogo_id, "score2", event.target.value)}
-                                        placeholder="1"
-                                        inputMode="numeric"
-                                        maxLength={2}
-                                        disabled={disabled}
-                                        className="w-10 rounded-md border border-cyan-300/20 bg-[#010513] px-2 py-1 text-center text-sm font-black text-white outline-none transition focus:border-cyan-300/55 focus:shadow-[0_0_0_2px_rgba(34,211,238,0.12)] placeholder:text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60"
-                                      />
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      disabled={disabled || !faceitGuid}
-                                      onClick={() => void submitGame(date, game)}
-                                      className="rounded-md border border-cyan-300/45 bg-cyan-400/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-55"
-                                    >
-                                      {gameClosed ? "Encerrado" : isSent ? "Enviado" : isSendingThisGame ? "Enviando" : "Enviar"}
-                                    </button>
-                                  </div>
-
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <TeamFlag teamName={game.time2} />
-                                    <span className="max-w-[88px] truncate text-[11px] font-bold uppercase tracking-wide text-cyan-100/90 md:max-w-[120px]">
-                                      {game.time2}
-                                    </span>
-                                  </div>
-                                </div>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                </section>
-              );
-            })}
-          </div>
-        )}
-        </div>
-
-        <aside className="w-full lg:sticky lg:top-4 lg:w-[340px] lg:justify-self-end">
-          <section className="rounded-2xl border border-cyan-300/30 bg-[#061a3a]/90 p-4 shadow-[0_24px_45px_rgba(0,0,0,0.35)]">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200/90">Como Palpitar</p>
-            <h3 className="mt-1 text-sm font-black uppercase tracking-wider text-cyan-100">Passo a passo rapido</h3>
-
-            <div className="mt-3 space-y-2 text-xs text-zinc-200">
-              <p>
-                <span className="font-black text-cyan-100">1.</span> Escolha a aba <strong>Proximos Jogos</strong>.
-              </p>
-              <p>
-                <span className="font-black text-cyan-100">2.</span> Em cada partida, preencha o placar da serie no formato <strong>x</strong>.
-              </p>
-              <p>
-                <span className="font-black text-cyan-100">3.</span> Clique em <strong>Enviar</strong> para registrar o palpite daquele jogo.
-              </p>
-              <p>
-                <span className="font-black text-cyan-100">4.</span> Depois acompanhe em <strong>Meus Palpites</strong> se acertou, errou ou aguarda resultado.
-              </p>
-            </div>
-
-            <div className="mt-3 rounded-lg border border-amber-300/35 bg-amber-300/10 px-3 py-2 text-[11px] text-amber-100">
-              Dica: voce so pode enviar um palpite por jogo, entao revise antes de confirmar.
-            </div>
-          </section>
-        </aside>
-        </div>
-          </>
         )}
       </div>
     </main>

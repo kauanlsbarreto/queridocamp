@@ -50,6 +50,23 @@ type PlayerAccessRow = {
   palpitar: number | null;
 };
 
+type PlayerAdminRow = {
+  admin: number | null;
+};
+
+type AdminPalpiteItem = {
+  id: number;
+  jogo_id: number;
+  data: string;
+  hora: string;
+  time1: string;
+  time2: string;
+  palpite: string | null;
+  faceit_guid: string;
+  nickname: string;
+  admin: number;
+};
+
 type MatchesFallbackRow = {
   id: number;
   challenger_team_id: number;
@@ -268,6 +285,24 @@ async function resolvePalpiteAccess(mainConn: any, faceitGuid: string) {
   };
 }
 
+async function resolveAdminLevel(mainConn: any, faceitGuid: string) {
+  if (!faceitGuid) return 0;
+
+  const [rows] = await mainConn.query(
+    {
+      sql: "SELECT admin FROM players WHERE faceit_guid = ? LIMIT 1",
+      timeout: QUERY_TIMEOUT_MS,
+    },
+    [faceitGuid]
+  );
+
+  const adminRows = (Array.isArray(rows) ? rows : []) as PlayerAdminRow[];
+  if (!adminRows.length) return 0;
+
+  const level = Number(adminRows[0]?.admin || 0);
+  return Number.isFinite(level) ? level : 0;
+}
+
 async function ensureTables(mainConn: any) {
   await mainConn.query({
     sql: `CREATE TABLE IF NOT EXISTS palpites_jogos (
@@ -402,16 +437,28 @@ export async function GET(request: NextRequest) {
 
     const faceitGuid = normalizeGuid(request.nextUrl.searchParams.get("faceit_guid"));
     const access = await resolvePalpiteAccess(mainConn, faceitGuid);
+    const adminLevel = await resolveAdminLevel(mainConn, faceitGuid);
+    const canViewAllPalpites = adminLevel >= 1 && adminLevel <= 5;
+    const palpitesColumns = await getTableColumns(mainConn, "palpites");
+    const hasDataCol = palpitesColumns.has("data");
+    const hasPalpiteMapa1 = palpitesColumns.has("palpite_mapa1");
+    const hasPalpiteMapa2 = palpitesColumns.has("palpite_mapa2");
+    const hasPalpiteMapa3 = palpitesColumns.has("palpite_mapa3");
+    const hasScoreCols = palpitesColumns.has("score_time1") && palpitesColumns.has("score_time2");
+    const gameById = new Map<number, PalpiteGame>();
 
-    if (!access.hasAccess) {
+    if (!access.hasAccess && !canViewAllPalpites) {
       return NextResponse.json({
         ok: true,
         hasAccess: false,
         accessReason: access.reason,
+        adminLevel,
+        canViewAllPalpites,
         games: [],
         lockedDates: [],
         existingPalpites: [],
         myPalpites: [],
+        adminPalpites: [],
       });
     }
 
@@ -421,13 +468,6 @@ export async function GET(request: NextRequest) {
     let myPalpites: MyPalpiteItem[] = [];
 
     if (faceitGuid) {
-      const palpitesColumns = await getTableColumns(mainConn, "palpites");
-      const hasDataCol = palpitesColumns.has("data");
-      const hasPalpiteMapa1 = palpitesColumns.has("palpite_mapa1");
-      const hasPalpiteMapa2 = palpitesColumns.has("palpite_mapa2");
-      const hasPalpiteMapa3 = palpitesColumns.has("palpite_mapa3");
-      const hasScoreCols = palpitesColumns.has("score_time1") && palpitesColumns.has("score_time2");
-
       const selectFields = [
         "p.id",
         "p.faceit_guid",
@@ -450,7 +490,6 @@ export async function GET(request: NextRequest) {
         [faceitGuid]
       );
 
-      const gameById = new Map<number, PalpiteGame>();
       for (const game of games) {
         gameById.set(Number(game.jogo_id || 0), game);
       }
@@ -530,14 +569,81 @@ export async function GET(request: NextRequest) {
 
     }
 
+    let adminPalpites: AdminPalpiteItem[] = [];
+
+    if (canViewAllPalpites) {
+      const adminSelectFields = [
+        "p.id",
+        "p.faceit_guid",
+        "p.jogo_id",
+        hasDataCol ? "p.data AS p_data" : "NULL AS p_data",
+        hasPalpiteMapa1 ? "p.palpite_mapa1" : "NULL AS palpite_mapa1",
+        hasPalpiteMapa2 ? "p.palpite_mapa2" : "NULL AS palpite_mapa2",
+        hasPalpiteMapa3 ? "p.palpite_mapa3" : "NULL AS palpite_mapa3",
+        hasScoreCols ? "p.score_time1" : "NULL AS score_time1",
+        hasScoreCols ? "p.score_time2" : "NULL AS score_time2",
+        "pl.nickname AS player_nickname",
+        "pl.admin AS player_admin",
+      ].join(", ");
+
+      const [adminRows]: any = await mainConn.query(
+        {
+          sql: `SELECT ${adminSelectFields}
+                FROM palpites p
+                LEFT JOIN players pl ON pl.faceit_guid = p.faceit_guid
+                ORDER BY p.created_at DESC, p.id DESC`,
+          timeout: QUERY_TIMEOUT_MS,
+        }
+      );
+
+      adminPalpites = Array.isArray(adminRows)
+        ? (adminRows as any[])
+            .map((row) => {
+              const jogoId = Number(row?.jogo_id || 0);
+              const game = gameById.get(jogoId);
+              const serieFromScores =
+                row?.score_time1 != null && row?.score_time2 != null
+                  ? `${Number(row.score_time1)}x${Number(row.score_time2)}`
+                  : null;
+
+              return {
+                id: Number(row?.id || 0),
+                jogo_id: jogoId,
+                data: toIsoDate(row?.p_data || game?.data || ""),
+                hora: toHourMinute(game?.hora || ""),
+                time1: String(game?.time1 || "Time A").trim(),
+                time2: String(game?.time2 || "Time B").trim(),
+                palpite:
+                  row?.palpite_mapa1 != null
+                    ? String(row.palpite_mapa1)
+                    : serieFromScores,
+                faceit_guid: normalizeGuid(row?.faceit_guid),
+                nickname: String(row?.player_nickname || row?.faceit_guid || "Desconhecido").trim(),
+                admin: Number(row?.player_admin || 0),
+              } satisfies AdminPalpiteItem;
+            })
+            .filter((item) => item.jogo_id > 0)
+            .sort((a, b) => {
+              const dateCmp = String(b.data || "").localeCompare(String(a.data || ""));
+              if (dateCmp !== 0) return dateCmp;
+              const gameCmp = Number(b.jogo_id || 0) - Number(a.jogo_id || 0);
+              if (gameCmp !== 0) return gameCmp;
+              return String(a.nickname || "").localeCompare(String(b.nickname || ""));
+            })
+        : [];
+    }
+
     return NextResponse.json({
       ok: true,
-      hasAccess: true,
-      accessReason: "OK",
+      hasAccess: access.hasAccess || canViewAllPalpites,
+      accessReason: access.hasAccess ? "OK" : canViewAllPalpites ? "ADMIN_VIEW" : access.reason,
+      adminLevel,
+      canViewAllPalpites,
       games,
       lockedDates: [],
       existingPalpites,
       myPalpites,
+      adminPalpites,
     });
   } catch (error) {
     console.error("[copadraft/palpites][GET] erro:", error);
