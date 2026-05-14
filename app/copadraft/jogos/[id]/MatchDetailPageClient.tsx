@@ -231,6 +231,20 @@ export default function MatchDetailPageClient() {
   const pickedMaps = Array.isArray(matchData.map_voting?.picked_maps) ? matchData.map_voting!.picked_maps! : [];
   const bannedMaps = Array.isArray(matchData.map_voting?.banned_maps) ? matchData.map_voting!.banned_maps! : [];
 
+  function getPickedByLabel(selectedBy: string | null | undefined, index: number) {
+    const team1Name = matchData?.team1_name || "Team 1";
+    const team2Name = matchData?.team2_name || "Team 2";
+    const raw = String(selectedBy || "").trim();
+    const normalized = normalizeTeamKey(raw);
+
+    if (normalized === "faction1") return team1Name;
+    if (normalized === "faction2") return team2Name;
+    if (raw) return raw;
+
+    // Fallback de turno: primeiro pick eh faction1, depois alterna por ordem.
+    return index % 2 === 0 ? team1Name : team2Name;
+  }
+
   function getPlayerStats(nickname: string, aggregateStats: PlayerStats | null | undefined): PlayerStats | null {
     if (statsTab === "geral" || !hasPerMapStats) return aggregateStats ?? null;
     return matchData!.maps_player_stats?.[statsTab]?.[nickname] ?? null;
@@ -506,20 +520,23 @@ export default function MatchDetailPageClient() {
                 <p className="text-gray-400 text-sm">Mapas Pickados</p>
                 {pickedMaps.length > 0 ? (
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    {pickedMaps.map((item, idx) => (
-                      <div key={`pick-${idx}-${item.map}`} className="rounded-lg border border-white/10 bg-black/20 p-2">
-                        <div className="flex items-center gap-2">
-                          {item.image ? (
-                            <Image src={item.image} alt={item.map} width={58} height={34} className="rounded border border-white/10 object-cover" />
-                          ) : null}
-                          <div>
-                            <p className="text-xs text-cyan-300">Pick #{item.order || idx + 1}</p>
-                            <p className="font-bold">{item.map}</p>
-                            <p className="text-xs text-zinc-300">Por: {item.selected_by || "-"}</p>
+                    {pickedMaps.map((item, idx) => {
+                      const pickBy = getPickedByLabel(item.selected_by, idx);
+                      return (
+                        <div key={`pick-${idx}-${item.map}`} className="rounded-lg border border-white/10 bg-black/20 p-2">
+                          <div className="flex items-center gap-2">
+                            {item.image ? (
+                              <Image src={item.image} alt={item.map} width={58} height={34} className="rounded border border-white/10 object-cover" />
+                            ) : null}
+                            <div>
+                              <p className="text-xs text-cyan-300">Pick #{item.order || idx + 1}</p>
+                              <p className="font-bold">{item.map}</p>
+                              <p className="text-xs text-zinc-300">Por: {pickBy || "-"}</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="font-bold">-</p>
