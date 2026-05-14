@@ -3,14 +3,54 @@ import { getRuntimeEnv } from '@/lib/runtime-env';
 import { createMainConnection, Env } from '@/lib/db';
 import mysql from 'mysql2';
 
+function normalizeTeamName(value: unknown) {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+function buildTeamsKey(team1: unknown, team2: unknown) {
+    const names = [normalizeTeamName(team1), normalizeTeamName(team2)].filter(Boolean).sort();
+    if (names.length !== 2) return '';
+    return `${names[0]}::${names[1]}`;
+}
+
 // GET all scheduled matches
 export async function GET() {
     let connection;
     try {
         const env = await getRuntimeEnv();
         connection = await createMainConnection(env);
-        const [rows] = await connection.query('SELECT * FROM scheduled_matches ORDER BY scheduled_time ASC');
-        return NextResponse.json(rows);
+
+        const [scheduledRows] = await connection.query('SELECT * FROM scheduled_matches ORDER BY scheduled_time ASC');
+        const [jogosRows] = await connection.query('SELECT time1, time2, matchid FROM jogos');
+
+        const matchIdByTeams = new Map<string, string>();
+        if (Array.isArray(jogosRows)) {
+            for (const row of jogosRows as any[]) {
+                const key = buildTeamsKey(row?.time1, row?.time2);
+                const matchid = String(row?.matchid || '').trim();
+                if (!key || !matchid) continue;
+                if (!matchIdByTeams.has(key)) {
+                    matchIdByTeams.set(key, matchid);
+                }
+            }
+        }
+
+        const enriched = Array.isArray(scheduledRows)
+            ? (scheduledRows as any[]).map((row) => {
+                const key = buildTeamsKey(row?.team1_name, row?.team2_name);
+                const prediction_matchid = key ? matchIdByTeams.get(key) || null : null;
+                return {
+                    ...row,
+                    prediction_matchid,
+                };
+            })
+            : [];
+
+        return NextResponse.json(enriched);
     } catch (error) {
         console.error('Error fetching scheduled matches:', error);
         return NextResponse.json({ message: 'Error fetching matches' }, { status: 500 });

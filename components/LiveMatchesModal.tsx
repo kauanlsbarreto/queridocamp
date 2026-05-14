@@ -52,6 +52,7 @@ interface MatchDetails {
 
 interface ScheduledMatch {
     id: string;
+    prediction_matchid: string | null;
     team1: { name: string; avatar: string };
     team2: { name: string; avatar: string };
     scheduled_time: string; // ISO string
@@ -65,6 +66,20 @@ const HUB_IDS = [
     "04a14d7f-0511-451b-8208-9a6c3215ccaa"
 ];
 
+function normalizeTeamName(value: unknown) {
+    return String(value || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+}
+
+function buildTeamsKey(team1: unknown, team2: unknown) {
+    const teams = [normalizeTeamName(team1), normalizeTeamName(team2)].filter(Boolean).sort();
+    if (teams.length !== 2) return "";
+    return `${teams[0]}::${teams[1]}`;
+}
+
 export default function LiveMatchesModal() {
     const [internalOpen, setInternalOpen] = useState(false);
     const [matches, setMatches] = useState<MatchDetails[]>([]);
@@ -74,6 +89,14 @@ export default function LiveMatchesModal() {
     const [isYoutubeLive] = useState(true);
     const [isTwitch1Live] = useState(true);
     const [isTwitch2Live] = useState(true);
+
+    const liveMatchIdByTeams = new Map<string, string>();
+    for (const match of matches) {
+        const key = buildTeamsKey(match?.teams?.faction1?.name, match?.teams?.faction2?.name);
+        const liveMatchId = String(match?.match_id || "").trim();
+        if (!key || !liveMatchId) continue;
+        if (!liveMatchIdByTeams.has(key)) liveMatchIdByTeams.set(key, liveMatchId);
+    }
 
     const fetchScheduledMatches = useCallback(async () => {
         try {
@@ -86,6 +109,7 @@ export default function LiveMatchesModal() {
                 .filter((match: any) => new Date(match.scheduled_time) > now)
                 .map((match: any) => ({
                 id: match.id.toString(),
+                prediction_matchid: String(match.prediction_matchid || '').trim() || null,
                 team1: { name: match.team1_name, avatar: match.team1_avatar },
                 team2: { name: match.team2_name, avatar: match.team2_avatar },
                 scheduled_time: match.scheduled_time,
@@ -226,7 +250,12 @@ export default function LiveMatchesModal() {
                             <h3 className="text-lg font-bold text-gold uppercase tracking-tighter my-4 border-b border-gold/20 pb-2">
                                 Jogos de Hoje
                             </h3>
-                            {scheduledMatches.map((match) => (
+                            {scheduledMatches.map((match) => {
+                                const key = buildTeamsKey(match?.team1?.name, match?.team2?.name);
+                                const fallbackLiveMatchId = key ? liveMatchIdByTeams.get(key) || null : null;
+                                const resolvedMatchId = String(match.prediction_matchid || fallbackLiveMatchId || "").trim() || null;
+
+                                return (
                                 <div key={match.id} className="relative bg-white/5 p-4 rounded-lg border border-white/10 flex flex-col gap-3">
                                     <div className="flex justify-between items-center gap-2">
                                         {/* Time 1 */}
@@ -254,12 +283,18 @@ export default function LiveMatchesModal() {
                                                 </a>
                                             )}
 
-                                            <Link
-                                                href={`/copadraft/prediction/${encodeURIComponent(String(match.id))}`}
-                                                className="mt-1 flex items-center gap-1.5 bg-blue-600/80 hover:bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded"
-                                            >
-                                                Predict
-                                            </Link>
+                                            {resolvedMatchId ? (
+                                                <Link
+                                                    href={`/copadraft/jogos/${encodeURIComponent(String(resolvedMatchId))}`}
+                                                    className="mt-1 flex items-center gap-1.5 bg-blue-600/80 hover:bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded"
+                                                >
+                                                    Partida
+                                                </Link>
+                                            ) : (
+                                                <span className="mt-1 flex items-center gap-1.5 bg-white/10 text-zinc-300 text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded border border-white/15">
+                                                    Sem MatchID
+                                                </span>
+                                            )}
                                         </div>
 
                                         {/* Time 2 */}
@@ -274,7 +309,7 @@ export default function LiveMatchesModal() {
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                            )})}
                         </>
                     )}
 
@@ -393,7 +428,7 @@ export default function LiveMatchesModal() {
                                         </a>
 
                                         <Link
-                                            href={`/copadraft/prediction/${encodeURIComponent(String(match.match_id))}`}
+                                            href={`/copadraft/jogos/${encodeURIComponent(String(match.match_id))}`}
                                             className="mt-1 text-[9px] flex items-center gap-1 text-blue-300 hover:text-blue-200 transition-colors font-bold uppercase tracking-widest"
                                         >
                                             PREDICT <ExternalLink size={10} />

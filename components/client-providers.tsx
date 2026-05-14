@@ -2,6 +2,7 @@
 
 import { ThemeProvider } from "@/components/theme-provider"
 import LiveMatchesController from "@/components/LiveMatchesController"
+import SiteFeedbackPrompt from "@/components/site-feedback-prompt"
 
 export default function ClientProviders({
   children,
@@ -11,6 +12,7 @@ export default function ClientProviders({
   return (
     <ThemeProvider attribute="class" defaultTheme="dark">
       <LiveMatchesController />
+      <SiteFeedbackPrompt />
       {children}
     </ThemeProvider>
   )

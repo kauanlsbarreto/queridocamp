@@ -7,6 +7,19 @@ interface HeroBannerProps {
   subtitle?: string
 }
 
+function seededValue(seed: number) {
+  const raw = Math.sin(seed * 9999) * 10000
+  return raw - Math.floor(raw)
+}
+
+const PARTICLES = Array.from({ length: 50 }, (_, index) => ({
+  id: index,
+  top: `${(seededValue(index + 1) * 100).toFixed(4)}%`,
+  left: `${(seededValue(index + 101) * 100).toFixed(4)}%`,
+  animationDelay: `${(seededValue(index + 201) * 6).toFixed(6)}s`,
+  animationDuration: `${(4 + seededValue(index + 301) * 4).toFixed(5)}s`,
+}))
+
 const HeroBanner = ({ title, subtitle }: HeroBannerProps) => {
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
@@ -17,15 +30,15 @@ const HeroBanner = ({ title, subtitle }: HeroBannerProps) => {
 
         {/* Floating particles */}
         <div className="particles">
-          {[...Array(50)].map((_, i) => (
+          {PARTICLES.map((particle) => (
             <div
-              key={i}
+              key={particle.id}
               className="particle"
               style={{
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 6}s`,
-                animationDuration: `${4 + Math.random() * 4}s`,
+                top: particle.top,
+                left: particle.left,
+                animationDelay: particle.animationDelay,
+                animationDuration: particle.animationDuration,
               }}
             ></div>
           ))}

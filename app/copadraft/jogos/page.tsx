@@ -17,10 +17,12 @@ type MatchRow = {
 };
 
 type JogoScoreRow = {
+	id: number;
 	rodada: number | null;
 	time1: string;
 	time2: string;
 	placar: string | null;
+	matchid: string | null;
 };
 
 const QUERY_TIMEOUT_MS = Number(process.env.COPADRAFT_JOGOS_QUERY_TIMEOUT_MS || 5000);
@@ -110,20 +112,33 @@ async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
 		if (matches.length === 0) return [];
 
 		const [jogosRowsRaw]: any = await mainConn.query({
-			sql: "SELECT rodada, time1, time2, placar FROM jogos",
+			sql: "SELECT id, rodada, time1, time2, placar, matchid FROM jogos",
 			timeout: QUERY_TIMEOUT_MS,
 		});
 		const jogosRows = (Array.isArray(jogosRowsRaw) ? jogosRowsRaw : []) as JogoScoreRow[];
+		const jogosById = new Map<number, JogoScoreRow>();
 		const scoreByGameKey = new Map<string, string>();
 		const scoreByTeamsOnlyKey = new Map<string, string>();
+		const faceitMatchIdByGameKey = new Map<string, string>();
+		const faceitMatchIdByTeamsOnlyKey = new Map<string, string>();
 
 		for (const row of jogosRows) {
+			const rowId = Number(row?.id || 0);
+			if (rowId > 0) jogosById.set(rowId, row);
+
 			const score = String(row?.placar || "").trim();
-			if (!score) continue;
 			const key = buildGameKey(Number(row?.rodada || 0), row?.time1, row?.time2);
-			if (key) scoreByGameKey.set(key, score);
 			const teamsOnlyKey = buildTeamsOnlyKey(row?.time1, row?.time2);
-			if (teamsOnlyKey) scoreByTeamsOnlyKey.set(teamsOnlyKey, score);
+			if (score) {
+				if (key) scoreByGameKey.set(key, score);
+				if (teamsOnlyKey) scoreByTeamsOnlyKey.set(teamsOnlyKey, score);
+			}
+
+			const faceitMatchId = String(row?.matchid || "").trim();
+			if (faceitMatchId) {
+				if (key) faceitMatchIdByGameKey.set(key, faceitMatchId);
+				if (teamsOnlyKey) faceitMatchIdByTeamsOnlyKey.set(teamsOnlyKey, faceitMatchId);
+			}
 		}
 
 		const teamIds = Array.from(
@@ -170,11 +185,19 @@ async function loadConfirmedGames(env: Env): Promise<ConfirmedGame[]> {
 				(scoreKey ? scoreByGameKey.get(scoreKey) : undefined) ||
 				(teamsOnlyKey ? scoreByTeamsOnlyKey.get(teamsOnlyKey) : undefined) ||
 				null;
+			const jogoById = jogosById.get(Number(m?.id || 0));
+			const faceitMatchIdFromJogoId = String(jogoById?.matchid || "").trim();
+			const faceitMatchId =
+				faceitMatchIdFromJogoId ||
+				(scoreKey ? faceitMatchIdByGameKey.get(scoreKey) : undefined) ||
+				(teamsOnlyKey ? faceitMatchIdByTeamsOnlyKey.get(teamsOnlyKey) : undefined) ||
+				null;
 			const date = toIsoDate(m?.proposed_date);
 			const time = toHourMinute(m?.proposed_time);
 
 			return {
 				id: Number(m?.id || 0),
+				faceitMatchId,
 				rodada,
 				date,
 				time,

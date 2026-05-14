@@ -12,7 +12,7 @@ async function loadJogos(env: Env): Promise<Jogo[]> {
   try {
     connection = await createMainConnection(env);
     const [rows] = await connection.query(
-      "SELECT rodada, time1, time2, placar FROM jogos ORDER BY rodada ASC, time1 ASC"
+      "SELECT rodada, time1, time2, placar, matchid FROM jogos ORDER BY rodada ASC, time1 ASC"
     );
     if (!Array.isArray(rows)) return [];
     return (rows as any[]).map((row) => ({
@@ -20,6 +20,7 @@ async function loadJogos(env: Env): Promise<Jogo[]> {
       time1: String(row.time1 || ""),
       time2: String(row.time2 || ""),
       placar: row.placar != null ? String(row.placar) : null,
+      matchid: row.matchid != null ? String(row.matchid) : null,
     }));
   } catch (err) {
     console.error("[copadraft/rodadas] erro ao carregar jogos:", err);

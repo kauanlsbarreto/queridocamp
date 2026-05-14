@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+
+type PlayerStats = { K: number; D: number; A: number; HSK: number; HS: number; MVK: number };
 
 type Lineup = {
   player_id: string;
@@ -11,14 +13,7 @@ type Lineup = {
   faceit_id: string;
   avatar?: string;
   steam_id?: string;
-  stats?: {
-    K: number;
-    D: number;
-    A: number;
-    HSK: number;
-    HS: number;
-    MVK: number;
-  } | null;
+  stats?: PlayerStats | null;
 };
 
 type MatchData = {
@@ -41,13 +36,18 @@ type MatchData = {
   selected_map_image?: string | null;
   maps_picked?: string[];
   maps_banned?: string[];
+  map_voting?: {
+    picked_maps?: Array<{ map: string; selected_by: string | null; image?: string | null; order?: number }>;
+    banned_maps?: Array<{ map: string; selected_by: string | null; image?: string | null; order?: number }>;
+  } | null;
   rounds_won_1: number;
   rounds_won_2: number;
   team1_captain: string | null;
   team2_captain: string | null;
   team1_lineup: Lineup[];
   team2_lineup: Lineup[];
-  maps_data?: Array<{ map: string; rounds_t1: number; rounds_t2: number }> | null;
+  maps_data?: Array<{ map: string; rounds_t1: number; rounds_t2: number; picked_by_team?: string | null; map_image?: string | null }> | null;
+  maps_player_stats?: Record<string, Record<string, PlayerStats>> | null;
 };
 
 function asText(value: unknown, fallback = "-") {
@@ -123,12 +123,18 @@ function getMapWinChances(matchData: MatchData) {
 
 export default function MatchDetailPageClient() {
   const params = useParams();
+  const router = useRouter();
   const matchId = params.id as string;
 
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeMapTab, setActiveMapTab] = useState(0);
+  const [statsTab, setStatsTab] = useState<string>("geral");
+
+  const handleBack = () => {
+    router.push("/copadraft/jogos/");
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -190,27 +196,49 @@ export default function MatchDetailPageClient() {
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-4">Erro</h1>
           <p className="text-gray-400 mb-6">{error || "Partida não encontrada"}</p>
-          <Link href="/copadraft/prediction" className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg font-bold">
+          <button onClick={handleBack} className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg font-bold">
             Voltar
-          </Link>
+          </button>
         </div>
       </div>
     );
   }
 
   const winChance = getMapWinChances(matchData);
-  const isBO2 = matchData.best_of === 2;
-  const hasMultipleMaps = isBO2 && matchData.maps_data && matchData.maps_data.length > 1;
+  const hasMapsData = Array.isArray(matchData.maps_data) && matchData.maps_data.length > 0;
+  const hasMultipleMaps = hasMapsData && matchData.maps_data!.length > 1;
+  const showWinChance = String(matchData.status || "").toUpperCase() !== "FINISHED";
 
-  // Get current map data for BO2+
-  let currentMapData = {
+  // Current map data for rounds display
+  let currentMapData: { map: string | null; rounds_t1: number; rounds_t2: number; picked_by_team?: string | null; map_image?: string | null } = {
     map: matchData.selected_map,
     rounds_t1: matchData.rounds_won_1,
     rounds_t2: matchData.rounds_won_2,
+    picked_by_team: null,
+    map_image: matchData.selected_map_image || null,
   };
 
-  if (hasMultipleMaps && matchData.maps_data) {
+  if (hasMapsData && matchData.maps_data) {
     currentMapData = matchData.maps_data[activeMapTab] || currentMapData;
+  }
+
+  const currentMapHeaderImage = currentMapData.map_image || matchData.selected_map_image || null;
+
+  // Stats tab helpers
+  const mapNames = (matchData.maps_data ?? []).map((m) => m.map).filter(Boolean);
+  const allStatsTabs = ["geral", ...mapNames];
+  const hasPerMapStats = Boolean(matchData.maps_player_stats && Object.keys(matchData.maps_player_stats).length > 0);
+  const pickedMaps = Array.isArray(matchData.map_voting?.picked_maps) ? matchData.map_voting!.picked_maps! : [];
+  const bannedMaps = Array.isArray(matchData.map_voting?.banned_maps) ? matchData.map_voting!.banned_maps! : [];
+
+  function getPlayerStats(nickname: string, aggregateStats: PlayerStats | null | undefined): PlayerStats | null {
+    if (statsTab === "geral" || !hasPerMapStats) return aggregateStats ?? null;
+    return matchData!.maps_player_stats?.[statsTab]?.[nickname] ?? null;
+  }
+
+  function fmtKD(stats: PlayerStats | null) {
+    if (!stats) return "-";
+    return (stats.K / Math.max(stats.D, 1)).toFixed(2);
   }
 
   return (
@@ -218,17 +246,17 @@ export default function MatchDetailPageClient() {
       <div className="max-w-7xl mx-auto">
         {/* Voltar */}
         <div className="mb-6">
-          <Link href="/copadraft/prediction" className="text-blue-400 hover:text-blue-300">
+          <button onClick={handleBack} className="text-blue-400 hover:text-blue-300">
             ← Voltar
-          </Link>
+          </button>
         </div>
 
         {/* Match Header */}
         <div className="relative bg-gray-800 rounded-lg p-8 mb-6 overflow-hidden">
-          {matchData.selected_map_image && (
+          {currentMapHeaderImage && (
             <Image
-              src={matchData.selected_map_image}
-              alt={matchData.selected_map || "Mapa"}
+              src={currentMapHeaderImage}
+              alt={currentMapData.map || matchData.selected_map || "Mapa"}
               fill
               className="object-cover opacity-20"
             />
@@ -241,15 +269,15 @@ export default function MatchDetailPageClient() {
               <div className="flex gap-3 flex-wrap">
                 {getStatusBadge(matchData.status)}
                 <span className="px-3 py-1 rounded-full text-sm font-bold bg-purple-100 text-purple-800">
-                  {matchData.best_of === 1 ? "MD1" : matchData.best_of === 3 ? "MD3" : "MD5"}
+                  {matchData.best_of === 1 ? "MD1" : matchData.best_of === 2 ? "BO2" : matchData.best_of === 3 ? "MD3" : `MD${matchData.best_of}`}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Abas para BO2 */}
-          {hasMultipleMaps && (
-            <div className="flex gap-2 mb-6 border-b border-gray-600">
+          {/* Abas de mapas */}
+          {hasMapsData && (
+            <div className="flex gap-2 mb-6 border-b border-gray-600 flex-wrap">
               {matchData.maps_data!.map((mapData, idx) => (
                 <button
                   key={idx}
@@ -278,7 +306,9 @@ export default function MatchDetailPageClient() {
                 />
               )}
               <div className="relative z-10 py-6">
-                <p className="text-xs font-black uppercase tracking-wider text-emerald-300 mb-1">Chance: {winChance.team1}%</p>
+                {showWinChance && (
+                  <p className="text-xs font-black uppercase tracking-wider text-emerald-300 mb-1">Chance: {winChance.team1}%</p>
+                )}
                 <Link
                   href={`/copadraft/times/${slugify(matchData.team1_name)}`}
                   className="text-2xl font-black mb-2 underline underline-offset-4 text-cyan-300 hover:text-cyan-200 block"
@@ -310,7 +340,9 @@ export default function MatchDetailPageClient() {
                 />
               )}
               <div className="relative z-10 py-6">
-                <p className="text-xs font-black uppercase tracking-wider text-emerald-300 mb-1">Chance: {winChance.team2}%</p>
+                {showWinChance && (
+                  <p className="text-xs font-black uppercase tracking-wider text-emerald-300 mb-1">Chance: {winChance.team2}%</p>
+                )}
                 <Link
                   href={`/copadraft/times/${slugify(matchData.team2_name)}`}
                   className="text-2xl font-black mb-2 underline underline-offset-4 text-cyan-300 hover:text-cyan-200 block"
@@ -322,8 +354,8 @@ export default function MatchDetailPageClient() {
             </div>
           </div>
 
-          {/* Rounds para BO2 */}
-          {hasMultipleMaps && (
+          {/* Rounds por mapa */}
+          {hasMapsData && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center text-center py-4 mt-4">
               <div className="relative rounded-xl border border-gray-600 bg-gray-900/60 overflow-hidden min-h-[120px] flex items-center justify-center">
                 <div className="relative z-10 py-4">
@@ -332,8 +364,11 @@ export default function MatchDetailPageClient() {
                 </div>
               </div>
               <div className="text-gray-500 text-lg">
-                <p className="text-xs text-gray-400">Mapa Atual</p>
+                <p className="text-xs text-gray-400">{hasMultipleMaps ? "Mapa Selecionado" : "Mapa"}</p>
                 <p className="font-bold text-cyan-300">{currentMapData.map}</p>
+                {currentMapData.picked_by_team && (
+                  <p className="text-xs text-emerald-400 mt-1">Pick: {currentMapData.picked_by_team}</p>
+                )}
               </div>
               <div className="relative rounded-xl border border-gray-600 bg-gray-900/60 overflow-hidden min-h-[120px] flex items-center justify-center">
                 <div className="relative z-10 py-4">
@@ -346,153 +381,89 @@ export default function MatchDetailPageClient() {
           </div>
         </div>
 
-        {/* Lineups */}
-        <div className="grid grid-cols-1 gap-6 w-full">
-          {/* Team 1 */}
-          <div className="bg-gray-800 rounded-lg p-6">
-            <h2 className="text-xl font-bold mb-4">{matchData.team1_name}</h2>
-            {matchData.team1_lineup && matchData.team1_lineup.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-600">
-                      <th className="text-left px-3 py-2 font-bold text-gray-400 sticky left-0 bg-gray-800">Jogador</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">K</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">D</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">A</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">K/D</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">HS%</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">MVP</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">Perfil</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {matchData.team1_lineup.map((player, idx) => (
-                      <tr key={idx} className="border-b border-gray-700 hover:bg-gray-700/50">
-                        <td className="px-3 py-3 font-semibold flex items-center gap-2 sticky left-0 bg-gray-800">
-                          <Image
-                            src={player.avatar || "/placeholder-user.jpg"}
-                            alt={player.nickname}
-                            width={24}
-                            height={24}
-                            className="rounded-full border border-gray-600"
-                          />
-                          <span>{player.nickname}</span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="font-bold text-white">{player.stats?.K || "-"}</span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="font-bold text-white">{player.stats?.D || "-"}</span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="font-bold text-white">{player.stats?.A || "-"}</span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="font-semibold text-white">
-                            {player.stats ? ((player.stats.K / Math.max(player.stats.D, 1)).toFixed(2)) : "-"}
-                          </span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="font-bold text-white">{player.stats?.HS || "-"}%</span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="font-bold text-white">{player.stats?.MVK || "-"}</span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          {player.nickname && (
-                            <a
-                              href={`https://www.faceit.com/pt/players/${encodeURIComponent(player.nickname)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-cyan-400 hover:text-cyan-300 text-xs font-semibold"
-                            >
-                              Ver
-                            </a>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-gray-400">Sem dados</p>
-            )}
-          </div>
+        {/* Lineups com abas Geral / por mapa */}
+        <div className="flex flex-col gap-6 w-full">
+          {/* Tabs de stats */}
+          {(hasPerMapStats || matchData.team1_lineup.some(p => p.stats)) && (
+            <div className="flex gap-2 border-b border-gray-700 flex-wrap">
+              {allStatsTabs.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setStatsTab(tab)}
+                  className={`px-4 py-2 text-sm font-bold transition-all ${
+                    statsTab === tab
+                      ? "border-b-2 border-cyan-400 text-cyan-300"
+                      : "text-gray-400 hover:text-gray-300"
+                  }`}
+                >
+                  {tab === "geral" ? "Geral" : tab}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {/* Team 2 */}
-          <div className="bg-gray-800 rounded-lg p-6">
-            <h2 className="text-xl font-bold mb-4">{matchData.team2_name}</h2>
-            {matchData.team2_lineup && matchData.team2_lineup.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-600">
-                      <th className="text-left px-3 py-2 font-bold text-gray-400 sticky left-0 bg-gray-800">Jogador</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">K</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">D</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">A</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">K/D</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">HS%</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">MVP</th>
-                      <th className="text-center px-2 py-2 font-bold text-gray-400">Perfil</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {matchData.team2_lineup.map((player, idx) => (
-                      <tr key={idx} className="border-b border-gray-700 hover:bg-gray-700/50">
-                        <td className="px-3 py-3 font-semibold flex items-center gap-2 sticky left-0 bg-gray-800">
-                          <Image
-                            src={player.avatar || "/placeholder-user.jpg"}
-                            alt={player.nickname}
-                            width={24}
-                            height={24}
-                            className="rounded-full border border-gray-600"
-                          />
-                          <span>{player.nickname}</span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="font-bold text-white">{player.stats?.K || "-"}</span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="font-bold text-white">{player.stats?.D || "-"}</span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="font-bold text-white">{player.stats?.A || "-"}</span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="font-semibold text-white">
-                            {player.stats ? ((player.stats.K / Math.max(player.stats.D, 1)).toFixed(2)) : "-"}
-                          </span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="font-bold text-white">{player.stats?.HS || "-"}%</span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="font-bold text-white">{player.stats?.MVK || "-"}</span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          {player.nickname && (
-                            <a
-                              href={`https://www.faceit.com/pt/players/${encodeURIComponent(player.nickname)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-cyan-400 hover:text-cyan-300 text-xs font-semibold"
-                            >
-                              Ver
-                            </a>
-                          )}
-                        </td>
+          {[{ name: matchData.team1_name, lineup: matchData.team1_lineup }, { name: matchData.team2_name, lineup: matchData.team2_lineup }].map(({ name, lineup }) => (
+            <div key={name} className="bg-gray-800 rounded-lg p-6">
+              <h2 className="text-xl font-bold mb-4">{name}</h2>
+              {lineup && lineup.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-600">
+                        <th className="text-left px-3 py-2 font-bold text-gray-400 sticky left-0 bg-gray-800">Jogador</th>
+                        <th className="text-center px-2 py-2 font-bold text-gray-400">K</th>
+                        <th className="text-center px-2 py-2 font-bold text-gray-400">D</th>
+                        <th className="text-center px-2 py-2 font-bold text-gray-400">A</th>
+                        <th className="text-center px-2 py-2 font-bold text-gray-400">K/D</th>
+                        <th className="text-center px-2 py-2 font-bold text-gray-400">HS%</th>
+                        <th className="text-center px-2 py-2 font-bold text-gray-400">MVP</th>
+                        <th className="text-center px-2 py-2 font-bold text-gray-400">Perfil</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-gray-400">Sem dados</p>
-            )}
-          </div>
+                    </thead>
+                    <tbody>
+                      {lineup.map((player, idx) => {
+                        const s = getPlayerStats(player.nickname, player.stats);
+                        return (
+                          <tr key={idx} className="border-b border-gray-700 hover:bg-gray-700/50">
+                            <td className="px-3 py-3 font-semibold flex items-center gap-2 sticky left-0 bg-gray-800">
+                              <Image
+                                src={player.avatar || "/placeholder-user.jpg"}
+                                alt={player.nickname}
+                                width={24}
+                                height={24}
+                                className="rounded-full border border-gray-600"
+                              />
+                              <span>{player.nickname}</span>
+                            </td>
+                            <td className="px-2 py-3 text-center"><span className="font-bold text-white">{s?.K ?? "-"}</span></td>
+                            <td className="px-2 py-3 text-center"><span className="font-bold text-white">{s?.D ?? "-"}</span></td>
+                            <td className="px-2 py-3 text-center"><span className="font-bold text-white">{s?.A ?? "-"}</span></td>
+                            <td className="px-2 py-3 text-center"><span className="font-semibold text-white">{fmtKD(s)}</span></td>
+                            <td className="px-2 py-3 text-center"><span className="font-bold text-white">{s ? `${s.HS}%` : "-"}</span></td>
+                            <td className="px-2 py-3 text-center"><span className="font-bold text-white">{s?.MVK ?? "-"}</span></td>
+                            <td className="px-2 py-3 text-center">
+                              {player.nickname && (
+                                <a
+                                  href={`https://www.faceit.com/pt/players/${encodeURIComponent(player.nickname)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-cyan-400 hover:text-cyan-300 text-xs font-semibold"
+                                >
+                                  Ver
+                                </a>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-400">Sem dados</p>
+              )}
+            </div>
+          ))}
         </div>
 
         {/* Info */}
@@ -533,19 +504,49 @@ export default function MatchDetailPageClient() {
               )}
               <div>
                 <p className="text-gray-400 text-sm">Mapas Pickados</p>
-                <p className="font-bold">
-                  {Array.isArray(matchData.maps_picked) && matchData.maps_picked.length > 0
-                    ? matchData.maps_picked.join(", ")
-                    : "-"}
-                </p>
+                {pickedMaps.length > 0 ? (
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {pickedMaps.map((item, idx) => (
+                      <div key={`pick-${idx}-${item.map}`} className="rounded-lg border border-white/10 bg-black/20 p-2">
+                        <div className="flex items-center gap-2">
+                          {item.image ? (
+                            <Image src={item.image} alt={item.map} width={58} height={34} className="rounded border border-white/10 object-cover" />
+                          ) : null}
+                          <div>
+                            <p className="text-xs text-cyan-300">Pick #{item.order || idx + 1}</p>
+                            <p className="font-bold">{item.map}</p>
+                            <p className="text-xs text-zinc-300">Por: {item.selected_by || "-"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="font-bold">-</p>
+                )}
               </div>
               <div>
                 <p className="text-gray-400 text-sm">Mapas Banidos</p>
-                <p className="font-bold">
-                  {Array.isArray(matchData.maps_banned) && matchData.maps_banned.length > 0
-                    ? matchData.maps_banned.join(", ")
-                    : "-"}
-                </p>
+                {bannedMaps.length > 0 ? (
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {bannedMaps.map((item, idx) => (
+                      <div key={`ban-${idx}-${item.map}`} className="rounded-lg border border-white/10 bg-black/20 p-2">
+                        <div className="flex items-center gap-2">
+                          {item.image ? (
+                            <Image src={item.image} alt={item.map} width={58} height={34} className="rounded border border-white/10 object-cover" />
+                          ) : null}
+                          <div>
+                            <p className="text-xs text-amber-300">Ban #{item.order || idx + 1}</p>
+                            <p className="font-bold">{item.map}</p>
+                            <p className="text-xs text-zinc-300">Por: {item.selected_by || "-"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="font-bold">-</p>
+                )}
               </div>
             </div>
           </div>

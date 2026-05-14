@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import MatchDetailPageClient from "../../[id]/MatchDetailPageClient";
+import MatchDetailPageClient from "../../../jogos/[id]/MatchDetailPageClient";
 
 export default function AdminMatchDetailTestPageClient() {
   const [loading, setLoading] = useState(true);

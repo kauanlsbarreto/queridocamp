@@ -23,6 +23,7 @@ type BannerConfig = {
 
 type TeamPlayerView = {
   faceitGuid: string;
+  steamId: string;
   nickname: string;
   avatar: string;
   stats: {
@@ -50,6 +51,51 @@ type Props = {
   teamAudioUrl: string | null;
   initialBannerConfig: BannerConfig | null;
   players: TeamPlayerView[];
+  teamMatches: {
+    rodada: number;
+    teams: {
+      self: string;
+      opponent: string;
+    };
+    placar: {
+      self: number | null;
+      opponent: number | null;
+      raw: string | null;
+    };
+    matchId: string | null;
+  }[];
+  teamInsights: {
+    topHeadshot: { steamId: string; nickname: string; avatar: string; value: number } | null;
+    topTradeKill: { steamId: string; nickname: string; avatar: string; value: number } | null;
+    topFlashDuration: { steamId: string; nickname: string; avatar: string; value: number } | null;
+    topHealthDamage: { steamId: string; nickname: string; avatar: string; value: number } | null;
+    topUtilityDamage: { steamId: string; nickname: string; avatar: string; value: number } | null;
+    weaponLeaders: Array<{ weaponName: string; steamId: string; nickname: string; avatar: string; kills: number }>;
+    grenadeLeaders: Array<{ grenadeName: string; steamId: string; nickname: string; avatar: string; throws: number }>;
+    players: Array<{
+      steamId: string;
+      nickname: string;
+      avatar: string;
+      headshots: number;
+      tradeKills: number;
+      flashDuration: number;
+      healthDamage: number;
+      utilityDamage: number;
+      grenadeThrows: number;
+      kills: number;
+    }>;
+  };
+  teamMapSummary: {
+    picked: Array<{ map: string; count: number; image: string | null }>;
+    firstBanned: Array<{ map: string; count: number; image: string | null }>;
+    banMatches?: Array<{ matchId: string; map: string; image: string | null; opponent: string }>;
+  };
+};
+
+type TeamMapSummaryState = {
+  picked: Array<{ map: string; count: number; image: string | null }>;
+  firstBanned: Array<{ map: string; count: number; image: string | null }>;
+  banMatches: Array<{ matchId: string; map: string; image: string | null; opponent: string }>;
 };
 
 type FaceBox = {
@@ -71,6 +117,11 @@ const DEFAULT_CONFIG: BannerConfig = {
   altura: 280,
   ordem: "",
 };
+
+const PERF_SECTION_STYLE = {
+  contentVisibility: "auto",
+  containIntrinsicSize: "900px",
+} as const;
 
 function decodeOrder(ordem: string, players: TeamPlayerView[]) {
   const normalized = String(ordem || "").trim().toLowerCase();
@@ -146,6 +197,44 @@ function clamp(value: number, min: number, max: number) {
 
 function normalizeGuid(value: unknown) {
   return String(value || "").trim().toLowerCase();
+}
+
+function normalizeTeamName(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function TeamFlag({ teamName }: { teamName: string }) {
+  const [index, setIndex] = useState(0);
+  const lower = String(teamName || "").trim().toLowerCase();
+  const normalized = normalizeTeamName(teamName);
+  const encLower = encodeURIComponent(lower);
+  const encNorm = encodeURIComponent(normalized);
+  const candidates = [
+    `/selecoes/${encLower}.jpg`,
+    `/selecoes/${encNorm}.jpg`,
+    `/selecoes/${encLower}.png`,
+    `/selecoes/${encNorm}.png`,
+  ];
+
+  return (
+    <img
+      src={candidates[index] ?? candidates[0]}
+      alt={teamName}
+      className="h-12 w-16 rounded-md border border-white/20 object-cover md:h-14 md:w-20"
+      loading="lazy"
+      decoding="async"
+      onError={() => {
+        setIndex((prev) => {
+          const next = prev + 1;
+          return next < candidates.length ? next : prev;
+        });
+      }}
+    />
+  );
 }
 
 function isCustomTeamAvatarPath(value: unknown) {
@@ -304,7 +393,7 @@ async function detectFacesBannerConfig(imageUrl: string, baseConfig: BannerConfi
   }
 }
 
-export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUrl, initialBannerConfig, players }: Props) {
+export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUrl, initialBannerConfig, players, teamMatches, teamInsights, teamMapSummary }: Props) {
   const teamAudioRef = useRef<HTMLAudioElement | null>(null);
   const bannerHostRef = useRef<HTMLDivElement | null>(null);
   const [faceitGuid, setFaceitGuid] = useState("");
@@ -331,6 +420,15 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUr
   const [avatarFilterMode, setAvatarFilterMode] = useState<AvatarFilterMode>("remove-white");
   const [avatarMessage, setAvatarMessage] = useState("");
   const [savingAvatar, setSavingAvatar] = useState(false);
+  const [showAllInsights, setShowAllInsights] = useState(false);
+  const [mapsSummary, setMapsSummary] = useState<TeamMapSummaryState>({
+    picked: Array.isArray(teamMapSummary?.picked) ? teamMapSummary.picked : [],
+    firstBanned: Array.isArray(teamMapSummary?.firstBanned) ? teamMapSummary.firstBanned : [],
+    banMatches: Array.isArray(teamMapSummary?.banMatches) ? teamMapSummary.banMatches : [],
+  });
+  const [mapsSummaryLoading, setMapsSummaryLoading] = useState(false);
+  const [mapsSummaryLoaded, setMapsSummaryLoaded] = useState(false);
+  const [mapsSummaryMessage, setMapsSummaryMessage] = useState("");
   const [config, setConfig] = useState<BannerConfig>({
     ...(initialBannerConfig || DEFAULT_CONFIG),
     time: teamName,
@@ -349,6 +447,44 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUr
   const canManagePlayerOrder = isAdmin1;
   const ownGuid = normalizeGuid(faceitGuid);
   const canNonAdminPickOwnAvatar = isTeamMember && !isAdmin1;
+
+  async function loadMapsSummary() {
+    setMapsSummaryLoading(true);
+    setMapsSummaryMessage("");
+
+    try {
+      const response = await fetch(`/api/copadraft/times/map-summary?team=${encodeURIComponent(teamName)}`, {
+        method: "GET",
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setMapsSummaryMessage(String(data?.message || "Erro ao carregar mapas."));
+        setMapsSummaryLoaded(true);
+        return;
+      }
+
+      const picked = Array.isArray(data?.summary?.picked) ? data.summary.picked : [];
+      const firstBanned = Array.isArray(data?.summary?.firstBanned) ? data.summary.firstBanned : [];
+      const banMatches = Array.isArray(data?.summary?.banMatches) ? data.summary.banMatches : [];
+      setMapsSummary({ picked, firstBanned, banMatches });
+      setMapsSummaryLoaded(true);
+
+      const totalMatches = Number(data?.total_matches || 0);
+      const analyzedMatches = Number(data?.analyzed_matches || 0);
+      if (totalMatches > 0) {
+        setMapsSummaryMessage(`Partidas analisadas: ${analyzedMatches}/${totalMatches}`);
+      } else {
+        setMapsSummaryMessage("Nenhum matchid encontrado na tabela jogos para este time.");
+      }
+    } catch {
+      setMapsSummaryLoaded(true);
+      setMapsSummaryMessage("Erro inesperado ao carregar mapas.");
+    } finally {
+      setMapsSummaryLoading(false);
+    }
+  }
 
   useEffect(() => {
     const localStorageKey = "site_volume";
@@ -875,7 +1011,6 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUr
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#030a1e] px-4 py-10 text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(56,189,248,0.22),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(16,185,129,0.18),transparent_35%),linear-gradient(125deg,rgba(14,165,233,0.18),transparent_35%)]" />
-      <div className="pointer-events-none absolute inset-0 opacity-40 [background:linear-gradient(120deg,transparent_0%,transparent_35%,rgba(56,189,248,0.35)_50%,transparent_65%,transparent_100%)]" />
 
       <div className="relative mx-auto max-w-6xl space-y-6">
         <header className="text-center">
@@ -984,7 +1119,7 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUr
           </div>
         ) : null}
 
-        <section className="rounded-2xl border border-cyan-300/25 bg-[#071331]/85 p-4 shadow-[0_24px_55px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+        <section style={PERF_SECTION_STYLE} className="rounded-2xl border border-cyan-300/25 bg-[#071331]/85 p-4 shadow-[0_24px_55px_rgba(0,0,0,0.35)]">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-black uppercase tracking-[0.08em] text-cyan-200">Jogadores</h2>
             {canManagePlayerOrder ? (
@@ -1074,6 +1209,8 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUr
                                         src={player.avatar || DEFAULT_AVATAR}
                                         alt={player.nickname}
                                         className="h-full w-full object-contain"
+                                        loading="lazy"
+                                        decoding="async"
                                         onError={(e) => {
                                           e.currentTarget.src = DEFAULT_AVATAR;
                                         }}
@@ -1087,6 +1224,8 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUr
                                       src={player.avatar || DEFAULT_AVATAR}
                                       alt={player.nickname}
                                       className="h-20 w-20 rounded-full border-2 border-cyan-300/35 object-cover"
+                                      loading="lazy"
+                                      decoding="async"
                                       onError={(e) => {
                                         e.currentTarget.src = DEFAULT_AVATAR;
                                       }}
@@ -1135,6 +1274,252 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUr
               </Droppable>
             </DragDropContext>
           )}
+        </section>
+
+        <section style={PERF_SECTION_STYLE} className="rounded-2xl border border-cyan-300/25 bg-[#071331]/85 p-4 shadow-[0_24px_55px_rgba(0,0,0,0.35)]">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-xl font-black uppercase tracking-[0.08em] text-cyan-200">Partidas</h2>
+          </div>
+
+          {teamMatches.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-white/20 px-4 py-8 text-center text-sm text-zinc-300">
+              Nenhuma partida encontrada para este time.
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {teamMatches.map((match, idx) => {
+                const scoreText =
+                  match.placar.self != null && match.placar.opponent != null
+                    ? `${match.placar.self} x ${match.placar.opponent}`
+                    : "VS";
+
+                const content = (
+                  <>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-100">
+                        Rodada {match.rodada}
+                      </span>
+                      {match.matchId ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-300">Abrir</span>
+                      ) : null}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-1 items-center gap-2">
+                        <TeamFlag teamName={match.teams.self} />
+                        <span className="line-clamp-2 text-xs font-black uppercase tracking-wide text-white">{match.teams.self}</span>
+                      </div>
+
+                      <div className="min-w-[68px] rounded-lg border border-white/15 bg-black/25 px-2 py-1 text-center text-sm font-black text-cyan-100">
+                        {scoreText}
+                      </div>
+
+                      <div className="flex flex-1 items-center justify-end gap-2 text-right">
+                        <span className="line-clamp-2 text-xs font-black uppercase tracking-wide text-white">{match.teams.opponent}</span>
+                        <TeamFlag teamName={match.teams.opponent} />
+                      </div>
+                    </div>
+                  </>
+                );
+
+                if (!match.matchId) {
+                  return (
+                    <article
+                      key={`${match.teams.self}-${match.teams.opponent}-${idx}`}
+                      className="rounded-xl border border-white/10 bg-[#081739] p-3 opacity-80"
+                    >
+                      {content}
+                    </article>
+                  );
+                }
+
+                return (
+                  <a
+                    key={`${match.teams.self}-${match.teams.opponent}-${idx}`}
+                    href={`/copadraft/jogos/${encodeURIComponent(match.matchId)}`}
+                    className="block rounded-xl border border-white/10 bg-[#081739] p-3 transition hover:border-cyan-300/45 hover:bg-[#0b1c45]"
+                  >
+                    {content}
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section style={PERF_SECTION_STYLE} className="rounded-2xl border border-cyan-300/25 bg-[#071331]/85 p-4 shadow-[0_24px_55px_rgba(0,0,0,0.35)]">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-xl font-black uppercase tracking-[0.08em] text-cyan-200">Mapas</h2>
+            <button
+              type="button"
+              onClick={() => void loadMapsSummary()}
+              disabled={mapsSummaryLoading}
+              className="rounded-md border border-cyan-200/45 bg-cyan-300/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-cyan-100 transition hover:bg-cyan-300/35 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {mapsSummaryLoading ? "Carregando..." : mapsSummaryLoaded ? "Recarregar" : "Carregar"}
+            </button>
+          </div>
+
+          {mapsSummaryMessage ? <p className="mb-3 text-xs text-zinc-300">{mapsSummaryMessage}</p> : null}
+
+          {!mapsSummaryLoaded ? (
+            <div className="rounded-xl border border-dashed border-white/20 px-4 py-8 text-center text-sm text-zinc-300">
+              Clique em <span className="font-bold text-cyan-100">Carregar</span> para buscar os mapas das partidas deste time na FACEIT.
+            </div>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              <article className="rounded-xl border border-white/10 bg-[#081739] p-3">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-cyan-200/90">Pickados</p>
+                {mapsSummary.picked.length === 0 ? (
+                  <p className="text-sm text-zinc-400">Sem dados</p>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between rounded-md border border-white/10 bg-black/20 px-2 py-1.5">
+                      <div className="flex items-center gap-2">
+                        {mapsSummary.picked[0]?.image ? (
+                          <img src={mapsSummary.picked[0].image} alt={mapsSummary.picked[0].map} className="h-8 w-14 rounded border border-white/10 object-cover" loading="lazy" decoding="async" />
+                        ) : null}
+                        <span className="text-xs font-bold text-white">{mapsSummary.picked[0]?.map}</span>
+                      </div>
+                      <span className="text-xs text-zinc-200">{mapsSummary.picked[0]?.count}x</span>
+                    </div>
+                  </div>
+                )}
+              </article>
+
+              <article className="rounded-xl border border-white/10 bg-[#081739] p-3">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-cyan-200/90">Bans por partida</p>
+                {mapsSummary.banMatches.length === 0 ? (
+                  <p className="text-sm text-zinc-400">Veja nas partidas da faceit</p>
+                ) : (
+                  <div className="space-y-2">
+                    {mapsSummary.banMatches.map((item, idx) => (
+                      <a
+                        key={`ban-match-${idx}-${item.matchId}`}
+                        href={`/copadraft/jogos/${encodeURIComponent(item.matchId)}`}
+                        className="flex items-center justify-between rounded-md border border-white/10 bg-black/20 px-2 py-1.5 transition hover:border-cyan-300/40 hover:bg-black/30"
+                      >
+                        <div className="flex items-center gap-2">
+                          {item.image ? (
+                            <img src={item.image} alt={item.map} className="h-8 w-14 rounded border border-white/10 object-cover" loading="lazy" decoding="async" />
+                          ) : null}
+                          <span className="text-xs font-bold text-white">{item.map}</span>
+                        </div>
+                        <span className="text-[11px] text-zinc-200">vs {item.opponent}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </article>
+            </div>
+          )}
+        </section>
+
+        <section style={PERF_SECTION_STYLE} className="rounded-2xl border border-cyan-300/25 bg-[#071331]/85 p-4 shadow-[0_24px_55px_rgba(0,0,0,0.35)]">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-xl font-black uppercase tracking-[0.08em] text-cyan-200">Estatísticas</h2>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {[
+              { label: "Mais HS", item: teamInsights.topHeadshot, fmt: (v: number) => `${v} HS` },
+              { label: "Mais Trade Kill", item: teamInsights.topTradeKill, fmt: (v: number) => `${v} trades` },
+              { label: "Mais Flash (cegou)", item: teamInsights.topFlashDuration, fmt: (v: number) => `${v.toFixed(1)}s` },
+              { label: "Mais Dano", item: teamInsights.topHealthDamage, fmt: (v: number) => `${Math.trunc(v)} dmg` },
+              { label: "Mais Dano Utilitaria", item: teamInsights.topUtilityDamage, fmt: (v: number) => `${Math.trunc(v)} util` },
+            ].map((card, idx) => (
+              <article key={`insight-top-${idx}`} className="rounded-xl border border-white/10 bg-[#081739] p-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-cyan-200/90">{card.label}</p>
+                {card.item ? (
+                  <div className="mt-2">
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-wide text-white">{card.item.nickname}</p>
+                      <p className="text-xs text-zinc-300">{card.fmt(card.item.value)}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-zinc-400">Sem dados</p>
+                )}
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <article className="rounded-xl border border-white/10 bg-[#081739] p-3">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-cyan-200/90">Quem mata mais por arma</p>
+              {teamInsights.weaponLeaders.length === 0 ? (
+                <p className="text-sm text-zinc-400">Sem dados</p>
+              ) : (
+                <div className="space-y-2">
+                  {teamInsights.weaponLeaders.slice(0, 8).map((item, idx) => (
+                    <div key={`weapon-leader-${idx}-${item.weaponName}`} className="flex items-center justify-between rounded-md border border-white/10 bg-black/20 px-2 py-1.5">
+                      <span className="text-xs font-bold text-white">{item.weaponName}</span>
+                      <span className="text-xs text-zinc-200">{item.nickname} ({item.kills})</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
+
+            <article className="rounded-xl border border-white/10 bg-[#081739] p-3">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-cyan-200/90">Quem mais solta granada</p>
+              {teamInsights.grenadeLeaders.length === 0 ? (
+                <p className="text-sm text-zinc-400">Sem dados</p>
+              ) : (
+                <div className="space-y-2">
+                  {teamInsights.grenadeLeaders.slice(0, 8).map((item, idx) => (
+                    <div key={`grenade-leader-${idx}-${item.grenadeName}`} className="flex items-center justify-between rounded-md border border-white/10 bg-black/20 px-2 py-1.5">
+                      <span className="text-xs font-bold text-white">{item.grenadeName}</span>
+                      <span className="text-xs text-zinc-200">{item.nickname} ({item.throws})</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
+          </div>
+
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setShowAllInsights((prev) => !prev)}
+              className="rounded-md border border-cyan-200/45 bg-cyan-300/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-cyan-100 transition hover:bg-cyan-300/35"
+            >
+              {showAllInsights ? "Ocultar restante do time" : "Expandir restante do time"}
+            </button>
+          </div>
+
+          {showAllInsights ? (
+            <div className="mt-3 overflow-x-auto rounded-xl border border-white/10 bg-black/20">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/10 text-zinc-300">
+                    <th className="px-2 py-2 text-left">Jogador</th>
+                    <th className="px-2 py-2 text-center">HS</th>
+                    <th className="px-2 py-2 text-center">Trade</th>
+                    <th className="px-2 py-2 text-center">Flash(s)</th>
+                    <th className="px-2 py-2 text-center">Dano</th>
+                    <th className="px-2 py-2 text-center">Util</th>
+                    <th className="px-2 py-2 text-center">Granadas</th>
+                    <th className="px-2 py-2 text-center">Kills</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teamInsights.players.map((p, idx) => (
+                    <tr key={`insight-player-${idx}-${p.steamId}`} className="border-b border-white/5 text-zinc-100">
+                      <td className="px-2 py-2 font-bold">{p.nickname}</td>
+                      <td className="px-2 py-2 text-center">{p.headshots}</td>
+                      <td className="px-2 py-2 text-center">{p.tradeKills}</td>
+                      <td className="px-2 py-2 text-center">{p.flashDuration.toFixed(1)}</td>
+                      <td className="px-2 py-2 text-center">{Math.trunc(p.healthDamage)}</td>
+                      <td className="px-2 py-2 text-center">{Math.trunc(p.utilityDamage)}</td>
+                      <td className="px-2 py-2 text-center">{p.grenadeThrows}</td>
+                      <td className="px-2 py-2 text-center">{p.kills}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </section>
       </div>
 

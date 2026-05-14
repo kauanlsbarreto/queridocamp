@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 
 export type Jogo = {
@@ -7,6 +8,7 @@ export type Jogo = {
   time1: string;
   time2: string;
   placar?: string | null;
+  matchid?: string | null;
 };
 
 type Props = {
@@ -44,6 +46,8 @@ function TeamFlag({ teamName }: { teamName: string }) {
 }
 
 function MatchCard({ jogo }: { jogo: Jogo }) {
+  const predictionId = String(jogo.matchid || "").trim();
+
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#071940]/90 to-[#0a2256]/80 px-4 py-5 shadow-[0_12px_30px_rgba(0,0,0,0.4)] backdrop-blur-sm transition-all duration-200 hover:border-cyan-400/30 hover:shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.12),transparent_65%)]" />
@@ -91,6 +95,17 @@ function MatchCard({ jogo }: { jogo: Jogo }) {
           </span>
         </div>
       </div>
+
+      {predictionId && (
+        <div className="relative mt-4 flex justify-end">
+          <Link
+            href={`/copadraft/jogos/${encodeURIComponent(predictionId)}`}
+            className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-blue-500"
+          >
+            Abrir
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

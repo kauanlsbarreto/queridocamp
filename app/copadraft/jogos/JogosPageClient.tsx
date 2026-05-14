@@ -5,6 +5,7 @@ import { useMemo, useState, useEffect } from "react";
 
 export type ConfirmedGame = {
   id: number;
+  faceitMatchId: string | null;
   rodada: number | null;
   date: string;
   time: string;
@@ -72,6 +73,7 @@ function TeamFlag({ teamName }: { teamName: string }) {
 
 function GameCard({ game }: { game: ConfirmedGame }) {
   const hasScore = Boolean(String(game.score || "").trim());
+  const predictionId = String(game.faceitMatchId || "").trim();
   const now = Date.now();
   const scheduledAt = Number.isFinite(new Date(`${game.date}T${game.time}:00`).getTime())
     ? new Date(`${game.date}T${game.time}:00`).getTime()
@@ -139,18 +141,20 @@ function GameCard({ game }: { game: ConfirmedGame }) {
         </div>
       </div>
 
-      <div className="relative mt-4 flex justify-end">
-        <Link
-          href={`/copadraft/prediction/${encodeURIComponent(String(game.id))}`}
-          className={`inline-flex items-center rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition ${
-            isLive
-              ? "bg-red-600 text-white hover:bg-red-500"
-              : "bg-blue-600 text-white hover:bg-blue-500"
-          }`}
-        >
-          {isLive ? "Ao Vivo" : "Abrir"}
-        </Link>
-      </div>
+      {predictionId && (
+        <div className="relative mt-4 flex items-center justify-end gap-2">
+          <Link
+            href={`/copadraft/jogos/${encodeURIComponent(predictionId)}`}
+            className={`inline-flex items-center rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition ${
+              isLive
+                ? "bg-red-600 text-white hover:bg-red-500"
+                : "bg-blue-600 text-white hover:bg-blue-500"
+            }`}
+          >
+            {isLive ? "Ao Vivo" : "Abrir"}
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
