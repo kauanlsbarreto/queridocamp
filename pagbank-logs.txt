@@ -297,3 +297,91 @@
   ],
   "origin": "CHECKOUT_WEB"
 }
+
+[PAGBANK][REQUEST] /orders
+{
+  "reference_id": "LOJA_PAY_4_5f921d77",
+  "customer": {
+    "name": "-Sh4yan777",
+    "email": "kauanlsbarreto@gmail.com",
+    "tax_id": "07476775570"
+  },
+  "items": [
+    {
+      "reference_id": "PALPITE_LIBERACAO",
+      "name": "Liberacao de Palpites Copa Draft",
+      "quantity": 1,
+      "unit_amount": 1500
+    }
+  ],
+  "qr_codes": [
+    {
+      "amount": {
+        "value": 1500
+      },
+      "expiration_date": "2026-05-13T02:09:50.973Z"
+    }
+  ]
+}
+
+[PAGBANK][RESPONSE] /orders
+{
+  "id": "ORDE_8A81F0A7-BE1B-4129-B2B3-98914D356C04",
+  "reference_id": "LOJA_PAY_4_5f921d77",
+  "created_at": "2026-05-12T22:24:51.237-03:00",
+  "customer": {
+    "name": "-Sh4yan777",
+    "email": "kauanlsbarreto@gmail.com",
+    "tax_id": "07476775570"
+  },
+  "items": [
+    {
+      "reference_id": "PALPITE_LIBERACAO",
+      "name": "Liberacao de Palpites Copa Draft",
+      "quantity": 1,
+      "unit_amount": 1500
+    }
+  ],
+  "qr_codes": [
+    {
+      "id": "QRCO_A9BE0E93-46DA-44F4-830C-19FD8DA90F8F",
+      "expiration_date": "2026-05-12T23:09:50.000-03:00",
+      "amount": {
+        "value": 1500
+      },
+      "text": "00020101021226830014br.gov.bcb.pix2561api.pagseguro.com/pix/v2/A9BE0E93-46DA-44F4-830C-19FD8DA90F8F5204799153039865802BR592263.790.373 DENIS LIMA 6007Aracaju62070503***6304C085",
+      "arrangements": [
+        "PIX"
+      ],
+      "links": [
+        {
+          "rel": "QRCODE.PNG",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_A9BE0E93-46DA-44F4-830C-19FD8DA90F8F/png",
+          "media": "image/png",
+          "type": "GET"
+        },
+        {
+          "rel": "QRCODE.BASE64",
+          "href": "https://api.pagseguro.com/qrcode/QRCO_A9BE0E93-46DA-44F4-830C-19FD8DA90F8F/base64",
+          "media": "text/plain",
+          "type": "GET"
+        }
+      ]
+    }
+  ],
+  "notification_urls": [],
+  "links": [
+    {
+      "rel": "SELF",
+      "href": "https://api.pagseguro.com/orders/ORDE_8A81F0A7-BE1B-4129-B2B3-98914D356C04",
+      "media": "application/json",
+      "type": "GET"
+    },
+    {
+      "rel": "PAY",
+      "href": "https://api.pagseguro.com/orders/ORDE_8A81F0A7-BE1B-4129-B2B3-98914D356C04/pay",
+      "media": "application/json",
+      "type": "POST"
+    }
+  ]
+}

@@ -1,0 +1,287 @@
+}
+{
+    "match_id":  "1-b5d27cf7-8ffd-41e2-a672-bc17f6fa908a",
+    "version":  2,
+    "game":  "cs2",
+    "region":  "SA",
+    "competition_id":  "fdd5221c-408c-4148-bc63-e2940da4a490",
+    "competition_type":  "hub",
+    "competition_name":  "Grupo A",
+    "organizer_id":  "46bfea93-a3b7-4279-90ca-231a757407a0",
+    "teams":  {
+                  "faction1":  {
+                                   "faction_id":  "c2d97ee7-43dd-4169-93bb-ac9d0738ce03",
+                                   "leader":  "fcb1b15c-f3d4-47d1-bd27-b478b7ada9ee",
+                                   "avatar":  "https://distribution.faceit-cdn.net/images/ffc299c3-2098-43dc-8533-77dae7eba16f.jpg",
+                                   "roster":  [
+                                                  {
+                                                      "player_id":  "fcb1b15c-f3d4-47d1-bd27-b478b7ada9ee",
+                                                      "nickname":  "-Sh4yan777",
+                                                      "avatar":  "https://distribution.faceit-cdn.net/images/d23b8369-a932-4a21-a2b0-fb648970b2bc.jpg",
+                                                      "membership":  "premium",
+                                                      "game_player_id":  "76561198374408649",
+                                                      "game_player_name":  "Kauan",
+                                                      "game_skill_level":  6,
+                                                      "anticheat_required":  true
+                                                  },
+                                                  {
+                                                      "player_id":  "4bd74c62-e025-47a0-955b-64293964b199",
+                                                      "nickname":  "ratozeraAa",
+                                                      "avatar":  "https://distribution.faceit-cdn.net/images/2a5f98af-1928-47af-9242-8cf473b43972.jpg",
+                                                      "membership":  "free",
+                                                      "game_player_id":  "76561199023404341",
+                                                      "game_player_name":  "ratozera",
+                                                      "game_skill_level":  0,
+                                                      "anticheat_required":  true
+                                                  },
+                                                  {
+                                                      "player_id":  "c8e99e2a-3cb7-441b-a614-74b00617977e",
+                                                      "nickname":  "microlock1",
+                                                      "avatar":  "https://distribution.faceit-cdn.net/images/25738b5c-5c68-4b92-b0f9-0299a31ac74d.jpeg",
+                                                      "membership":  "super_match_token",
+                                                      "game_player_id":  "76561198392918556",
+                                                      "game_player_name":  "Microlock",
+                                                      "game_skill_level":  8,
+                                                      "anticheat_required":  true
+                                                  },
+                                                  {
+                                                      "player_id":  "c4b9af88-a238-4673-ba37-2a295dad1672",
+                                                      "nickname":  "Jords",
+                                                      "avatar":  "https://distribution.faceit-cdn.net/images/61b21284-dc76-4826-89a5-db313b5875e3.jpg",
+                                                      "membership":  "premium",
+                                                      "game_player_id":  "76561199184773365",
+                                                      "game_player_name":  "Jords ☆",
+                                                      "game_skill_level":  4,
+                                                      "anticheat_required":  true
+                                                  },
+                                                  {
+                                                      "player_id":  "8597a7bb-1af3-4978-b748-cb503f0af53a",
+                                                      "nickname":  "alls",
+                                                      "avatar":  "https://distribution.faceit-cdn.net/images/7431435d-3a9e-4a7b-9f0e-0cc7709fc42f.jpg",
+                                                      "membership":  "premium",
+                                                      "game_player_id":  "76561198414586777",
+                                                      "game_player_name":  "alls",
+                                                      "game_skill_level":  10,
+                                                      "anticheat_required":  true
+                                                  }
+                                              ],
+                                   "substituted":  false,
+                                   "name":  "Alemanha",
+                                   "type":  "premade"
+                               },
+                  "faction2":  {
+                                   "faction_id":  "5620f1a9-6878-441b-8bab-93909a62ea11",
+                                   "leader":  "dd85687d-83f5-4e6a-9e31-881510f855de",
+                                   "avatar":  "https://distribution.faceit-cdn.net/images/15551d64-c870-4afa-a957-8a3844ef2a08.jpeg",
+                                   "roster":  [
+                                                  {
+                                                      "player_id":  "dd85687d-83f5-4e6a-9e31-881510f855de",
+                                                      "nickname":  "TeX_tn1",
+                                                      "avatar":  "https://distribution.faceit-cdn.net/images/15551d64-c870-4afa-a957-8a3844ef2a08.jpeg",
+                                                      "membership":  "premium",
+                                                      "game_player_id":  "76561198344450225",
+                                                      "game_player_name":  "tex",
+                                                      "game_skill_level":  5,
+                                                      "anticheat_required":  true
+                                                  },
+                                                  {
+                                                      "player_id":  "a517ce37-ed98-4867-a699-1dd8e493a865",
+                                                      "nickname":  "TourinhoT11",
+                                                      "avatar":  "https://distribution.faceit-cdn.net/images/48d21bf5-b98d-4097-9316-07e5ede82855.jpg",
+                                                      "membership":  "free",
+                                                      "game_player_id":  "76561198395793579",
+                                                      "game_player_name":  "Twitch TourinhoT11",
+                                                      "game_skill_level":  4,
+                                                      "anticheat_required":  true
+                                                  },
+                                                  {
+                                                      "player_id":  "790297bb-1643-49c5-9650-23e85a2c9aea",
+                                                      "nickname":  "LLP_SS22",
+                                                      "avatar":  "https://distribution.faceit-cdn.net/images/cee954d8-00b1-4ecc-be7d-21b5ac0c0c9f.jpg",
+                                                      "membership":  "free",
+                                                      "game_player_id":  "76561198357994448",
+                                                      "game_player_name":  "美しい",
+                                                      "game_skill_level":  7,
+                                                      "anticheat_required":  true
+                                                  },
+                                                  {
+                                                      "player_id":  "e5767f45-d315-4b82-b27f-facacd7eefc5",
+                                                      "nickname":  "chronosfps",
+                                                      "avatar":  "https://distribution.faceit-cdn.net/images/cc4f40a0-4080-4e06-8405-d98f02438861.jpg",
+                                                      "membership":  "free",
+                                                      "game_player_id":  "76561198838991469",
+                                                      "game_player_name":  "MAKITA",
+                                                      "game_skill_level":  7,
+                                                      "anticheat_required":  true
+                                                  },
+                                                  {
+                                                      "player_id":  "62dfedf1-c596-47a2-8d81-89051544c6e8",
+                                                      "nickname":  "moura_tn1",
+                                                      "avatar":  "https://distribution.faceit-cdn.net/images/9ec7b8b5-abd8-4e47-a2af-1095619178f4.jpg",
+                                                      "membership":  "premium",
+                                                      "game_player_id":  "76561198243422842",
+                                                      "game_player_name":  "moura",
+                                                      "game_skill_level":  10,
+                                                      "anticheat_required":  true
+                                                  }
+                                              ],
+                                   "substituted":  false,
+                                   "name":  "ESPANHA",
+                                   "type":  "premade"
+                               }
+              },
+    "voting":  {
+                   "voted_entity_types":  [
+                                              "location",
+                                              "map"
+                                          ],
+                   "location":  {
+                                    "entities":  [
+                                                     {
+                                                         "class_name":  "Sao Paulo",
+                                                         "game_location_id":  "SaoPaulo",
+                                                         "guid":  "SaoPaulo",
+                                                         "image_lg":  "https://distribution.faceit-cdn.net/images/flags/v1/br.jpg?width=428\u0026height=212",
+                                                         "image_sm":  "https://distribution.faceit-cdn.net/images/flags/v1/br.jpg?width=110\u0026height=55",
+                                                         "name":  "Sao Paulo"
+                                                     }
+                                                 ],
+                                    "pick":  [
+                                                 "SaoPaulo"
+                                             ]
+                                },
+                   "map":  {
+                               "entities":  [
+                                                {
+                                                    "name":  "Dust2",
+                                                    "class_name":  "de_dust2",
+                                                    "game_map_id":  "de_dust2",
+                                                    "guid":  "de_dust2",
+                                                    "image_lg":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/7c17caa9-64a6-4496-8a0b-885e0f038d79_1695819126962.jpeg",
+                                                    "image_sm":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/adf58ac6-b0f3-40e9-87ef-0af23fc60918_1695819116078.jpeg"
+                                                },
+                                                {
+                                                    "guid":  "de_mirage",
+                                                    "image_lg":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/7fb7d725-e44d-4e3c-b557-e1d19b260ab8_1695819144685.jpeg",
+                                                    "image_sm":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/796b5b23-41e4-4387-a4a9-0d28c1c57456_1695819136505.jpeg",
+                                                    "name":  "Mirage",
+                                                    "class_name":  "de_mirage",
+                                                    "game_map_id":  "de_mirage"
+                                                },
+                                                {
+                                                    "class_name":  "de_nuke",
+                                                    "game_map_id":  "de_nuke",
+                                                    "guid":  "de_nuke",
+                                                    "image_lg":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/7197a969-81e4-4fef-8764-55f46c7cec6e_1695819158849.jpeg",
+                                                    "image_sm":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/15ff938d-a70d-4d0b-9bf9-6be215cdb193_1695819151395.jpeg",
+                                                    "name":  "Nuke"
+                                                },
+                                                {
+                                                    "image_lg":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/058c4eb3-dac4-441c-a810-70afa0f3022c_1695819170133.jpeg",
+                                                    "image_sm":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/6d7e8e7f-f136-49f3-a4ca-a9afffbe8022_1695819165013.jpeg",
+                                                    "name":  "Overpass",
+                                                    "class_name":  "de_overpass",
+                                                    "game_map_id":  "de_overpass",
+                                                    "guid":  "de_overpass"
+                                                },
+                                                {
+                                                    "guid":  "de_ancient",
+                                                    "image_lg":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/5b844241-5b15-45bf-a304-ad6df63b5ce5_1695819190976.jpeg",
+                                                    "image_sm":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/a7d193ca-9498-4546-bf7b-da33e3e429a5_1695819186093.jpeg",
+                                                    "name":  "Ancient",
+                                                    "class_name":  "de_ancient",
+                                                    "game_map_id":  "de_ancient"
+                                                },
+                                                {
+                                                    "game_map_id":  "de_inferno",
+                                                    "guid":  "de_inferno",
+                                                    "image_lg":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/993380de-bb5b-4aa1-ada9-a0c1741dc475_1695819220797.jpeg",
+                                                    "image_sm":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/a2cb95be-1a3f-49f3-a5fa-a02503d02086_1695819214782.jpeg",
+                                                    "name":  "Inferno",
+                                                    "class_name":  "de_inferno"
+                                                },
+                                                {
+                                                    "image_lg":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/31f01daf-e531-43cf-b949-c094ebc9b3ea_1695819235255.jpeg",
+                                                    "image_sm":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/847a46ed-fbcc-4347-a64a-bc2d6a24be89_1695819226252.jpeg",
+                                                    "name":  "Anubis",
+                                                    "class_name":  "de_anubis",
+                                                    "game_map_id":  "de_anubis",
+                                                    "guid":  "de_anubis"
+                                                },
+                                                {
+                                                    "guid":  "3437809122",
+                                                    "image_lg":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/84fdec54-0c4b-424b-860d-7477495ea026_1741030140483.jpeg",
+                                                    "image_sm":  "https://assets.faceit-cdn.net/third_party/games/ce652bd4-0abb-4c90-9936-1133965ca38b/assets/votables/db483b30-8cbb-488f-8105-0b60c111cc9a_1741030130806.jpeg",
+                                                    "name":  "Cache",
+                                                    "class_name":  "Cache",
+                                                    "game_map_id":  "3437809122"
+                                                }
+                                            ],
+                               "pick":  [
+                                            "de_mirage",
+                                            "de_ancient"
+                                        ]
+                           }
+               },
+    "calculate_elo":  false,
+    "configured_at":  1778543105,
+    "started_at":  1778543412,
+    "finished_at":  1778545776,
+    "demo_url":  [
+                     "https://demos-us-east.backblaze.faceit-cdn.net/cs2/1-b5d27cf7-8ffd-41e2-a672-bc17f6fa908a-1-1.dem.zst",
+                     "https://demos-us-east.backblaze.faceit-cdn.net/cs2/1-b5d27cf7-8ffd-41e2-a672-bc17f6fa908a-2-1.dem.zst"
+                 ],
+    "chat_room_id":  "match-1-b5d27cf7-8ffd-41e2-a672-bc17f6fa908a",
+    "best_of":  2,
+    "results":  {
+                    "winner":  "faction1",
+                    "score":  {
+                                  "faction1":  1,
+                                  "faction2":  1
+                              }
+                },
+    "detailed_results":  [
+                             {
+                                 "asc_score":  false,
+                                 "winner":  "faction1",
+                                 "factions":  {
+                                                  "faction1":  {
+                                                                   "score":  16
+                                                               },
+                                                  "faction2":  {
+                                                                   "score":  14
+                                                               }
+                                              }
+                             },
+                             {
+                                 "asc_score":  false,
+                                 "winner":  "faction2",
+                                 "factions":  {
+                                                  "faction2":  {
+                                                                   "score":  13
+                                                               },
+                                                  "faction1":  {
+                                                                   "score":  11
+                                                               }
+                                              }
+                             }
+                         ],
+    "status":  "FINISHED",
+    "faceit_url":  "https://www.faceit.com/{lang}/cs2/room/1-b5d27cf7-8ffd-41e2-a672-bc17f6fa908a",
+    "instances":  [
+                      {
+                          "id":  "1-b5d27cf7-8ffd-41e2-a672-bc17f6fa908a-1-1",
+                          "round":  1,
+                          "demos":  [
+                                        "https://demos-us-east.backblaze.faceit-cdn.net/cs2/1-b5d27cf7-8ffd-41e2-a672-bc17f6fa908a-1-1.dem.zst"
+                                    ]
+                      },
+                      {
+                          "id":  "1-b5d27cf7-8ffd-41e2-a672-bc17f6fa908a-2-1",
+                          "round":  2,
+                          "demos":  [
+                                        "https://demos-us-east.backblaze.faceit-cdn.net/cs2/1-b5d27cf7-8ffd-41e2-a672-bc17f6fa908a-2-1.dem.zst"
+                                    ]
+                      }
+                  ]
+}
