@@ -50,6 +50,7 @@ type RawPlayerStats = {
 type LoadedMatch = {
   meta: MatchMeta;
   players: RawPlayerStats[];
+  killCountBySteamId: Record<string, number>;
 };
 
 type DbPlayerRow = {
@@ -123,7 +124,7 @@ function toSteamId(value: unknown) {
 
 function parseMatchMeta(fileName: string): MatchMeta | null {
   const baseName = fileName.replace(/\.json$/i, "");
-  const xIndex = baseName.indexOf("x");
+  const xIndex = baseName.search(/[xX]/);
   if (xIndex <= 0 || xIndex >= baseName.length - 1) return null;
 
   const leftPart = baseName.slice(0, xIndex);
@@ -168,18 +169,133 @@ function parseMatchMeta(fileName: string): MatchMeta | null {
   };
 }
 
-function extractPlayers(payload: any): RawPlayerStats[] {
-  if (Array.isArray(payload?.players)) return payload.players as RawPlayerStats[];
+function parseRoundFromPayload(payload: any) {
+  const candidates = [
+    payload?.round,
+    payload?.roundNumber,
+    payload?.meta?.round,
+    payload?.match?.round,
+    payload?.teamA?.round,
+    payload?.teamB?.round,
+  ];
 
-  if (Array.isArray(payload?.teams)) {
-    return (payload.teams as any[])
-      .flatMap((team) => (Array.isArray(team?.players) ? team.players : []))
-      .filter(Boolean) as RawPlayerStats[];
+  for (const value of candidates) {
+    const parsed = Math.trunc(toNumber(value));
+    if (parsed > 0) return parsed;
   }
 
-  if (Array.isArray(payload?.playerStats)) return payload.playerStats as RawPlayerStats[];
+  return 0;
+}
 
-  return [];
+function sanitizeMatchKey(raw: string) {
+  return String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.json$/i, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildFallbackMatchMeta(fileName: string, payload: any): MatchMeta {
+  const round = parseRoundFromPayload(payload);
+  const map = Math.trunc(toNumber(payload?.map ?? payload?.mapNumber ?? payload?.meta?.map));
+
+  return {
+    fileName,
+    round: round > 0 ? round : 1,
+    map: map > 0 ? map : null,
+    matchKey: sanitizeMatchKey(fileName) || `match-${Date.now()}`,
+  };
+}
+
+function toRawPlayerStats(value: any): RawPlayerStats | null {
+  if (!value || typeof value !== "object") return null;
+
+  const steamId = toSteamId(value?.steamId ?? value?.steamid ?? value?.playerSteamId ?? value?.player_steam_id);
+  const name = String(value?.name ?? value?.nickname ?? value?.playerName ?? "").trim();
+
+  const hasCoreStats =
+    value?.killCount !== undefined ||
+    value?.deathCount !== undefined ||
+    value?.assistCount !== undefined ||
+    value?.hltvRating2 !== undefined ||
+    value?.averageDamagePerRound !== undefined;
+
+  if (!steamId && !name) return null;
+  if (!hasCoreStats) return null;
+
+  return {
+    ...value,
+    steamId,
+    name,
+  } satisfies RawPlayerStats;
+}
+
+function collectPlayersFromArray(source: unknown, output: RawPlayerStats[]) {
+  if (!Array.isArray(source)) return;
+
+  for (const entry of source) {
+    const parsed = toRawPlayerStats(entry);
+    if (parsed) output.push(parsed);
+  }
+}
+
+function extractPlayers(payload: any): RawPlayerStats[] {
+  const collected: RawPlayerStats[] = [];
+
+  collectPlayersFromArray(payload?.players, collected);
+  collectPlayersFromArray(payload?.playerStats, collected);
+  collectPlayersFromArray(payload?.playersStats, collected);
+  collectPlayersFromArray(payload?.player_stats, collected);
+  collectPlayersFromArray(payload?.participants, collected);
+  collectPlayersFromArray(payload?.stats?.players, collected);
+
+  if (Array.isArray(payload?.teams)) {
+    for (const team of payload.teams as any[]) {
+      collectPlayersFromArray(team?.players, collected);
+      collectPlayersFromArray(team?.playerStats, collected);
+      collectPlayersFromArray(team?.playersStats, collected);
+    }
+  }
+
+  collectPlayersFromArray(payload?.teamA?.players, collected);
+  collectPlayersFromArray(payload?.teamB?.players, collected);
+  collectPlayersFromArray(payload?.teams?.faction1?.players, collected);
+  collectPlayersFromArray(payload?.teams?.faction2?.players, collected);
+
+  const byKey = new Map<string, RawPlayerStats>();
+  for (const player of collected) {
+    const steamId = toSteamId(player?.steamId ?? player?.steamid);
+    const name = normalize(player?.name);
+    const key = steamId || `name:${name}`;
+    if (!key) continue;
+    if (!byKey.has(key)) byKey.set(key, player);
+  }
+
+  return Array.from(byKey.values());
+}
+
+function buildKillCountIndex(payload: any) {
+  const index: Record<string, number> = {};
+  const events = Array.isArray(payload?.kills) ? payload.kills : [];
+
+  for (const event of events) {
+    const killerSteamId = toSteamId(event?.killerSteamId ?? event?.attackerSteamId);
+    if (!killerSteamId) continue;
+
+    if (Boolean(event?.isSuicide) || Boolean(event?.isWarmup)) continue;
+
+    const victimSteamId = toSteamId(event?.victimSteamId ?? event?.killedSteamId);
+    if (victimSteamId && victimSteamId === killerSteamId) continue;
+
+    const killerSide = Math.trunc(toNumber(event?.killerSide ?? event?.attackerSide));
+    const victimSide = Math.trunc(toNumber(event?.victimSide ?? event?.killedSide));
+    if (killerSide > 0 && victimSide > 0 && killerSide === victimSide) continue;
+
+    index[killerSteamId] = (index[killerSteamId] || 0) + 1;
+  }
+
+  return index;
 }
 
 function buildInClause(values: string[]) {
@@ -202,18 +318,20 @@ async function loadJsonMatches(): Promise<LoadedMatch[]> {
 
   const loaded = await Promise.all(
     fileNames.map(async (fileName) => {
-      const meta = parseMatchMeta(fileName);
-      if (!meta) return null;
-
       try {
         const fullPath = path.join(STATS_DIR, fileName);
         const content = await readFile(fullPath, "utf-8");
         const parsed = JSON.parse(content);
+        const meta = parseMatchMeta(fileName) || buildFallbackMatchMeta(fileName, parsed);
         const players = extractPlayers(parsed);
+        const killCountBySteamId = buildKillCountIndex(parsed);
+
+        if (players.length === 0) return null;
 
         return {
           meta,
           players,
+          killCountBySteamId,
         } satisfies LoadedMatch;
       } catch {
         return null;
@@ -431,6 +549,7 @@ async function loadPageData() {
       const teamName = faceitGuid ? teamNameByGuid.get(faceitGuid) || null : null;
       const poteResolved = poteByGuid.get(faceitGuid) || 0;
       const pote = poteResolved >= 1 && poteResolved <= 5 ? poteResolved : 5;
+      const eventKillCount = match.killCountBySteamId[steamId];
 
       entries.push({
         steamId,
@@ -442,7 +561,7 @@ async function loadPageData() {
         map: match.meta.map,
         matchKey: match.meta.matchKey,
         hltvRating2: toNumber(rawPlayer?.hltvRating2),
-        killCount: Math.trunc(toNumber(rawPlayer?.killCount)),
+        killCount: Math.trunc(toNumber(eventKillCount ?? rawPlayer?.killCount)),
         assistCount: Math.trunc(toNumber(rawPlayer?.assistCount)),
         deathCount: Math.trunc(toNumber(rawPlayer?.deathCount)),
         killDeathRatio: toNumber(rawPlayer?.killDeathRatio),

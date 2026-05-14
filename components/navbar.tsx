@@ -9,7 +9,6 @@ import FaceitLogin from './FaceitLogin'
 import { Button } from './ui/button'
 import { Notifications } from './notifications'
 import { UserProfile } from './user-profile'
-import { UpdateDataButton } from './UpdateDataButton'
 
 interface NavbarProps {
   user: UserProfile | null
@@ -145,10 +144,11 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
   }
 
   const hasLiveMatches = liveMatches.length > 0
-  const isAdmin = currentUser?.Admin && currentUser.Admin >= 1 && currentUser.Admin <= 5
+  const adminLevel = Number(currentUser?.Admin ?? 0)
+  const isAdmin = Number.isFinite(adminLevel) && adminLevel >= 1 && adminLevel <= 5
   const volumePercent = Math.round(volume * 100)
 
-  const showLiveMatchesButton = !liveMatchesLoading && (hasLiveMatches || isAdmin)
+  const showLiveMatchesButton = !liveMatchesLoading && Boolean(hasLiveMatches || isAdmin)
 
   return (
     <motion.nav
@@ -238,15 +238,14 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
                 />
               </div>
 
-              {showLiveMatchesButton && (
+              {showLiveMatchesButton ? (
                 <Button onClick={openLiveMatchesModal} variant="outline" size="icon" className={`border-red-500 text-red-500 hover:bg-red-500 hover:text-white relative ${hasLiveMatches ? 'animate-pulse' : ''}`}>
                   <Radio className="h-5 w-5" />
                   {hasLiveMatches && (
                     <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
                   )}
                 </Button>
-              )}
-              {(currentUser?.Admin === 1 || currentUser?.Admin === 2) && <UpdateDataButton />}
+              ) : null}
               <Notifications />
               <div className="pl-2">
                 <FaceitLogin user={currentUser} onAuthChange={handleLocalAuthChange} />
@@ -326,15 +325,14 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
             </div>
 
             <div className="flex items-center justify-center gap-6 pt-4 border-t border-white/10">
-              {showLiveMatchesButton && (
+              {showLiveMatchesButton ? (
                 <Button onClick={openLiveMatchesModal} variant="outline" size="icon" className={`border-red-500 text-red-500 hover:bg-red-500 hover:text-white relative ${hasLiveMatches ? 'animate-pulse' : ''}`}>
                   <Radio className="h-5 w-5" />
                   {hasLiveMatches && (
                     <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
                   )}
                 </Button>
-              )}
-              {(currentUser?.Admin === 1 || currentUser?.Admin === 2) && <UpdateDataButton />}
+              ) : null}
               <Notifications />
               <FaceitLogin user={currentUser} onAuthChange={handleLocalAuthChange} />
             </div>

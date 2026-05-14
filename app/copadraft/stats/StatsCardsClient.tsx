@@ -117,6 +117,20 @@ function toNumber(value: unknown) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function normalizeNickname(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function buildPlayerAggregateKey(entry: Pick<StatsEntry, "steamId" | "nickname">) {
+  const steamId = String(entry?.steamId || "").trim();
+  if (steamId) return `steam:${steamId}`;
+  return `nick:${normalizeNickname(entry?.nickname)}`;
+}
+
 function formatPct(value: number) {
   return `${toNumber(value).toFixed(1)}%`;
 }
@@ -553,7 +567,7 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
     >();
 
     for (const entry of filtered) {
-      const key = `${entry.steamId}::${entry.nickname.toLowerCase()}`;
+      const key = buildPlayerAggregateKey(entry);
       const current = byPlayer.get(key);
 
       if (!current) {
@@ -789,13 +803,14 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
     }
 
     const result = Array.from(byPlayer.values()).map((player) => {
-      const key = `${player.steamId}::${player.nickname.toLowerCase()}`;
+      const key = buildPlayerAggregateKey(player);
       const count = Math.max(1, player.appearances);
       const hltv = player.hltvRating2 / count;
       const adr = player.averageDamagePerRound / count;
       const score = selectedRound === "geral" ? player.score / count : player.score / 2;
       const headshotPct = player.headshotPercentage / count;
       const kast = player.kast / count;
+      const utilityAdr = player.averageUtilityDamagePerRound / count;
       const roundTotalsByRound = playerRoundTotals.get(key) || new Map();
       const roundMapsByRound = playerRoundMaps.get(key) || new Map();
 
@@ -840,7 +855,7 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
         damageHealth: player.damageHealth,
         averageDamagePerRound: adr,
         utilityDamage: player.utilityDamage,
-        averageUtilityDamagePerRound: player.averageUtilityDamagePerRound,
+        averageUtilityDamagePerRound: utilityAdr,
         headshotCount: player.headshotCount,
         headshotPercentage: headshotPct,
         kast,

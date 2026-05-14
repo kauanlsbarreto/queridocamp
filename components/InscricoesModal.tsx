@@ -72,6 +72,20 @@ export default function InscricoesModal({ alwaysShow = false }: InscricoesModalP
               .
             </li>
             <li className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+              Na página{" "}
+              <Link
+                href="/copadraft/prediction"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-gold underline underline-offset-2 hover:text-yellow-200"
+              >
+                Prediction
+              </Link>{" "}
+              você consegue fazer um{" "}
+              <span className="font-bold text-gold">predict</span> de qual time vai ganhar cada jogo e ganhar{" "}
+              <span className="font-bold text-gold">moedas</span> para gastar no site.
+            </li>
+            <li className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
               A página de cada confronto ficou mais completa, com{" "}
               <span className="font-bold text-gold">mapa da partida</span>,{" "}
               <span className="font-bold text-gold">placar</span> e{" "}
