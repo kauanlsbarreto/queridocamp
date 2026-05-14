@@ -395,6 +395,7 @@ async function detectFacesBannerConfig(imageUrl: string, baseConfig: BannerConfi
 
 export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUrl, initialBannerConfig, players, teamMatches, teamInsights, teamMapSummary }: Props) {
   const teamAudioRef = useRef<HTMLAudioElement | null>(null);
+  const teamAudioStartedRef = useRef(false);
   const bannerHostRef = useRef<HTMLDivElement | null>(null);
   const [faceitGuid, setFaceitGuid] = useState("");
   const [faceitNickname, setFaceitNickname] = useState("");
@@ -515,11 +516,19 @@ export default function TeamDetailClient({ teamName, bannerImageUrl, teamAudioUr
     audio.preload = "auto";
     audio.volume = getStoredVolume();
     teamAudioRef.current = audio;
+    teamAudioStartedRef.current = false;
 
     const tryPlay = () => {
       if (!teamAudioRef.current) return;
       if (teamAudioRef.current.volume <= 0) return;
-      void teamAudioRef.current.play().catch(() => {});
+      if (teamAudioStartedRef.current) return;
+
+      void teamAudioRef.current
+        .play()
+        .then(() => {
+          teamAudioStartedRef.current = true;
+        })
+        .catch(() => {});
     };
 
     const handleVolumeChanged = (event: Event) => {
