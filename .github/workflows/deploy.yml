@@ -45,6 +45,7 @@ jobs:
           ssh $SSH_OPTS "$SSH_USER@$SSH_HOST" "mkdir -p '$DEPLOY_PATH' && echo 'SSH_OK'"
 
           rsync -az --delete --checksum \
+            --omit-dir-times --no-perms --no-owner --no-group \
             --itemize-changes \
             -e "ssh $SSH_OPTS" \
             --exclude='.git' \

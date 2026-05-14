@@ -6,23 +6,17 @@ services:
       args:
         GIT_TOKEN: ${GIT_TOKEN:-}
     restart: always
-    # Remove exposed ports, use reverse proxy instead
+    ports:
+      - "3001:3001"
     environment:
-      # Database Hostinger - Use DATABASE_URL como fonte única
       DATABASE_URL: ${DATABASE_URL:-mysql://botuser:aF!0_%40MM360J@187.77.45.123:3306/bancoks}
-      
-      # Node environment
       NODE_ENV: ${NODE_ENV:-production}
       NEXT_TELEMETRY_DISABLED: "1"
-      
-      # Git Configuration
       GIT_AUTHOR_NAME: "Docker Auto-Update"
       GIT_AUTHOR_EMAIL: "docker@sitequerido.com"
       GIT_COMMITTER_NAME: "Docker Auto-Update"
       GIT_COMMITTER_EMAIL: "docker@sitequerido.com"
       GIT_TOKEN: ${GIT_TOKEN:-}
-      
-      # Copa Draft Timeouts
       COPADRAFT_DESAFIAR_QUERY_TIMEOUT_MS: ${COPADRAFT_DESAFIAR_QUERY_TIMEOUT_MS:-5000}
       COPADRAFT_DESAFIAR_CONNECT_TIMEOUT_MS: ${COPADRAFT_DESAFIAR_CONNECT_TIMEOUT_MS:-4000}
       COPADRAFT_DESAFIAR_LOAD_TIMEOUT_MS: ${COPADRAFT_DESAFIAR_LOAD_TIMEOUT_MS:-3500}
@@ -31,33 +25,21 @@ services:
       COPADRAFT_JOGOS_CACHE_TTL_MS: ${COPADRAFT_JOGOS_CACHE_TTL_MS:-60000}
       COPADRAFT_JOGOS_LOAD_TIMEOUT_MS: ${COPADRAFT_JOGOS_LOAD_TIMEOUT_MS:-3500}
       COPADRAFT_MYSQL_QUERY_TIMEOUT_MS: ${COPADRAFT_MYSQL_QUERY_TIMEOUT_MS:-20000}
-      
-      # Database Query Logging
       DB_QUERY_LOG_TIMEOUT_MS: ${DB_QUERY_LOG_TIMEOUT_MS:-1200}
       DB_QUERY_LOG_ENABLED: ${DB_QUERY_LOG_ENABLED:-0}
-      
-      # Redis Cache
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-sitequerido}
-      
-      # PagBank/PagSeguro Payment
       TOKEN_PAGSEGURO: ${TOKEN_PAGSEGURO:-}
       PAGBANK_WEBHOOK_TOKEN: ${PAGBANK_WEBHOOK_TOKEN:-}
       PAGBANK_WEBHOOK_HMAC_SECRET: ${PAGBANK_WEBHOOK_HMAC_SECRET:-}
       PAGBANK_API_BASE_URL: ${PAGBANK_API_BASE_URL:-https://api.pagseguro.com/}
       PAGBANK_DEFAULT_TAX_ID: ${PAGBANK_DEFAULT_TAX_ID:-}
-      
-      # Discord Webhooks
       LOJA_PAGAMENTO_DISCORD_WEBHOOK_URL: ${LOJA_PAGAMENTO_DISCORD_WEBHOOK_URL:-}
       LOJA_WEBHOOK_URL: ${LOJA_WEBHOOK_URL:-}
       LOJA_PURCHASE_WEBHOOK_URL: ${LOJA_PURCHASE_WEBHOOK_URL:-}
-      
-      # External APIs
       FACEIT_API_KEY: ${FACEIT_API_KEY:-}
       API_BREVO: ${API_BREVO:-}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
-      
-      # Game Server (DataHost/CS2)
       CS2_IP: ${CS2_IP:-217.196.63.100}
       CS2_PORT: ${CS2_PORT:-27015}
       CS2_PASSWORD: ${CS2_PASSWORD:-5d0091b9086d44dab92b64e7b15b29b7}
@@ -70,16 +52,6 @@ services:
     
     networks:
       - sitequerido-network
-    
-    # Production resource limits
-    deploy:
-      resources:
-        limits:
-          cpus: '${APP_CPU_LIMIT:-0.90}'
-          memory: ${APP_MEMORY_LIMIT:-1G}
-        reservations:
-          cpus: '${APP_CPU_RESERVATION:-0.25}'
-          memory: ${APP_MEMORY_RESERVATION:-256M}
     
     logging:
       driver: "json-file"
@@ -97,15 +69,6 @@ services:
     restart: always
     networks:
       - sitequerido-network
-    
-    deploy:
-      resources:
-        limits:
-          cpus: '${REDIS_CPU_LIMIT:-0.25}'
-          memory: ${REDIS_MEMORY_LIMIT:-256M}
-        reservations:
-          cpus: '${REDIS_CPU_RESERVATION:-0.10}'
-          memory: ${REDIS_MEMORY_RESERVATION:-64M}
     
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
