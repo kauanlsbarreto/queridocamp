@@ -22,7 +22,7 @@ jobs:
           SSH_USER: ${{ secrets.HOSTINGER_USER }}
           SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
           SSH_KEY: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_PATH: /var/www/queridocamp
         run: |
           set -euo pipefail
 
@@ -63,50 +63,25 @@ jobs:
           port: ${{ secrets.HOSTINGER_SSH_PORT }}
           command_timeout: 30m
           script: |
-            set -e
+            set -euo pipefail
 
-            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
-            IMAGE_NAME="sitequerido-app"
-            ACTIVE_CONTAINER="sitequerido-app"
-            ACTIVE_PORT="3001"
+            DEPLOY_PATH="/var/www/queridocamp"
+            export COMPOSE_PROJECT_NAME="queridocamp"
 
             cd "$DEPLOY_PATH"
 
-            BUILD_TAG="${{ github.sha }}"
-            DOCKER_BUILDKIT=1 docker build --progress=plain -t "$IMAGE_NAME:$BUILD_TAG" -t "$IMAGE_NAME:latest" .
+            docker compose version
+            docker compose config >/dev/null
+            DOCKER_BUILDKIT=1 docker compose up -d --build --remove-orphans
 
-            ENV_FILE=".deploy-env"
-            if [ -f .env ]; then
-              cp .env "$ENV_FILE"
-            elif docker ps -a --format '{{.Names}}' | grep -qx "$ACTIVE_CONTAINER"; then
-              # Fallback only: preserve last known env when .env is unavailable.
-              docker inspect "$ACTIVE_CONTAINER" --format '{{range .Config.Env}}{{println .}}{{end}}' > "$ENV_FILE"
-            else
-              echo "Nao foi possivel encontrar um container ativo nem arquivo .env"
-              exit 1
+            CURRENT_APP_IMAGE_ID="$(docker compose images -q app | head -n 1 || true)"
+            if [ -n "$CURRENT_APP_IMAGE_ID" ]; then
+              OLD_APP_IMAGE_IDS="$(docker image ls --format '{{.Repository}} {{.ID}}' | awk '$1 == "queridocamp-app" {print $2}' | sort -u | grep -vx "$CURRENT_APP_IMAGE_ID" || true)"
+              if [ -n "$OLD_APP_IMAGE_IDS" ]; then
+                echo "Removendo imagens antigas do app"
+                docker rmi -f $OLD_APP_IMAGE_IDS || true
+              fi
             fi
 
-            # Remove container antigo antes de rodar o novo
-            docker rm -f "$ACTIVE_CONTAINER" || true
-
-            # Libera a porta caso outro container ainda esteja publicado nela
-            PORT_CONTAINERS=$(docker ps --filter "publish=$ACTIVE_PORT" --format '{{.ID}}')
-            if [ -n "$PORT_CONTAINERS" ]; then
-              echo "Removendo containers que ocupam a porta $ACTIVE_PORT"
-              docker rm -f $PORT_CONTAINERS || true
-            fi
-
-            # Fallback: encerra processo local que possa estar prendendo a porta
-            if command -v fuser >/dev/null 2>&1; then
-              fuser -k "${ACTIVE_PORT}/tcp" 2>/dev/null || true
-            fi
-
-            # Rodar container ativo novo
-            docker run -d \
-              --name "$ACTIVE_CONTAINER" \
-              --env-file "$ENV_FILE" \
-              -p "$ACTIVE_PORT":3001 \
-              --restart always \
-              "$IMAGE_NAME:$BUILD_TAG"
-
-            docker image prune -af --filter "until=24h" || true
+            docker image prune -f || true
+            docker builder prune -af || true
