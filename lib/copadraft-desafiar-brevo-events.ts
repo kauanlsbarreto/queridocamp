@@ -3,7 +3,13 @@ const RECIPIENT_EMAIL = "kauanlsbarreto@gmail.com";
 const SENDER_NAME = "Querido Camp";
 const SENDER_EMAIL = "kauan@queridocamp.com.br";
 
-export type DesafiarEventType = "challenge_sent" | "counter_proposal" | "declined" | "rescheduled";
+export type DesafiarEventType =
+  | "challenge_sent"
+  | "accepted"
+  | "accepeted"
+  | "counter_proposal"
+  | "declined"
+  | "rescheduled";
 
 export type DesafiarEventBrevoPayload = {
   eventType: DesafiarEventType;
@@ -50,9 +56,15 @@ function escapeHtml(value: string) {
 
 function eventLabel(eventType: DesafiarEventType) {
   if (eventType === "challenge_sent") return "Desafio enviado";
+  if (eventType === "accepted" || eventType === "accepeted") return "Proposta aceita";
   if (eventType === "counter_proposal") return "Contraproposta enviada";
   if (eventType === "declined") return "Proposta recusada";
   return "Data alterada";
+}
+
+function normalizeEventType(eventType: DesafiarEventType): Exclude<DesafiarEventType, "accepeted"> {
+  if (eventType === "accepeted") return "accepted";
+  return eventType;
 }
 
 function buildSubject(payload: DesafiarEventBrevoPayload) {
@@ -124,15 +136,20 @@ export async function sendDesafiarEventBrevoEmail(
   payload: DesafiarEventBrevoPayload,
   env?: any,
 ): Promise<DesafiarEventBrevoResult> {
+  const normalizedPayload: DesafiarEventBrevoPayload = {
+    ...payload,
+    eventType: normalizeEventType(payload.eventType),
+  };
+
   const apiKey = resolveBrevoApiKey(env);
   if (!apiKey) {
     return { sent: false, skipped: true, reason: "BREVO_API_KEY_NAO_CONFIGURADA" };
   }
 
   const timestamp = new Date().toISOString();
-  const subject = buildSubject(payload);
-  const textContent = buildTextContent(payload, timestamp);
-  const htmlContent = buildHtmlContent(payload, timestamp);
+  const subject = buildSubject(normalizedPayload);
+  const textContent = buildTextContent(normalizedPayload, timestamp);
+  const htmlContent = buildHtmlContent(normalizedPayload, timestamp);
 
   try {
     const response = await fetch(BREVO_API_URL, {

@@ -308,7 +308,7 @@ export async function POST(req: NextRequest) {
             Number(match.challenged_team_id),
           ]);
 
-          await sendDesafiarDiscordWebhook({
+          const discordPayload = {
             event: "sent",
             matchId: Number(match.id),
             rodada: match.rodada,
@@ -319,9 +319,9 @@ export async function POST(req: NextRequest) {
             date: match.proposed_date,
             time: match.proposed_time,
             message: match.message,
-          });
+          };
 
-          await sendDesafiarEventBrevoEmail(
+          const emailResultPromise = sendDesafiarEventBrevoEmail(
             {
               eventType: "challenge_sent",
               matchId: Number(match.id),
@@ -336,6 +336,20 @@ export async function POST(req: NextRequest) {
             },
             env,
           );
+
+          const [discordResult, emailResult] = await Promise.allSettled([
+            sendDesafiarDiscordWebhook(discordPayload),
+            emailResultPromise,
+          ]);
+
+          if (discordResult.status === "rejected") {
+            console.error("[desafiar/api POST webhook discord]", discordResult.reason);
+          }
+          if (emailResult.status === "rejected") {
+            console.error("[desafiar/api POST webhook brevo]", emailResult.reason);
+          } else if (!emailResult.value.sent) {
+            console.error("[desafiar/api POST webhook brevo] envio nao concluido:", emailResult.value);
+          }
         } catch (notifyError) {
           console.error("[desafiar/api POST webhook]", notifyError);
         }
@@ -477,27 +491,10 @@ export async function PUT(req: NextRequest) {
               Number(finalMatch.challenger_team_id),
               Number(finalMatch.challenged_team_id),
             ]);
-            await sendDesafiarDiscordWebhook({
-              event: "decision",
-              decision: "accepted",
-              matchId: Number(finalMatch.id),
-              rodada: finalMatch.rodada,
-              challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
-              challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
-              actorNickname,
-              actorGuid: String(faceit_guid || "").trim().toLowerCase(),
-              date: finalMatch.proposed_date,
-              time: finalMatch.proposed_time,
-              message: reschedule_message ?? "Admin 1 alterou data/horario",
-              forceColor: "orange",
-              adminChangedAcceptedMatch: true,
-              beforeDate: oldMatch.proposed_date,
-              beforeTime: oldMatch.proposed_time,
-            });
-
-            await sendDesafiarEventBrevoEmail(
-              {
-                eventType: "rescheduled",
+            const [discordResult, emailResult] = await Promise.allSettled([
+              sendDesafiarDiscordWebhook({
+                event: "decision",
+                decision: "accepted",
                 matchId: Number(finalMatch.id),
                 rodada: finalMatch.rodada,
                 challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
@@ -506,12 +503,39 @@ export async function PUT(req: NextRequest) {
                 actorGuid: String(faceit_guid || "").trim().toLowerCase(),
                 date: finalMatch.proposed_date,
                 time: finalMatch.proposed_time,
-                message: reschedule_message ?? finalMatch.message,
+                message: reschedule_message ?? "Admin 1 alterou data/horario",
+                forceColor: "orange",
+                adminChangedAcceptedMatch: true,
                 beforeDate: oldMatch.proposed_date,
                 beforeTime: oldMatch.proposed_time,
-              },
-              env,
-            );
+              }),
+              sendDesafiarEventBrevoEmail(
+                {
+                  eventType: "rescheduled",
+                  matchId: Number(finalMatch.id),
+                  rodada: finalMatch.rodada,
+                  challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
+                  challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
+                  actorNickname,
+                  actorGuid: String(faceit_guid || "").trim().toLowerCase(),
+                  date: finalMatch.proposed_date,
+                  time: finalMatch.proposed_time,
+                  message: reschedule_message ?? finalMatch.message,
+                  beforeDate: oldMatch.proposed_date,
+                  beforeTime: oldMatch.proposed_time,
+                },
+                env,
+              ),
+            ]);
+
+            if (discordResult.status === "rejected") {
+              console.error("[desafiar/api PUT webhook accepted-reschedule discord]", discordResult.reason);
+            }
+            if (emailResult.status === "rejected") {
+              console.error("[desafiar/api PUT webhook accepted-reschedule brevo]", emailResult.reason);
+            } else if (!emailResult.value.sent) {
+              console.error("[desafiar/api PUT webhook accepted-reschedule brevo] envio nao concluido:", emailResult.value);
+            }
           } catch (notifyError) {
             console.error("[desafiar/api PUT webhook accepted-reschedule]", notifyError);
           }
@@ -561,24 +585,23 @@ export async function PUT(req: NextRequest) {
           ]);
 
           if (action === "accept" || action === "decline") {
-            await sendDesafiarDiscordWebhook({
-              event: "decision",
-              decision: action === "accept" ? "accepted" : "declined",
-              matchId: Number(finalMatch.id),
-              rodada: finalMatch.rodada,
-              challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
-              challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
-              actorNickname,
-              actorGuid: String(faceit_guid || "").trim().toLowerCase(),
-              date: finalMatch.proposed_date,
-              time: finalMatch.proposed_time,
-              message: finalMatch.message,
-            });
-
-            if (action === "decline") {
-              await sendDesafiarEventBrevoEmail(
+            const [discordResult, emailResult] = await Promise.allSettled([
+              sendDesafiarDiscordWebhook({
+                event: "decision",
+                decision: action === "accept" ? "accepted" : "declined",
+                matchId: Number(finalMatch.id),
+                rodada: finalMatch.rodada,
+                challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
+                challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
+                actorNickname,
+                actorGuid: String(faceit_guid || "").trim().toLowerCase(),
+                date: finalMatch.proposed_date,
+                time: finalMatch.proposed_time,
+                message: finalMatch.message,
+              }),
+              sendDesafiarEventBrevoEmail(
                 {
-                  eventType: "declined",
+                  eventType: action === "accept" ? "accepted" : "declined",
                   matchId: Number(finalMatch.id),
                   rodada: finalMatch.rodada,
                   challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
@@ -590,25 +613,21 @@ export async function PUT(req: NextRequest) {
                   message: finalMatch.message,
                 },
                 env,
-              );
+              ),
+            ]);
+
+            if (discordResult.status === "rejected") {
+              console.error("[desafiar/api PUT webhook admin decision discord]", discordResult.reason);
+            }
+            if (emailResult.status === "rejected") {
+              console.error("[desafiar/api PUT webhook admin decision brevo]", emailResult.reason);
+            } else if (!emailResult.value.sent) {
+              console.error("[desafiar/api PUT admin brevo decision] envio nao concluido:", emailResult.value);
             }
           } else if (action === "counter") {
-            await sendDesafiarDiscordWebhook({
-              event: "counter",
-              matchId: Number(finalMatch.id),
-              rodada: finalMatch.rodada,
-              challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
-              challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
-              actorNickname,
-              actorGuid: String(faceit_guid || "").trim().toLowerCase(),
-              date: finalMatch.counter_date || finalMatch.proposed_date,
-              time: finalMatch.counter_time || finalMatch.proposed_time,
-              message: finalMatch.counter_message || finalMatch.message,
-            });
-
-            await sendDesafiarEventBrevoEmail(
-              {
-                eventType: "counter_proposal",
+            const [discordResult, emailResult] = await Promise.allSettled([
+              sendDesafiarDiscordWebhook({
+                event: "counter",
                 matchId: Number(finalMatch.id),
                 rodada: finalMatch.rodada,
                 challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
@@ -618,9 +637,32 @@ export async function PUT(req: NextRequest) {
                 date: finalMatch.counter_date || finalMatch.proposed_date,
                 time: finalMatch.counter_time || finalMatch.proposed_time,
                 message: finalMatch.counter_message || finalMatch.message,
-              },
-              env,
-            );
+              }),
+              sendDesafiarEventBrevoEmail(
+                {
+                  eventType: "counter_proposal",
+                  matchId: Number(finalMatch.id),
+                  rodada: finalMatch.rodada,
+                  challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
+                  challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
+                  actorNickname,
+                  actorGuid: String(faceit_guid || "").trim().toLowerCase(),
+                  date: finalMatch.counter_date || finalMatch.proposed_date,
+                  time: finalMatch.counter_time || finalMatch.proposed_time,
+                  message: finalMatch.counter_message || finalMatch.message,
+                },
+                env,
+              ),
+            ]);
+
+            if (discordResult.status === "rejected") {
+              console.error("[desafiar/api PUT webhook admin counter discord]", discordResult.reason);
+            }
+            if (emailResult.status === "rejected") {
+              console.error("[desafiar/api PUT webhook admin counter brevo]", emailResult.reason);
+            } else if (!emailResult.value.sent) {
+              console.error("[desafiar/api PUT admin brevo counter] envio nao concluido:", emailResult.value);
+            }
           }
         } catch (notifyError) {
           console.error("[desafiar/api PUT webhook admin]", notifyError);
@@ -692,24 +734,23 @@ export async function PUT(req: NextRequest) {
         ]);
 
         if (action === "accept" || action === "decline") {
-          await sendDesafiarDiscordWebhook({
-            event: "decision",
-            decision: action === "accept" ? "accepted" : "declined",
-            matchId: Number(finalMatch.id),
-            rodada: finalMatch.rodada,
-            challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
-            challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
-            actorNickname,
-            actorGuid: String(faceit_guid || "").trim().toLowerCase(),
-            date: finalMatch.proposed_date,
-            time: finalMatch.proposed_time,
-            message: finalMatch.message,
-          });
-
-          if (action === "decline") {
-            await sendDesafiarEventBrevoEmail(
+          const [discordResult, emailResult] = await Promise.allSettled([
+            sendDesafiarDiscordWebhook({
+              event: "decision",
+              decision: action === "accept" ? "accepted" : "declined",
+              matchId: Number(finalMatch.id),
+              rodada: finalMatch.rodada,
+              challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
+              challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
+              actorNickname,
+              actorGuid: String(faceit_guid || "").trim().toLowerCase(),
+              date: finalMatch.proposed_date,
+              time: finalMatch.proposed_time,
+              message: finalMatch.message,
+            }),
+            sendDesafiarEventBrevoEmail(
               {
-                eventType: "declined",
+                eventType: action === "accept" ? "accepted" : "declined",
                 matchId: Number(finalMatch.id),
                 rodada: finalMatch.rodada,
                 challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
@@ -721,25 +762,21 @@ export async function PUT(req: NextRequest) {
                 message: finalMatch.message,
               },
               env,
-            );
+            ),
+          ]);
+
+          if (discordResult.status === "rejected") {
+            console.error("[desafiar/api PUT webhook user decision discord]", discordResult.reason);
+          }
+          if (emailResult.status === "rejected") {
+            console.error("[desafiar/api PUT webhook user decision brevo]", emailResult.reason);
+          } else if (!emailResult.value.sent) {
+            console.error("[desafiar/api PUT user brevo decision] envio nao concluido:", emailResult.value);
           }
         } else if (action === "counter") {
-          await sendDesafiarDiscordWebhook({
-            event: "counter",
-            matchId: Number(finalMatch.id),
-            rodada: finalMatch.rodada,
-            challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
-            challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
-            actorNickname,
-            actorGuid: String(faceit_guid || "").trim().toLowerCase(),
-            date: finalMatch.counter_date || finalMatch.proposed_date,
-            time: finalMatch.counter_time || finalMatch.proposed_time,
-            message: finalMatch.counter_message || finalMatch.message,
-          });
-
-          await sendDesafiarEventBrevoEmail(
-            {
-              eventType: "counter_proposal",
+          const [discordResult, emailResult] = await Promise.allSettled([
+            sendDesafiarDiscordWebhook({
+              event: "counter",
               matchId: Number(finalMatch.id),
               rodada: finalMatch.rodada,
               challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
@@ -749,9 +786,32 @@ export async function PUT(req: NextRequest) {
               date: finalMatch.counter_date || finalMatch.proposed_date,
               time: finalMatch.counter_time || finalMatch.proposed_time,
               message: finalMatch.counter_message || finalMatch.message,
-            },
-            env,
-          );
+            }),
+            sendDesafiarEventBrevoEmail(
+              {
+                eventType: "counter_proposal",
+                matchId: Number(finalMatch.id),
+                rodada: finalMatch.rodada,
+                challengerTeam: teamNames.get(Number(finalMatch.challenger_team_id)) || `Time ${finalMatch.challenger_team_id}`,
+                challengedTeam: teamNames.get(Number(finalMatch.challenged_team_id)) || `Time ${finalMatch.challenged_team_id}`,
+                actorNickname,
+                actorGuid: String(faceit_guid || "").trim().toLowerCase(),
+                date: finalMatch.counter_date || finalMatch.proposed_date,
+                time: finalMatch.counter_time || finalMatch.proposed_time,
+                message: finalMatch.counter_message || finalMatch.message,
+              },
+              env,
+            ),
+          ]);
+
+          if (discordResult.status === "rejected") {
+            console.error("[desafiar/api PUT webhook user counter discord]", discordResult.reason);
+          }
+          if (emailResult.status === "rejected") {
+            console.error("[desafiar/api PUT webhook user counter brevo]", emailResult.reason);
+          } else if (!emailResult.value.sent) {
+            console.error("[desafiar/api PUT user brevo counter] envio nao concluido:", emailResult.value);
+          }
         }
       } catch (notifyError) {
         console.error("[desafiar/api PUT webhook user]", notifyError);
