@@ -5,6 +5,15 @@ import Link from "next/link";
 import Image from "next/image";
 
 type Game = { jogo_id: number; data: string; hora: string; time1: string; time2: string };
+type LiveOdds = Record<string, number>;
+type LiveCounts = Record<string, number>;
+type AdminBoardEntry = {
+  match_id: number;
+  time1: string;
+  time2: string;
+  counts: { time1: number; draw: number; time2: number; total: number };
+  bettors?: { time1: string[]; draw: string[]; time2: string[] };
+};
 type Prediction = {
   id: number;
   match_id: string;
@@ -85,15 +94,28 @@ function getPredictionTeams(prediction: Prediction) {
   return { time1: "Time 1", time2: "Time 2" };
 }
 
+function formatOddsAsPoints(odds: number) {
+  const value = Number(odds);
+  const multiplierLabel = Number.isFinite(value)
+    ? value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "0,00";
+  return `x ${multiplierLabel} pontos`;
+}
+
 export default function PredictionPageClient() {
   const [user, setUser] = useState<any>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [closedGames, setClosedGames] = useState<Game[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [adminLevel, setAdminLevel] = useState(0);
+  const [adminBoardByMatchId, setAdminBoardByMatchId] = useState<Record<number, AdminBoardEntry>>({});
   const [isAdmin1, setIsAdmin1] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"games" | "closed" | "my">("games");
+  const [tab, setTab] = useState<"games" | "closed" | "my" | "admin">("games");
+  const [adminTab, setAdminTab] = useState<"upcoming" | "past">("upcoming");
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  const [liveOddsByMatchId, setLiveOddsByMatchId] = useState<Record<number, LiveOdds>>({});
+  const [liveCountsByMatchId, setLiveCountsByMatchId] = useState<Record<number, LiveCounts>>({});
   const [teamChoice, setTeamChoice] = useState("");
   const [pointsAmount, setPointsAmount] = useState("");
   const [betting, setBetting] = useState(false);
@@ -128,6 +150,23 @@ export default function PredictionPageClient() {
     }
   }, []);
 
+  const fetchOddsForGame = async (game: Game): Promise<{ odds: LiveOdds; counts: LiveCounts } | null> => {
+    try {
+      const res = await fetch(
+        `/api/copadraft/prediction?action=market_odds&match_id=${encodeURIComponent(String(game.jogo_id))}&time1=${encodeURIComponent(game.time1)}&time2=${encodeURIComponent(game.time2)}`,
+        { cache: "no-store" }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok || !data?.odds) return null;
+      return {
+        odds: data.odds as LiveOdds,
+        counts: (data.counts || {}) as LiveCounts,
+      };
+    } catch {
+      return null;
+    }
+  };
+
   const loadData = async (guid: string) => {
     try {
       // Fetch only games list (without access-gated palpites payload)
@@ -135,7 +174,7 @@ export default function PredictionPageClient() {
       const gamesData = await gamesRes.json();
       if (gamesData.ok && gamesData.games) {
         const now = new Date();
-        const allGames = Array.isArray(gamesData.games) ? gamesData.games : [];
+        const allGames: Game[] = Array.isArray(gamesData.games) ? (gamesData.games as Game[]) : [];
         const upcoming = allGames.filter((g: Game) => {
           const gameDate = new Date(`${g.data}T${g.hora}:00`);
           return gameDate > now;
@@ -153,6 +192,22 @@ export default function PredictionPageClient() {
 
         setGames(upcoming);
         setClosedGames(closed);
+
+        // Refresh odds board in background for visible upcoming games.
+        const oddsEntries = await Promise.all(
+          upcoming.map(async (game: Game) => {
+            const market = await fetchOddsForGame(game);
+            return [Number(game.jogo_id), market] as const;
+          })
+        );
+        const nextOdds: Record<number, LiveOdds> = {};
+        const nextCounts: Record<number, LiveCounts> = {};
+        for (const [matchId, market] of oddsEntries) {
+          if (market?.odds) nextOdds[matchId] = market.odds;
+          if (market?.counts) nextCounts[matchId] = market.counts;
+        }
+        setLiveOddsByMatchId(nextOdds);
+        setLiveCountsByMatchId(nextCounts);
       }
 
       // Fetch user's predictions
@@ -161,8 +216,28 @@ export default function PredictionPageClient() {
       if (predData.ok) {
         setPredictions(Array.isArray(predData.myPredictions) ? predData.myPredictions : []);
         setIsAdmin1(Boolean(predData.isAdmin1));
+        setAdminLevel(Number(predData.adminLevel || 0));
         if (Number.isFinite(Number(predData.currentPoints))) {
           setUser((prev: any) => (prev ? { ...prev, points: Number(predData.currentPoints) } : prev));
+        }
+
+        const parsedAdminLevel = Number(predData.adminLevel || 0);
+        if (parsedAdminLevel >= 1 && parsedAdminLevel <= 5) {
+          const boardRes = await fetch(
+            `/api/copadraft/prediction?action=admin_board&faceit_guid=${encodeURIComponent(guid)}`,
+            { cache: "no-store" }
+          );
+          const boardData = await boardRes.json().catch(() => ({}));
+          if (boardRes.ok && boardData?.ok && Array.isArray(boardData.matches)) {
+            const nextBoard: Record<number, AdminBoardEntry> = {};
+            for (const item of boardData.matches as AdminBoardEntry[]) {
+              const id = Number(item?.match_id || 0);
+              if (id > 0) nextBoard[id] = item;
+            }
+            setAdminBoardByMatchId(nextBoard);
+          }
+        } else {
+          setAdminBoardByMatchId({});
         }
       }
     } catch (error) {
@@ -183,10 +258,33 @@ export default function PredictionPageClient() {
     return () => clearInterval(intervalId);
   }, [user?.faceit_guid]);
 
+  useEffect(() => {
+    if (!selectedGame) return;
+
+    let cancelled = false;
+    const refresh = async () => {
+      const market = await fetchOddsForGame(selectedGame);
+      if (cancelled || !market) return;
+      setLiveOddsByMatchId((prev) => ({ ...prev, [Number(selectedGame.jogo_id)]: market.odds }));
+      setLiveCountsByMatchId((prev) => ({ ...prev, [Number(selectedGame.jogo_id)]: market.counts }));
+    };
+
+    refresh();
+    const id = window.setInterval(refresh, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [selectedGame]);
+
   const handlePredict = async () => {
     if (!selectedGame || !teamChoice || !pointsAmount || !user) return;
 
     const points = Number(pointsAmount);
+    if (!Number.isFinite(points) || points < 10) {
+      alert("A previsão mínima é de 10 moedas.");
+      return;
+    }
     if (points > (user.points || 0)) {
       alert(`Você tem ${user.points} pontos disponíveis`);
       return;
@@ -270,6 +368,9 @@ export default function PredictionPageClient() {
     );
   }
 
+  const canViewAdminBoard = adminLevel >= 1 && adminLevel <= 5;
+  const adminGames = adminTab === "upcoming" ? games : closedGames;
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
       <div className="max-w-4xl mx-auto">
@@ -304,7 +405,79 @@ export default function PredictionPageClient() {
           >
             Encerradas ({closedGames.length})
           </button>
+          {canViewAdminBoard && (
+            <button
+              onClick={() => setTab("admin")}
+              className={`pb-4 px-4 font-bold ${tab === "admin" ? "border-b-2 border-blue-500 text-blue-400" : "text-gray-400"}`}
+            >
+              Admin
+            </button>
+          )}
         </div>
+
+        {/* Admin Tab */}
+        {tab === "admin" && canViewAdminBoard && (
+          <div className="grid gap-4">
+            <div className="flex gap-3">
+              <button
+                onClick={() => setAdminTab("upcoming")}
+                className={`px-4 py-2 rounded-lg font-bold text-sm ${adminTab === "upcoming" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300"}`}
+              >
+                Próximos Jogos ({games.length})
+              </button>
+              <button
+                onClick={() => setAdminTab("past")}
+                className={`px-4 py-2 rounded-lg font-bold text-sm ${adminTab === "past" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300"}`}
+              >
+                Jogos Passados ({closedGames.length})
+              </button>
+            </div>
+
+            {adminGames.length === 0 ? (
+              <div className="text-center py-12 bg-gray-800 rounded-lg text-gray-400">Nenhum jogo nesta aba</div>
+            ) : (
+              adminGames.map((game, idx) => {
+                const board = adminBoardByMatchId[Number(game.jogo_id)];
+                const counts = board?.counts || { time1: 0, draw: 0, time2: 0, total: 0 };
+                return (
+                  <div key={idx} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <div className="text-sm text-gray-400 mb-1">{game.hora} • {game.data}</div>
+                    <div className="text-xs text-cyan-300 mb-2">Match ID: {game.jogo_id}</div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="font-bold">{game.time1}</span>
+                      <span className="text-gray-400">vs</span>
+                      <span className="font-bold">{game.time2}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                      <div className="bg-gray-700/70 rounded p-2">
+                        <p className="text-gray-300">{game.time1}</p>
+                        <p className="font-bold">Quantidade: {counts.time1}</p>
+                        {adminLevel === 1 && board?.bettors?.time1 && board.bettors.time1.length > 0 && (
+                          <p className="text-xs text-gray-300 mt-1">Quem: {board.bettors.time1.join(", ")}</p>
+                        )}
+                      </div>
+                      <div className="bg-gray-700/70 rounded p-2">
+                        <p className="text-gray-300">Empate</p>
+                        <p className="font-bold">Quantidade: {counts.draw}</p>
+                        {adminLevel === 1 && board?.bettors?.draw && board.bettors.draw.length > 0 && (
+                          <p className="text-xs text-gray-300 mt-1">Quem: {board.bettors.draw.join(", ")}</p>
+                        )}
+                      </div>
+                      <div className="bg-gray-700/70 rounded p-2">
+                        <p className="text-gray-300">{game.time2}</p>
+                        <p className="font-bold">Quantidade: {counts.time2}</p>
+                        {adminLevel === 1 && board?.bettors?.time2 && board.bettors.time2.length > 0 && (
+                          <p className="text-xs text-gray-300 mt-1">Quem: {board.bettors.time2.join(", ")}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
 
         {/* Games Tab */}
         {tab === "games" && (
@@ -338,6 +511,18 @@ export default function PredictionPageClient() {
                           className="rounded-sm border border-gray-600"
                         />
                         <span>{game.time2}</span>
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      <span className="bg-gray-700 px-2 py-1 rounded">
+                        {game.time1}: {formatOddsAsPoints(liveOddsByMatchId[Number(game.jogo_id)]?.[game.time1] ?? 2.0)}
+                      </span>
+                      <span className="bg-gray-700 px-2 py-1 rounded">
+                        Empate: {formatOddsAsPoints(liveOddsByMatchId[Number(game.jogo_id)]?.["Empate"] ?? 1.5)}
+                      </span>
+                      <span className="bg-gray-700 px-2 py-1 rounded">
+                        {game.time2}: {formatOddsAsPoints(liveOddsByMatchId[Number(game.jogo_id)]?.[game.time2] ?? 2.0)}
+
                       </span>
                     </div>
                   </div>
@@ -470,8 +655,8 @@ export default function PredictionPageClient() {
                         <p className="font-bold text-green-400">{p.points_predicted} pts</p>
                       </div>
                       <div className="bg-gray-800/60 rounded-lg p-3">
-                        <p className="text-gray-400 mb-1">Odds</p>
-                        <p className="font-bold text-yellow-400">{Number(p.odds).toFixed(2)}x</p>
+                        <p className="text-gray-400 mb-1">Pontuação</p>
+                        <p className="font-bold text-yellow-400">{formatOddsAsPoints(p.odds)}</p>
                       </div>
                       <div className="bg-gray-800/60 rounded-lg p-3">
                         <p className="text-gray-400 mb-1">Retorno</p>
@@ -502,9 +687,18 @@ export default function PredictionPageClient() {
                 <label className="block text-sm font-bold mb-3">Escolha o resultado</label>
                 <div className="grid grid-cols-3 gap-3">
                   {([
-                    { label: selectedGame.time1, odds: 2.00 },
-                    { label: "Empate", odds: 1.50 },
-                    { label: selectedGame.time2, odds: 2.00 },
+                    {
+                      label: selectedGame.time1,
+                      odds: liveOddsByMatchId[Number(selectedGame.jogo_id)]?.[selectedGame.time1] ?? 2.0,
+                    },
+                    {
+                      label: "Empate",
+                      odds: liveOddsByMatchId[Number(selectedGame.jogo_id)]?.["Empate"] ?? 1.5,
+                    },
+                    {
+                      label: selectedGame.time2,
+                      odds: liveOddsByMatchId[Number(selectedGame.jogo_id)]?.[selectedGame.time2] ?? 2.0,
+                    },
                   ] as { label: string; odds: number }[]).map(({ label, odds }) => (
                     <button
                       key={label}
@@ -521,7 +715,7 @@ export default function PredictionPageClient() {
                     >
                       <span>{label === "Empate" ? "🤝 Empate" : label}</span>
                       <span className={`text-xs font-normal ${teamChoice === label ? "text-white/80" : "text-green-400"}`}>
-                        {odds.toFixed(2)}x
+                        {formatOddsAsPoints(odds)}
                       </span>
                     </button>
                   ))}
@@ -534,9 +728,10 @@ export default function PredictionPageClient() {
                   type="number"
                   value={pointsAmount}
                   onChange={(e) => setPointsAmount(e.target.value)}
+                  min={10}
                   max={user.points}
                   className="w-full bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600"
-                  placeholder={`Máximo: ${user.points}`}
+                  placeholder={`Mínimo: 10 | Máximo: ${user.points}`}
                 />
               </div>
 

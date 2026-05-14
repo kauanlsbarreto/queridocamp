@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 
 export type ConfirmedGame = {
@@ -71,6 +72,12 @@ function TeamFlag({ teamName }: { teamName: string }) {
 
 function GameCard({ game }: { game: ConfirmedGame }) {
   const hasScore = Boolean(String(game.score || "").trim());
+  const now = Date.now();
+  const scheduledAt = Number.isFinite(new Date(`${game.date}T${game.time}:00`).getTime())
+    ? new Date(`${game.date}T${game.time}:00`).getTime()
+    : null;
+  const isLive = Boolean(!game.isPlayed && scheduledAt != null && now >= scheduledAt && now <= scheduledAt + 4 * 60 * 60 * 1000);
+  const isUpcoming = Boolean(!game.isPlayed && !isLive);
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#071940]/90 to-[#0a2256]/80 px-4 py-5 shadow-[0_12px_30px_rgba(0,0,0,0.4)] backdrop-blur-sm transition-all duration-200 hover:border-cyan-400/30 hover:shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
@@ -79,6 +86,15 @@ function GameCard({ game }: { game: ConfirmedGame }) {
       <div className="relative mb-3 flex items-center justify-between">
         <span className="rounded-md border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300">
           {game.rodada ? `Rodada ${game.rodada}` : "Rodada -"}
+        </span>
+        <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest border ${
+          isLive
+            ? "border-red-400/50 bg-red-500/15 text-red-300"
+            : isUpcoming
+            ? "border-blue-400/50 bg-blue-500/15 text-blue-300"
+            : "border-gray-400/40 bg-gray-500/10 text-gray-300"
+        }`}>
+          {isLive ? "AO VIVO" : isUpcoming ? "EM BREVE" : "FINALIZADA"}
         </span>
         <span className="rounded-md border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white/90">
           {game.time}
@@ -121,6 +137,19 @@ function GameCard({ game }: { game: ConfirmedGame }) {
           <TeamFlag teamName={game.team2} />
           <span className="text-xs font-black uppercase tracking-widest text-white md:text-sm">{game.team2}</span>
         </div>
+      </div>
+
+      <div className="relative mt-4 flex justify-end">
+        <Link
+          href={`/copadraft/prediction/${encodeURIComponent(String(game.id))}`}
+          className={`inline-flex items-center rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition ${
+            isLive
+              ? "bg-red-600 text-white hover:bg-red-500"
+              : "bg-blue-600 text-white hover:bg-blue-500"
+          }`}
+        >
+          {isLive ? "Ao Vivo" : "Abrir"}
+        </Link>
       </div>
     </div>
   );

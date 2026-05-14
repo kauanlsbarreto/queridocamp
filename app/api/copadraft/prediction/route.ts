@@ -292,7 +292,6 @@ async function ensurePredictionTable(mainConn: any) {
       hora TIME DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_faceit_match (faceit_guid, match_id),
       KEY idx_faceit (faceit_guid),
       KEY idx_status (status),
       KEY idx_match_id (match_id)
@@ -377,10 +376,160 @@ async function ensurePredictionTable(mainConn: any) {
       timeout: QUERY_TIMEOUT_MS,
     });
   }
+
+  // Allow multiple predictions per user per match.
+  const [uniqIndexRows]: any = await mainConn.query({
+    sql: "SHOW INDEX FROM copadraft_predictions WHERE Key_name = 'uniq_faceit_match'",
+    timeout: QUERY_TIMEOUT_MS,
+  });
+  if (Array.isArray(uniqIndexRows) && uniqIndexRows.length > 0) {
+    await mainConn.query({
+      sql: "ALTER TABLE copadraft_predictions DROP INDEX uniq_faceit_match",
+      timeout: QUERY_TIMEOUT_MS,
+    });
+  }
 }
 
 function normalizeGuid(value: unknown) {
   return String(value || "").trim().toLowerCase();
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function resolveChoiceBucket(chosen: unknown, time1: unknown, time2: unknown): "time1" | "draw" | "time2" | null {
+  const c = normalizeText(chosen);
+  const t1 = normalizeText(time1);
+  const t2 = normalizeText(time2);
+
+  if (!c) return null;
+  if (c === t1) return "time1";
+  if (c === t2) return "time2";
+
+  const drawAliases = new Set(["empate", "draw", "x"]);
+  if (drawAliases.has(c)) return "draw";
+
+  return null;
+}
+
+function buildChoiceCounts(
+  rows: any[],
+  time1: string | null,
+  time2: string | null,
+  valueField: string
+) {
+  const counts = {
+    time1: 0,
+    draw: 0,
+    time2: 0,
+    other: 0,
+    total: 0,
+  };
+
+  for (const row of rows) {
+    const bucket = resolveChoiceBucket(row?.team_chosen, time1, time2);
+    const amount = Number(row?.[valueField] || 0);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+
+    if (bucket === "time1") counts.time1 += amount;
+    else if (bucket === "time2") counts.time2 += amount;
+    else if (bucket === "draw") counts.draw += amount;
+    else counts.other += amount;
+  }
+
+  counts.total = counts.time1 + counts.draw + counts.time2;
+  return counts;
+}
+
+function parseMatchIdToGameId(matchId: unknown) {
+  const raw = String(matchId || "").trim();
+  if (!raw) return 0;
+
+  if (/^[0-9]+$/.test(raw)) {
+    const id = Number(raw);
+    return Number.isFinite(id) ? id : 0;
+  }
+
+  if (raw.includes("::")) {
+    const tail = Number(raw.split("::").pop() || 0);
+    return Number.isFinite(tail) ? tail : 0;
+  }
+
+  return 0;
+}
+
+function computeMarketOdds(params: {
+  time1: string | null;
+  time2: string | null;
+  volumeByChoice: Record<string, number>;
+}) {
+  const time1Key = normalizeText(params.time1 || "");
+  const time2Key = normalizeText(params.time2 || "");
+  const drawKey = "empate";
+
+  const defaultOdds = {
+    [time1Key]: 2.0,
+    [drawKey]: 1.5,
+    [time2Key]: 2.0,
+  };
+
+  if (!time1Key || !time2Key) {
+    return {
+      oddsByChoice: defaultOdds,
+      labels: { time1Key, drawKey, time2Key },
+    };
+  }
+
+  const totalRealVolume =
+    (params.volumeByChoice[time1Key] || 0) +
+    (params.volumeByChoice[drawKey] || 0) +
+    (params.volumeByChoice[time2Key] || 0);
+
+  // Before first bet on this match, keep fixed opening odds.
+  if (totalRealVolume <= 0) {
+    return {
+      oddsByChoice: defaultOdds,
+      labels: { time1Key, drawKey, time2Key },
+    };
+  }
+
+  // Keep opening odds as anchor and apply a smooth variation by pick share.
+  const c1 = Number(params.volumeByChoice[time1Key] || 0);
+  const cd = Number(params.volumeByChoice[drawKey] || 0);
+  const c2 = Number(params.volumeByChoice[time2Key] || 0);
+  const total = c1 + cd + c2;
+
+  const shares: Record<string, number> = {
+    [time1Key]: total > 0 ? c1 / total : 1 / 3,
+    [drawKey]: total > 0 ? cd / total : 1 / 3,
+    [time2Key]: total > 0 ? c2 / total : 1 / 3,
+  };
+
+  const expectedShare = 1 / 3;
+  const maxMovePct = 0.45; // cap movement to +-45% from opening line.
+  const marketMaturity = clamp(total / 30, 0.15, 1); // few bets => smaller movement.
+
+  const adjustOdd = (openingOdd: number, share: number, minOdd: number) => {
+    const deviation = share - expectedShare;
+    const normalized = clamp(deviation / (2 / 3), -1, 1);
+
+    // More picked => lower odd; less picked => higher odd.
+    const movePct = clamp(-normalized * maxMovePct * marketMaturity, -maxMovePct, maxMovePct);
+    const moved = openingOdd * (1 + movePct);
+    return Number(clamp(moved, minOdd, 8).toFixed(2));
+  };
+
+  const oddsByChoice: Record<string, number> = {
+    [time1Key]: adjustOdd(defaultOdds[time1Key], shares[time1Key], 2.0),
+    [drawKey]: adjustOdd(defaultOdds[drawKey], shares[drawKey], 1.5),
+    [time2Key]: adjustOdd(defaultOdds[time2Key], shares[time2Key], 2.0),
+  };
+
+  return {
+    oddsByChoice,
+    labels: { time1Key, drawKey, time2Key },
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -391,6 +540,148 @@ export async function GET(request: NextRequest) {
     mainConn = await createMainConnection(env);
     await ensurePredictionTable(mainConn);
     await settleFinishedPredictions(mainConn);
+
+    const action = String(request.nextUrl.searchParams.get("action") || "").trim().toLowerCase();
+    if (action === "market_odds") {
+      const matchId = String(request.nextUrl.searchParams.get("match_id") || "").trim();
+      const gameId = Number(matchId);
+      const time1 = String(request.nextUrl.searchParams.get("time1") || "").trim() || null;
+      const time2 = String(request.nextUrl.searchParams.get("time2") || "").trim() || null;
+
+      if (!matchId || !Number.isFinite(gameId) || gameId <= 0) {
+        return NextResponse.json({ ok: false, message: "match_id inválido." }, { status: 400 });
+      }
+
+      const [distributionRows]: any = await mainConn.query(
+        {
+          sql: `SELECT team_chosen, COUNT(*) AS volume
+                FROM copadraft_predictions
+                WHERE status = 'OPEN'
+                  AND is_cashed_out = 0
+                  AND (
+                    match_id = ?
+                    OR (match_id REGEXP '^[0-9]+$' AND CAST(match_id AS UNSIGNED) = ?)
+                    OR (match_id LIKE '%::%' AND CAST(SUBSTRING_INDEX(match_id, '::', -1) AS UNSIGNED) = ?)
+                  )
+                GROUP BY team_chosen`,
+          timeout: QUERY_TIMEOUT_MS,
+        },
+        [matchId, gameId, gameId]
+      );
+
+      const groupedRows = Array.isArray(distributionRows) ? (distributionRows as any[]) : [];
+      const counts = buildChoiceCounts(groupedRows, time1, time2, "volume");
+      const volumeByChoice: Record<string, number> = {
+        [normalizeText(time1 || "")]: counts.time1,
+        ["empate"]: counts.draw,
+        [normalizeText(time2 || "")]: counts.time2,
+      };
+
+      const market = computeMarketOdds({ time1, time2, volumeByChoice });
+
+      return NextResponse.json({
+        ok: true,
+        odds: {
+          [time1 || "time1"]: market.oddsByChoice[market.labels.time1Key] ?? 2.0,
+          Empate: market.oddsByChoice[market.labels.drawKey] ?? 1.5,
+          [time2 || "time2"]: market.oddsByChoice[market.labels.time2Key] ?? 2.0,
+        },
+        counts: {
+          [time1 || "time1"]: counts.time1,
+          Empate: counts.draw,
+          [time2 || "time2"]: counts.time2,
+          total: counts.total,
+        },
+      });
+    }
+
+    if (action === "admin_board") {
+      const requesterGuid = normalizeGuid(request.nextUrl.searchParams.get("faceit_guid"));
+      if (!requesterGuid) {
+        return NextResponse.json({ ok: false, message: "faceit_guid obrigatório." }, { status: 400 });
+      }
+
+      const [adminRows]: any = await mainConn.query(
+        {
+          sql: "SELECT admin FROM players WHERE faceit_guid = ? LIMIT 1",
+          timeout: QUERY_TIMEOUT_MS,
+        },
+        [requesterGuid]
+      );
+      const adminLevel = Number(Array.isArray(adminRows) ? adminRows[0]?.admin : 0);
+      if (!(adminLevel >= 1 && adminLevel <= 5)) {
+        return NextResponse.json({ ok: false, message: "Acesso negado." }, { status: 403 });
+      }
+
+      const [rows]: any = await mainConn.query(
+        {
+          sql: `SELECT
+                  p.match_id,
+                  p.time1,
+                  p.time2,
+                  p.team_chosen,
+                  p.faceit_guid,
+                  COALESCE(pl.nickname, p.faceit_guid) AS player_name
+                FROM copadraft_predictions p
+                LEFT JOIN players pl
+                  ON pl.faceit_guid = p.faceit_guid
+                WHERE p.is_cashed_out = 0`,
+          timeout: QUERY_TIMEOUT_MS,
+        }
+      );
+
+      const list = Array.isArray(rows) ? (rows as any[]) : [];
+      const byMatch = new Map<number, {
+        match_id: number;
+        time1: string;
+        time2: string;
+        counts: { time1: number; draw: number; time2: number; total: number };
+        bettors: { time1: string[]; draw: string[]; time2: string[] };
+      }>();
+
+      for (const row of list) {
+        const matchNumericId = parseMatchIdToGameId(row?.match_id);
+        if (!Number.isFinite(matchNumericId) || matchNumericId <= 0) continue;
+
+        const time1 = String(row?.time1 || "").trim();
+        const time2 = String(row?.time2 || "").trim();
+        const bucket = resolveChoiceBucket(row?.team_chosen, time1, time2);
+        if (!bucket) continue;
+
+        if (!byMatch.has(matchNumericId)) {
+          byMatch.set(matchNumericId, {
+            match_id: matchNumericId,
+            time1,
+            time2,
+            counts: { time1: 0, draw: 0, time2: 0, total: 0 },
+            bettors: { time1: [], draw: [], time2: [] },
+          });
+        }
+
+        const target = byMatch.get(matchNumericId)!;
+        if (bucket === "time1") target.counts.time1 += 1;
+        if (bucket === "time2") target.counts.time2 += 1;
+        if (bucket === "draw") target.counts.draw += 1;
+        target.counts.total += 1;
+
+        if (adminLevel === 1) {
+          const name = String(row?.player_name || row?.faceit_guid || "Desconhecido").trim();
+          if (bucket === "time1") target.bettors.time1.push(name);
+          if (bucket === "time2") target.bettors.time2.push(name);
+          if (bucket === "draw") target.bettors.draw.push(name);
+        }
+      }
+
+      const matches = Array.from(byMatch.values()).map((item) => ({
+        match_id: item.match_id,
+        time1: item.time1,
+        time2: item.time2,
+        counts: item.counts,
+        bettors: adminLevel === 1 ? item.bettors : undefined,
+      }));
+
+      return NextResponse.json({ ok: true, adminLevel, matches });
+    }
 
     const faceitGuid = normalizeGuid(request.nextUrl.searchParams.get("faceit_guid"));
     
@@ -439,6 +730,7 @@ export async function GET(request: NextRequest) {
       ok: true,
       hasAccess: true,
       isAdmin1,
+      adminLevel,
       currentPoints,
       myPredictions,
     });
@@ -581,8 +873,10 @@ export async function POST(request: NextRequest) {
 
     const gameData = Array.isArray(gameRows) && gameRows.length > 0 ? gameRows[0] : null;
     const gameDate = gameData?.data || null;
-    const gameTime = gameData?.hora || null;    if (!Number.isFinite(pointsPredicted) || pointsPredicted <= 0) {
-      return NextResponse.json({ ok: false, message: "Pontos inválidos." }, { status: 400 });
+    const gameTime = gameData?.hora || null;
+
+    if (!Number.isFinite(pointsPredicted) || pointsPredicted < 10) {
+      return NextResponse.json({ ok: false, message: "A previsão mínima é de 10 moedas." }, { status: 400 });
     }
     if (!Number.isFinite(gameId) || gameId <= 0) {
       return NextResponse.json({ ok: false, message: "match_id inválido." }, { status: 400 });
@@ -590,30 +884,6 @@ export async function POST(request: NextRequest) {
 
     await mainConn.beginTransaction();
     try {
-      // Check if already predicted (legacy and current match_id formats)
-      const [existingRows]: any = await mainConn.query({
-        sql: `SELECT id, is_cashed_out, cashout_at
-              FROM copadraft_predictions
-              WHERE faceit_guid = ?
-                AND (
-                  match_id = ?
-                  OR (match_id REGEXP '^[0-9]+$' AND CAST(match_id AS UNSIGNED) = ?)
-                  OR (match_id LIKE '%::%' AND CAST(SUBSTRING_INDEX(match_id, '::', -1) AS UNSIGNED) = ?)
-                )
-              LIMIT 1
-              FOR UPDATE`,
-        timeout: QUERY_TIMEOUT_MS,
-      }, [faceitGuid, matchId, gameId, gameId]);
-
-      const existing = Array.isArray(existingRows) ? existingRows[0] : null;
-      if (existing && Number(existing.is_cashed_out || 0) !== 1 && !existing.cashout_at) {
-        await mainConn.rollback();
-        return NextResponse.json(
-          { ok: false, message: "Você já fez uma previsão para este jogo." },
-          { status: 409 }
-        );
-      }
-
       // Deduct points
       const [deductResult]: any = await mainConn.query({
         sql: "UPDATE players SET points = points - ? WHERE faceit_guid = ? AND points >= ?",
@@ -625,40 +895,55 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: false, message: "Pontos insuficientes." }, { status: 400 });
       }
 
-      const odds = teamChosen.toLowerCase() === "empate" ? 1.5 : 2.0;
-
-      let predictionIdForWebhook = Number(existing?.id || 0);
-
-      if (existing) {
-        // Reuse cashed-out record to satisfy unique key and keep history per match/user.
-        await mainConn.query({
-          sql: `UPDATE copadraft_predictions
-                SET match_id = ?,
-                    time1 = ?,
-                    time2 = ?,
-                    team_chosen = ?,
-                    points_predicted = ?,
-                    odds = ?,
-                    data = ?,
-                    hora = ?,
-                    status = 'OPEN',
-                    result_points = NULL,
-                    is_cashed_out = 0,
-                    cashout_at = NULL,
-                    cashout_by = NULL
-                WHERE id = ?`,
+      const [distributionRows]: any = await mainConn.query(
+        {
+          sql: `SELECT team_chosen, COUNT(*) AS volume
+                FROM copadraft_predictions
+                WHERE status = 'OPEN'
+                  AND is_cashed_out = 0
+                  AND (
+                    match_id = ?
+                    OR (match_id REGEXP '^[0-9]+$' AND CAST(match_id AS UNSIGNED) = ?)
+                    OR (match_id LIKE '%::%' AND CAST(SUBSTRING_INDEX(match_id, '::', -1) AS UNSIGNED) = ?)
+                  )
+                GROUP BY team_chosen`,
           timeout: QUERY_TIMEOUT_MS,
-        }, [matchId, time1, time2, teamChosen, pointsPredicted, odds, gameDate, gameTime, Number(existing.id || 0)]);
-      } else {
-        // Create prediction
-        const [insertResult]: any = await mainConn.query({
-          sql: `INSERT INTO copadraft_predictions 
-                (faceit_guid, player_id, match_id, time1, time2, team_chosen, points_predicted, odds, data, hora, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')`,
-          timeout: QUERY_TIMEOUT_MS,
-        }, [faceitGuid, playerId, matchId, time1, time2, teamChosen, pointsPredicted, odds, gameDate, gameTime]);
-        predictionIdForWebhook = Number(insertResult?.insertId || 0);
+        },
+        [matchId, gameId, gameId]
+      );
+
+      const groupedRows = Array.isArray(distributionRows) ? (distributionRows as any[]) : [];
+      const counts = buildChoiceCounts(groupedRows, time1, time2, "volume");
+      const distribution: Record<string, number> = {
+        [normalizeText(time1 || "")]: counts.time1,
+        ["empate"]: counts.draw,
+        [normalizeText(time2 || "")]: counts.time2,
+      };
+
+      const market = computeMarketOdds({
+        time1,
+        time2,
+        volumeByChoice: distribution,
+      });
+      const chosenBucket = resolveChoiceBucket(teamChosen, time1, time2);
+      if (!chosenBucket) {
+        await mainConn.rollback();
+        return NextResponse.json({ ok: false, message: "Escolha inválida para este jogo." }, { status: 400 });
       }
+      const chosenKey =
+        chosenBucket === "time1" ? market.labels.time1Key : chosenBucket === "time2" ? market.labels.time2Key : market.labels.drawKey;
+      const odds = Number(
+        market.oddsByChoice[chosenKey] ?? (chosenBucket === "draw" ? 1.5 : 2.0)
+      );
+
+      // Create prediction (multiple entries per user/game are allowed).
+      const [insertResult]: any = await mainConn.query({
+        sql: `INSERT INTO copadraft_predictions 
+              (faceit_guid, player_id, match_id, time1, time2, team_chosen, points_predicted, odds, data, hora, status)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')`,
+        timeout: QUERY_TIMEOUT_MS,
+      }, [faceitGuid, playerId, matchId, time1, time2, teamChosen, pointsPredicted, odds, gameDate, gameTime]);
+      const predictionIdForWebhook = Number(insertResult?.insertId || 0);
 
       const [pointsRows]: any = await mainConn.query({
         sql: "SELECT points FROM players WHERE faceit_guid = ? LIMIT 1",
@@ -680,7 +965,7 @@ export async function POST(request: NextRequest) {
         pointsPredicted,
         odds,
         playerPointsAfter,
-        notes: existing ? "Reaberta apos cash out" : "Nova previsao",
+        notes: "Nova previsao",
       });
 
       return NextResponse.json({ ok: true, message: "Previsão realizada!" });

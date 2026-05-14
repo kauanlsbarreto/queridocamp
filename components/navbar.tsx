@@ -88,7 +88,11 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
   useEffect(() => {
     const handleMatchesUpdate = (event: Event) => {
       const customEvent = event as CustomEvent
-      setLiveMatches(customEvent.detail.matches || [])
+      const rawMatches = customEvent?.detail?.matches
+      const safeMatches = Array.isArray(rawMatches)
+        ? rawMatches.filter((item: any) => item && typeof item === 'object' && String(item.match_id || '').trim() !== '')
+        : []
+      setLiveMatches(safeMatches)
       setLiveMatchesLoading(customEvent.detail.loading)
     }
     window.addEventListener('liveMatchesUpdated', handleMatchesUpdate)
@@ -198,7 +202,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
                 </button>
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-[#060D15]/95 backdrop-blur-xl border border-gold/20 rounded-xl overflow-hidden shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top flex flex-col p-4 text-center">
                   <DropdownLink href="/copadraft/palpites">Palpites</DropdownLink>
-                  <DropdownLink href="/copadraft/prediction">Predicte</DropdownLink>
+                  <DropdownLink href="/copadraft/prediction">Predict</DropdownLink>
                   <DropdownLink href="/copadraft/times">Times</DropdownLink>
                   <DropdownLink href="/copadraft/classificacao">Classificacao</DropdownLink>
                   <DropdownLink href="/copadraft/stats">Estatísticas</DropdownLink>
@@ -286,7 +290,7 @@ const Navbar = ({ user, onAuthChange }: NavbarProps) => {
               <p className="px-2 text-xs font-bold text-gold uppercase tracking-widest mb-2 text-center">Copa Draft</p>
               <div className="grid grid-cols-1 gap-2">
                 <MobileGridLink href="/copadraft/palpites">Palpites</MobileGridLink>
-                <MobileGridLink href="/copadraft/prediction">Predicte</MobileGridLink>
+                <MobileGridLink href="/copadraft/prediction">Predict</MobileGridLink>
                 <MobileGridLink href="/copadraft/times">Times</MobileGridLink>
                 <MobileGridLink href="/copadraft/classificacao">Classificacao</MobileGridLink>
                 <MobileGridLink href="/copadraft/stats">Estatísticas</MobileGridLink>

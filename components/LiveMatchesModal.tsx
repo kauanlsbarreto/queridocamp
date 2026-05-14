@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Loader, ExternalLink } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 
 // --- Configurações das Streams ---
 const STREAMS_CONFIG = {
@@ -252,6 +253,13 @@ export default function LiveMatchesModal() {
                                                     Assistir
                                                 </a>
                                             )}
+
+                                            <Link
+                                                href={`/copadraft/prediction/${encodeURIComponent(String(match.id))}`}
+                                                className="mt-1 flex items-center gap-1.5 bg-blue-600/80 hover:bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded"
+                                            >
+                                                Predict
+                                            </Link>
                                         </div>
 
                                         {/* Time 2 */}
@@ -383,6 +391,13 @@ export default function LiveMatchesModal() {
                                         >
                                             SALA <ExternalLink size={10} />
                                         </a>
+
+                                        <Link
+                                            href={`/copadraft/prediction/${encodeURIComponent(String(match.match_id))}`}
+                                            className="mt-1 text-[9px] flex items-center gap-1 text-blue-300 hover:text-blue-200 transition-colors font-bold uppercase tracking-widest"
+                                        >
+                                            PREDICT <ExternalLink size={10} />
+                                        </Link>
                                     </div>
 
                                     {/* Time 2 */}
