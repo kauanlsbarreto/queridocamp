@@ -514,6 +514,7 @@ export async function GET(request: NextRequest) {
     await ensurePalpitesPaymentsTable(mainConn);
 
     const faceitGuid = normalizeGuid(request.nextUrl.searchParams.get("faceit_guid"));
+    const gamesOnly = request.nextUrl.searchParams.get("games_only") === "1";
     const access = await resolvePalpiteAccess(mainConn, faceitGuid);
     const adminLevel = await resolveAdminLevel(mainConn, faceitGuid);
     const canViewAllPalpites = adminLevel >= 1 && adminLevel <= 5;
@@ -524,6 +525,14 @@ export async function GET(request: NextRequest) {
     const hasPalpiteMapa3 = palpitesColumns.has("palpite_mapa3");
     const hasScoreCols = palpitesColumns.has("score_time1") && palpitesColumns.has("score_time2");
     const gameById = new Map<number, PalpiteGame>();
+
+    if (gamesOnly) {
+      const games = await loadGames(env, mainConn);
+      return NextResponse.json({
+        ok: true,
+        games,
+      });
+    }
 
     if (!access.hasAccess && !canViewAllPalpites) {
       return NextResponse.json({

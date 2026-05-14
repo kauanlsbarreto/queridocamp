@@ -130,8 +130,8 @@ export default function PredictionPageClient() {
 
   const loadData = async (guid: string) => {
     try {
-      // Fetch games from palpites API (reuse same games source)
-      const gamesRes = await fetch(`/api/copadraft/palpites?faceit_guid=${encodeURIComponent(guid)}`);
+      // Fetch only games list (without access-gated palpites payload)
+      const gamesRes = await fetch(`/api/copadraft/palpites?faceit_guid=${encodeURIComponent(guid)}&games_only=1`);
       const gamesData = await gamesRes.json();
       if (gamesData.ok && gamesData.games) {
         const now = new Date();
