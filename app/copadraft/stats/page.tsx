@@ -579,6 +579,8 @@ async function loadPageData() {
       const poteResolved = poteByGuid.get(faceitGuid) || 0;
       const pote = poteResolved >= 1 && poteResolved <= 5 ? poteResolved : 5;
       const eventKillCount = match.killCountBySteamId[steamId];
+      const rawKillCount = Number(rawPlayer?.killCount);
+      const resolvedKillCount = Number.isFinite(rawKillCount) ? rawKillCount : toNumber(eventKillCount);
 
       entries.push({
         steamId,
@@ -590,7 +592,8 @@ async function loadPageData() {
         map: match.meta.map,
         matchKey: match.meta.matchKey,
         hltvRating2: toNumber(rawPlayer?.hltvRating2),
-        killCount: Math.trunc(toNumber(eventKillCount ?? rawPlayer?.killCount)),
+        // Keep kill source aligned with team page stats cards.
+        killCount: Math.trunc(resolvedKillCount),
         assistCount: Math.trunc(toNumber(rawPlayer?.assistCount)),
         deathCount: Math.trunc(toNumber(rawPlayer?.deathCount)),
         killDeathRatio: toNumber(rawPlayer?.killDeathRatio),
