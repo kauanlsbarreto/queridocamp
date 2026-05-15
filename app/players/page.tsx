@@ -92,8 +92,58 @@ async function getPlayersData(mainConn: any, offset: number, search: string) {
     else conquistasByPlayer.get(pid)!.push({ tipo: displayTipo, count: 1 });
   }
 
+  // Fetch FACEIT levels for all players with faceit_guid
+  const faceitLevelMap = new Map<string, { faceit_level: number; is_challenger: boolean }>();
+  const faceitApiKey = '7b080715-fe0b-461d-a1f1-62cfd0c47e63';
+  
+  for (const player of playersRows) {
+    if (player.faceit_guid && String(player.id) !== '0') {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        
+        const res = await fetch(`https://open.faceit.com/data/v4/players/${player.faceit_guid}`, {
+          headers: { 'Authorization': `Bearer ${faceitApiKey}` },
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+        
+        if (res.ok) {
+          const data = await res.json();
+          const level = data.games?.cs2?.skill_level || 1;
+          let isChallenger = false;
+          
+          if (level === 10 && data.games?.cs2?.region) {
+            try {
+              const rankController = new AbortController();
+              const rankTimeout = setTimeout(() => rankController.abort(), 2000);
+              
+              const rankRes = await fetch(
+                `https://open.faceit.com/data/v4/rankings/games/cs2/regions/${data.games.cs2.region}/players/${player.faceit_guid}`,
+                { headers: { 'Authorization': `Bearer ${faceitApiKey}` }, signal: rankController.signal }
+              );
+              clearTimeout(rankTimeout);
+              
+              if (rankRes.ok) {
+                const rankData = await rankRes.json();
+                isChallenger = rankData.position && rankData.position <= 1000;
+              }
+            } catch (e) {
+              // Ignore rank fetch errors
+            }
+          }
+          
+          faceitLevelMap.set(String(player.faceit_guid), { faceit_level: level, is_challenger: isChallenger });
+        }
+      } catch (e) {
+        // Ignore fetch errors
+      }
+    }
+  }
+
   const playersWithTeams = playersRows.map((player: any) => {
     const isIdZero = String(player.id) === '0';
+    const faceitData = faceitLevelMap.get(String(player.faceit_guid)) || { faceit_level: 1, is_challenger: false };
 
     if (isIdZero) {
       const specialAchievements = new Map<string, number>();
@@ -120,6 +170,8 @@ async function getPlayersData(mainConn: any, offset: number, search: string) {
         achievements: Array.from(specialAchievements.entries()).map(([tipo, count]) => ({ tipo, count })),
         playerAdicionados: [],
         punicao: player.punicao ? Number(player.punicao) : 0,
+        faceit_level: -1,
+        is_challenger: false,
       };
     }
 
@@ -138,6 +190,8 @@ async function getPlayersData(mainConn: any, offset: number, search: string) {
       achievements: conquistasByPlayer.get(String(player.id)) || [],
       playerAdicionados,
       punicao: player.punicao ? Number(player.punicao) : 0,
+      faceit_level: faceitData.faceit_level,
+      is_challenger: faceitData.is_challenger,
     };
   });
 

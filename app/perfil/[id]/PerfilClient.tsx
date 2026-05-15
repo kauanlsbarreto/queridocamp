@@ -6,6 +6,7 @@ import PremiumCard from '@/components/premium-card';
 import { Button } from '@/components/ui/button';
 import { Trophy, Crown, Medal, Ticket } from 'lucide-react';
 import PlayerMatches from './PlayerMatches';
+import WorldCupCard from './WorldCupCard';
 
 const SPECIAL_ROLES: Record<string, { emoji: string; bannerLabel: string; bannerGradient: string; bannerText: string; avatarBorder: string; avatarGlow: string }> = {
   '0124bfce-db9e-4d4f-b3f4-b66084a8a484': {
@@ -444,6 +445,9 @@ export default function PerfilClient({ player, initialConquistas }: { player: an
                     <div className="lg:col-span-2">
                         {(player.id !== 0 || player.faceit_guid) && (
                             <PlayerMatches faceitId={player?.faceit_guid} />
+                        )}
+                        {player.id !== 0 && (
+                            <WorldCupCard player={player} isOwnProfile={isOwnProfile} userAdminLevel={userAdminLevel} />
                         )}
                     </div>
                 </div>
