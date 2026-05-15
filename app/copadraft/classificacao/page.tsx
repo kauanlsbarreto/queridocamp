@@ -91,8 +91,8 @@ async function loadGroupStandings(connection: any, tableName: string, teams: rea
 		});
 	}
 
-	try {
-		const [rows] = (await connection.query(`SELECT * FROM ${tableName}`)) as [RawGroupRow[], unknown];
+	async function applyTableRows(table: string) {
+		const [rows] = (await connection.query(`SELECT * FROM ${table}`)) as [RawGroupRow[], unknown];
 
 		for (const row of Array.isArray(rows) ? rows : []) {
 			const rawName = getTeamNameFromRow(row);
@@ -100,17 +100,28 @@ async function loadGroupStandings(connection: any, tableName: string, teams: rea
 			const canonicalName = normalizedExpected.get(normalized);
 			if (!canonicalName) continue;
 
+			const existing = rowsByTeam.get(normalized) ?? { teamName: canonicalName, wins: 0, losses: 0, sp: 0, points: 0 };
 			rowsByTeam.set(normalized, {
 				teamName: canonicalName,
-				wins: getNumberFromRow(row, ["vitorias", "wins", "win"]),
-				losses: getNumberFromRow(row, ["derrotas", "losses", "loss"]),
-				sp: getNumberFromRow(row, ["sp", "saldo", "saldo_rounds", "round_diff", "df"]),
-				points: getNumberFromRow(row, ["pontuacao", "points", "pontos", "score"]),
+				wins: existing.wins + getNumberFromRow(row, ["vitorias", "wins", "win"]),
+				losses: existing.losses + getNumberFromRow(row, ["derrotas", "losses", "loss"]),
+				sp: existing.sp + getNumberFromRow(row, ["sp", "saldo", "saldo_rounds", "round_diff", "df"]),
+				points: existing.points + getNumberFromRow(row, ["pontuacao", "points", "pontos", "score"]),
 			});
 		}
+	}
+
+	try {
+		await applyTableRows(tableName);
 	} catch (error) {
 		console.error(`[copadraft/classificacao] falha ao consultar ${tableName}:`, error);
 		return makeZeroTable(teams);
+	}
+
+	try {
+		await applyTableRows(`${tableName}_somar`);
+	} catch {
+		// tabela _somar pode não existir ainda — ignorar silenciosamente
 	}
 
 	return teams
