@@ -296,7 +296,7 @@ function PlayerCard({
           <p className="text-[11px] text-cyan-200/85">Pote {player.pote}</p>
           <p className="text-[10px] text-zinc-300/80">{roundsLabel}</p>
         </div>
-        <span className={`text-2xl font-black leading-none ${player.score >= 70 ? "text-green-400" : player.score >= 60 ? "text-yellow-400" : "text-red-500"}`}>{Math.round(player.score)}</span>
+        <span className={`text-2xl font-black leading-none ${player.score >= 60 ? "text-green-400" : player.score >= 50 ? "text-yellow-400" : "text-red-500"}`}>{Math.round(player.score)}</span>
         <TeamFlag teamName={player.teamName} />
       </div>
 
