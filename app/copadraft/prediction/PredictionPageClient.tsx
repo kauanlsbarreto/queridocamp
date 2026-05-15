@@ -11,6 +11,9 @@ type AdminBoardEntry = {
   match_id: number;
   time1: string;
   time2: string;
+  openCount?: number;
+  manualEligible?: boolean;
+  manualBlockedReason?: string | null;
   counts: { time1: number; draw: number; time2: number; total: number };
   bettors?: { time1: string[]; draw: string[]; time2: string[] };
 };
@@ -120,6 +123,9 @@ export default function PredictionPageClient() {
   const [pointsAmount, setPointsAmount] = useState("");
   const [betting, setBetting] = useState(false);
   const [cashingOutId, setCashingOutId] = useState<number | null>(null);
+  const [adminProcessingMatchId, setAdminProcessingMatchId] = useState<number | null>(null);
+  const [adminPayoutModalGame, setAdminPayoutModalGame] = useState<Game | null>(null);
+  const [adminWinnerChoice, setAdminWinnerChoice] = useState<string>("");
 
   const openPredictions = predictions.filter((p) => {
     const isOpenStatus = String(p.status || "").toUpperCase() === "OPEN";
@@ -355,6 +361,83 @@ export default function PredictionPageClient() {
     }
   };
 
+  const handleAdminManualSettlement = async (params: {
+    game: Game;
+    mode: "payout" | "refund";
+    winningChoice?: string;
+  }) => {
+    if (!user?.faceit_guid) return;
+
+    const gameId = Number(params.game.jogo_id);
+    if (!Number.isFinite(gameId) || gameId <= 0) return;
+
+    try {
+      setAdminProcessingMatchId(gameId);
+      const res = await fetch("/api/copadraft/prediction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "admin_match_result",
+          requester_faceit_guid: user.faceit_guid,
+          mode: params.mode,
+          match_id: String(gameId),
+          winning_choice: params.winningChoice,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        alert(data?.message || "Falha ao processar ação manual de admin.");
+        return;
+      }
+
+      if (params.mode === "payout") {
+        alert(
+          `Pagamento concluído. Processadas: ${Number(data?.processedCount || 0)} | Ganhas: ${Number(data?.wonCount || 0)} | Perdidas: ${Number(data?.lostCount || 0)}`
+        );
+      } else {
+        alert(`Devolução concluída. Processadas: ${Number(data?.processedCount || 0)} | Devolvidas: ${Number(data?.refundedCount || 0)}`);
+      }
+
+      await loadData(user.faceit_guid);
+    } catch (error) {
+      console.error("Erro ao processar settlement manual:", error);
+      alert("Erro ao processar ação manual de admin.");
+    } finally {
+      setAdminProcessingMatchId(null);
+    }
+  };
+
+  const openPayoutModal = (game: Game) => {
+    setAdminPayoutModalGame(game);
+    setAdminWinnerChoice("");
+  };
+
+  const closePayoutModal = () => {
+    setAdminPayoutModalGame(null);
+    setAdminWinnerChoice("");
+  };
+
+  const confirmAdminRefund = async (game: Game) => {
+    const confirmed = window.confirm(
+      `Confirmar DEVOLUCAO manual para ${game.time1} x ${game.time2}?\n\nTodos os palpites abertos desse jogo vao receber estorno.`
+    );
+    if (!confirmed) return;
+    await handleAdminManualSettlement({ game, mode: "refund" });
+  };
+
+  const confirmAdminPayout = async () => {
+    if (!adminPayoutModalGame || !adminWinnerChoice) return;
+
+    await handleAdminManualSettlement({
+      game: adminPayoutModalGame,
+      mode: "payout",
+      winningChoice: adminWinnerChoice,
+    });
+
+    closePayoutModal();
+  };
+
   if (loading) return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">Carregando...</div>;
 
   if (!user) {
@@ -439,6 +522,10 @@ export default function PredictionPageClient() {
               adminGames.map((game, idx) => {
                 const board = adminBoardByMatchId[Number(game.jogo_id)];
                 const counts = board?.counts || { time1: 0, draw: 0, time2: 0, total: 0 };
+                const openCount = Number(board?.openCount || counts.total || 0);
+                const manualEligible = Boolean(board?.manualEligible) && openCount > 0;
+                const isProcessingThisMatch = adminProcessingMatchId === Number(game.jogo_id);
+                const showManualActions = adminLevel === 1 && adminTab === "past";
                 return (
                   <div key={idx} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
                     <div className="text-sm text-gray-400 mb-1">{game.hora} • {game.data}</div>
@@ -472,6 +559,38 @@ export default function PredictionPageClient() {
                         )}
                       </div>
                     </div>
+
+                    {showManualActions && (
+                      <div className="mt-4 border-t border-gray-700 pt-4">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span className="text-xs px-2 py-1 rounded bg-gray-700 text-gray-200">
+                            Abertas: {openCount}
+                          </span>
+                          {!manualEligible && (
+                            <span className="text-xs px-2 py-1 rounded bg-red-900/40 text-red-300 border border-red-700/50">
+                              {board?.manualBlockedReason || "Jogo indisponível para ação manual"}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => openPayoutModal(game)}
+                            disabled={!manualEligible || isProcessingThisMatch}
+                            className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm font-bold"
+                          >
+                            {isProcessingThisMatch ? "Processando..." : "Pagar"}
+                          </button>
+                          <button
+                            onClick={() => confirmAdminRefund(game)}
+                            disabled={!manualEligible || isProcessingThisMatch}
+                            className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm font-bold"
+                          >
+                            {isProcessingThisMatch ? "Processando..." : "Devolver"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -752,6 +871,55 @@ export default function PredictionPageClient() {
                   className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-4 py-2 rounded-lg font-bold"
                 >
                   {betting ? "Processando..." : "Confirmar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {adminPayoutModalGame && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full border border-gray-700">
+              <h2 className="text-xl font-bold mb-2">Pagamento Manual</h2>
+              <p className="text-sm text-gray-300 mb-4">
+                Selecione o resultado de <span className="font-bold">{adminPayoutModalGame.time1}</span> x{" "}
+                <span className="font-bold">{adminPayoutModalGame.time2}</span> para pagar somente quem acertou.
+              </p>
+
+              <div className="grid grid-cols-1 gap-2 mb-5">
+                {[
+                  adminPayoutModalGame.time1,
+                  "Empate",
+                  adminPayoutModalGame.time2,
+                ].map((choice) => (
+                  <button
+                    key={choice}
+                    onClick={() => setAdminWinnerChoice(choice)}
+                    className={`w-full text-left px-4 py-3 rounded-lg border transition ${
+                      adminWinnerChoice === choice
+                        ? "bg-blue-600 border-blue-400 text-white"
+                        : "bg-gray-700 border-gray-600 text-gray-100 hover:bg-gray-600"
+                    }`}
+                  >
+                    {choice}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={closePayoutModal}
+                  disabled={adminProcessingMatchId === Number(adminPayoutModalGame.jogo_id)}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 px-4 py-2 rounded-lg font-bold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmAdminPayout}
+                  disabled={!adminWinnerChoice || adminProcessingMatchId === Number(adminPayoutModalGame.jogo_id)}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-4 py-2 rounded-lg font-bold"
+                >
+                  {adminProcessingMatchId === Number(adminPayoutModalGame.jogo_id) ? "Processando..." : "Confirmar Pagamento"}
                 </button>
               </div>
             </div>

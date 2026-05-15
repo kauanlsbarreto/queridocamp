@@ -13,7 +13,9 @@ type PredictionWebhookEventType =
   | "PREDICTION_CREATED"
   | "CASHOUT"
   | "BET_WON"
-  | "BET_LOST";
+  | "BET_LOST"
+  | "ADMIN_MATCH_PAYOUT"
+  | "ADMIN_MATCH_REFUND";
 
 type PredictionWebhookPayload = {
   predictionId?: number;
@@ -30,6 +32,12 @@ type PredictionWebhookPayload = {
   payout?: number;
   score?: string;
   playerPointsAfter?: number;
+  operation?: string;
+  winningChoice?: string;
+  processedCount?: number;
+  wonCount?: number;
+  lostCount?: number;
+  refundedCount?: number;
   notes?: string;
 };
 
@@ -37,6 +45,8 @@ function getWebhookColor(eventType: PredictionWebhookEventType) {
   if (eventType === "PREDICTION_CREATED") return 0x3498db;
   if (eventType === "CASHOUT") return 0xf39c12;
   if (eventType === "BET_WON") return 0x2ecc71;
+  if (eventType === "ADMIN_MATCH_PAYOUT") return 0x1abc9c;
+  if (eventType === "ADMIN_MATCH_REFUND") return 0x9b59b6;
   return 0xe74c3c;
 }
 
@@ -44,6 +54,8 @@ function getWebhookTitle(eventType: PredictionWebhookEventType) {
   if (eventType === "PREDICTION_CREATED") return "Prediction Criada";
   if (eventType === "CASHOUT") return "Cash Out Executado";
   if (eventType === "BET_WON") return "Aposta Ganha";
+  if (eventType === "ADMIN_MATCH_PAYOUT") return "Admin: Pagamento Manual";
+  if (eventType === "ADMIN_MATCH_REFUND") return "Admin: Devolucao Manual";
   return "Aposta Perdida";
 }
 
@@ -68,6 +80,12 @@ async function sendPredictionWebhook(eventType: PredictionWebhookEventType, payl
     payload.score ? { name: "Placar Final", value: payload.score, inline: true } : null,
     payload.payout != null ? { name: "Retorno", value: String(payload.payout), inline: true } : null,
     payload.playerPointsAfter != null ? { name: "Pontos do Player (apos)", value: String(payload.playerPointsAfter), inline: true } : null,
+    payload.operation ? { name: "Operacao", value: payload.operation, inline: true } : null,
+    payload.winningChoice ? { name: "Resultado Selecionado", value: payload.winningChoice, inline: true } : null,
+    payload.processedCount != null ? { name: "Predicoes Processadas", value: String(payload.processedCount), inline: true } : null,
+    payload.wonCount != null ? { name: "Ganhas", value: String(payload.wonCount), inline: true } : null,
+    payload.lostCount != null ? { name: "Perdidas", value: String(payload.lostCount), inline: true } : null,
+    payload.refundedCount != null ? { name: "Devolvidas", value: String(payload.refundedCount), inline: true } : null,
     payload.notes ? { name: "Notas", value: payload.notes, inline: false } : null,
   ].filter(Boolean) as { name: string; value: string; inline?: boolean }[];
 
@@ -459,6 +477,19 @@ function parseMatchIdToGameId(matchId: unknown) {
   return 0;
 }
 
+function isChoiceDraw(choice: string) {
+  const normalized = normalizeText(choice);
+  return normalized === "empate" || normalized === "draw" || normalized === "x";
+}
+
+function resolveWinnerLabel(choice: string, time1: string, time2: string) {
+  const bucket = resolveChoiceBucket(choice, time1, time2);
+  if (bucket === "time1") return time1;
+  if (bucket === "time2") return time2;
+  if (bucket === "draw") return "Empate";
+  return "";
+}
+
 function computeMarketOdds(params: {
   time1: string | null;
   time2: string | null;
@@ -625,16 +656,37 @@ export async function GET(request: NextRequest) {
                 FROM copadraft_predictions p
                 LEFT JOIN players pl
                   ON pl.faceit_guid = p.faceit_guid
-                WHERE p.is_cashed_out = 0`,
+                WHERE p.status = 'OPEN'
+                  AND p.is_cashed_out = 0`,
           timeout: QUERY_TIMEOUT_MS,
         }
       );
+
+      const [jogosRows]: any = await mainConn.query({
+        sql: `SELECT time1, time2, placar
+              FROM jogos
+              WHERE placar IS NOT NULL
+                AND TRIM(placar) <> ''`,
+        timeout: QUERY_TIMEOUT_MS,
+      });
+
+      const automaticTeamsKey = new Set<string>();
+      if (Array.isArray(jogosRows)) {
+        for (const jogo of jogosRows as JogoResultRow[]) {
+          const key = buildTeamsOnlyKey(jogo?.time1, jogo?.time2);
+          const parsed = parseSerie(jogo?.placar);
+          if (key && parsed) automaticTeamsKey.add(key);
+        }
+      }
 
       const list = Array.isArray(rows) ? (rows as any[]) : [];
       const byMatch = new Map<number, {
         match_id: number;
         time1: string;
         time2: string;
+        openCount: number;
+        manualEligible: boolean;
+        manualBlockedReason: string | null;
         counts: { time1: number; draw: number; time2: number; total: number };
         bettors: { time1: string[]; draw: string[]; time2: string[] };
       }>();
@@ -653,6 +705,9 @@ export async function GET(request: NextRequest) {
             match_id: matchNumericId,
             time1,
             time2,
+            openCount: 0,
+            manualEligible: true,
+            manualBlockedReason: null,
             counts: { time1: 0, draw: 0, time2: 0, total: 0 },
             bettors: { time1: [], draw: [], time2: [] },
           });
@@ -663,6 +718,7 @@ export async function GET(request: NextRequest) {
         if (bucket === "time2") target.counts.time2 += 1;
         if (bucket === "draw") target.counts.draw += 1;
         target.counts.total += 1;
+        target.openCount += 1;
 
         if (adminLevel === 1) {
           const name = String(row?.player_name || row?.faceit_guid || "Desconhecido").trim();
@@ -673,12 +729,28 @@ export async function GET(request: NextRequest) {
       }
 
       const matches = Array.from(byMatch.values()).map((item) => ({
+        matchTeamsKey: buildTeamsOnlyKey(item.time1, item.time2),
+        ...item,
+      })).map((item) => {
+        const blockedByAutomatic = Boolean(item.matchTeamsKey && automaticTeamsKey.has(item.matchTeamsKey));
+        const manualEligible = item.openCount > 0 && !blockedByAutomatic;
+        const manualBlockedReason = blockedByAutomatic
+          ? "Jogo com resultado automatico detectado."
+          : item.openCount <= 0
+          ? "Sem previsoes abertas para processar."
+          : null;
+
+        return {
         match_id: item.match_id,
         time1: item.time1,
         time2: item.time2,
+        openCount: item.openCount,
+        manualEligible,
+        manualBlockedReason,
         counts: item.counts,
         bettors: adminLevel === 1 ? item.bettors : undefined,
-      }));
+        };
+      });
 
       return NextResponse.json({ ok: true, adminLevel, matches });
     }
@@ -846,6 +918,252 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ ok: true, message: "Cash out realizado com sucesso." });
+      } catch (error) {
+        await mainConn.rollback();
+        throw error;
+      }
+    }
+
+    if (action === "admin_match_result") {
+      const requesterGuid = normalizeGuid(body?.requester_faceit_guid || body?.faceit_guid);
+      const mode = String(body?.mode || "").trim().toLowerCase(); // payout | refund
+      const rawMatchId = String(body?.match_id || "").trim();
+      const gameId = parseMatchIdToGameId(rawMatchId);
+      const winningChoice = String(body?.winning_choice || "").trim();
+
+      if (!requesterGuid) {
+        return NextResponse.json({ ok: false, message: "requester_faceit_guid obrigatório." }, { status: 400 });
+      }
+      if (!(mode === "payout" || mode === "refund")) {
+        return NextResponse.json({ ok: false, message: "mode inválido. Use payout ou refund." }, { status: 400 });
+      }
+      if (!rawMatchId || !Number.isFinite(gameId) || gameId <= 0) {
+        return NextResponse.json({ ok: false, message: "match_id inválido." }, { status: 400 });
+      }
+
+      const [adminRows]: any = await mainConn.query(
+        {
+          sql: "SELECT admin FROM players WHERE faceit_guid = ? LIMIT 1",
+          timeout: QUERY_TIMEOUT_MS,
+        },
+        [requesterGuid]
+      );
+      const adminLevel = Number(Array.isArray(adminRows) && adminRows[0]?.admin != null ? adminRows[0].admin : 0);
+      if (adminLevel !== 1) {
+        return NextResponse.json(
+          { ok: false, message: "Somente admin nível 1 pode processar pagamento/devolução manual." },
+          { status: 403 }
+        );
+      }
+
+      await mainConn.beginTransaction();
+      try {
+        const [predictionRows]: any = await mainConn.query(
+          {
+            sql: `SELECT id, faceit_guid, player_id, match_id, time1, time2, team_chosen, points_predicted, odds
+                  FROM copadraft_predictions
+                  WHERE status = 'OPEN'
+                    AND is_cashed_out = 0
+                    AND (
+                      match_id = ?
+                      OR (match_id REGEXP '^[0-9]+$' AND CAST(match_id AS UNSIGNED) = ?)
+                      OR (match_id LIKE '%::%' AND CAST(SUBSTRING_INDEX(match_id, '::', -1) AS UNSIGNED) = ?)
+                    )
+                  FOR UPDATE`,
+            timeout: QUERY_TIMEOUT_MS,
+          },
+          [rawMatchId, gameId, gameId]
+        );
+
+        const openPredictions = Array.isArray(predictionRows) ? (predictionRows as any[]) : [];
+        if (openPredictions.length === 0) {
+          await mainConn.rollback();
+          return NextResponse.json({ ok: false, message: "Não há previsões abertas nesse jogo." }, { status: 404 });
+        }
+
+        const baseRow = openPredictions.find((row) => String(row?.time1 || "").trim() && String(row?.time2 || "").trim()) || openPredictions[0];
+        const matchTime1 = String(baseRow?.time1 || "").trim();
+        const matchTime2 = String(baseRow?.time2 || "").trim();
+
+        const [jogosRows]: any = await mainConn.query({
+          sql: `SELECT time1, time2, placar
+                FROM jogos
+                WHERE placar IS NOT NULL
+                  AND TRIM(placar) <> ''`,
+          timeout: QUERY_TIMEOUT_MS,
+        });
+
+        const targetTeamsKey = buildTeamsOnlyKey(matchTime1, matchTime2);
+        let hasAutomaticResult = false;
+        if (targetTeamsKey && Array.isArray(jogosRows)) {
+          for (const jogo of jogosRows as JogoResultRow[]) {
+            const key = buildTeamsOnlyKey(jogo?.time1, jogo?.time2);
+            const parsed = parseSerie(jogo?.placar);
+            if (key && parsed && key === targetTeamsKey) {
+              hasAutomaticResult = true;
+              break;
+            }
+          }
+        }
+
+        if (hasAutomaticResult) {
+          await mainConn.rollback();
+          return NextResponse.json(
+            { ok: false, message: "Esse jogo já possui resultado automático. Use somente jogos fora do automático." },
+            { status: 409 }
+          );
+        }
+
+        if (mode === "payout") {
+          const winnerBucket = resolveChoiceBucket(winningChoice, matchTime1, matchTime2);
+          if (!winnerBucket) {
+            await mainConn.rollback();
+            return NextResponse.json({ ok: false, message: "winning_choice inválido para este jogo." }, { status: 400 });
+          }
+
+          let wonCount = 0;
+          let lostCount = 0;
+          const perPredictionWebhookEvents: Array<{ eventType: PredictionWebhookEventType; payload: PredictionWebhookPayload }> = [];
+
+          for (const prediction of openPredictions) {
+            const predictionBucket = resolveChoiceBucket(prediction?.team_chosen, matchTime1, matchTime2);
+            const points = Number(prediction?.points_predicted || 0);
+            const odds = Number(prediction?.odds || 0);
+            const won = predictionBucket === winnerBucket;
+            const payout = won ? Math.max(0, Math.round(points * odds)) : 0;
+            const nextStatus = won ? "WON" : "LOST";
+
+            await mainConn.query(
+              {
+                sql: `UPDATE copadraft_predictions
+                      SET status = ?, result_points = ?, updated_at = NOW()
+                      WHERE id = ?`,
+                timeout: QUERY_TIMEOUT_MS,
+              },
+              [nextStatus, payout, Number(prediction?.id || 0)]
+            );
+
+            if (payout > 0) {
+              await mainConn.query(
+                {
+                  sql: "UPDATE players SET points = points + ? WHERE faceit_guid = ?",
+                  timeout: QUERY_TIMEOUT_MS,
+                },
+                [payout, normalizeGuid(prediction?.faceit_guid)]
+              );
+              wonCount += 1;
+            } else {
+              lostCount += 1;
+            }
+
+            const [pointsRows]: any = await mainConn.query(
+              {
+                sql: "SELECT points FROM players WHERE faceit_guid = ? LIMIT 1",
+                timeout: QUERY_TIMEOUT_MS,
+              },
+              [normalizeGuid(prediction?.faceit_guid)]
+            );
+            const playerPointsAfter = Number(Array.isArray(pointsRows) ? pointsRows[0]?.points : 0);
+
+            perPredictionWebhookEvents.push({
+              eventType: won ? "BET_WON" : "BET_LOST",
+              payload: {
+                predictionId: Number(prediction?.id || 0),
+                playerId: Number(prediction?.player_id || 0),
+                faceitGuid: String(prediction?.faceit_guid || ""),
+                requesterGuid,
+                matchId: String(prediction?.match_id || ""),
+                team1: matchTime1,
+                team2: matchTime2,
+                chosen: String(prediction?.team_chosen || ""),
+                status: nextStatus,
+                pointsPredicted: points,
+                odds,
+                payout,
+                score: resolveWinnerLabel(winningChoice, matchTime1, matchTime2) || undefined,
+                playerPointsAfter,
+                notes: "Pagamento manual de admin",
+              },
+            });
+          }
+
+          await mainConn.commit();
+
+          for (const evt of perPredictionWebhookEvents) {
+            await sendPredictionWebhook(evt.eventType, evt.payload);
+          }
+
+          await sendPredictionWebhook("ADMIN_MATCH_PAYOUT", {
+            requesterGuid,
+            matchId: rawMatchId,
+            team1: matchTime1,
+            team2: matchTime2,
+            operation: "PAGAR",
+            winningChoice: isChoiceDraw(winningChoice) ? "Empate" : resolveWinnerLabel(winningChoice, matchTime1, matchTime2),
+            processedCount: openPredictions.length,
+            wonCount,
+            lostCount,
+            notes: "Fechamento manual executado por admin 1",
+          });
+
+          return NextResponse.json({
+            ok: true,
+            message: "Pagamento manual concluído.",
+            processedCount: openPredictions.length,
+            wonCount,
+            lostCount,
+          });
+        }
+
+        // mode === "refund"
+        let refundedCount = 0;
+        for (const prediction of openPredictions) {
+          const refundPoints = Number(prediction?.points_predicted || 0);
+          if (!Number.isFinite(refundPoints) || refundPoints <= 0) continue;
+
+          await mainConn.query(
+            {
+              sql: "UPDATE players SET points = points + ? WHERE faceit_guid = ?",
+              timeout: QUERY_TIMEOUT_MS,
+            },
+            [refundPoints, normalizeGuid(prediction?.faceit_guid)]
+          );
+
+          await mainConn.query(
+            {
+              sql: `UPDATE copadraft_predictions
+                    SET is_cashed_out = 1,
+                        cashout_at = NOW(),
+                        cashout_by = ?,
+                        result_points = ?,
+                        updated_at = NOW()
+                    WHERE id = ?`,
+              timeout: QUERY_TIMEOUT_MS,
+            },
+            [requesterGuid, refundPoints, Number(prediction?.id || 0)]
+          );
+          refundedCount += 1;
+        }
+
+        await mainConn.commit();
+
+        await sendPredictionWebhook("ADMIN_MATCH_REFUND", {
+          requesterGuid,
+          matchId: rawMatchId,
+          team1: matchTime1,
+          team2: matchTime2,
+          operation: "DEVOLVER",
+          processedCount: openPredictions.length,
+          refundedCount,
+          notes: "Devolução manual executada por admin 1",
+        });
+
+        return NextResponse.json({
+          ok: true,
+          message: "Devolução manual concluída.",
+          processedCount: openPredictions.length,
+          refundedCount,
+        });
       } catch (error) {
         await mainConn.rollback();
         throw error;
