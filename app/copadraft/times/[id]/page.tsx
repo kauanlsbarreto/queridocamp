@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { createMainConnection, type Env } from "@/lib/db";
 import { getCopaDraftTimes } from "@/lib/copadraft-times";
 import { getRuntimeEnv } from "@/lib/runtime-env";
+import { buildTeamStatsKillCountIndex } from "@/lib/copadraft-kills";
 import TeamDetailClient from "./TeamDetailClient";
 
 export const dynamic = "force-dynamic";
@@ -309,7 +310,12 @@ function extractPlayers(payload: any): RawPlayerStats[] {
 	return [];
 }
 
-function accumulateStats(target: Map<string, StatsAccumulator>, key: string, player: RawPlayerStats) {
+function accumulateStats(
+	target: Map<string, StatsAccumulator>,
+	key: string,
+	player: RawPlayerStats,
+	resolvedKillCount?: number
+) {
 	if (!key) return;
 
 	const current =
@@ -324,7 +330,7 @@ function accumulateStats(target: Map<string, StatsAccumulator>, key: string, pla
 		} satisfies StatsAccumulator);
 
 	current.appearances += 1;
-	current.kills += Math.trunc(toNumber(player?.killCount));
+	current.kills += Math.trunc(resolvedKillCount ?? toNumber(player?.killCount));
 	current.deaths += Math.trunc(toNumber(player?.deathCount));
 	current.krTotal += toNumber(player?.averageKillsPerRound);
 	current.adrTotal += toNumber(player?.averageDamagePerRound);
@@ -376,13 +382,15 @@ async function loadJsonStatsIndex(): Promise<StatsIndex> {
 			try {
 				const content = await readFile(path.join(STATS_DIR, fileName), "utf-8");
 				const parsed = JSON.parse(content);
+				const killCountBySteamId = buildTeamStatsKillCountIndex(parsed);
 
 				for (const player of extractPlayers(parsed)) {
 					const steamId = toSteamId(player?.steamId ?? player?.steamid);
 					const nickname = normalizeText(player?.name);
+					const resolvedKillCount = toNumber(killCountBySteamId[steamId]);
 
-					if (steamId) accumulateStats(bySteamAccumulator, steamId, player);
-					if (nickname) accumulateStats(byNicknameAccumulator, nickname, player);
+					if (steamId) accumulateStats(bySteamAccumulator, steamId, player, resolvedKillCount);
+					if (nickname) accumulateStats(byNicknameAccumulator, nickname, player, resolvedKillCount);
 				}
 			} catch {
 				// ignora arquivo invalido para nao quebrar a pagina

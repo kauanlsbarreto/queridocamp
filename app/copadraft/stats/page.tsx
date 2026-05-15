@@ -4,6 +4,7 @@ import path from "node:path";
 import { createMainConnection, type Env } from "@/lib/db";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { getCopaDraftTimes } from "@/lib/copadraft-times";
+import { buildTeamStatsKillCountIndex } from "../../../lib/copadraft-kills";
 import StatsCardsClient from "./StatsCardsClient";
 
 export const dynamic = "force-static";
@@ -276,29 +277,6 @@ function extractPlayers(payload: any): RawPlayerStats[] {
   return Array.from(byKey.values());
 }
 
-function buildKillCountIndex(payload: any) {
-  const index: Record<string, number> = {};
-  const events = Array.isArray(payload?.kills) ? payload.kills : [];
-
-  for (const event of events) {
-    const killerSteamId = toSteamId(event?.killerSteamId ?? event?.attackerSteamId);
-    if (!killerSteamId) continue;
-
-    if (Boolean(event?.isSuicide) || Boolean(event?.isWarmup)) continue;
-
-    const victimSteamId = toSteamId(event?.victimSteamId ?? event?.killedSteamId);
-    if (victimSteamId && victimSteamId === killerSteamId) continue;
-
-    const killerSide = Math.trunc(toNumber(event?.killerSide ?? event?.attackerSide));
-    const victimSide = Math.trunc(toNumber(event?.victimSide ?? event?.killedSide));
-    if (killerSide > 0 && victimSide > 0 && killerSide === victimSide) continue;
-
-    index[killerSteamId] = (index[killerSteamId] || 0) + 1;
-  }
-
-  return index;
-}
-
 function buildInClause(values: string[]) {
   if (values.length === 0) return { clause: "", params: [] as string[] };
   return {
@@ -325,7 +303,7 @@ async function loadJsonMatches(): Promise<LoadedMatch[]> {
         const parsed = JSON.parse(content);
         const meta = parseMatchMeta(fileName) || buildFallbackMatchMeta(fileName, parsed);
         const players = extractPlayers(parsed);
-        const killCountBySteamId = buildKillCountIndex(parsed);
+        const killCountBySteamId = buildTeamStatsKillCountIndex(parsed);
 
         if (players.length === 0) return null;
 
@@ -578,9 +556,7 @@ async function loadPageData() {
       const teamName = steamIdToTeamName.get(steamId) || (faceitGuid ? teamNameByGuid.get(faceitGuid) || null : null);
       const poteResolved = poteByGuid.get(faceitGuid) || 0;
       const pote = poteResolved >= 1 && poteResolved <= 5 ? poteResolved : 5;
-      const eventKillCount = match.killCountBySteamId[steamId];
-      const rawKillCount = Number(rawPlayer?.killCount);
-      const resolvedKillCount = Number.isFinite(rawKillCount) ? rawKillCount : toNumber(eventKillCount);
+      const resolvedKillCount = toNumber(match.killCountBySteamId[steamId]);
 
       entries.push({
         steamId,
@@ -592,7 +568,6 @@ async function loadPageData() {
         map: match.meta.map,
         matchKey: match.meta.matchKey,
         hltvRating2: toNumber(rawPlayer?.hltvRating2),
-        // Keep kill source aligned with team page stats cards.
         killCount: Math.trunc(resolvedKillCount),
         assistCount: Math.trunc(toNumber(rawPlayer?.assistCount)),
         deathCount: Math.trunc(toNumber(rawPlayer?.deathCount)),
