@@ -126,7 +126,12 @@ function toSteamId(value: unknown) {
 
 function parseMatchMeta(fileName: string): MatchMeta | null {
   const baseName = fileName.replace(/\.json$/i, "");
-  const xIndex = baseName.search(/[xX]/);
+  // Find the separator 'x' that follows a digit (e.g. "mexico1[x]brasil11").
+  // Using .search(/[xX]/) would find the first 'x' anywhere, which breaks team
+  // names that contain 'x' like "mexico" (finds index 2 instead of the separator).
+  const xRawMatch = baseName.match(/\d[xX]/);
+  if (!xRawMatch || xRawMatch.index === undefined) return null;
+  const xIndex = xRawMatch.index + 1; // position of 'x', not the preceding digit
   if (xIndex <= 0 || xIndex >= baseName.length - 1) return null;
 
   const leftPart = baseName.slice(0, xIndex);
@@ -522,8 +527,6 @@ async function loadPageData() {
   for (const match of matches) {
     // Try to find players that belong to copadraft teams
     for (const player of match.players) {
-      if (steamIdToTeamName.size > 0) break; // Stop after finding at least one
-      
       const steamId = toSteamId(player?.steamId ?? player?.steamid);
       if (!steamId || steamIdToTeamName.has(steamId)) continue;
 
@@ -556,7 +559,9 @@ async function loadPageData() {
       const teamName = steamIdToTeamName.get(steamId) || (faceitGuid ? teamNameByGuid.get(faceitGuid) || null : null);
       const poteResolved = poteByGuid.get(faceitGuid) || 0;
       const pote = poteResolved >= 1 && poteResolved <= 5 ? poteResolved : 5;
-      const resolvedKillCount = toNumber(match.killCountBySteamId[steamId]);
+      const killCountFromEvents = toNumber(match.killCountBySteamId[steamId]);
+      const killCountFromPlayer = toNumber(rawPlayer?.killCount);
+      const resolvedKillCount = killCountFromEvents > 0 || killCountFromPlayer === 0 ? killCountFromEvents : killCountFromPlayer;
 
       entries.push({
         steamId,

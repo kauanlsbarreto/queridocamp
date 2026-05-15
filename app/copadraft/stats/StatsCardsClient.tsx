@@ -35,51 +35,39 @@ type StatsEntry = {
   score: number;
 };
 
+type RoundMapStats = {
+  appearances: number;
+  hltvRating2: number;
+  averageDamagePerRound: number;
+  averageUtilityDamagePerRound: number;
+  headshotPercentage: number;
+  kast: number;
+  score: number;
+  killCount: number;
+  assistCount: number;
+  deathCount: number;
+  damageHealth: number;
+  utilityDamage: number;
+  headshotCount: number;
+  tradeKillCount: number;
+  firstKillCount: number;
+  firstDeathCount: number;
+  mvpCount: number;
+  bombPlantedCount: number;
+  bombDefusedCount: number;
+};
+
 type AggregatedPlayer = Omit<StatsEntry, "round" | "map" | "matchKey"> & {
   appearances: number;
   roundsPlayed: number[];
   mapBreakdown: Array<{
     map: number;
-    appearances: number;
-    hltvRating2: number;
-    averageDamagePerRound: number;
-    headshotPercentage: number;
-    kast: number;
-    score: number;
-    killCount: number;
-    deathCount: number;
-  }>;
+  } & RoundMapStats>;
   roundBreakdown: Array<{
     round: number;
-    map1: {
-      appearances: number;
-      hltvRating2: number;
-      averageDamagePerRound: number;
-      headshotPercentage: number;
-      kast: number;
-      score: number;
-      killCount: number;
-      deathCount: number;
-    } | null;
-    map2: {
-      appearances: number;
-      hltvRating2: number;
-      averageDamagePerRound: number;
-      headshotPercentage: number;
-      kast: number;
-      score: number;
-      killCount: number;
-      deathCount: number;
-    } | null;
-    totals: {
-      hltvRating2: number;
-      averageDamagePerRound: number;
-      headshotPercentage: number;
-      kast: number;
-      score: number;
-      killCount: number;
-      deathCount: number;
-    };
+    map1: RoundMapStats | null;
+    map2: RoundMapStats | null;
+    totals: Omit<RoundMapStats, "appearances">;
   }>;
 };
 
@@ -238,38 +226,28 @@ function PlayerCard({
   }
 
   function mapAvg(
-    mapData:
-      | {
-          appearances: number;
-          hltvRating2: number;
-          averageDamagePerRound: number;
-          headshotPercentage: number;
-          kast: number;
-          score: number;
-          killCount: number;
-          deathCount: number;
-        }
-      | null,
-    field: "hltvRating2" | "averageDamagePerRound" | "headshotPercentage" | "kast" | "score"
+    mapData: RoundMapStats | null,
+    field:
+      | "hltvRating2"
+      | "averageDamagePerRound"
+      | "averageUtilityDamagePerRound"
+      | "headshotPercentage"
+      | "kast"
+      | "score"
   ) {
     if (!mapData || !mapData.appearances) return null;
     return avgMapStat(mapData[field], mapData.appearances);
   }
 
   function mapAvgFormatted(
-    mapData:
-      | {
-          appearances: number;
-          hltvRating2: number;
-          averageDamagePerRound: number;
-          headshotPercentage: number;
-          kast: number;
-          score: number;
-          killCount: number;
-          deathCount: number;
-        }
-      | null,
-    field: "hltvRating2" | "averageDamagePerRound" | "headshotPercentage" | "kast" | "score",
+    mapData: RoundMapStats | null,
+    field:
+      | "hltvRating2"
+      | "averageDamagePerRound"
+      | "averageUtilityDamagePerRound"
+      | "headshotPercentage"
+      | "kast"
+      | "score",
     decimals: number,
     withPct = false
   ) {
@@ -280,22 +258,29 @@ function PlayerCard({
   }
 
   function mapInt(
-    mapData:
-      | {
-          appearances: number;
-          hltvRating2: number;
-          averageDamagePerRound: number;
-          headshotPercentage: number;
-          kast: number;
-          score: number;
-          killCount: number;
-          deathCount: number;
-        }
-      | null,
-    field: "killCount" | "deathCount"
+    mapData: RoundMapStats | null,
+    field:
+      | "killCount"
+      | "assistCount"
+      | "deathCount"
+      | "damageHealth"
+      | "utilityDamage"
+      | "headshotCount"
+      | "tradeKillCount"
+      | "firstKillCount"
+      | "firstDeathCount"
+      | "mvpCount"
+      | "bombPlantedCount"
+      | "bombDefusedCount"
   ) {
     if (!mapData) return "-";
     return String(mapData[field]);
+  }
+
+  function mapKd(mapData: RoundMapStats | null) {
+    if (!mapData) return null;
+    if (mapData.deathCount > 0) return mapData.killCount / mapData.deathCount;
+    return mapData.killCount > 0 ? mapData.killCount : 0;
   }
 
   return (
@@ -311,6 +296,7 @@ function PlayerCard({
           <p className="text-[11px] text-cyan-200/85">Pote {player.pote}</p>
           <p className="text-[10px] text-zinc-300/80">{roundsLabel}</p>
         </div>
+        <span className={`text-2xl font-black leading-none ${player.score >= 70 ? "text-green-400" : player.score >= 60 ? "text-yellow-400" : "text-red-500"}`}>{Math.round(player.score)}</span>
         <TeamFlag teamName={player.teamName} />
       </div>
 
@@ -335,9 +321,13 @@ function PlayerCard({
             {canShowEquation ? (
               <>
                 {equationRounds.map((roundItem) => {
-                  const map1Label = roundItem.map1 ? `M1 (${roundItem.round}1)` : `M1 (${roundItem.round}1)`;
-                  const map2Label = roundItem.map2 ? `M2 (${roundItem.round}2)` : `M2 (${roundItem.round}2)`;
                   const averageDivisor = (roundItem.map1 ? 1 : 0) + (roundItem.map2 ? 1 : 0) || 1;
+                  const totalKd =
+                    roundItem.totals.deathCount > 0
+                      ? roundItem.totals.killCount / roundItem.totals.deathCount
+                      : roundItem.totals.killCount > 0
+                        ? roundItem.totals.killCount
+                        : 0;
 
                   return (
                     <div key={`round-eq-${player.steamId}-${roundItem.round}`} className="rounded-lg border border-white/10 bg-black/10 p-2">
@@ -385,10 +375,91 @@ function PlayerCard({
                           total={String(roundItem.totals.killCount)}
                         />
                         <EqStatLine
+                          label="Assistencias (M1 + M2)"
+                          left={mapInt(roundItem.map1, "assistCount")}
+                          right={mapInt(roundItem.map2, "assistCount")}
+                          total={String(roundItem.totals.assistCount)}
+                        />
+                        <EqStatLine
                           label="Mortes (M1 + M2)"
                           left={mapInt(roundItem.map1, "deathCount")}
                           right={mapInt(roundItem.map2, "deathCount")}
                           total={String(roundItem.totals.deathCount)}
+                        />
+                        <EqStatLine
+                          label="K/D (Kills/Mortes)"
+                          left={
+                            roundItem.map1
+                              ? `${roundItem.map1.killCount}/${roundItem.map1.deathCount} (${(mapKd(roundItem.map1) || 0).toFixed(2)})`
+                              : "-"
+                          }
+                          right={
+                            roundItem.map2
+                              ? `${roundItem.map2.killCount}/${roundItem.map2.deathCount} (${(mapKd(roundItem.map2) || 0).toFixed(2)})`
+                              : "-"
+                          }
+                          total={`${roundItem.totals.killCount}/${roundItem.totals.deathCount} (${totalKd.toFixed(2)})`}
+                        />
+                        <EqStatLine
+                          label="Dano total (M1 + M2)"
+                          left={mapInt(roundItem.map1, "damageHealth")}
+                          right={mapInt(roundItem.map2, "damageHealth")}
+                          total={String(roundItem.totals.damageHealth)}
+                        />
+                        <EqStatLine
+                          label="Dano utilitario (M1 + M2)"
+                          left={mapInt(roundItem.map1, "utilityDamage")}
+                          right={mapInt(roundItem.map2, "utilityDamage")}
+                          total={String(roundItem.totals.utilityDamage)}
+                        />
+                        <EqStatLine
+                          label="Media utilitario/round (M1 + M2)"
+                          left={mapAvgFormatted(roundItem.map1, "averageUtilityDamagePerRound", 1)}
+                          right={mapAvgFormatted(roundItem.map2, "averageUtilityDamagePerRound", 1)}
+                          total={roundItem.totals.averageUtilityDamagePerRound.toFixed(1)}
+                          divisor={averageDivisor}
+                        />
+                        <EqStatLine
+                          label="Headshots (M1 + M2)"
+                          left={mapInt(roundItem.map1, "headshotCount")}
+                          right={mapInt(roundItem.map2, "headshotCount")}
+                          total={String(roundItem.totals.headshotCount)}
+                        />
+                        <EqStatLine
+                          label="Trade kills (M1 + M2)"
+                          left={mapInt(roundItem.map1, "tradeKillCount")}
+                          right={mapInt(roundItem.map2, "tradeKillCount")}
+                          total={String(roundItem.totals.tradeKillCount)}
+                        />
+                        <EqStatLine
+                          label="First kills (M1 + M2)"
+                          left={mapInt(roundItem.map1, "firstKillCount")}
+                          right={mapInt(roundItem.map2, "firstKillCount")}
+                          total={String(roundItem.totals.firstKillCount)}
+                        />
+                        <EqStatLine
+                          label="First deaths (M1 + M2)"
+                          left={mapInt(roundItem.map1, "firstDeathCount")}
+                          right={mapInt(roundItem.map2, "firstDeathCount")}
+                          total={String(roundItem.totals.firstDeathCount)}
+                        />
+                        <EqStatLine
+                          label="MVPs (M1 + M2)"
+                          left={mapInt(roundItem.map1, "mvpCount")}
+                          right={mapInt(roundItem.map2, "mvpCount")}
+                          total={String(roundItem.totals.mvpCount)}
+                        />
+                        <EqStatLine
+                          label="Bombs plantadas (M1 + M2)"
+                          left={mapInt(roundItem.map1, "bombPlantedCount")}
+                          right={mapInt(roundItem.map2, "bombPlantedCount")}
+                          total={String(roundItem.totals.bombPlantedCount)}
+                        />
+                        <EqStatLine
+                          label="Bombs defusadas (M1 + M2)"
+                          left={mapInt(roundItem.map1, "bombDefusedCount")}
+                          right={mapInt(roundItem.map2, "bombDefusedCount")}
+                          total={String(roundItem.totals.bombDefusedCount)}
                         />
                       </div>
                     </div>
@@ -396,21 +467,21 @@ function PlayerCard({
                 })}
               </>
             ) : null}
-            <StatLine label="Assistências" value={player.assistCount} />
-            <StatLine label="K/D" value={player.killDeathRatio.toFixed(2)} />
-            <StatLine label="Dano total" value={player.damageHealth} />
-            <StatLine label="Dano utilitário" value={player.utilityDamage} />
-            <StatLine label="Média utilitário/round" value={player.averageUtilityDamagePerRound.toFixed(1)} />
-            <StatLine label="Headshots" value={player.headshotCount} />
-            <StatLine label="Headshot %" value={formatPct(player.headshotPercentage)} />
-            <StatLine label="KAST" value={formatPct(player.kast)} />
-            <StatLine label="Trade kills" value={player.tradeKillCount} />
-            <StatLine label="First kills" value={player.firstKillCount} />
-            <StatLine label="First deaths" value={player.firstDeathCount} />
-            <StatLine label="MVPs" value={player.mvpCount} />
-            <StatLine label="Bombs plantadas" value={player.bombPlantedCount} />
-            <StatLine label="Bombs defusadas" value={player.bombDefusedCount} />
-            <StatLine label="Score" value={player.score.toFixed(1)} />
+            {!canShowEquation ? <StatLine label="Assistências" value={player.assistCount} /> : null}
+            {!canShowEquation ? <StatLine label="K/D" value={player.killDeathRatio.toFixed(2)} /> : null}
+            {!canShowEquation ? <StatLine label="Dano total" value={player.damageHealth} /> : null}
+            {!canShowEquation ? <StatLine label="Dano utilitário" value={player.utilityDamage} /> : null}
+            {!canShowEquation ? <StatLine label="Média utilitário/round" value={player.averageUtilityDamagePerRound.toFixed(1)} /> : null}
+            {!canShowEquation ? <StatLine label="Headshots" value={player.headshotCount} /> : null}
+            {!canShowEquation ? <StatLine label="Headshot %" value={formatPct(player.headshotPercentage)} /> : null}
+            {!canShowEquation ? <StatLine label="KAST" value={formatPct(player.kast)} /> : null}
+            {!canShowEquation ? <StatLine label="Trade kills" value={player.tradeKillCount} /> : null}
+            {!canShowEquation ? <StatLine label="First kills" value={player.firstKillCount} /> : null}
+            {!canShowEquation ? <StatLine label="First deaths" value={player.firstDeathCount} /> : null}
+            {!canShowEquation ? <StatLine label="MVPs" value={player.mvpCount} /> : null}
+            {!canShowEquation ? <StatLine label="Bombs plantadas" value={player.bombPlantedCount} /> : null}
+            {!canShowEquation ? <StatLine label="Bombs defusadas" value={player.bombDefusedCount} /> : null}
+            {!canShowEquation ? <StatLine label="Score" value={player.score.toFixed(1)} /> : null}
           </div>
         ) : null}
       </div>
@@ -519,52 +590,17 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
         number,
         {
           map: number;
-          appearances: number;
-          hltvRating2: number;
-          averageDamagePerRound: number;
-          headshotPercentage: number;
-          kast: number;
-          score: number;
-          killCount: number;
-          deathCount: number;
-        }
+        } & RoundMapStats
       >
     >();
     const playerRoundMaps = new Map<
       string,
       Map<
         number,
-        Map<
-          number,
-          {
-            appearances: number;
-            hltvRating2: number;
-            averageDamagePerRound: number;
-            headshotPercentage: number;
-            kast: number;
-            score: number;
-            killCount: number;
-            deathCount: number;
-          }
-        >
+        Map<number, RoundMapStats>
       >
     >();
-    const playerRoundTotals = new Map<
-      string,
-      Map<
-        number,
-        {
-          appearances: number;
-          hltvRating2: number;
-          averageDamagePerRound: number;
-          headshotPercentage: number;
-          kast: number;
-          score: number;
-          killCount: number;
-          deathCount: number;
-        }
-      >
-    >();
+    const playerRoundTotals = new Map<string, Map<number, RoundMapStats>>();
 
     for (const entry of filtered) {
       const key = buildPlayerAggregateKey(entry);
@@ -615,56 +651,54 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
                   appearances: 1,
                   hltvRating2: entry.hltvRating2,
                   averageDamagePerRound: entry.averageDamagePerRound,
+                  averageUtilityDamagePerRound: entry.averageUtilityDamagePerRound,
                   headshotPercentage: entry.headshotPercentage,
                   kast: entry.kast,
                   score: entry.score,
                   killCount: entry.killCount,
+                  assistCount: entry.assistCount,
                   deathCount: entry.deathCount,
+                  damageHealth: entry.damageHealth,
+                  utilityDamage: entry.utilityDamage,
+                  headshotCount: entry.headshotCount,
+                  tradeKillCount: entry.tradeKillCount,
+                  firstKillCount: entry.firstKillCount,
+                  firstDeathCount: entry.firstDeathCount,
+                  mvpCount: entry.mvpCount,
+                  bombPlantedCount: entry.bombPlantedCount,
+                  bombDefusedCount: entry.bombDefusedCount,
                 },
               ],
             ])
           );
         }
 
-        const newRoundTotals = new Map<number, {
-          appearances: number;
-          hltvRating2: number;
-          averageDamagePerRound: number;
-          headshotPercentage: number;
-          kast: number;
-          score: number;
-          killCount: number;
-          deathCount: number;
-        }>();
+        const newRoundTotals = new Map<number, RoundMapStats>();
         newRoundTotals.set(entry.round, {
           appearances: 1,
           hltvRating2: entry.hltvRating2,
           averageDamagePerRound: entry.averageDamagePerRound,
+          averageUtilityDamagePerRound: entry.averageUtilityDamagePerRound,
           headshotPercentage: entry.headshotPercentage,
           kast: entry.kast,
           score: entry.score,
           killCount: entry.killCount,
+          assistCount: entry.assistCount,
           deathCount: entry.deathCount,
+          damageHealth: entry.damageHealth,
+          utilityDamage: entry.utilityDamage,
+          headshotCount: entry.headshotCount,
+          tradeKillCount: entry.tradeKillCount,
+          firstKillCount: entry.firstKillCount,
+          firstDeathCount: entry.firstDeathCount,
+          mvpCount: entry.mvpCount,
+          bombPlantedCount: entry.bombPlantedCount,
+          bombDefusedCount: entry.bombDefusedCount,
         });
         playerRoundTotals.set(key, newRoundTotals);
 
         if (entry.map !== null) {
-          const newRoundMapBucket = new Map<
-            number,
-            Map<
-              number,
-              {
-                appearances: number;
-                hltvRating2: number;
-                averageDamagePerRound: number;
-                headshotPercentage: number;
-                kast: number;
-                score: number;
-                killCount: number;
-                deathCount: number;
-              }
-            >
-          >();
+          const newRoundMapBucket = new Map<number, Map<number, RoundMapStats>>();
 
           newRoundMapBucket.set(
             entry.round,
@@ -675,11 +709,22 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
                   appearances: 1,
                   hltvRating2: entry.hltvRating2,
                   averageDamagePerRound: entry.averageDamagePerRound,
+                  averageUtilityDamagePerRound: entry.averageUtilityDamagePerRound,
                   headshotPercentage: entry.headshotPercentage,
                   kast: entry.kast,
                   score: entry.score,
                   killCount: entry.killCount,
+                  assistCount: entry.assistCount,
                   deathCount: entry.deathCount,
+                  damageHealth: entry.damageHealth,
+                  utilityDamage: entry.utilityDamage,
+                  headshotCount: entry.headshotCount,
+                  tradeKillCount: entry.tradeKillCount,
+                  firstKillCount: entry.firstKillCount,
+                  firstDeathCount: entry.firstDeathCount,
+                  mvpCount: entry.mvpCount,
+                  bombPlantedCount: entry.bombPlantedCount,
+                  bombDefusedCount: entry.bombDefusedCount,
                 },
               ],
             ])
@@ -725,21 +770,43 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
             appearances: 1,
             hltvRating2: entry.hltvRating2,
             averageDamagePerRound: entry.averageDamagePerRound,
+            averageUtilityDamagePerRound: entry.averageUtilityDamagePerRound,
             headshotPercentage: entry.headshotPercentage,
             kast: entry.kast,
             score: entry.score,
             killCount: entry.killCount,
+            assistCount: entry.assistCount,
             deathCount: entry.deathCount,
+            damageHealth: entry.damageHealth,
+            utilityDamage: entry.utilityDamage,
+            headshotCount: entry.headshotCount,
+            tradeKillCount: entry.tradeKillCount,
+            firstKillCount: entry.firstKillCount,
+            firstDeathCount: entry.firstDeathCount,
+            mvpCount: entry.mvpCount,
+            bombPlantedCount: entry.bombPlantedCount,
+            bombDefusedCount: entry.bombDefusedCount,
           });
         } else {
           currentMap.appearances += 1;
           currentMap.hltvRating2 += entry.hltvRating2;
           currentMap.averageDamagePerRound += entry.averageDamagePerRound;
+          currentMap.averageUtilityDamagePerRound += entry.averageUtilityDamagePerRound;
           currentMap.headshotPercentage += entry.headshotPercentage;
           currentMap.kast += entry.kast;
           currentMap.score += entry.score;
           currentMap.killCount += entry.killCount;
+          currentMap.assistCount += entry.assistCount;
           currentMap.deathCount += entry.deathCount;
+          currentMap.damageHealth += entry.damageHealth;
+          currentMap.utilityDamage += entry.utilityDamage;
+          currentMap.headshotCount += entry.headshotCount;
+          currentMap.tradeKillCount += entry.tradeKillCount;
+          currentMap.firstKillCount += entry.firstKillCount;
+          currentMap.firstDeathCount += entry.firstDeathCount;
+          currentMap.mvpCount += entry.mvpCount;
+          currentMap.bombPlantedCount += entry.bombPlantedCount;
+          currentMap.bombDefusedCount += entry.bombDefusedCount;
         }
 
         playerMaps.set(key, mapBuckets);
@@ -752,21 +819,43 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
           appearances: 1,
           hltvRating2: entry.hltvRating2,
           averageDamagePerRound: entry.averageDamagePerRound,
+          averageUtilityDamagePerRound: entry.averageUtilityDamagePerRound,
           headshotPercentage: entry.headshotPercentage,
           kast: entry.kast,
           score: entry.score,
           killCount: entry.killCount,
+          assistCount: entry.assistCount,
           deathCount: entry.deathCount,
+          damageHealth: entry.damageHealth,
+          utilityDamage: entry.utilityDamage,
+          headshotCount: entry.headshotCount,
+          tradeKillCount: entry.tradeKillCount,
+          firstKillCount: entry.firstKillCount,
+          firstDeathCount: entry.firstDeathCount,
+          mvpCount: entry.mvpCount,
+          bombPlantedCount: entry.bombPlantedCount,
+          bombDefusedCount: entry.bombDefusedCount,
         });
       } else {
         currentRoundTotal.appearances += 1;
         currentRoundTotal.hltvRating2 += entry.hltvRating2;
         currentRoundTotal.averageDamagePerRound += entry.averageDamagePerRound;
+        currentRoundTotal.averageUtilityDamagePerRound += entry.averageUtilityDamagePerRound;
         currentRoundTotal.headshotPercentage += entry.headshotPercentage;
         currentRoundTotal.kast += entry.kast;
         currentRoundTotal.score += entry.score;
         currentRoundTotal.killCount += entry.killCount;
+        currentRoundTotal.assistCount += entry.assistCount;
         currentRoundTotal.deathCount += entry.deathCount;
+        currentRoundTotal.damageHealth += entry.damageHealth;
+        currentRoundTotal.utilityDamage += entry.utilityDamage;
+        currentRoundTotal.headshotCount += entry.headshotCount;
+        currentRoundTotal.tradeKillCount += entry.tradeKillCount;
+        currentRoundTotal.firstKillCount += entry.firstKillCount;
+        currentRoundTotal.firstDeathCount += entry.firstDeathCount;
+        currentRoundTotal.mvpCount += entry.mvpCount;
+        currentRoundTotal.bombPlantedCount += entry.bombPlantedCount;
+        currentRoundTotal.bombDefusedCount += entry.bombDefusedCount;
       }
       playerRoundTotals.set(key, roundTotalsByRound);
 
@@ -780,21 +869,43 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
             appearances: 1,
             hltvRating2: entry.hltvRating2,
             averageDamagePerRound: entry.averageDamagePerRound,
+            averageUtilityDamagePerRound: entry.averageUtilityDamagePerRound,
             headshotPercentage: entry.headshotPercentage,
             kast: entry.kast,
             score: entry.score,
             killCount: entry.killCount,
+            assistCount: entry.assistCount,
             deathCount: entry.deathCount,
+            damageHealth: entry.damageHealth,
+            utilityDamage: entry.utilityDamage,
+            headshotCount: entry.headshotCount,
+            tradeKillCount: entry.tradeKillCount,
+            firstKillCount: entry.firstKillCount,
+            firstDeathCount: entry.firstDeathCount,
+            mvpCount: entry.mvpCount,
+            bombPlantedCount: entry.bombPlantedCount,
+            bombDefusedCount: entry.bombDefusedCount,
           });
         } else {
           currentRoundMap.appearances += 1;
           currentRoundMap.hltvRating2 += entry.hltvRating2;
           currentRoundMap.averageDamagePerRound += entry.averageDamagePerRound;
+          currentRoundMap.averageUtilityDamagePerRound += entry.averageUtilityDamagePerRound;
           currentRoundMap.headshotPercentage += entry.headshotPercentage;
           currentRoundMap.kast += entry.kast;
           currentRoundMap.score += entry.score;
           currentRoundMap.killCount += entry.killCount;
+          currentRoundMap.assistCount += entry.assistCount;
           currentRoundMap.deathCount += entry.deathCount;
+          currentRoundMap.damageHealth += entry.damageHealth;
+          currentRoundMap.utilityDamage += entry.utilityDamage;
+          currentRoundMap.headshotCount += entry.headshotCount;
+          currentRoundMap.tradeKillCount += entry.tradeKillCount;
+          currentRoundMap.firstKillCount += entry.firstKillCount;
+          currentRoundMap.firstDeathCount += entry.firstDeathCount;
+          currentRoundMap.mvpCount += entry.mvpCount;
+          currentRoundMap.bombPlantedCount += entry.bombPlantedCount;
+          currentRoundMap.bombDefusedCount += entry.bombDefusedCount;
         }
 
         roundMapsByRound.set(entry.round, roundMapBucket);
@@ -828,11 +939,22 @@ export default function StatsCardsClient({ entries }: { entries: StatsEntry[] })
             totals: {
               hltvRating2: totals.hltvRating2 / perRoundCount,
               averageDamagePerRound: totals.averageDamagePerRound / perRoundCount,
+              averageUtilityDamagePerRound: totals.averageUtilityDamagePerRound / perRoundCount,
               headshotPercentage: totals.headshotPercentage / perRoundCount,
               kast: totals.kast / perRoundCount,
-              score: totals.score / 2,
+              score: totals.score / perRoundCount,
               killCount: totals.killCount,
+              assistCount: totals.assistCount,
               deathCount: totals.deathCount,
+              damageHealth: totals.damageHealth,
+              utilityDamage: totals.utilityDamage,
+              headshotCount: totals.headshotCount,
+              tradeKillCount: totals.tradeKillCount,
+              firstKillCount: totals.firstKillCount,
+              firstDeathCount: totals.firstDeathCount,
+              mvpCount: totals.mvpCount,
+              bombPlantedCount: totals.bombPlantedCount,
+              bombDefusedCount: totals.bombDefusedCount,
             },
           };
         })
