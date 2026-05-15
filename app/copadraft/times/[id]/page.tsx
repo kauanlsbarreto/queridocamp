@@ -188,6 +188,13 @@ function normalizeText(value: unknown) {
 		.replace(/\s+/g, " ");
 }
 
+function normalizeCaseInsensitive(value: unknown) {
+	return String(value || "")
+		.trim()
+		.toLowerCase()
+		.replace(/\s+/g, " ");
+}
+
 function normalizeMapToken(value: unknown) {
 	return String(value || "")
 		.trim()
@@ -618,15 +625,15 @@ async function loadTeamInsights(teamName: string, players: TeamPlayerView[]): Pr
 		fileNames = [];
 	}
 
-	const normalizedTeam = normalizeText(teamName);
+	const normalizedTeam = normalizeCaseInsensitive(teamName);
 
 	for (const fileName of fileNames) {
 		try {
 			const content = await readFile(path.join(STATS_DIR, fileName), "utf-8");
 			const parsed = JSON.parse(content);
 
-			const teamA = normalizeText(parsed?.teamA?.name);
-			const teamB = normalizeText(parsed?.teamB?.name);
+			const teamA = normalizeCaseInsensitive(parsed?.teamA?.name);
+			const teamB = normalizeCaseInsensitive(parsed?.teamB?.name);
 			const isTeamMatch = teamA === normalizedTeam || teamB === normalizedTeam;
 			if (!isTeamMatch) continue;
 
@@ -875,7 +882,7 @@ function extractHistoryMatchId(item: any) {
 }
 
 function historyContainsTeam(item: any, teamName: string) {
-	const normalizedTeam = normalizeText(teamName);
+	const normalizedTeam = normalizeCaseInsensitive(teamName);
 	if (!normalizedTeam) return false;
 
 	const candidates = [
@@ -896,7 +903,7 @@ function historyContainsTeam(item: any, teamName: string) {
 	];
 
 	for (const value of candidates) {
-		if (normalizeText(value) === normalizedTeam) return true;
+		if (normalizeCaseInsensitive(value) === normalizedTeam) return true;
 	}
 
 	return false;
