@@ -188,13 +188,6 @@ function normalizeText(value: unknown) {
 		.replace(/\s+/g, " ");
 }
 
-function normalizeCaseInsensitive(value: unknown) {
-	return String(value || "")
-		.trim()
-		.toLowerCase()
-		.replace(/\s+/g, " ");
-}
-
 function normalizeMapToken(value: unknown) {
 	return String(value || "")
 		.trim()
@@ -580,9 +573,11 @@ async function loadTeamMatches(env: Env, teamName: string): Promise<TeamMatchVie
 
 async function loadTeamInsights(teamName: string, players: TeamPlayerView[]): Promise<TeamInsights> {
 	const playerBySteam = new Map<string, { nickname: string; avatar: string }>();
+	const teamSteamIds = new Set<string>();
 	for (const player of players) {
 		const steamId = toSteamId(player?.steamId);
 		if (!steamId) continue;
+		teamSteamIds.add(steamId);
 		playerBySteam.set(steamId, {
 			nickname: String(player.nickname || "Jogador"),
 			avatar: String(player.avatar || DEFAULT_AVATAR),
@@ -625,16 +620,21 @@ async function loadTeamInsights(teamName: string, players: TeamPlayerView[]): Pr
 		fileNames = [];
 	}
 
-	const normalizedTeam = normalizeCaseInsensitive(teamName);
+	const normalizedTeam = normalizeText(teamName);
 
 	for (const fileName of fileNames) {
 		try {
 			const content = await readFile(path.join(STATS_DIR, fileName), "utf-8");
 			const parsed = JSON.parse(content);
 
-			const teamA = normalizeCaseInsensitive(parsed?.teamA?.name);
-			const teamB = normalizeCaseInsensitive(parsed?.teamB?.name);
-			const isTeamMatch = teamA === normalizedTeam || teamB === normalizedTeam;
+			const teamA = normalizeText(parsed?.teamA?.name);
+			const teamB = normalizeText(parsed?.teamB?.name);
+			const hasTeamNameMatch = teamA === normalizedTeam || teamB === normalizedTeam;
+			const hasTeamPlayerMatch = extractPlayers(parsed).some((rawPlayer) => {
+				const steamId = toSteamId(rawPlayer?.steamId ?? rawPlayer?.steamid);
+				return steamId ? teamSteamIds.has(steamId) : false;
+			});
+			const isTeamMatch = hasTeamNameMatch || hasTeamPlayerMatch;
 			if (!isTeamMatch) continue;
 
 			const kills = Array.isArray(parsed?.kills) ? parsed.kills : [];
@@ -882,7 +882,7 @@ function extractHistoryMatchId(item: any) {
 }
 
 function historyContainsTeam(item: any, teamName: string) {
-	const normalizedTeam = normalizeCaseInsensitive(teamName);
+	const normalizedTeam = normalizeText(teamName);
 	if (!normalizedTeam) return false;
 
 	const candidates = [
@@ -903,7 +903,7 @@ function historyContainsTeam(item: any, teamName: string) {
 	];
 
 	for (const value of candidates) {
-		if (normalizeCaseInsensitive(value) === normalizedTeam) return true;
+		if (normalizeText(value) === normalizedTeam) return true;
 	}
 
 	return false;

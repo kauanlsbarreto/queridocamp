@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { createMainConnection, type Env } from "@/lib/db";
 import { getRuntimeEnv } from "@/lib/runtime-env";
+import { getCopaDraftTimes } from "@/lib/copadraft-times";
 import StatsCardsClient from "./StatsCardsClient";
 
 export const dynamic = "force-static";
@@ -536,6 +537,34 @@ async function loadPageData() {
     }
   }
 
+  // Build a map of steamId -> corresponding team name by looking up players in teams
+  const steamIdToTeamName = new Map<string, string>();
+  const teams = getCopaDraftTimes() as CopaDraftTeam[];
+  
+  for (const match of matches) {
+    // Try to find players that belong to copadraft teams
+    for (const player of match.players) {
+      if (steamIdToTeamName.size > 0) break; // Stop after finding at least one
+      
+      const steamId = toSteamId(player?.steamId ?? player?.steamid);
+      if (!steamId || steamIdToTeamName.has(steamId)) continue;
+
+      const dbPlayer = playersBySteamId.get(steamId);
+      const faceitProfile = faceitCache.get(steamId) || null;
+      const faceitGuid = normalize(dbPlayer?.faceit_guid || faceitProfile?.faceitGuid);
+
+      if (faceitGuid) {
+        const foundTeam = teams.find((team) =>
+          (team.jogadores || []).some((jogador) => normalize(jogador?.faceit_guid) === faceitGuid)
+        );
+        
+        if (foundTeam && foundTeam.nome_time) {
+          steamIdToTeamName.set(steamId, foundTeam.nome_time);
+        }
+      }
+    }
+  }
+
   const entries: StatsEntry[] = [];
 
   for (const match of matches) {
@@ -546,7 +575,7 @@ async function loadPageData() {
       const dbPlayer = playersBySteamId.get(steamId);
       const faceitProfile = faceitCache.get(steamId) || null;
       const faceitGuid = normalize(dbPlayer?.faceit_guid || faceitProfile?.faceitGuid);
-      const teamName = faceitGuid ? teamNameByGuid.get(faceitGuid) || null : null;
+      const teamName = steamIdToTeamName.get(steamId) || (faceitGuid ? teamNameByGuid.get(faceitGuid) || null : null);
       const poteResolved = poteByGuid.get(faceitGuid) || 0;
       const pote = poteResolved >= 1 && poteResolved <= 5 ? poteResolved : 5;
       const eventKillCount = match.killCountBySteamId[steamId];
